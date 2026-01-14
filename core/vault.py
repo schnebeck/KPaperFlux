@@ -1,0 +1,56 @@
+import os
+import shutil
+from pathlib import Path
+from core.document import Document
+
+class DocumentVault:
+    """
+    Manages the physical storage of document files.
+    Enforces immutable storage by using UUIDs as filenames.
+    """
+    
+    def __init__(self, base_path: str = "vault"):
+        self.base_path = Path(base_path).absolute()
+        self._ensure_vault_exists()
+
+    def _ensure_vault_exists(self):
+        """Create the vault directory if it doesn't exist."""
+        if not self.base_path.exists():
+            self.base_path.mkdir(parents=True, exist_ok=True)
+
+    def store_document(self, doc: Document, source_path: str) -> str:
+        """
+        Copy a document file to the vault.
+        Renames the file to {uuid}.pdf (assuming normalization happens before or here).
+        
+        Args:
+            doc: The Document metadata object (must have UUID).
+            source_path: Path to the source file.
+            
+        Returns:
+            The absolute path to the stored file.
+        """
+        src = Path(source_path)
+        if not src.exists():
+            raise FileNotFoundError(f"Source file not found: {source_path}")
+            
+        # For now, we assume everything is stored as PDF or keep original extension?
+        # Spec says "Speicherung als PDF/A".
+        # The test uses .pdf. We will force .pdf for now to match the "Archived as PDF/A" goal,
+        # acknowledging that actual conversion logic is in the Pipeline, not the Vault (Vault just stores).
+        # Wait, if Vault just stores, it should maybe respect the extension?
+        # But for 'KPaperFlux', the end result in Vault is always the processed PDF.
+        # So we use .pdf.
+        
+        target_filename = f"{doc.uuid}.pdf"
+        target_path = self.base_path / target_filename
+        
+        # Copy file (simulating the 'store' action)
+        # In a real pipeline, this might be a move or a write from the OCR process.
+        shutil.copy2(src, target_path)
+        
+        return str(target_path)
+
+    def get_file_path(self, uuid: str) -> str:
+        """Return the absolute path for a given document UUID."""
+        return str(self.base_path / f"{uuid}.pdf")
