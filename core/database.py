@@ -1,5 +1,6 @@
 import sqlite3
 from typing import Optional
+from decimal import Decimal
 from core.document import Document
 
 class DatabaseManager:
@@ -56,7 +57,7 @@ class DatabaseManager:
         Returns the new row ID.
         """
         sql = """
-        INSERT INTO documents (
+        INSERT OR REPLACE INTO documents (
             uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
@@ -72,7 +73,7 @@ class DatabaseManager:
         values = (
             doc.uuid,
             doc.original_filename,
-            doc.doc_date,
+            doc.doc_date.isoformat() if doc.doc_date else None,
             doc.sender,
             amount_val,
             doc.doc_type,
@@ -84,6 +85,67 @@ class DatabaseManager:
         cursor.execute(sql, values)
         self.connection.commit()
         return cursor.lastrowid
+
+    def get_all_documents(self) -> list[Document]:
+        """
+        Retrieve all documents from the database.
+        Returns a list of Document objects.
+        """
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content FROM documents"
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        
+        results = []
+        for row in rows:
+            # Reconstruct Document object
+            # Pydantic is smart enough to coerce types if needed
+            doc = Document(
+                uuid=row[0],
+                original_filename=row[1],
+                doc_date=row[2], # May need handling if None
+                sender=row[3],
+                amount=row[4],
+                doc_type=row[5],
+                phash=row[6],
+                text_content=row[7]
+            )
+            results.append(doc)
+            
+        return results
+
+    def get_document_by_uuid(self, uuid: str) -> Optional[Document]:
+        """
+        Retrieve a single document by its UUID.
+        """
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content FROM documents WHERE uuid = ?"
+        cursor = self.connection.cursor()
+        cursor.execute(sql, (uuid,))
+        row = cursor.fetchone()
+        
+        if row:
+            return Document(
+                uuid=row[0],
+                original_filename=row[1],
+                doc_date=row[2],
+                sender=row[3],
+                amount=row[4],
+                doc_type=row[5],
+                phash=row[6],
+                text_content=row[7]
+            )
+        return None
+
+    def delete_document(self, uuid: str) -> bool:
+        """
+        Delete a document by its UUID.
+        Returns True if a row was deleted, False otherwise.
+        """
+        sql = "DELETE FROM documents WHERE uuid = ?"
+        cursor = self.connection.cursor()
+        cursor.execute(sql, (uuid,))
+        self.connection.commit()
+        return cursor.rowcount > 0
 
     def close(self):
         """Close the database connection."""

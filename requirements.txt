@@ -2,3 +2,6 @@ PyQt6
 pytest
 pytest-qt
 pydantic
+google-genai
+ocrmypdf>=14.0.0
+python-dotenv

@@ -39,6 +39,27 @@ def test_store_document(temp_vault, source_file):
     # Validate content matches
     assert Path(stored_path).read_text() == "dummy content"
 
+def test_delete_document(tmp_path):
+    """Test deleting files from vault."""
+    vault = DocumentVault(base_path=str(tmp_path))
+    
+    # Store a file
+    source_file = tmp_path / "source.txt"
+    source_file.write_text("content")
+    
+    doc = Document(original_filename="source.txt")
+    stored_path = vault.store_document(doc, str(source_file))
+    
+    assert Path(stored_path).exists()
+    
+    # Delete
+    success = vault.delete_document(doc)
+    assert success is True
+    assert not Path(stored_path).exists()
+    
+    # Delete again (should handle missing file gracefully or return False)
+    assert vault.delete_document(doc) is False
+
 def test_get_file_path(temp_vault):
     """Test retrieving the absolute path of a document."""
     doc = Document(original_filename="test.pdf")

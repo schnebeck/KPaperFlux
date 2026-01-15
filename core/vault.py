@@ -53,4 +53,28 @@ class DocumentVault:
 
     def get_file_path(self, uuid: str) -> str:
         """Return the absolute path for a given document UUID."""
-        return str(self.base_path / f"{uuid}.pdf")
+        # The original get_file_path logic
+        path = self.base_path / f"{uuid}.pdf"
+        
+        # Validate path is inside vault to prevent traversal
+        if not path.is_relative_to(self.base_path):
+             # This might happen if we move vault location, for now safe check
+             return None
+        return str(path)
+
+    def delete_document(self, doc: Document) -> bool:
+        """
+        Delete the physical file associated with the document.
+        """
+        path_str = self.get_file_path(doc.uuid) # Corrected to pass uuid
+        if not path_str:
+            return False
+            
+        path = Path(path_str)
+        if path.exists():
+            try:
+                path.unlink()
+                return True
+            except OSError:
+                return False
+        return False
