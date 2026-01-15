@@ -59,9 +59,24 @@ class DatabaseManager:
             
             new_columns = {
                 "sender_address": "TEXT",
+                "sender_address": "TEXT",
                 "iban": "TEXT",
                 "phone": "TEXT",
-                "tags": "TEXT"
+                "tags": "TEXT",
+                "recipient_company": "TEXT",
+                "recipient_name": "TEXT",
+                "recipient_street": "TEXT",
+                "recipient_zip": "TEXT",
+                "recipient_city": "TEXT",
+                "recipient_country": "TEXT",
+                "sender_company": "TEXT",
+                "sender_name": "TEXT",
+                "sender_street": "TEXT",
+                "sender_zip": "TEXT",
+                "sender_city": "TEXT",
+                "sender_country": "TEXT",
+                "page_count": "INTEGER",
+                "created_at_iso": "TEXT" # Different from auto created_at? Or use SQLite default? Let's treat created_at from pipeline. created_at exists. Let's use `created_at_iso` or overwrite created_at? Existing table has created_at DATETIME DEFAULT. We can write to it. Wait, init_db defined it. We can just use it? No, insert ignores it. Let's add `page_count`. The `created_at` column is usually auto. If we want to set it from pipeline (e.g. file date), we should allow writing. But we need to add it to INSERT list.
             }
             
             for col_name, col_type in new_columns.items():
@@ -79,8 +94,11 @@ class DatabaseManager:
         sql = """
         INSERT OR REPLACE INTO documents (
             uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content,
-            sender_address, iban, phone, tags
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            sender_address, iban, phone, tags,
+            recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country,
+            sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country,
+            page_count, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         amount_val = float(doc.amount) if doc.amount is not None else None
@@ -97,7 +115,12 @@ class DatabaseManager:
             doc.sender_address,
             doc.iban,
             doc.phone,
-            doc.tags
+            doc.tags,
+            doc.recipient_company, doc.recipient_name, doc.recipient_street, doc.recipient_zip, doc.recipient_city, doc.recipient_country,
+            doc.sender_company, doc.sender_name, doc.sender_street, doc.sender_zip, doc.sender_city, doc.sender_country,
+            doc.page_count,
+            doc.created_at # If None, SQLite default current_timestamp triggered ONLY if column omitted? No, if passed None it is NULL. We want DEFAULT? If doc.created_at is None, we should not insert, or use fetch to get default? 
+            # Or easier: set created_at in python.
         )
         
         cursor = self.connection.cursor()
@@ -110,7 +133,7 @@ class DatabaseManager:
         Retrieve all documents from the database.
         Returns a list of Document objects.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags FROM documents"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at FROM documents"
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
@@ -129,7 +152,10 @@ class DatabaseManager:
                 sender_address=row[8],
                 iban=row[9],
                 phone=row[10],
-                tags=row[11]
+                tags=row[11],
+                recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
+                sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
+                page_count=row[24], created_at=row[25]
             )
             results.append(doc)
             
@@ -139,7 +165,7 @@ class DatabaseManager:
         """
         Retrieve a single document by its UUID.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags FROM documents WHERE uuid = ?"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at FROM documents WHERE uuid = ?"
         cursor = self.connection.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
@@ -157,7 +183,10 @@ class DatabaseManager:
                 sender_address=row[8],
                 iban=row[9],
                 phone=row[10],
-                tags=row[11]
+                tags=row[11],
+                recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
+                sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
+                page_count=row[24], created_at=row[25]
             )
         return None
 
@@ -174,7 +203,10 @@ class DatabaseManager:
         # Security: Allow-list columns to prevent injection
         allowed_columns = {
             "original_filename", "doc_date", "sender", "amount", "doc_type", 
-            "phash", "text_content", "sender_address", "iban", "phone", "tags"
+            "phash", "text_content", "sender_address", "iban", "phone", "tags",
+            "recipient_company", "recipient_name", "recipient_street", "recipient_zip", "recipient_city", "recipient_country",
+            "sender_company", "sender_name", "sender_street", "sender_zip", "sender_city", "sender_country",
+            "page_count", "created_at"
         }
         
         set_clauses = []

@@ -26,7 +26,9 @@ class DocumentListWidget(QTableWidget):
             self.tr("Type"), 
             self.tr("Tags"),
             self.tr("Amount"), 
-            self.tr("Filename")
+            self.tr("Filename"),
+            self.tr("Pages"),
+            self.tr("Created")
         ]
         self.setColumnCount(len(self.columns))
         self.setHorizontalHeaderLabels(self.columns)
@@ -83,6 +85,10 @@ class DocumentListWidget(QTableWidget):
         state = settings.value("headerState")
         if state:
             self.horizontalHeader().restoreState(state)
+        else:
+            # Defaults: Hide Pages (6), Created (7)
+            self.horizontalHeader().hideSection(6)
+            self.horizontalHeader().hideSection(7)
 
     def show_context_menu(self, pos: QPoint):
         """Show context menu for selected item."""
@@ -181,6 +187,9 @@ class DocumentListWidget(QTableWidget):
             amount_str = f"{doc.amount:.2f}" if doc.amount is not None else ""
             filename = doc.original_filename
             
+            pages_str = str(doc.page_count) if doc.page_count is not None else ""
+            created_str = doc.created_at or ""
+            
             item_date = QTableWidgetItem(date_str)
             item_date.setData(Qt.ItemDataRole.UserRole, doc.uuid) # Store UUID
             
@@ -190,6 +199,8 @@ class DocumentListWidget(QTableWidget):
             self.setItem(row, 3, QTableWidgetItem(tags))
             self.setItem(row, 4, QTableWidgetItem(amount_str))
             self.setItem(row, 5, QTableWidgetItem(filename))
+            self.setItem(row, 6, QTableWidgetItem(pages_str))
+            self.setItem(row, 7, QTableWidgetItem(created_str))
             
         self.setSortingEnabled(True)
         
@@ -261,7 +272,15 @@ class DocumentListWidget(QTableWidget):
                     doc.tags or "",
                     doc.original_filename or "",
                     doc.sender_address or "",
-                    doc.text_content or ""
+                    doc.text_content or "",
+                    # Extended Logic (Phase 8)
+                    doc.recipient_company or "",
+                    doc.recipient_name or "",
+                    doc.recipient_city or "",
+                    doc.sender_company or "",
+                    doc.sender_city or "",
+                    str(doc.page_count or ""),
+                    doc.created_at or ""
                 ]
                 
                 # Check if query words are in haystack

@@ -19,10 +19,29 @@ class Document(BaseModel):
     doc_type: Optional[str] = None
     
     # Extended Metadata (Phase 3)
-    sender_address: Optional[str] = None
+    # sender_address might be used as "raw" address or specific fields below
+    sender_address: Optional[str] = None 
     iban: Optional[str] = None
     phone: Optional[str] = None
     tags: Optional[str] = None
+    
+    # Phase 8: Extended Details
+    recipient_company: Optional[str] = None
+    recipient_name: Optional[str] = None
+    recipient_street: Optional[str] = None
+    recipient_zip: Optional[str] = None
+    recipient_city: Optional[str] = None
+    recipient_country: Optional[str] = None
+    
+    sender_company: Optional[str] = None
+    sender_name: Optional[str] = None
+    sender_street: Optional[str] = None
+    sender_zip: Optional[str] = None
+    sender_city: Optional[str] = None
+    sender_country: Optional[str] = None
+    
+    page_count: Optional[int] = None
+    created_at: Optional[str] = None # ISO format
     
     # Duplicate detection fingerprints
     phash: Optional[str] = None

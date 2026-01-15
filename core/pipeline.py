@@ -5,6 +5,7 @@ import os
 from typing import Optional, List
 from pathlib import Path
 import pikepdf
+import datetime
 from core.document import Document
 from core.vault import DocumentVault
 from core.database import DatabaseManager
@@ -38,6 +39,7 @@ class PipelineProcessor:
 
         # 1. Create Document
         doc = Document(original_filename=path.name)
+        doc.created_at = datetime.datetime.now().isoformat()
         
         # 2. Store in Vault
         stored_path = self.vault.store_document(doc, str(path), move=move_source)
@@ -45,6 +47,14 @@ class PipelineProcessor:
             return None # Failed to store
         
         full_stored_path = Path(stored_path)
+        
+        # 2.5 Calculate Page Count
+        try:
+            with pikepdf.Pdf.open(full_stored_path) as pdf:
+                doc.page_count = len(pdf.pages)
+        except Exception as e:
+            print(f"Error counting pages: {e}")
+            doc.page_count = 0
             
         # 3 & 4. Text Extraction Strategy
         try:
@@ -262,6 +272,22 @@ class PipelineProcessor:
             if result.sender_address: doc.sender_address = result.sender_address
             if result.iban: doc.iban = result.iban
             if result.phone: doc.phone = result.phone
-            if result.tags: doc.tags = result.tags            
+            if result.tags: doc.tags = result.tags
+            
+            # Map Extended Address Fields
+            if result.recipient_company: doc.recipient_company = result.recipient_company
+            if result.recipient_name: doc.recipient_name = result.recipient_name
+            if result.recipient_street: doc.recipient_street = result.recipient_street
+            if result.recipient_zip: doc.recipient_zip = result.recipient_zip
+            if result.recipient_city: doc.recipient_city = result.recipient_city
+            if result.recipient_country: doc.recipient_country = result.recipient_country
+            
+            if result.sender_company: doc.sender_company = result.sender_company
+            if result.sender_name: doc.sender_name = result.sender_name
+            if result.sender_street: doc.sender_street = result.sender_street
+            if result.sender_zip: doc.sender_zip = result.sender_zip
+            if result.sender_city: doc.sender_city = result.sender_city
+            if result.sender_country: doc.sender_country = result.sender_country
+            
         except Exception as e:
             print(f"AI Pipeline Error: {e}")

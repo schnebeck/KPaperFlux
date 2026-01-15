@@ -15,6 +15,21 @@ class AIAnalysisResult:
     iban: Optional[str] = None
     phone: Optional[str] = None
     tags: Optional[str] = None
+    
+    # Structured Details
+    recipient_company: Optional[str] = None
+    recipient_name: Optional[str] = None
+    recipient_street: Optional[str] = None
+    recipient_zip: Optional[str] = None
+    recipient_city: Optional[str] = None
+    recipient_country: Optional[str] = None
+    
+    sender_company: Optional[str] = None
+    sender_name: Optional[str] = None
+    sender_street: Optional[str] = None
+    sender_zip: Optional[str] = None
+    sender_city: Optional[str] = None
+    sender_country: Optional[str] = None
 
 class AIAnalyzer:
     """
@@ -33,27 +48,59 @@ class AIAnalyzer:
             return AIAnalysisResult()
 
         prompt = """
-        You are a document extraction assistant. Analyze the following document text and extract:
-        1. Sender (Name of company or person)
-        2. Document Date (in YYYY-MM-DD format)
-        3. Total Amount (Numeric, valid decimal)
-        4. Document Type (One of: Invoice, Receipt, Contract, Letter, Other)
+        You are a document extraction assistant. Analyze the following document text and extract specific metadata.
         
-        Your job is to extract structured data.
+        Extract:
+        1. Main Details:
+           - sender: Summary name of sender.
+           - doc_date: YYYY-MM-DD.
+           - amount: numeric literal.
+           - doc_type: Invoice, Receipt, Contract, Letter, etc.
+           - tags: Comma-separated keywords.
+           - iban: IBAN string.
+           - phone: Phone string.
+        
+        2. Sender Details (From whom):
+           - sender_company
+           - sender_name (Contact Person)
+           - sender_street
+           - sender_zip
+           - sender_city
+           - sender_country
+           
+        3. Recipient Details (To whom):
+           - recipient_company
+           - recipient_name
+           - recipient_street
+           - recipient_zip
+           - recipient_city
+           - recipient_country
+           
         Return ONLY valid JSON.
-        
-        Fields to extract:
-        1. sender: Name of company or person.
-        2. doc_date: YYYY-MM-DD.
-        3. amount: numeric literal (e.g. 12.50).
-        4. doc_type: e.g. "Invoice", "Contract", "Letter".
-        5. sender_address: Full address (Street, Zip, City).
-        6. iban: International Bank Account Number if present.
-        7. phone: Sender's phone number.
-        8. tags: A generic string of comma-separated keywords useful for organization (e.g. "Rechnung, Versicherung, KFZ"). Check context for appropriate tags.
-        
-        JSON Keys: ["sender", "doc_date", "amount", "doc_type", "sender_address", "iban", "phone", "tags"]
-        If a field is not found, set it to null.
+        JSON Structure:
+        {
+          "sender": "...",
+          "doc_date": "YYYY-MM-DD",
+          "amount": 12.50,
+          "doc_type": "...",
+          "iban": "...",
+          "phone": "...",
+          "tags": "...",
+          "sender_address": "Full string representation...",
+          "sender_company": "...",
+          "sender_name": "...",
+          "sender_street": "...",
+          "sender_zip": "...",
+          "sender_city": "...",
+          "sender_country": "...",
+          "recipient_company": "...",
+          "recipient_name": "...",
+          "recipient_street": "...",
+          "recipient_zip": "...",
+          "recipient_city": "...",
+          "recipient_country": "..."
+        }
+        If a field is not found, set to null.
         
         Text:
         {text}
@@ -98,7 +145,21 @@ class AIAnalyzer:
                 sender_address=data.get("sender_address"),
                 iban=data.get("iban"),
                 phone=data.get("phone"),
-                tags=data.get("tags")
+                tags=data.get("tags"),
+                
+                recipient_company=data.get("recipient_company"),
+                recipient_name=data.get("recipient_name"),
+                recipient_street=data.get("recipient_street"),
+                recipient_zip=data.get("recipient_zip"),
+                recipient_city=data.get("recipient_city"),
+                recipient_country=data.get("recipient_country"),
+                
+                sender_company=data.get("sender_company"),
+                sender_name=data.get("sender_name"),
+                sender_street=data.get("sender_street"),
+                sender_zip=data.get("sender_zip"),
+                sender_city=data.get("sender_city"),
+                sender_country=data.get("sender_country")
             )
             
         except Exception as e:
