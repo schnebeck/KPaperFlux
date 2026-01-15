@@ -13,6 +13,7 @@ class DocumentListWidget(QTableWidget):
     export_requested = pyqtSignal(list) # List[str] UUIDs
     stamp_requested = pyqtSignal(str) # UUID (Single for now, or list?) Let's support single for stamp simplicity.
     tags_update_requested = pyqtSignal(list) # List[str] UUIDs
+    document_count_changed = pyqtSignal(int, int) # visible, total
     
     def __init__(self, db_manager: DatabaseManager):
         super().__init__()
@@ -33,19 +34,13 @@ class DocumentListWidget(QTableWidget):
         self.setColumnCount(len(self.columns))
         self.setHorizontalHeaderLabels(self.columns)
         
-        # Stretch columns
         header = self.horizontalHeader()
-        # Set all to Interactive to allow manual resize of everything
-        # We can still set initial sizes, but mode should be Interactive.
-        for i in range(len(self.columns)):
-            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
-            
         header.setSectionsMovable(True)
         header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         header.customContextMenuRequested.connect(self.show_header_menu)
         
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection) # Allow multiple
+        self.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.setSortingEnabled(True)
         
@@ -54,9 +49,17 @@ class DocumentListWidget(QTableWidget):
         # Context Menu
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
-        
+
         # Restore State
         self.restore_state()
+        
+        # Enforce Resize Modes AFTER restore
+        header = self.horizontalHeader()
+        for i in range(len(self.columns)):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
+            
+        header.setStretchLastSection(False)
+        header.setCascadingSectionResizes(True) # Improve resizing UX
 
     def show_header_menu(self, pos: QPoint):
         """Show context menu to toggle columns."""
@@ -170,16 +173,20 @@ class DocumentListWidget(QTableWidget):
             self.export_requested.emit(uuids)
 
     def _on_selection_changed(self):
-        """Handle selection to emit UUID."""
-        rows = self.selectionModel().selectedRows()
-        if rows:
-            # Get UUID from the first column's UserRole
-            row_idx = rows[0].row()
-            first_item = self.item(row_idx, 0)
-            if first_item:
-                uuid = first_item.data(Qt.ItemDataRole.UserRole)
-                if uuid:
-                    self.document_selected.emit(uuid)
+        """Emit signal with selected UUID(s)."""
+        selected_rows = self.selectionModel().selectedRows()
+        if not selected_rows:
+            self.document_selected.emit([])
+            return
+            
+        uuids = []
+        for row in selected_rows:
+            uuid_item = self.item(row.row(), 0)
+            if uuid_item:
+                u = uuid_item.data(Qt.ItemDataRole.UserRole)
+                if u: uuids.append(u)
+        
+        self.document_selected.emit(uuids)
 
     def refresh_list(self):
         """Fetch data from DB and populate table."""
@@ -221,6 +228,8 @@ class DocumentListWidget(QTableWidget):
         # Re-apply filter if exists
         if self.current_filter:
             self.apply_filter(self.current_filter)
+        else:
+             self.document_count_changed.emit(self.rowCount(), self.rowCount())
 
     def apply_filter(self, criteria: dict):
         """
@@ -304,3 +313,11 @@ class DocumentListWidget(QTableWidget):
                     show = False
             
             self.setRowHidden(row, not show)
+
+        # Count visible
+        visible_count = 0
+        for i in range(self.rowCount()):
+            if not self.isRowHidden(i):
+                visible_count += 1
+                
+        self.document_count_changed.emit(visible_count, self.rowCount())

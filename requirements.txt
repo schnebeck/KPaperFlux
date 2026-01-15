@@ -9,3 +9,4 @@ pikepdf
 pdf2image
 Pillow
 reportlab
+python-sane

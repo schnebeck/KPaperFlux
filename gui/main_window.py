@@ -1,7 +1,7 @@
 from typing import Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
-    QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox
+    QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox, QStatusBar
 )
 from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent
 from PyQt6.QtCore import Qt
@@ -72,6 +72,7 @@ class MainWindow(QMainWindow):
             self.list_widget.export_requested.connect(self.export_documents_slot)
             self.list_widget.stamp_requested.connect(self.stamp_document_slot)
             self.list_widget.tags_update_requested.connect(self.manage_tags_slot)
+            self.list_widget.document_count_changed.connect(self.update_status_bar)
             
             # Connect Filter
             self.filter_widget.filter_changed.connect(self.list_widget.apply_filter)
@@ -103,7 +104,11 @@ class MainWindow(QMainWindow):
         
         # Main Splitter: Left 40%, Right 60%
         # Width 1000. Left 400, Right 600.
+        # Main Splitter: Left 40%, Right 60%
+        # Width 1000. Left 400, Right 600.
         self.main_splitter.setSizes([400, 600])
+
+        self.setStatusBar(QStatusBar())
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -262,7 +267,12 @@ class MainWindow(QMainWindow):
         progress = QProgressDialog(self.tr("Reprocessing..."), self.tr("Cancel"), 0, count, self)
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0) # Show immediately
+        progress.forceShow() # Ensure visibility
         progress.setValue(0)
+        
+        # Ensure it paints
+        from PyQt6.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
 
         # Loop
         for i, uuid in enumerate(uuids):
@@ -279,15 +289,30 @@ class MainWindow(QMainWindow):
             
             progress.setValue(i + 1)
                 
-        # If last one is current, reload viewer
-        if self.editor_widget.current_uuid in uuids:
-             # Reload viewer for the *current* selection
-             # Actually, if we processed multiple, the selection might still be the same.
-             path = self.pipeline.vault.get_file_path(self.editor_widget.current_uuid)
-             if path: self.pdf_viewer.load_document(path)
-             # Update editor fields
-             updated_doc = self.db_manager.get_document_by_uuid(self.editor_widget.current_uuid)
-             if updated_doc: self.editor_widget.display_document(updated_doc)
+        # If currently edited documents were in the reprocess list, we should refresh the editor.
+        # Check intersection
+        intersect = set(uuids) & set(self.editor_widget.current_uuids)
+        if intersect:
+             # Refresh Editor
+             # We need to re-fetch the currently displayed docs from DB to get updated fields
+             docs_to_refresh = []
+             for uid in self.editor_widget.current_uuids:
+                 d = self.db_manager.get_document_by_uuid(uid)
+                 if d: docs_to_refresh.append(d)
+                 
+             if docs_to_refresh:
+                 self.editor_widget.display_documents(docs_to_refresh)
+                 
+             # Refresh Viewer if "current" view changed?
+             # Viewer shows only ONE document usually (the first selected, or specific one).
+             # We rely on on_document_selected usually.
+             # If we just refresh editor metadata, that's enough properly.
+             # But if OCR content changed, might want to reload viewer?
+             # Only if single selection matches Reprocessed UUID?
+             # Let's simple reload if single selection matches.
+             if len(docs_to_refresh) == 1 and docs_to_refresh[0].uuid in uuids:
+                  path = self.pipeline.vault.get_file_path(docs_to_refresh[0].uuid)
+                  if path: self.pdf_viewer.load_document(path)
 
         self.list_widget.refresh_list()
         
@@ -619,6 +644,10 @@ class MainWindow(QMainWindow):
     def toggle_editor_visibility(self, checked: bool):
         """Toggle the visibility of the metadata editor widget."""
         self.editor_widget.setVisible(checked)
+        
+    def update_status_bar(self, visible_count: int, total_count: int):
+        """Update status bar with document counts."""
+        self.statusBar().showMessage(self.tr(f"Documents: {visible_count} (Total: {total_count})"))
 
     def closeEvent(self, event: QCloseEvent):
         """Save state before closing."""
