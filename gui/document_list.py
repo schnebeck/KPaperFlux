@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu
-from PyQt6.QtCore import pyqtSignal, Qt, QPoint
+from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings
 from core.database import DatabaseManager
 
 class DocumentListWidget(QTableWidget):
@@ -31,6 +31,9 @@ class DocumentListWidget(QTableWidget):
         header = self.horizontalHeader()
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch) # Sender stretches
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch) # Filename stretches? No maybe share
+        header.setSectionsMovable(True)
+        header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        header.customContextMenuRequested.connect(self.show_header_menu)
         
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection) # Allow multiple
@@ -42,6 +45,40 @@ class DocumentListWidget(QTableWidget):
         # Context Menu
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+        
+        # Restore State
+        self.restore_state()
+
+    def show_header_menu(self, pos: QPoint):
+        """Show context menu to toggle columns."""
+        menu = QMenu(self)
+        header = self.horizontalHeader()
+        
+        for i, col_name in enumerate(self.columns):
+            action = menu.addAction(col_name)
+            action.setCheckable(True)
+            action.setChecked(not header.isSectionHidden(i))
+            action.setData(i)
+            action.triggered.connect(lambda checked, idx=i: self.toggle_column(idx, checked))
+            
+        menu.exec(header.mapToGlobal(pos))
+        
+    def toggle_column(self, index: int, visible: bool):
+        if visible:
+            self.horizontalHeader().showSection(index)
+        else:
+            self.horizontalHeader().hideSection(index)
+        self.save_state()
+
+    def save_state(self):
+        settings = QSettings("KPaperFlux", "DocumentList")
+        settings.setValue("headerState", self.horizontalHeader().saveState())
+        
+    def restore_state(self):
+        settings = QSettings("KPaperFlux", "DocumentList")
+        state = settings.value("headerState")
+        if state:
+            self.horizontalHeader().restoreState(state)
 
     def show_context_menu(self, pos: QPoint):
         """Show context menu for selected item."""

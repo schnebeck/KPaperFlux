@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, 
     QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox
 )
-from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent
+from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent
 from PyQt6.QtCore import Qt
 import sys
 import platform
@@ -388,3 +388,9 @@ class MainWindow(QMainWindow):
             
             if self.list_widget:
                 self.list_widget.refresh_list()
+
+    def closeEvent(self, event: QCloseEvent):
+        """Save state before closing."""
+        if self.list_widget:
+            self.list_widget.save_state()
+        event.accept()
