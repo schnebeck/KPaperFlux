@@ -9,10 +9,13 @@ import sys
 import platform
 import os
 import PyQt6.QtCore
+import shutil
 from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager
+from core.stamper import DocumentStamper
 from gui.document_list import DocumentListWidget
 from gui.document_detail import DocumentDetailWidget
+from gui.filter_widget import FilterWidget
 from gui.settings_dialog import SettingsDialog
 
 class MainWindow(QMainWindow):
@@ -46,6 +49,10 @@ class MainWindow(QMainWindow):
         # self.label = QLabel(self.tr("KPaperFlux v1.0"))
         # layout.addWidget(self.label)
         
+        # Filter Widget
+        self.filter_widget = FilterWidget()
+        layout.addWidget(self.filter_widget)
+        
         # Master-Detail Splitter
         splitter = QSplitter(Qt.Orientation.Horizontal)
         layout.addWidget(splitter)
@@ -55,8 +62,14 @@ class MainWindow(QMainWindow):
             self.list_widget = DocumentListWidget(self.db_manager)
             self.list_widget.document_selected.connect(self.on_document_selected)
             self.list_widget.delete_requested.connect(self.delete_document_slot)
+            self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
             self.list_widget.merge_requested.connect(self.merge_documents_slot)
+            self.list_widget.export_requested.connect(self.export_documents_slot)
+            self.list_widget.stamp_requested.connect(self.stamp_document_slot)
+            
+            # Connect Filter
+            self.filter_widget.filter_changed.connect(self.list_widget.apply_filter)
             
             splitter.addWidget(self.list_widget)
             self.list_widget.refresh_list()
@@ -388,6 +401,77 @@ class MainWindow(QMainWindow):
             
             if self.list_widget:
                 self.list_widget.refresh_list()
+
+    def export_documents_slot(self, uuids: list[str]):
+        """Export selected documents to a folder."""
+        if not uuids or not self.pipeline:
+            return
+            
+        target_dir = QFileDialog.getExistingDirectory(self, self.tr("Select Export Directory"))
+        if not target_dir:
+            return
+            
+        count = 0
+        for uuid in uuids:
+            # Get vault path
+            src_path = self.pipeline.vault.get_file_path(uuid)
+            if src_path and os.path.exists(src_path):
+                # Determine filename: uuid.pdf or original_filename?
+                # User prefers readable names.
+                # Get doc from DB to find original filename?
+                doc = self.db_manager.get_document_by_uuid(uuid)
+                filename = doc.original_filename if doc else f"{uuid}.pdf"
+                
+                # Check collision
+                dst_path = os.path.join(target_dir, filename)
+                if os.path.exists(dst_path):
+                    # Append uuid to unique
+                    base, ext = os.path.splitext(filename)
+                    dst_path = os.path.join(target_dir, f"{base}_{uuid[:8]}{ext}")
+                    
+                try:
+                    shutil.copy2(src_path, dst_path)
+                    count += 1
+                except Exception as e:
+                    print(f"Export error {uuid}: {e}")
+                    
+        QMessageBox.information(self, self.tr("Export"), self.tr(f"Exported {count} documents to {target_dir}."))
+
+    def stamp_document_slot(self, uuid: str):
+        """Stamp a document."""
+        if not self.pipeline:
+            return
+            
+        src_path = self.pipeline.vault.get_file_path(uuid)
+        if not src_path or not os.path.exists(src_path):
+            return
+
+        from gui.stamper_dialog import StamperDialog
+        dialog = StamperDialog(self)
+        if dialog.exec():
+            text, pos, color = dialog.get_data()
+            stamper = DocumentStamper()
+            try:
+                # Modify in place? or tmp and move?
+                # PikePDF save to same file sometimes issues?
+                # Better safe: temp output, then move.
+                base, ext = os.path.splitext(src_path)
+                tmp_path = f"{base}_stamped{ext}"
+                
+                stamper.apply_stamp(src_path, tmp_path, text, position=pos, color=color)
+                
+                # Move back
+                shutil.move(tmp_path, src_path)
+                
+                QMessageBox.information(self, self.tr("Success"), self.tr("Stamp applied."))
+                
+                # Refresh viewer if this doc is selected
+                # self.detail_widget.display_document(doc) -> triggers reload
+                # Or just emit selection again
+                self.list_widget.document_selected.emit(uuid)
+                
+            except Exception as e:
+                QMessageBox.critical(self, self.tr("Error"), self.tr(f"Stamping failed: {e}"))
 
     def closeEvent(self, event: QCloseEvent):
         """Save state before closing."""

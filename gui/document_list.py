@@ -10,10 +10,13 @@ class DocumentListWidget(QTableWidget):
     delete_requested = pyqtSignal(str) # UUID
     reprocess_requested = pyqtSignal(str) # UUID
     merge_requested = pyqtSignal(list) # List[str] UUIDs
+    export_requested = pyqtSignal(list) # List[str] UUIDs
+    stamp_requested = pyqtSignal(str) # UUID (Single for now, or list?) Let's support single for stamp simplicity.
     
     def __init__(self, db_manager: DatabaseManager):
         super().__init__()
         self.db = db_manager
+        self.current_filter = {} # Store current filter criteria
         
         # Setup table columns
         self.columns = [
@@ -100,6 +103,10 @@ class DocumentListWidget(QTableWidget):
              merge_action = None
   
         reprocess_action = menu.addAction(self.tr("Reprocess (OCR)"))
+        stamp_action = menu.addAction(self.tr("Stamp..."))
+        menu.addSeparator()
+        export_action = menu.addAction(self.tr("Export Selected..."))
+        menu.addSeparator()
         delete_action = menu.addAction(self.tr("Delete Document"))
         
         action = menu.exec(self.mapToGlobal(pos))
@@ -122,6 +129,15 @@ class DocumentListWidget(QTableWidget):
                  u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
                  if u: uuids.append(u)
              self.merge_requested.emit(uuids)
+        elif action == stamp_action:
+            self.stamp_requested.emit(uuid)
+        elif action == export_action:
+            # Export all selected
+            uuids = []
+            for row in selected_rows:
+                 u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
+                 if u: uuids.append(u)
+            self.export_requested.emit(uuids)
 
     def _on_selection_changed(self):
         """Handle selection to emit UUID."""
@@ -165,3 +181,54 @@ class DocumentListWidget(QTableWidget):
             self.setItem(row, 5, QTableWidgetItem(filename))
             
         self.setSortingEnabled(True)
+        
+        # Re-apply filter if exists
+        if self.current_filter:
+            self.apply_filter(self.current_filter)
+
+    def apply_filter(self, criteria: dict):
+        """
+        Filter rows based on criteria: 'date_from', 'date_to', 'type', 'tags'.
+        """
+        self.current_filter = criteria
+        
+        date_from = criteria.get('date_from')
+        date_to = criteria.get('date_to')
+        target_type = criteria.get('type')
+        target_tags = criteria.get('tags')
+        
+        for row in range(self.rowCount()):
+            show = True
+            
+            # Date Filter (Col 0)
+            if date_from or date_to:
+                date_item = self.item(row, 0)
+                date_val = date_item.text() if date_item else ""
+                
+                if not date_val:
+                    # Decide if docs with no date should be hidden?
+                    # Generally yes if date range is specific.
+                    show = False
+                else:
+                    # String comparison works for ISO dates
+                    if date_from and date_val < date_from:
+                        show = False
+                    if date_to and date_val > date_to:
+                        show = False
+            
+            # Type Filter (Col 2)
+            if show and target_type:
+                type_item = self.item(row, 2)
+                type_val = type_item.text() if type_item else ""
+                if target_type != type_val:
+                    show = False
+                    
+            # Tag Filter (Col 3) - Contains
+            if show and target_tags:
+                tag_item = self.item(row, 3)
+                tag_val = tag_item.text().lower() if tag_item else ""
+                # Simple substring check
+                if target_tags.lower() not in tag_val:
+                    show = False
+            
+            self.setRowHidden(row, not show)
