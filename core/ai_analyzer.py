@@ -106,7 +106,7 @@ class AIAnalyzer:
         try:
             response = self.client.models.generate_content(
                 model=self.model_name,
-                contents=prompt.format(text=text)
+                contents=prompt.replace("{text}", text)
             )
             response_text = response.text
             

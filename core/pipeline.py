@@ -52,20 +52,8 @@ class PipelineProcessor:
         doc.page_count = self._calculate_page_count(full_stored_path)
             
         # 3 & 4. Text Extraction Strategy
-        try:
-            if self._is_native_pdf(full_stored_path):
-                print(f"[{doc.uuid}] Detected Native PDF. Extracting text directly.")
-                doc.text_content = self._extract_text_native(full_stored_path)
-                # If native text extraction yields too little, fallback to OCR?
-                if len(doc.text_content.strip()) < 50:
-                    print(f"[{doc.uuid}] Native text insufficient (<50 chars). Falling back to OCR.")
-                    doc.text_content = self._run_ocr(full_stored_path)
-            else:
-                print(f"[{doc.uuid}] Detected Scanned PDF/Image. Running OCR.")
-                doc.text_content = self._run_ocr(full_stored_path)
-        except Exception as e:
-            print(f"Processing Error: {e}")
-            doc.text_content = ""
+        # 3 & 4. Text Extraction Strategy
+        doc.text_content = self._detect_and_extract_text(doc, full_stored_path)
             
         # 5. AI Analysis
         self._run_ai_analysis(doc)
@@ -96,12 +84,10 @@ class PipelineProcessor:
             return None
             
         # Re-run Extraction (Force OCR for reprocess usually makes sense if native failed)
-        try:
-            # We assume user reprocesses because something was missing.
-            # Try OCR.
-            doc.text_content = self._run_ocr(Path(file_path))
-        except Exception as e:
-            print(f"OCR Error during reprocess: {e}")
+        # Re-run Extraction (Smart detection, not forced OCR unless needed)
+        # Assuming we want to refresh text content too (e.g. if OCR improved or Native check changed)
+        # If user really wanted FORCE OCR, we'd need a flag. But "Reprocess" usually means "Try again cleanly".
+        doc.text_content = self._detect_and_extract_text(doc, Path(file_path))
             
             
         # Re-run AI
@@ -187,6 +173,26 @@ class PipelineProcessor:
                 os.remove(tmp_path)
                 
         return None
+
+    def _detect_and_extract_text(self, doc: Document, path: Path) -> str:
+        """
+        Determine if Native or Scanned and extract text accordingly.
+        """
+        try:
+            if self._is_native_pdf(path):
+                print(f"[{doc.uuid}] Detected Native PDF. Extracting text directly.")
+                text = self._extract_text_native(path)
+                # Fallback check
+                if len(text.strip()) < 50:
+                    print(f"[{doc.uuid}] Native text insufficient (<50 chars). Falling back to OCR.")
+                    return self._run_ocr(path)
+                return text
+            else:
+                print(f"[{doc.uuid}] Detected Scanned PDF/Image. Running OCR.")
+                return self._run_ocr(path)
+        except Exception as e:
+            print(f"Extraction Error [{doc.uuid}]: {e}")
+            return ""
 
     def _is_native_pdf(self, path: Path) -> bool:
         """

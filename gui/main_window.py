@@ -223,22 +223,50 @@ class MainWindow(QMainWindow):
                     self.editor_widget.clear()
                     self.pdf_viewer.clear()
                     
-    def reprocess_document_slot(self, uuid: str):
-        """Handle reprocess request."""
-        if self.pipeline:
-            updated_doc = self.pipeline.reprocess_document(uuid)
-            if updated_doc:
-                QMessageBox.information(self, self.tr("Success"), self.tr("Document reprocessed successfully."))
-                self.editor_widget.display_document(updated_doc)
-                # Refresh Viewer too?
-                if self.pipeline and self.pipeline.vault:
-                     path = self.pipeline.vault.get_file_path(uuid)
-                     if path: self.pdf_viewer.load_document(path)
+    def reprocess_document_slot(self, uuids: list):
+        """Re-run pipeline for list of documents."""
+        if not self.pipeline:
+            return
+            
+        success_count = 0
+        from PyQt6.QtWidgets import QProgressDialog
+        
+        count = len(uuids)
+        if count == 0: return
+
+        progress = QProgressDialog(self.tr("Reprocessing..."), self.tr("Cancel"), 0, count, self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0) # Show immediately
+        progress.setValue(0)
+
+        # Loop
+        for i, uuid in enumerate(uuids):
+            if progress.wasCanceled():
+                break
                 
-                # Update List Row
-                self.list_widget.refresh_list()
-            else:
-                QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to reprocess document."))
+            progress.setLabelText(self.tr(f"Reprocessing {i+1} of {count}..."))
+            
+            # Since pipeline is blocking, we process one by one
+            # The dialog updates when we call setValue or processEvents implicitly
+            doc = self.pipeline.reprocess_document(uuid)
+            if doc:
+                success_count += 1
+            
+            progress.setValue(i + 1)
+                
+        # If last one is current, reload viewer
+        if self.editor_widget.current_uuid in uuids:
+             # Reload viewer for the *current* selection
+             # Actually, if we processed multiple, the selection might still be the same.
+             path = self.pipeline.vault.get_file_path(self.editor_widget.current_uuid)
+             if path: self.pdf_viewer.load_document(path)
+             # Update editor fields
+             updated_doc = self.db_manager.get_document_by_uuid(self.editor_widget.current_uuid)
+             if updated_doc: self.editor_widget.display_document(updated_doc)
+
+        self.list_widget.refresh_list()
+        
+        QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{count} documents.")
 
     def import_document_slot(self):
         """Handle import button click."""
@@ -363,6 +391,17 @@ class MainWindow(QMainWindow):
                 kde_ver=kde_version
             )
         )
+
+    def find_duplicates_slot(self):
+        """Open Duplicate Finder."""
+        from core.similarity import SimilarityManager
+        from gui.duplicate_dialog import DuplicateFinderDialog
+        
+        sim_manager = SimilarityManager(self.db_manager, self.pipeline.vault)
+        
+        # Show progress?
+        dialog = DuplicateFinderDialog(sim_manager, self)
+        dialog.exec()
 
     def open_maintenance_slot(self):
         """Open Maintenance Dialog."""

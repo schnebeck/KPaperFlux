@@ -8,7 +8,7 @@ class DocumentListWidget(QTableWidget):
     """
     document_selected = pyqtSignal(str) # UUID
     delete_requested = pyqtSignal(str) # UUID
-    reprocess_requested = pyqtSignal(str) # UUID
+    reprocess_requested = pyqtSignal(list) # List[str] UUIDs (Changed from str)
     merge_requested = pyqtSignal(list) # List[str] UUIDs
     export_requested = pyqtSignal(list) # List[str] UUIDs
     stamp_requested = pyqtSignal(str) # UUID (Single for now, or list?) Let's support single for stamp simplicity.
@@ -109,7 +109,7 @@ class DocumentListWidget(QTableWidget):
         else:
              merge_action = None
   
-        reprocess_action = menu.addAction(self.tr("Reprocess (OCR)"))
+        reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
         tags_action = menu.addAction(self.tr("Manage Tags..."))
         stamp_action = menu.addAction(self.tr("Stamp..."))
         menu.addSeparator()
@@ -119,8 +119,21 @@ class DocumentListWidget(QTableWidget):
         
         action = menu.exec(self.mapToGlobal(pos))
         
+        action = menu.exec(self.mapToGlobal(pos))
+        
         if action == reprocess_action:
-            self.reprocess_requested.emit(uuid)
+            # Gather UUIDs
+            uuids = []
+            if len(selected_rows) > 0:
+                for row in selected_rows:
+                     u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
+                     if u: uuids.append(u)
+            else:
+                 # Fallback to single item if selection model behaves oddly (right click sometimes selects only one)
+                 uuids.append(uuid)
+            
+            self.reprocess_requested.emit(uuids)
+            
         elif action == delete_action:
             # Emit for all selected? Or just focused?
             # Standard: if multiple selected, delete all.

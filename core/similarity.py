@@ -3,13 +3,19 @@ from typing import List, Tuple, Dict, Set
 from core.database import DatabaseManager
 from core.document import Document
 import difflib
+import math
+from pathlib import Path
+from pdf2image import convert_from_path
+from PIL import Image, ImageChops, ImageStat
 
 class SimilarityManager:
     """
-    Identifies potential duplicate documents based on metadata and text content.
+    Identifies potential duplicate documents based on metadata, text content, and visual appearance.
     """
-    def __init__(self, db_manager: DatabaseManager):
+    def __init__(self, db_manager: DatabaseManager, vault=None):
         self.db_manager = db_manager
+        self.vault = vault # Needed to resolve file paths
+        self.thumbnail_cache = {} # Map uuid -> PIL.Image
 
     def find_duplicates(self, threshold: float = 0.85) -> List[Tuple[Document, Document, float]]:
         """
@@ -18,13 +24,7 @@ class SimilarityManager:
         """
         documents = self.db_manager.get_all_documents()
         duplicates = []
-        
-        # Optimization: Filter by obvious non-matches?
-        # For now, simplistic O(N^2) for small datasets is acceptable.
-        # To optimize, we could group by Amount or Date.
-        
-        # In a real app with many docs, we'd use LSH or similar.
-        # Here, we compare every pair but skip redundant (A,B) vs (B,A).
+        self.thumbnail_cache = {} # Clear cache
         
         n = len(documents)
         for i in range(n):
@@ -41,52 +41,129 @@ class SimilarityManager:
     def calculate_similarity(self, doc_a: Document, doc_b: Document) -> float:
         """
         Calculate a similarity score between 0.0 and 1.0.
-        Weighted average of Text Similarity and Metadata Match.
+        Max of (Text Jaccard, Visual Similarity) boosted by Metadata.
         """
-        # 1. Metadata Hard Check
-        # If Amount and Date are present and identical, that's a strong sign.
+        # Metadata Score
         metadata_score = 0.0
-        if doc_a.amount is not None and doc_b.amount is not None:
-             if doc_a.amount == doc_b.amount:
-                 metadata_score += 0.3
-        
-        if doc_a.doc_date and doc_b.doc_date:
-            if doc_a.doc_date == doc_b.doc_date:
+        if doc_a.amount is not None and doc_b.amount is not None and doc_a.amount == doc_b.amount:
+             metadata_score += 0.3
+        if doc_a.doc_date and doc_b.doc_date and doc_a.doc_date == doc_b.doc_date:
                 metadata_score += 0.2
                 
-        # 2. Text Similarity (Jaccard)
-        # Jaccard is faster than SequenceMatcher for full text
+        # Text Similarity (Jaccard)
         text_a = (doc_a.text_content or "").lower().split()
         text_b = (doc_b.text_content or "").lower().split()
         
         if not text_a or not text_b:
-            return metadata_score # Fallback if no text
-            
-        set_a = set(text_a)
-        set_b = set(text_b)
-        
-        if not set_a or not set_b:
-             jaccard = 0.0
+             text_score = 0.0
         else:
-             intersection = len(set_a & set_b)
-             union = len(set_a | set_b)
-             jaccard = intersection / union
+             set_a = set(text_a)
+             set_b = set(text_b)
+             if not set_a or not set_b:
+                 text_score = 0.0
+             else:
+                 text_score = len(set_a & set_b) / len(set_a | set_b)
         
-        # Weighted Score
-        # If metadata matches perfectly (0.5), Jaccard only needs to be moderate.
-        # If metadata missing, Jaccard needs to be high.
-        
-        # Let's say Text is the primary driver (0.5 to 1.0).
-        # Actually SequenceMatcher is significantly better for OCR text where characters might slightly differ.
-        # But Jaccard on tokens is robust enough for "Duplicate" check.
-        
-        # Let's just return Jaccard if metadata is weak, or boosted Jaccard if metadata matches.
-        
-        final_score = jaccard
-        if metadata_score >= 0.5: # Both Amount and Date match
-            # Boost score, because it's very likely a duplicate if text is even remotely similar
-            final_score += 0.2
-            if final_score > 1.0: final_score = 1.0
+        # Visual Similarity
+        visual_score = 0.0
+        if self.vault:
+            visual_score = self.calculate_visual_similarity(doc_a, doc_b)
             
-        return final_score
+        # Strategy:
+        # If visual score is high (e.g. > 0.9), it's likely a scan of the same doc, even if text failed.
+        # If text score is high, it's a match.
+        # Take the maximum of Text and Visual as the base content score.
+        
+        content_score = max(text_score, visual_score)
+        
+        final_score = content_score
+        
+        # Boost if metadata matches
+        if metadata_score >= 0.5:
+            final_score += 0.2
+            
+        return min(final_score, 1.0)
+
+    def calculate_visual_similarity(self, doc_a: Document, doc_b: Document) -> float:
+        """
+        Render pages as low-res images and compare.
+        Supports checking if a single-page doc is contained in a multi-page doc.
+        Returns 0.0 to 1.0 (1.0 = identical).
+        """
+        imgs_a = self._get_cached_thumbnails(doc_a)
+        imgs_b = self._get_cached_thumbnails(doc_b)
+        
+        if not imgs_a or not imgs_b:
+            return 0.0
+            
+        # Strategy:
+        # Case 1: Both single page -> simple compare.
+        # Case 2: One is single page, other multi -> Check for containment (Max Match).
+        # Case 3: Both multi -> Compare P1 vs P1 (Assumption: First page usually identifies doc).
+        
+        best_sim = 0.0
+        
+        if len(imgs_a) == 1 and len(imgs_b) > 1:
+            # Check if A is in B
+            for img_b in imgs_b:
+                sim = self._compare_images(imgs_a[0], img_b)
+                if sim > best_sim: best_sim = sim
+            return best_sim
+            
+        elif len(imgs_b) == 1 and len(imgs_a) > 1:
+             # Check if B is in A
+            for img_a in imgs_a:
+                sim = self._compare_images(img_a, imgs_b[0])
+                if sim > best_sim: best_sim = sim
+            return best_sim
+            
+        else:
+            # P1 vs P1
+            return self._compare_images(imgs_a[0], imgs_b[0])
+
+    def _compare_images(self, img_a: Image.Image, img_b: Image.Image) -> float:
+        """Compare two PIL images using RMS."""
+        if img_a.size != img_b.size:
+             # Resize secondary to primary
+             img_b = img_b.resize(img_a.size)
+             
+        diff = ImageChops.difference(img_a, img_b)
+        h = diff.histogram()
+        sq = (value * ((idx % 256) ** 2) for idx, value in enumerate(h))
+        sum_of_squares = sum(sq)
+        rms = math.sqrt(sum_of_squares / float(img_a.size[0] * img_a.size[1]))
+        
+        # Heuristic normalization
+        sim = max(0.0, 1.0 - (rms / 100.0))
+        return sim
+
+    def _get_cached_thumbnails(self, doc: Document) -> List[Image.Image]:
+        """Return list of thumbnails for up to first 5 pages."""
+        if doc.uuid in self.thumbnail_cache:
+            return self.thumbnail_cache[doc.uuid]
+            
+        path_str = self.vault.get_file_path(doc.uuid)
+        if not path_str:
+            return []
+            
+        path = Path(path_str)
+        if not path.exists():
+            return []
+            
+        try:
+            # Render first 5 pages, Size 128px
+            images = convert_from_path(str(path), first_page=1, last_page=5, size=128, grayscale=True)
+            thumbnails = []
+            for img in images:
+                # Resize to fixed 64x80
+                thumb = img.resize((64, 80))
+                thumbnails.append(thumb)
+                
+            self.thumbnail_cache[doc.uuid] = thumbnails
+            return thumbnails
+            
+        except Exception as e:
+            print(f"Visual Sim Error {doc.original_filename}: {e}")
+            
+        return []
 
