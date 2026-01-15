@@ -1,6 +1,6 @@
 from typing import Optional
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, 
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
     QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox
 )
 from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent
@@ -14,7 +14,12 @@ from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager
 from core.stamper import DocumentStamper
 from gui.document_list import DocumentListWidget
-from gui.document_detail import DocumentDetailWidget
+from core.stamper import DocumentStamper
+from gui.document_list import DocumentListWidget
+from gui.metadata_editor import MetadataEditorWidget
+from gui.pdf_viewer import PdfViewerWidget
+from gui.filter_widget import FilterWidget
+from gui.settings_dialog import SettingsDialog
 from gui.filter_widget import FilterWidget
 from gui.settings_dialog import SettingsDialog
 
@@ -38,34 +43,32 @@ class MainWindow(QMainWindow):
         
         self.create_menu_bar()
         
-        # Central Widget
+        # Central Widget & Main Layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Main Layout
-        layout = QVBoxLayout(central_widget)
+        # Main Splitter (Left Pane | Right Pane)
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.addWidget(self.main_splitter)
         
-        # Toolbar / Header (Optional, keeping Import button for ease of access)
-        # self.label = QLabel(self.tr("KPaperFlux v1.0"))
-        # layout.addWidget(self.label)
+        # --- Left Pane (Filter | List | Editor) ---
+        self.left_pane_splitter = QSplitter(Qt.Orientation.Vertical)
         
-        # Filter Widget
+        # 1. Filter (Fixed/Small)
+        # Note: Splitter usually takes widgets directly.
+        # But FilterWidget might need a container or simply add it.
         self.filter_widget = FilterWidget()
-        layout.addWidget(self.filter_widget)
+        self.left_pane_splitter.addWidget(self.filter_widget)
         
-        # Master-Detail Splitter
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        layout.addWidget(splitter)
-        
-        # Document List (Master)
+        # 2. Document List
         if self.db_manager:
             self.list_widget = DocumentListWidget(self.db_manager)
             self.list_widget.document_selected.connect(self.on_document_selected)
             self.list_widget.delete_requested.connect(self.delete_document_slot)
-            self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
             self.list_widget.merge_requested.connect(self.merge_documents_slot)
-            self.list_widget.export_requested.connect(self.export_documents_slot)
             self.list_widget.export_requested.connect(self.export_documents_slot)
             self.list_widget.stamp_requested.connect(self.stamp_document_slot)
             self.list_widget.tags_update_requested.connect(self.manage_tags_slot)
@@ -73,19 +76,33 @@ class MainWindow(QMainWindow):
             # Connect Filter
             self.filter_widget.filter_changed.connect(self.list_widget.apply_filter)
             
-            splitter.addWidget(self.list_widget)
+            self.left_pane_splitter.addWidget(self.list_widget)
             self.list_widget.refresh_list()
         else:
-            self.list_widget = None
+            self.list_widget = QWidget() # Placeholder
+            self.left_pane_splitter.addWidget(self.list_widget)
+            
+        # 3. Metadata Editor
+        self.editor_widget = MetadataEditorWidget(self.db_manager)
+        self.left_pane_splitter.addWidget(self.editor_widget)
         
-        # Document Detail (Detail)
-        # Document Detail (Detail)
-        vault = self.pipeline.vault if self.pipeline else None
-        self.detail_widget = DocumentDetailWidget(self.db_manager, vault)
-        splitter.addWidget(self.detail_widget)
+        # Add Left Pane to Main Splitter
+        self.main_splitter.addWidget(self.left_pane_splitter)
         
-        # Set initial sizes (List=40%, Detail=60%)
-        splitter.setSizes([400, 600])
+        # --- Right Pane (PDF Viewer) ---
+        self.pdf_viewer = PdfViewerWidget()
+        self.main_splitter.addWidget(self.pdf_viewer)
+        
+        # Set Initial Sizes
+        # Left Pane: 10% Filter, 60% List, 30% Editor
+        # Height ratio. QSplitter uses pixels or absolute sizes initially.
+        # Let's assume height 700. Filter ~70, List ~420, Editor ~210.
+        self.left_pane_splitter.setSizes([70, 420, 210])
+        self.left_pane_splitter.setCollapsible(0, False) # Keep filter visible
+        
+        # Main Splitter: Left 40%, Right 60%
+        # Width 1000. Left 400, Right 600.
+        self.main_splitter.setSizes([400, 600])
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -132,8 +149,10 @@ class MainWindow(QMainWindow):
         view_menu.addAction(action_refresh)
         
         action_extra = QAction(self.tr("Show Extra Data"), self)
+        action_extra.setShortcut("Ctrl+E")
         action_extra.setCheckable(True)
-        # Placeholder for toggling columns or detail pane details
+        action_extra.setChecked(True) # Default Checked?
+        action_extra.triggered.connect(self.toggle_editor_visibility)
         view_menu.addAction(action_extra)
         
         # -- Config Menu --
@@ -159,9 +178,18 @@ class MainWindow(QMainWindow):
         if self.db_manager:
             doc = self.db_manager.get_document_by_uuid(uuid)
             if doc:
-                self.detail_widget.display_document(doc)
+                self.editor_widget.display_document(doc)
+                
+                # Load PDF
+                if self.pipeline and self.pipeline.vault:
+                    path = self.pipeline.vault.get_file_path(uuid)
+                    if path:
+                        self.pdf_viewer.load_document(path)
+                    else:
+                        self.pdf_viewer.clear()
             else:
-                self.detail_widget.clear_display()
+                self.editor_widget.clear()
+                self.pdf_viewer.clear()
 
     def delete_selected_slot(self):
         """Handle deletion via Menu."""
@@ -184,7 +212,8 @@ class MainWindow(QMainWindow):
                     self.db_manager.delete_document(uuid)
                     
                     self.list_widget.refresh_list()
-                    self.detail_widget.clear_display()
+                    self.editor_widget.clear()
+                    self.pdf_viewer.clear()
                     
     def reprocess_document_slot(self, uuid: str):
         """Handle reprocess request."""
@@ -192,7 +221,11 @@ class MainWindow(QMainWindow):
             updated_doc = self.pipeline.reprocess_document(uuid)
             if updated_doc:
                 QMessageBox.information(self, self.tr("Success"), self.tr("Document reprocessed successfully."))
-                self.detail_widget.display_document(updated_doc)
+                self.editor_widget.display_document(updated_doc)
+                # Refresh Viewer too?
+                if self.pipeline and self.pipeline.vault:
+                     path = self.pipeline.vault.get_file_path(uuid)
+                     if path: self.pdf_viewer.load_document(path)
             else:
                 QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to reprocess document."))
 
@@ -516,6 +549,10 @@ class MainWindow(QMainWindow):
             if count > 0:
                 self.list_widget.refresh_list()
                 QMessageBox.information(self, self.tr("Tags Updated"), self.tr(f"Updated tags for {count} documents."))
+
+    def toggle_editor_visibility(self, checked: bool):
+        """Toggle the visibility of the metadata editor widget."""
+        self.editor_widget.setVisible(checked)
 
     def closeEvent(self, event: QCloseEvent):
         """Save state before closing."""
