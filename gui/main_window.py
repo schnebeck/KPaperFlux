@@ -321,10 +321,13 @@ class MainWindow(QMainWindow):
         integrity_manager = IntegrityManager(self.db_manager, vault)
         dialog = MaintenanceDialog(self, integrity_manager, self.pipeline)
         
-        if dialog.exec():
-            # Refresh list as documents might have been deleted/imported
-            if self.list_widget:
-                self.list_widget.refresh_list()
+        # Execute dialog (blocking)
+        dialog.exec()
+        
+        # Refresh list as documents might have been deleted/imported
+        # regardless of how dialog was closed
+        if self.list_widget:
+            self.list_widget.refresh_list()
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         """Handle Drag Enter: Check for PDFs."""
