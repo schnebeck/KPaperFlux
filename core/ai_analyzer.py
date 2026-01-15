@@ -55,26 +55,23 @@ class AIAnalyzer:
            - sender: Summary name of sender.
            - doc_date: YYYY-MM-DD.
            - amount: numeric literal.
-           - doc_type: Invoice, Receipt, Contract, Letter, etc.
+           - doc_type: Invoice, Receipt, Contract, Letter, Auftragsbestätigung, Lieferschein, etc.
+             (Note: "Auftragsbestätigung" -> "Order Confirmation", but keep German if document is German).
            - tags: Comma-separated keywords.
            - iban: IBAN string.
            - phone: Phone string.
         
         2. Sender Details (From whom):
+           - Look for "Absender", header logos, or footer details.
            - sender_company
            - sender_name (Contact Person)
-           - sender_street
-           - sender_zip
-           - sender_city
-           - sender_country
+           - sender_street, sender_zip, sender_city, sender_country
            
         3. Recipient Details (To whom):
+           - Look for "Empfänger", "Rechnungsadresse", "Lieferadresse".
            - recipient_company
            - recipient_name
-           - recipient_street
-           - recipient_zip
-           - recipient_city
-           - recipient_country
+           - recipient_street, recipient_zip, recipient_city, recipient_country
            
         Return ONLY valid JSON.
         JSON Structure:

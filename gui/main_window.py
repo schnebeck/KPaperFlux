@@ -84,6 +84,7 @@ class MainWindow(QMainWindow):
             
         # 3. Metadata Editor
         self.editor_widget = MetadataEditorWidget(self.db_manager)
+        self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
         self.left_pane_splitter.addWidget(self.editor_widget)
         
         # Add Left Pane to Main Splitter
@@ -155,6 +156,17 @@ class MainWindow(QMainWindow):
         action_extra.triggered.connect(self.toggle_editor_visibility)
         view_menu.addAction(action_extra)
         
+        # -- Maintenance Menu --
+        maintenance_menu = menubar.addMenu(self.tr("&Maintenance"))
+        
+        orphans_action = QAction(self.tr("Check Integrity (Orphans/Ghosts)"), self)
+        orphans_action.triggered.connect(self.open_maintenance_slot)
+        maintenance_menu.addAction(orphans_action)
+        
+        duplicates_action = QAction(self.tr("Find Duplicates"), self)
+        duplicates_action.triggered.connect(self.find_duplicates_slot)
+        maintenance_menu.addAction(duplicates_action)
+
         # -- Config Menu --
         config_menu = menubar.addMenu(self.tr("&Config"))
         
@@ -162,10 +174,6 @@ class MainWindow(QMainWindow):
         action_settings.triggered.connect(self.open_settings_slot)
         config_menu.addAction(action_settings)
         
-        action_maintenance = QAction(self.tr("&Maintenance..."), self)
-        action_maintenance.triggered.connect(self.open_maintenance_slot)
-        config_menu.addAction(action_maintenance)
-
         # -- Help Menu --
         help_menu = menubar.addMenu(self.tr("&Help"))
         
@@ -226,6 +234,9 @@ class MainWindow(QMainWindow):
                 if self.pipeline and self.pipeline.vault:
                      path = self.pipeline.vault.get_file_path(uuid)
                      if path: self.pdf_viewer.load_document(path)
+                
+                # Update List Row
+                self.list_widget.refresh_list()
             else:
                 QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to reprocess document."))
 
@@ -361,15 +372,6 @@ class MainWindow(QMainWindow):
         if not self.pipeline or not self.db_manager:
             return
             
-        # Ensure vault is available
-        vault = self.pipeline.vault
-        if not vault:
-            return
-            
-        integrity_manager = IntegrityManager(self.db_manager, vault)
-        dialog = MaintenanceDialog(self, integrity_manager, self.pipeline)
-        
-        # Execute dialog (blocking)
         dialog.exec()
         
         # Refresh list as documents might have been deleted/imported

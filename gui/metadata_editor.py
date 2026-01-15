@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, 
     QPushButton, QScrollArea, QMessageBox, QTabWidget
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from core.document import Document
 from core.database import DatabaseManager
 
@@ -11,6 +11,8 @@ class MetadataEditorWidget(QWidget):
     """
     Widget to edit document metadata with extended fields organized in tabs.
     """
+    metadata_saved = pyqtSignal()
+
     def __init__(self, db_manager: DatabaseManager = None):
         super().__init__()
         self.db_manager = db_manager
@@ -228,5 +230,6 @@ class MetadataEditorWidget(QWidget):
         success = self.db_manager.update_document_metadata(self.current_uuid, updates)
         if success:
             QMessageBox.information(self, self.tr("Success"), self.tr("Metadata saved."))
+            self.metadata_saved.emit()
         else:
             QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to save changes."))

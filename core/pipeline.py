@@ -49,12 +49,7 @@ class PipelineProcessor:
         full_stored_path = Path(stored_path)
         
         # 2.5 Calculate Page Count
-        try:
-            with pikepdf.Pdf.open(full_stored_path) as pdf:
-                doc.page_count = len(pdf.pages)
-        except Exception as e:
-            print(f"Error counting pages: {e}")
-            doc.page_count = 0
+        doc.page_count = self._calculate_page_count(full_stored_path)
             
         # 3 & 4. Text Extraction Strategy
         try:
@@ -108,8 +103,17 @@ class PipelineProcessor:
         except Exception as e:
             print(f"OCR Error during reprocess: {e}")
             
+            
         # Re-run AI
         self._run_ai_analysis(doc)
+        
+        # Recalculate Page Count (in case it was missing or file changed)
+        if hasattr(doc, 'page_count'): # Ensure field exists on doc model
+             doc.page_count = self._calculate_page_count(Path(file_path))
+             
+        # Backfill created_at if missing
+        if not doc.created_at:
+             doc.created_at = datetime.datetime.now().isoformat()
         
         # Update DB
         self.db.insert_document(doc)
@@ -159,6 +163,10 @@ class PipelineProcessor:
                 # We can call process_document recursively but we already stored it.
                 # Just finish steps.
                 full_stored_path = Path(stored_path)
+                
+                # Calculate Page Count
+                new_doc.page_count = self._calculate_page_count(full_stored_path)
+                new_doc.created_at = datetime.datetime.now().isoformat()
                 
                 # Copy properties? Nah, new analysis.
                 if self._is_native_pdf(full_stored_path):
@@ -248,6 +256,17 @@ class PipelineProcessor:
                 
         return ""
             
+    def _calculate_page_count(self, path: Path) -> int:
+        """
+        Calculate number of pages in PDF.
+        """
+        try:
+            with pikepdf.Pdf.open(path) as pdf:
+                return len(pdf.pages)
+        except Exception as e:
+            print(f"Error counting pages for {path}: {e}")
+            return 0
+
     def _run_ai_analysis(self, doc: Document):
         """
         Use AI Analyzer to extract metadata if API key is present.
