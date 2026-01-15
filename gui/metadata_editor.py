@@ -16,7 +16,8 @@ class MetadataEditorWidget(QWidget):
     def __init__(self, db_manager: DatabaseManager = None):
         super().__init__()
         self.db_manager = db_manager
-        self.current_uuid = None
+        self.current_uuids = []
+        self.mixed_fields = set()
         self.doc = None
         
         self._init_ui()
@@ -127,11 +128,92 @@ class MetadataEditorWidget(QWidget):
         self.btn_save.clicked.connect(self.save_changes)
         layout.addWidget(self.btn_save)
 
-    def display_document(self, doc: Document):
-        """Populate fields."""
-        self.doc = doc
-        self.current_uuid = doc.uuid
+    def display_documents(self, docs: list[Document]):
+        """Populate fields for multiple documents."""
+        self.doc = None # Single doc reference invalid
+        self.current_uuids = [d.uuid for d in docs]
         
+        if not docs:
+            self.clear()
+            return
+            
+        if len(docs) == 1:
+            self.display_document(docs[0])
+            return
+
+        # Batch Display
+        # Determine common values
+        
+        # Fields mapping: attr -> widget
+        fields = {
+            "sender": self.sender_edit,
+            "doc_date": self.date_edit,
+            "amount": self.amount_edit,
+            "doc_type": self.type_edit,
+            "iban": self.iban_edit,
+            "phone": self.phone_edit,
+            "tags": self.tags_edit,
+            
+            "sender_company": self.sender_company_edit,
+            "sender_name": self.sender_name_edit,
+            "sender_street": self.sender_street_edit,
+            "sender_zip": self.sender_zip_edit,
+            "sender_city": self.sender_city_edit,
+            "sender_country": self.sender_country_edit,
+            "sender_address": self.sender_address_raw,
+            
+            "recipient_company": self.recipient_company_edit,
+            "recipient_name": self.recipient_name_edit,
+            "recipient_street": self.recipient_street_edit,
+            "recipient_zip": self.recipient_zip_edit,
+            "recipient_city": self.recipient_city_edit,
+            "recipient_country": self.recipient_country_edit
+        }
+        
+        # Store initial state to detect mixed fields
+        self.mixed_fields = set()
+        
+        for attr, widget in fields.items():
+            values = set()
+            for d in docs:
+                val = getattr(d, attr)
+                # Normalize: None -> "" or stringify
+                if val is None: val = ""
+                else: val = str(val)
+                values.add(val)
+            
+            if len(values) == 1:
+                # All same
+                val = values.pop()
+                if isinstance(widget, QLineEdit): widget.setText(val)
+                elif isinstance(widget, QTextEdit): widget.setPlainText(val)
+                widget.setPlaceholderText("")
+            else:
+                # Mixed
+                self.mixed_fields.add(attr)
+                if isinstance(widget, QLineEdit): 
+                    widget.clear()
+                    widget.setPlaceholderText("<Multiple Values>")
+                elif isinstance(widget, QTextEdit): 
+                    widget.clear()
+                    widget.setPlaceholderText("<Multiple Values>")
+
+        # Info Labels (Special handling)
+        self.uuid_lbl.setText("<Multiple Selected>")
+        self.created_at_lbl.setText("-")
+        # Sum pages? Or range?
+        pages = sum((d.page_count or 0) for d in docs)
+        self.page_count_lbl.setText(f"Total: {pages}")
+
+    def display_document(self, doc: Document):
+        """Populate fields for single document."""
+        self.current_uuids = [doc.uuid]
+        self.mixed_fields = set() # No mixed fields
+        self.doc = doc
+        
+        # Reset Placeholders
+        self._reset_placeholders()
+
         # General
         self.uuid_lbl.setText(doc.uuid)
         self.created_at_lbl.setText(doc.created_at or "-")
@@ -161,10 +243,19 @@ class MetadataEditorWidget(QWidget):
         self.recipient_city_edit.setText(doc.recipient_city or "")
         self.recipient_country_edit.setText(doc.recipient_country or "")
         
+    def _reset_placeholders(self):
+        """Reset standard placeholders."""
+        self.date_edit.setPlaceholderText("YYYY-MM-DD")
+        self.tags_edit.setPlaceholderText("Tag1, Tag2...")
+        self.sender_edit.setPlaceholderText("")
+        self.amount_edit.setPlaceholderText("") # etc.
+        # Ideally iterate all and clear
+
     def clear(self):
         """Clear fields."""
-        self.current_uuid = None
+        self.current_uuids = []
         self.doc = None
+        self.mixed_fields = set()
         
         # General
         self.uuid_lbl.clear()
@@ -194,42 +285,88 @@ class MetadataEditorWidget(QWidget):
         self.recipient_zip_edit.clear()
         self.recipient_city_edit.clear()
         self.recipient_country_edit.clear()
+        
+        self._reset_placeholders()
 
     def save_changes(self):
-        if not self.current_uuid or not self.db_manager:
+        if not self.current_uuids or not self.db_manager:
             return
             
         # Collect updates
-        updates = {
-            "sender": self.sender_edit.text(),
-            "doc_date": self.date_edit.text() if self.date_edit.text().strip() else None,
-            "amount": self.amount_edit.text() if self.amount_edit.text().strip() else None,
-            "doc_type": self.type_edit.text(),
-            "iban": self.iban_edit.text(),
-            "phone": self.phone_edit.text(),
-            "tags": self.tags_edit.text(),
+        # Need to know which fields to update.
+        # Map: attr -> widget
+        fields = {
+            "sender": self.sender_edit,
+            "doc_date": self.date_edit,
+            "amount": self.amount_edit,
+            "doc_type": self.type_edit,
+            "iban": self.iban_edit,
+            "phone": self.phone_edit,
+            "tags": self.tags_edit,
             
-            "sender_company": self.sender_company_edit.text(),
-            "sender_name": self.sender_name_edit.text(),
-            "sender_street": self.sender_street_edit.text(),
-            "sender_zip": self.sender_zip_edit.text(),
-            "sender_city": self.sender_city_edit.text(),
-            "sender_country": self.sender_country_edit.text(),
-            "sender_address": self.sender_address_raw.toPlainText(),
+            "sender_company": self.sender_company_edit,
+            "sender_name": self.sender_name_edit,
+            "sender_street": self.sender_street_edit,
+            "sender_zip": self.sender_zip_edit,
+            "sender_city": self.sender_city_edit,
+            "sender_country": self.sender_country_edit,
+            "sender_address": self.sender_address_raw,
             
-            "recipient_company": self.recipient_company_edit.text(),
-            "recipient_name": self.recipient_name_edit.text(),
-            "recipient_street": self.recipient_street_edit.text(),
-            "recipient_zip": self.recipient_zip_edit.text(),
-            "recipient_city": self.recipient_city_edit.text(),
-            "recipient_country": self.recipient_country_edit.text()
+            "recipient_company": self.recipient_company_edit,
+            "recipient_name": self.recipient_name_edit,
+            "recipient_street": self.recipient_street_edit,
+            "recipient_zip": self.recipient_zip_edit,
+            "recipient_city": self.recipient_city_edit,
+            "recipient_country": self.recipient_country_edit
         }
         
-        # We don't generally update created_at or page_count manually, but valid to exclude them.
+        updates = {}
         
-        success = self.db_manager.update_document_metadata(self.current_uuid, updates)
-        if success:
-            QMessageBox.information(self, self.tr("Success"), self.tr("Metadata saved."))
+        for attr, widget in fields.items():
+            if isinstance(widget, QLineEdit):
+                text = widget.text().strip()
+            elif isinstance(widget, QTextEdit):
+                text = widget.toPlainText().strip()
+                
+            # Logic:
+            # 1. If field was mixed (in self.mixed_fields):
+            #    - Update ONLY if text is NOT empty.
+            # 2. If field was common (not in mixed):
+            #    - Update always (even if empty, meaning user cleared it).
+            
+            if attr in self.mixed_fields:
+                if text: # User entered something
+                    # Special case for Amount/Date conversion logic?
+                    # The update_document_metadata handles conversion if passed as string?
+                    # Actually update_document_metadata expects primitives usually?
+                    # Let's clean it up.
+                    if text == "<Multiple Values>": continue # Should not happen if cleared/placeholder
+                    updates[attr] = text
+            else:
+                # Common value. Update to text (empty or not).
+                updates[attr] = text if text else None
+                
+        # Clean up specific types based on model needs (Date, Amount)
+        # Assuming db_manager.update_document_metadata handles string->type conversion?
+        # Let's check update_document_metadata implementation or handle here.
+        # It's safer to handle here or trust manager. 
+        # For efficiency, let's assume strings are passed and manager/model handles it 
+        # OR we need to be careful.
+        
+        # Actually `update_document_metadata` iterates keys and setattr.
+        # Document (Pydantic) will coerce types? Yes, if valid.
+        # But text "" for Date might fail.
+        
+        if "amount" in updates and updates["amount"] == "": updates["amount"] = None
+        if "doc_date" in updates and updates["doc_date"] == "": updates["doc_date"] = None
+
+        count = 0
+        for uuid in self.current_uuids:
+             if self.db_manager.update_document_metadata(uuid, updates):
+                 count += 1
+                 
+        if count > 0:
+            QMessageBox.information(self, self.tr("Success"), self.tr(f"Metadata saved for {count} documents."))
             self.metadata_saved.emit()
         else:
             QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to save changes."))

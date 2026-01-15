@@ -6,7 +6,7 @@ class DocumentListWidget(QTableWidget):
     """
     Displays the list of documents from the database.
     """
-    document_selected = pyqtSignal(str) # UUID
+    document_selected = pyqtSignal(list) # List[str] UUIDs
     delete_requested = pyqtSignal(str) # UUID
     reprocess_requested = pyqtSignal(list) # List[str] UUIDs (Changed from str)
     merge_requested = pyqtSignal(list) # List[str] UUIDs
@@ -35,8 +35,11 @@ class DocumentListWidget(QTableWidget):
         
         # Stretch columns
         header = self.horizontalHeader()
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch) # Sender stretches
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch) # Filename stretches? No maybe share
+        # Set all to Interactive to allow manual resize of everything
+        # We can still set initial sizes, but mode should be Interactive.
+        for i in range(len(self.columns)):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
+            
         header.setSectionsMovable(True)
         header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         header.customContextMenuRequested.connect(self.show_header_menu)
@@ -116,8 +119,6 @@ class DocumentListWidget(QTableWidget):
         export_action = menu.addAction(self.tr("Export Selected..."))
         menu.addSeparator()
         delete_action = menu.addAction(self.tr("Delete Document"))
-        
-        action = menu.exec(self.mapToGlobal(pos))
         
         action = menu.exec(self.mapToGlobal(pos))
         

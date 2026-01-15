@@ -181,23 +181,48 @@ class MainWindow(QMainWindow):
         action_about.triggered.connect(self.show_about_dialog)
         help_menu.addAction(action_about)
 
-    def on_document_selected(self, uuid: str):
-        """Handle document selection."""
-        if self.db_manager:
-            doc = self.db_manager.get_document_by_uuid(uuid)
-            if doc:
-                self.editor_widget.display_document(doc)
-                
-                # Load PDF
-                if self.pipeline and self.pipeline.vault:
-                    path = self.pipeline.vault.get_file_path(uuid)
-                    if path:
-                        self.pdf_viewer.load_document(path)
-                    else:
-                        self.pdf_viewer.clear()
-            else:
-                self.editor_widget.clear()
-                self.pdf_viewer.clear()
+    def on_document_selected(self, uuids: list):
+        """Handle document selection (single or batch)."""
+        if not self.db_manager or not uuids:
+            self.editor_widget.clear()
+            self.pdf_viewer.clear()
+            return
+
+        docs = []
+        for uuid in uuids:
+            d = self.db_manager.get_document_by_uuid(uuid)
+            if d: docs.append(d)
+            
+        if not docs:
+             self.editor_widget.clear()
+             self.pdf_viewer.clear()
+             return
+             
+        # Update Editor (Batch aware)
+        self.editor_widget.display_documents(docs)
+        
+        # Update PDF Viewer
+        # If single, show it. If multiple, show first? Or show simple "Multiple Selected" message?
+        # Viewer usually only supports one file.
+        if len(docs) == 1:
+            if self.pipeline and self.pipeline.vault:
+                path = self.pipeline.vault.get_file_path(docs[0].uuid)
+                if path:
+                    self.pdf_viewer.load_document(path)
+                else:
+                     self.pdf_viewer.clear()
+        else:
+            # Maybe clear viewer or show placeholder?
+            # self.pdf_viewer.clear() 
+            # Or just keep showing the last one (confusing).
+            # Best: Show first one but indicate multiple?
+            # Let's clear for clarity or show the first one to allow "comparison"?
+            # User wants to batch edit metadata. 
+            # If viewer shows Doc A, and user edits "Sender" -> applies to A, B, C.
+            # It's fine to show Doc A as reference.
+            if self.pipeline and self.pipeline.vault:
+                path = self.pipeline.vault.get_file_path(docs[0].uuid)
+                if path: self.pdf_viewer.load_document(path)
 
     def delete_selected_slot(self):
         """Handle deletion via Menu."""
