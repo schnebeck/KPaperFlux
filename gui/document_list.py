@@ -12,6 +12,7 @@ class DocumentListWidget(QTableWidget):
     merge_requested = pyqtSignal(list) # List[str] UUIDs
     export_requested = pyqtSignal(list) # List[str] UUIDs
     stamp_requested = pyqtSignal(str) # UUID (Single for now, or list?) Let's support single for stamp simplicity.
+    tags_update_requested = pyqtSignal(list) # List[str] UUIDs
     
     def __init__(self, db_manager: DatabaseManager):
         super().__init__()
@@ -103,6 +104,7 @@ class DocumentListWidget(QTableWidget):
              merge_action = None
   
         reprocess_action = menu.addAction(self.tr("Reprocess (OCR)"))
+        tags_action = menu.addAction(self.tr("Manage Tags..."))
         stamp_action = menu.addAction(self.tr("Stamp..."))
         menu.addSeparator()
         export_action = menu.addAction(self.tr("Export Selected..."))
@@ -129,6 +131,14 @@ class DocumentListWidget(QTableWidget):
                  u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
                  if u: uuids.append(u)
              self.merge_requested.emit(uuids)
+        elif action == tags_action:
+             # Gather UUIDs
+             uuids = []
+             for row in selected_rows:
+                 u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
+                 if u: uuids.append(u)
+             if uuids:
+                 self.tags_update_requested.emit(uuids)
         elif action == stamp_action:
             self.stamp_requested.emit(uuid)
         elif action == export_action:

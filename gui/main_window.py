@@ -66,7 +66,9 @@ class MainWindow(QMainWindow):
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
             self.list_widget.merge_requested.connect(self.merge_documents_slot)
             self.list_widget.export_requested.connect(self.export_documents_slot)
+            self.list_widget.export_requested.connect(self.export_documents_slot)
             self.list_widget.stamp_requested.connect(self.stamp_document_slot)
+            self.list_widget.tags_update_requested.connect(self.manage_tags_slot)
             
             # Connect Filter
             self.filter_widget.filter_changed.connect(self.list_widget.apply_filter)
@@ -472,6 +474,48 @@ class MainWindow(QMainWindow):
                 
             except Exception as e:
                 QMessageBox.critical(self, self.tr("Error"), self.tr(f"Stamping failed: {e}"))
+
+    def manage_tags_slot(self, uuids: list[str]):
+        """Open dialog to add/remove tags for selected documents."""
+        if not uuids: return
+        
+        from gui.batch_tag_dialog import BatchTagDialog
+        dialog = BatchTagDialog(self)
+        if dialog.exec():
+            add_tags, remove_tags = dialog.get_data()
+            
+            # Iterate
+            count = 0
+            for uuid in uuids:
+                doc = self.db_manager.get_document_by_uuid(uuid)
+                if not doc: continue
+                
+                # Split current tags by comma
+                current_tags_list = [t.strip() for t in (doc.tags or "").split(",") if t.strip()]
+                
+                # Add
+                for t in add_tags:
+                    # Check case insensitive existence? Or exact? 
+                    # Let's assume exact for now, but case-insesitive check is better UX.
+                    if t not in current_tags_list:
+                        current_tags_list.append(t)
+                        
+                # Remove
+                # remove_tags also exact match
+                current_tags_list = [t for t in current_tags_list if t not in remove_tags]
+                
+                new_tags_str = ", ".join(current_tags_list)
+                
+                # Update if changed
+                if new_tags_str != (doc.tags or ""):
+                    # Avoid updating creation date etc? update_metadata keeps valid columns
+                    success = self.db_manager.update_document_metadata(uuid, {'tags': new_tags_str})
+                    if success:
+                        count += 1
+                    
+            if count > 0:
+                self.list_widget.refresh_list()
+                QMessageBox.information(self, self.tr("Tags Updated"), self.tr(f"Updated tags for {count} documents."))
 
     def closeEvent(self, event: QCloseEvent):
         """Save state before closing."""
