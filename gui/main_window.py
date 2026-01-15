@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
             self.list_widget.document_selected.connect(self.on_document_selected)
             self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
+            self.list_widget.merge_requested.connect(self.merge_documents_slot)
             
             splitter.addWidget(self.list_widget)
             self.list_widget.refresh_list()
@@ -62,7 +63,9 @@ class MainWindow(QMainWindow):
             self.list_widget = None
         
         # Document Detail (Detail)
-        self.detail_widget = DocumentDetailWidget()
+        # Document Detail (Detail)
+        vault = self.pipeline.vault if self.pipeline else None
+        self.detail_widget = DocumentDetailWidget(self.db_manager, vault)
         splitter.addWidget(self.detail_widget)
         
         # Set initial sizes (List=40%, Detail=60%)
@@ -81,7 +84,8 @@ class MainWindow(QMainWindow):
         
         action_scan = QAction(self.tr("&Scan..."), self)
         action_scan.setShortcut("Ctrl+S")
-        action_scan.setEnabled(False) # Placeholder
+        action_scan.triggered.connect(self.open_scanner_slot)
+        # action_scan.setEnabled(False) # Now enabled
         file_menu.addAction(action_scan)
         
         action_print = QAction(self.tr("&Print"), self)
@@ -194,6 +198,39 @@ class MainWindow(QMainWindow):
             # Fallback/Debug if pipeline is missing
             print(f"Selected: {file_path}, but no pipeline connected.")
 
+    def open_scanner_slot(self):
+        """Open scanner dialog and process result."""
+        from gui.scanner_dialog import ScannerDialog
+        dialog = ScannerDialog(self)
+        if dialog.exec():
+            path = dialog.get_scanned_file()
+            if path and self.pipeline:
+                try:
+                    # Treat scanned file as a normal import
+                    doc = self.pipeline.process_document(path)
+                    QMessageBox.information(
+                        self, self.tr("Success"), self.tr("Scanned document imported successfully!") + f"\nUUID: {doc.uuid}"
+                    )
+                    if self.list_widget:
+                        self.list_widget.refresh_list()
+                except Exception as e:
+                    QMessageBox.critical(
+                        self, self.tr("Error"), self.tr("Failed to process scanned document: {}").format(e)
+                    )
+            
+            # Note: The temp file from scanner (path) is now in Vault (processed).
+            # We can optionally delete the temp file if not handled by Scanner/Vault logic,
+            # but Vault usually copies it. 
+            # ScannerWorker creates a temp file. process_document stores it.
+            # We should cleanup the original temp file? 
+            # process_document reads from path, Vault stores it. 
+            # Yes, Scanner generated a temp file. We should delete it after processing.
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except:
+                    pass
+
     def refresh_list_slot(self):
         if self.list_widget:
             self.list_widget.refresh_list()
@@ -208,6 +245,27 @@ class MainWindow(QMainWindow):
         # For now, maybe just prompt restart if language changes
         # But OCR/Vault settings might take effect next time action is called.
         pass
+
+    def merge_documents_slot(self, uuids: list[str]):
+        """Handle merge request."""
+        if not self.pipeline:
+            return
+            
+        reply = QMessageBox.question(self, self.tr("Confirm Merge"),
+                                   self.tr(f"Merge {len(uuids)} documents into a new file? Originals will be kept."),
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                   
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                # Merge
+                merged_doc = self.pipeline.merge_documents(uuids)
+                if merged_doc:
+                    QMessageBox.information(self, self.tr("Success"), self.tr("Documents merged successfully."))
+                    self.list_widget.refresh_list()
+                else:
+                    QMessageBox.warning(self, self.tr("Error"), self.tr("Merge failed."))
+            except Exception as e:
+                QMessageBox.critical(self, self.tr("Error"), self.tr(f"Merge error: {e}"))
 
     def show_about_dialog(self):
         """Show the About dialog with system info."""

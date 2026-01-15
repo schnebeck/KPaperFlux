@@ -11,6 +11,10 @@ class AIAnalysisResult:
     doc_date: Optional[datetime.date] = None
     amount: Optional[Decimal] = None
     doc_type: Optional[str] = None
+    sender_address: Optional[str] = None
+    iban: Optional[str] = None
+    phone: Optional[str] = None
+    tags: Optional[str] = None
 
 class AIAnalyzer:
     """
@@ -35,7 +39,20 @@ class AIAnalyzer:
         3. Total Amount (Numeric, valid decimal)
         4. Document Type (One of: Invoice, Receipt, Contract, Letter, Other)
         
-        Return ONLY valid JSON with keys: "sender", "doc_date", "amount", "doc_type".
+        Your job is to extract structured data.
+        Return ONLY valid JSON.
+        
+        Fields to extract:
+        1. sender: Name of company or person.
+        2. doc_date: YYYY-MM-DD.
+        3. amount: numeric literal (e.g. 12.50).
+        4. doc_type: e.g. "Invoice", "Contract", "Letter".
+        5. sender_address: Full address (Street, Zip, City).
+        6. iban: International Bank Account Number if present.
+        7. phone: Sender's phone number.
+        8. tags: A generic string of comma-separated keywords useful for organization (e.g. "Rechnung, Versicherung, KFZ"). Check context for appropriate tags.
+        
+        JSON Keys: ["sender", "doc_date", "amount", "doc_type", "sender_address", "iban", "phone", "tags"]
         If a field is not found, set it to null.
         
         Text:
@@ -77,7 +94,11 @@ class AIAnalyzer:
                 sender=data.get("sender"),
                 doc_date=doc_date,
                 amount=amount,
-                doc_type=data.get("doc_type")
+                doc_type=data.get("doc_type"),
+                sender_address=data.get("sender_address"),
+                iban=data.get("iban"),
+                phone=data.get("phone"),
+                tags=data.get("tags")
             )
             
         except Exception as e:

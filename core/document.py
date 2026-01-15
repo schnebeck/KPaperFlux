@@ -18,6 +18,12 @@ class Document(BaseModel):
     amount: Optional[Decimal] = None
     doc_type: Optional[str] = None
     
+    # Extended Metadata (Phase 3)
+    sender_address: Optional[str] = None
+    iban: Optional[str] = None
+    phone: Optional[str] = None
+    tags: Optional[str] = None
+    
     # Duplicate detection fingerprints
     phash: Optional[str] = None
     text_content: Optional[str] = None

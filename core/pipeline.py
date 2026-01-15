@@ -1,8 +1,9 @@
 import subprocess
 import tempfile
 import os
-from typing import Optional
+from typing import Optional, List
 from pathlib import Path
+import pikepdf
 from core.document import Document
 from core.vault import DocumentVault
 from core.database import DatabaseManager
@@ -17,9 +18,6 @@ class PipelineProcessor:
                  vault: Optional[DocumentVault] = None, db: Optional[DatabaseManager] = None):
         
         self.config = AppConfig()
-        # If vault/db are injected, utilize them. If not, create defaults.
-        # Note: base_path argument is becoming redundant if we fully switch to Config, 
-        # but kept for backward compatibility/tests.
         self.vault = vault if vault else DocumentVault(self.config.get_vault_path())
         self.db = db if db else DatabaseManager(db_path)
         
@@ -28,9 +26,10 @@ class PipelineProcessor:
         Main entry point:
         1. Create Document object
         2. Store file in Vault
-        3. OCR the file (if needed)
-        4. AI Analysis (Sender, Amount, Date)
-        5. Save metadata to DB
+        3. Determine Type (Native vs Scanned)
+        4. Extract Text (Native or OCR)
+        5. AI Analysis (Sender, Amount, Date, etc.)
+        6. Save metadata to DB
         """
         path = Path(file_path)
         if not path.exists():
@@ -43,23 +42,228 @@ class PipelineProcessor:
         stored_path = self.vault.store_document(doc, str(path))
         if not stored_path:
             return None # Failed to store
+        
+        full_stored_path = Path(stored_path)
             
-        # 3. OCR
+        # 3 & 4. Text Extraction Strategy
         try:
-            doc.text_content = self._run_ocr(Path(stored_path))
+            if self._is_native_pdf(full_stored_path):
+                print(f"[{doc.uuid}] Detected Native PDF. Extracting text directly.")
+                doc.text_content = self._extract_text_native(full_stored_path)
+                # If native text extraction yields too little, fallback to OCR?
+                if len(doc.text_content.strip()) < 50:
+                    print(f"[{doc.uuid}] Native text insufficient (<50 chars). Falling back to OCR.")
+                    doc.text_content = self._run_ocr(full_stored_path)
+            else:
+                print(f"[{doc.uuid}] Detected Scanned PDF/Image. Running OCR.")
+                doc.text_content = self._run_ocr(full_stored_path)
         except Exception as e:
-            print(f"OCR Error: {e}")
-            # Continue even if OCR fails, maybe AI can look at image later? 
-            # For now text is needed for AI.
+            print(f"Processing Error: {e}")
             doc.text_content = ""
             
-        # 4. AI Analysis
+        # 5. AI Analysis
         self._run_ai_analysis(doc)
             
-        # 5. Save to DB
+        # 6. Save to DB
         self.db.insert_document(doc)
         
         return doc
+
+    def reprocess_document(self, uuid: str) -> Optional[Document]:
+        """
+        Reprocess an existing document:
+        1.  Fetch from DB
+        2.  Locate in Vault
+        3.  Re-run Extraction (Force OCR? or Auto?)
+            - User request: "Reprocess (OCR)" implies forcing OCR usually.
+            - But let's stick to Auto logic or allow forced mode.
+            - For now: Use Auto but prioritize improvement.
+        4.  Update DB
+        """
+        doc = self.db.get_document_by_uuid(uuid)
+        if not doc:
+            return None
+            
+        file_path = self.vault.get_file_path(doc.uuid)
+        if not file_path or not Path(file_path).exists():
+            print(f"File not found in vault: {file_path}")
+            return None
+            
+        # Re-run Extraction (Force OCR for reprocess usually makes sense if native failed)
+        try:
+            # We assume user reprocesses because something was missing.
+            # Try OCR.
+            doc.text_content = self._run_ocr(Path(file_path))
+        except Exception as e:
+            print(f"OCR Error during reprocess: {e}")
+            
+        # Re-run AI
+        self._run_ai_analysis(doc)
+        
+        # Update DB
+        self.db.insert_document(doc)
+        
+        return doc
+        
+    def merge_documents(self, uuids: List[str]) -> Optional[Document]:
+        """
+        Merge multiple documents into a new one.
+        Returns the new merged Document.
+        Originals are NOT deleted automatically here (User decision).
+        """
+        if not uuids:
+            return None
+            
+        input_paths = []
+        for uuid in uuids:
+            path = self.vault.get_file_path(uuid)
+            if path and os.path.exists(path):
+                input_paths.append(Path(path))
+            else:
+                print(f"Warning: merge skipping missing uuid {uuid}")
+        
+        if not input_paths:
+            return None
+            
+        # Create new merged PDF
+        new_doc = Document(original_filename="merged_document.pdf")
+        
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+            
+        try:
+            with pikepdf.Pdf.new() as pdf:
+                for path in input_paths:
+                    src = pikepdf.Pdf.open(path)
+                    pdf.pages.extend(src.pages)
+                pdf.save(tmp_path)
+                
+            # Store new file
+            stored_path = self.vault.store_document(new_doc, tmp_path)
+            
+            # Process it (Extract text from new file)
+            # Since it's composed of others, it might be native or mixed.
+            # We process it like a fresh import.
+            if stored_path:
+                # We can call process_document recursively but we already stored it.
+                # Just finish steps.
+                full_stored_path = Path(stored_path)
+                
+                # Copy properties? Nah, new analysis.
+                if self._is_native_pdf(full_stored_path):
+                     new_doc.text_content = self._extract_text_native(full_stored_path)
+                else:
+                     new_doc.text_content = self._run_ocr(full_stored_path)
+                     
+                self._run_ai_analysis(new_doc)
+                self.db.insert_document(new_doc)
+                
+                return new_doc
+                
+        except Exception as e:
+            print(f"Merge Error: {e}")
+            return None
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+                
+        return None
+
+    def _is_native_pdf(self, path: Path) -> bool:
+        """
+        Check if PDF is native (has text layer) or scanned image.
+        Heuristic: Iterate pages, check for valid text streams.
+        """
+        try:
+            with pikepdf.Pdf.open(path) as pdf:
+                # Check for /Font in resources of first page?
+                # Simple check: Does extracting text return substantive content?
+                # We can't rely solely on pikepdf for text extraction easily without extra tools, 
+                # but we can try basic structure checks.
+                # Let's use `extract_text_native` as the check implicitly? 
+                # No, we want a cheap check.
+                
+                # Check if pages have fonts
+                for page in pdf.pages:
+                    if "/Font" in page.resources:
+                        return True
+            return False
+        except Exception:
+            return False
+
+    def _extract_text_native(self, path: Path) -> str:
+        """
+        Extract text from native PDF using pdfminer/pikepdf tools.
+        For simplicity, we use `pdfminer.high_level` if available or `subprocess pdftotext`.
+        Dependency list has `ocrmypdf` which has `pdfminer.six`.
+        """
+        try:
+            from pdfminer.high_level import extract_text
+            return extract_text(path)
+        except ImportError:
+            # Fallback
+            print("pdfminer not found, fallback to empty (will trigger OCR)")
+            return ""
+        except Exception as e:
+            print(f"Native extraction error: {e}")
+            return ""
+
+    def _run_ocr(self, path: Path) -> str:
+        """
+        Execute OCRmyPDF to extract text.
+        """
+        ocr_binary = self.config.get_ocr_binary()
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_pdf = Path(temp_dir) / f"ocr_{path.name}"
+            sidecar_txt = Path(temp_dir) / f"ocr_{path.name}.txt"
+            
+            # Run ocrmypdf
+            # If we call this, we generally WANT OCR.
+            cmd = [
+                ocr_binary,
+                "--force-ocr", 
+                "-l", "deu+eng",
+                "--sidecar", str(sidecar_txt),
+                str(path), 
+                str(output_pdf)
+            ]
+            
+            subprocess.run(cmd, check=True, capture_output=True)
+            
+            if sidecar_txt.exists():
+                return sidecar_txt.read_text("utf-8")
+                
+        return ""
+
+    def _run_ai_analysis(self, doc: Document):
+        """
+        Use AI Analyzer to extract metadata if API key is present.
+        """
+        api_key = self.config.get_api_key()
+        if not api_key:
+            return
+            
+        if not doc.text_content:
+            return
+            
+        try:
+            model_name = self.config.get_gemini_model()
+            analyzer = AIAnalyzer(api_key, model_name=model_name)
+            result = analyzer.analyze_text(doc.text_content)
+            
+            # Map result to doc
+            if result.sender: doc.sender = result.sender
+            if result.doc_date: doc.doc_date = result.doc_date
+            if result.amount is not None: doc.amount = result.amount
+            if result.doc_type: doc.doc_type = result.doc_type
+            if result.sender_address: doc.sender_address = result.sender_address
+            if result.iban: doc.iban = result.iban
+            if result.phone: doc.phone = result.phone
+            if result.tags: doc.tags = result.tags
+            
+        except Exception as e:
+            print(f"AI Pipeline Error: {e}")
 
     def reprocess_document(self, uuid: str) -> Optional[Document]:
         """
@@ -142,6 +346,9 @@ class PipelineProcessor:
             if result.doc_date: doc.doc_date = result.doc_date
             if result.amount is not None: doc.amount = result.amount
             if result.doc_type: doc.doc_type = result.doc_type
-            
+            if result.sender_address: doc.sender_address = result.sender_address
+            if result.iban: doc.iban = result.iban
+            if result.phone: doc.phone = result.phone
+            if result.tags: doc.tags = result.tags            
         except Exception as e:
             print(f"AI Pipeline Error: {e}")
