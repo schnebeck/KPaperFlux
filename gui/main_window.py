@@ -1,9 +1,9 @@
 from typing import Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, 
-    QMessageBox, QSplitter, QMenuBar, QMenu
+    QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox
 )
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent
 from PyQt6.QtCore import Qt
 import sys
 import platform
@@ -31,6 +31,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.tr("KPaperFlux"))
         self.setWindowIcon(QIcon("resources/icon.png"))
         self.resize(1000, 700)
+        self.setAcceptDrops(True)
         
         self.create_menu_bar()
         
@@ -126,6 +127,10 @@ class MainWindow(QMainWindow):
         action_settings = QAction(self.tr("&Settings..."), self)
         action_settings.triggered.connect(self.open_settings_slot)
         config_menu.addAction(action_settings)
+        
+        action_maintenance = QAction(self.tr("&Maintenance..."), self)
+        action_maintenance.triggered.connect(self.open_maintenance_slot)
+        config_menu.addAction(action_maintenance)
 
         # -- Help Menu --
         help_menu = menubar.addMenu(self.tr("&Help"))
@@ -299,3 +304,84 @@ class MainWindow(QMainWindow):
                 kde_ver=kde_version
             )
         )
+
+    def open_maintenance_slot(self):
+        """Open Maintenance Dialog."""
+        from gui.maintenance_dialog import MaintenanceDialog
+        from core.integrity import IntegrityManager
+        
+        if not self.pipeline or not self.db_manager:
+            return
+            
+        # Ensure vault is available
+        vault = self.pipeline.vault
+        if not vault:
+            return
+            
+        integrity_manager = IntegrityManager(self.db_manager, vault)
+        dialog = MaintenanceDialog(self, integrity_manager, self.pipeline)
+        
+        if dialog.exec():
+            # Refresh list as documents might have been deleted/imported
+            if self.list_widget:
+                self.list_widget.refresh_list()
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        """Handle Drag Enter: Check for PDFs."""
+        if event.mimeData().hasUrls():
+            # Check if any file is PDF
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith('.pdf'):
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        """Handle Drop: Extract files."""
+        files = []
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                path = url.toLocalFile()
+                if path.lower().endswith('.pdf') and os.path.exists(path):
+                    files.append(path)
+        
+        if files:
+            self.handle_dropped_files(files)
+            event.acceptProposedAction()
+
+    def handle_dropped_files(self, files: list[str]):
+        """Confirm import and options."""
+        if not self.pipeline:
+            return
+
+        # Custom Dialog for Options
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Import Dropped Files"))
+        
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel(self.tr(f"Import {len(files)} files into KPaperFlux?")))
+        
+        chk_move = QCheckBox(self.tr("Move files to Vault (Delete source)"))
+        layout.addWidget(chk_move)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            move_source = chk_move.isChecked()
+            success_count = 0
+            
+            for fpath in files:
+                try:
+                    self.pipeline.process_document(fpath, move_source=move_source)
+                    success_count += 1
+                except Exception as e:
+                    print(f"Error importing {fpath}: {e}")
+            
+            QMessageBox.information(self, self.tr("Import Complete"),
+                                  self.tr(f"Successfully imported {success_count} of {len(files)} files."))
+            
+            if self.list_widget:
+                self.list_widget.refresh_list()
