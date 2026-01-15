@@ -1,9 +1,10 @@
 
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QDateEdit, QComboBox, 
-    QLineEdit, QPushButton, QGroupBox
+    QLineEdit, QPushButton, QGroupBox, QVBoxLayout
 )
 from PyQt6.QtCore import pyqtSignal, QDate, Qt
+from core.query_parser import QueryParser
 
 class FilterWidget(QWidget):
     """
@@ -14,13 +15,32 @@ class FilterWidget(QWidget):
     def __init__(self):
         super().__init__()
         
-        self.layout = QHBoxLayout(self)
+        self.parser = QueryParser()
+        
+        self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         
-        group = QGroupBox(self.tr("Filter"))
-        self.layout.addWidget(group)
+        # Smart Search Row
+        search_layout = QHBoxLayout()
+        self.txt_smart_search = QLineEdit()
+        self.txt_smart_search.setPlaceholderText(self.tr("Search documents (e.g. 'Amazon 2024 Invoice')..."))
+        self.txt_smart_search.returnPressed.connect(self.emit_smart_filter)
+        search_layout.addWidget(QLabel(self.tr("Search:")))
+        search_layout.addWidget(self.txt_smart_search)
         
-        form = QHBoxLayout(group)
+        btn_advanced = QPushButton(self.tr("Advanced Filter \u25BC"))
+        btn_advanced.setCheckable(True)
+        btn_advanced.toggled.connect(self._toggle_advanced)
+        search_layout.addWidget(btn_advanced)
+        
+        self.layout.addLayout(search_layout)
+        
+        # Advanced Group (Hidden by default)
+        self.advanced_group = QGroupBox(self.tr("Advanced Criteria"))
+        self.advanced_group.setVisible(False)
+        self.layout.addWidget(self.advanced_group)
+        
+        form = QHBoxLayout(self.advanced_group)
         
         # Date Range
         form.addWidget(QLabel(self.tr("From:")))
@@ -28,16 +48,11 @@ class FilterWidget(QWidget):
         self.date_from.setCalendarPopup(True)
         self.date_from.setDisplayFormat("yyyy-MM-dd")
         self.date_from.setDate(QDate.currentDate().addYears(-1)) # Default 1 year back
-        # self.date_from.setSpecialValueText(self.tr("Start")) # Optional: Allow "Any" by checkable?
-        # For simplicity: Use a checkable group or checkbox for "Enable Date Filter"
-        # Or just assume large range.
-        self.enable_date = QPushButton(self.tr("Date Filter"))
+        
+        self.enable_date = QPushButton(self.tr("Enable Date"))
         self.enable_date.setCheckable(True)
         self.enable_date.setChecked(False)
         self.enable_date.toggled.connect(self._toggle_date_inputs)
-        
-        # form.addWidget(self.enable_date) 
-        # Better UX: Checkbox "Filter Date" next to inputs.
         
         self.date_from.setEnabled(False)
         form.addWidget(self.date_from)
@@ -50,42 +65,45 @@ class FilterWidget(QWidget):
         self.date_to.setEnabled(False)
         form.addWidget(self.date_to)
         
-        # Enable Button logic
         form.addWidget(self.enable_date)
 
         # Type
         form.addWidget(QLabel(self.tr("Type:")))
         self.combo_type = QComboBox()
         self.combo_type.addItem(self.tr("All"), None)
-        # Populate standard types or fetch from DB?
-        # Hardcode common ones plus dynamic?
         self.combo_type.addItems(["Invoice", "Receipt", "Contract", "Letter", "Other"])
         form.addWidget(self.combo_type)
         
         # Tags
         form.addWidget(QLabel(self.tr("Tags:")))
         self.txt_tags = QLineEdit()
-        self.txt_tags.setPlaceholderText(self.tr("e.g. tax, insurance"))
+        self.txt_tags.setPlaceholderText(self.tr("e.g. tax"))
         form.addWidget(self.txt_tags)
         
-        # Apply/Reset
-        btn_apply = QPushButton(self.tr("Apply"))
+        # Apply/Reset (Advanced)
+        btn_apply = QPushButton(self.tr("Apply Advanced"))
         btn_apply.clicked.connect(self.emit_filter)
         form.addWidget(btn_apply)
         
-        btn_reset = QPushButton(self.tr("Reset"))
-        btn_reset.clicked.connect(self.reset_filter)
-        form.addWidget(btn_reset)
+    def _toggle_advanced(self, checked: bool):
+        self.advanced_group.setVisible(checked)
         
-        # Connect change signals for auto-apply if desired?
-        # self.combo_type.currentIndexChanged.connect(self.emit_filter)
-        # For dates/text usually explicit Apply is better.
+    def emit_smart_filter(self):
+        query = self.txt_smart_search.text().strip()
+        if not query:
+            self.filter_changed.emit({})
+            return
+            
+        # Parse query
+        criteria = self.parser.parse(query)
+        self.filter_changed.emit(criteria)
 
     def _toggle_date_inputs(self, checked: bool):
         self.date_from.setEnabled(checked)
         self.date_to.setEnabled(checked)
         
     def reset_filter(self):
+        self.txt_smart_search.clear()
         self.enable_date.setChecked(False)
         self.date_from.setDate(QDate.currentDate().addYears(-1))
         self.date_to.setDate(QDate.currentDate())

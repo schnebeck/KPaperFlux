@@ -156,6 +156,7 @@ class DocumentListWidget(QTableWidget):
         self.setSortingEnabled(False) # Disable during populate
         self.setRowCount(0) # Clear existing
         documents = self.db.get_all_documents()
+        self.documents_cache = {doc.uuid: doc for doc in documents}
         
         self.setRowCount(len(documents))
         
@@ -196,9 +197,16 @@ class DocumentListWidget(QTableWidget):
         date_to = criteria.get('date_to')
         target_type = criteria.get('type')
         target_tags = criteria.get('tags')
+        text_search = criteria.get('text_search')
         
         for row in range(self.rowCount()):
             show = True
+            
+            # Get UUID to lookup cache for text search
+            uuid_item = self.item(row, 0)
+            if not uuid_item: continue
+            uuid = uuid_item.data(Qt.ItemDataRole.UserRole)
+            doc = self.documents_cache.get(uuid)
             
             # Date Filter (Col 0)
             if date_from or date_to:
@@ -229,6 +237,27 @@ class DocumentListWidget(QTableWidget):
                 tag_val = tag_item.text().lower() if tag_item else ""
                 # Simple substring check
                 if target_tags.lower() not in tag_val:
+                    show = False
+
+            # Text Search (Smart Search)
+            if show and text_search and doc:
+                query = text_search.lower()
+                # Fields to search: Sender, Type, Tags, Filename, Address, Content?
+                # Content might be huge. Let's include it for "Smart" search.
+                
+                haystack = [
+                    doc.sender or "",
+                    doc.doc_type or "",
+                    doc.tags or "",
+                    doc.original_filename or "",
+                    doc.sender_address or "",
+                    doc.text_content or ""
+                ]
+                
+                # Check if query words are in haystack
+                # Simple containment: query string in combined haystack
+                full_text = " ".join(haystack).lower()
+                if query not in full_text:
                     show = False
             
             self.setRowHidden(row, not show)
