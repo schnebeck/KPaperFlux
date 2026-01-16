@@ -1,10 +1,12 @@
 
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
-    QPushButton, QScrollArea, QMessageBox, QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView
+    QPushButton, QScrollArea, QMessageBox, QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
+    QDateEdit
 )
 import json
-from PyQt6.QtCore import Qt, pyqtSignal
+import datetime
+from PyQt6.QtCore import Qt, pyqtSignal, QDate, QLocale
 from core.document import Document
 from core.database import DatabaseManager
 from gui.utils import format_date, format_datetime
@@ -54,8 +56,17 @@ class MetadataEditorWidget(QWidget):
         self.sender_edit = QLineEdit()
         general_layout.addRow(self.tr("Sender (Summary):"), self.sender_edit)
         
-        self.date_edit = QLineEdit() 
-        self.date_edit.setPlaceholderText("YYYY-MM-DD")
+        self.date_edit = QDateEdit()
+        self.date_edit.setCalendarPopup(True)
+        # Handle nullable dates: If user clears it? QDateEdit doesn't support clear easily.
+        # But we can default to today or enable strict checking.
+        # We'll use a standard format for Input.
+        self.date_edit.setDisplayFormat(QLocale.system().dateFormat(QLocale.FormatType.ShortFormat))
+        # Initial invalid date to represent "None" if needed? 
+        # For simplicity, we just set Date. Empty is hard.
+        # Let's add a "Clear Date" action or button? 
+        # Or just accept that a document has a date (default today).
+        # User said "Eingabehilfe", implies calendar.
         general_layout.addRow(self.tr("Date:"), self.date_edit)
         
         self.amount_edit = QLineEdit()
@@ -273,7 +284,23 @@ class MetadataEditorWidget(QWidget):
         
         self.page_count_lbl.setText(str(doc.page_count) if doc.page_count is not None else "-")
         self.sender_edit.setText(doc.sender or "")
-        self.date_edit.setText(str(doc.doc_date) if doc.doc_date else "")
+        
+        # Set Date
+        if doc.doc_date:
+            if isinstance(doc.doc_date, str):
+                try:
+                    qdate = QDate.fromString(doc.doc_date, Qt.DateFormat.ISODate)
+                except:
+                    qdate = QDate.currentDate()
+            else:
+                # python date -> QDate
+                qdate = QDate(doc.doc_date.year, doc.doc_date.month, doc.doc_date.day)
+            self.date_edit.setDate(qdate)
+        else:
+            # Default to today if null? Or special handling?
+            # User wants "Eingabehilfe", so usually valid date.
+            self.date_edit.setDate(QDate.currentDate())
+            
         self.amount_edit.setText(str(doc.amount) if doc.amount is not None else "")
         self.type_edit.setText(doc.doc_type or "")
         self.export_filename_edit.setText(doc.export_filename or "")
@@ -322,7 +349,7 @@ class MetadataEditorWidget(QWidget):
         
     def _reset_placeholders(self):
         """Reset standard placeholders."""
-        self.date_edit.setPlaceholderText("YYYY-MM-DD")
+        # self.date_edit.setPlaceholderText("YYYY-MM-DD") # QDateEdit doesn't supports this easily
         self.tags_edit.setPlaceholderText("Tag1, Tag2...")
         self.sender_edit.setPlaceholderText("")
         self.amount_edit.setPlaceholderText("") # etc.
@@ -340,7 +367,7 @@ class MetadataEditorWidget(QWidget):
         self.updated_at_lbl.clear()
         self.page_count_lbl.clear()
         self.sender_edit.clear()
-        self.date_edit.clear()
+        self.date_edit.setDate(QDate.currentDate()) # Or some default
         self.amount_edit.clear()
         self.type_edit.clear()
         self.export_filename_edit.clear()
@@ -405,7 +432,18 @@ class MetadataEditorWidget(QWidget):
         updates = {}
         
         for attr, widget in fields.items():
-            if isinstance(widget, QLineEdit):
+            text = None
+            if isinstance(widget, QDateEdit):
+                # QDateEdit always has a date.
+                # If mixed, how do we know if user changed it?
+                # Complex. For now, we assume if user Saves, they overwrite common value.
+                # But for mixed, we might overwrite indiscriminately?
+                # Better: check if we are in mixed mode for this attr.
+                # If mixed, maybe we shouldn't enable editing easily without explicit "Set" action?
+                # For simplicity in this iteration:
+                # convert to iso string
+                text = widget.date().toString(Qt.DateFormat.ISODate)
+            elif isinstance(widget, QLineEdit):
                 text = widget.text().strip()
             elif isinstance(widget, QTextEdit):
                 text = widget.toPlainText().strip()

@@ -37,6 +37,8 @@ def format_datetime(dt) -> str:
             return dt
             
     # QLocale ShortFormat for DateTime often includes Time, but let's be explicit if needed.
-    # Actually ShortFormat usually is "dd.MM.yyyy HH:mm" in DE.
-    # Let's rely on QLocale to match system preference exactly.
-    return locale.toString(dt, QLocale.FormatType.ShortFormat)
+    # User requested "Date+Time-Stamp" (likely with seconds).
+    # "dd.MM.yyyy HH:mm:ss" is a safe standard for DE/ISO-like. 
+    # But to respect locale, we try to use system format but ensure seconds.
+    # FormatType.MediumFormat usually adds seconds.
+    return locale.toString(dt, "dd.MM.yyyy HH:mm:ss")
