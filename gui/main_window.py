@@ -319,7 +319,12 @@ class MainWindow(QMainWindow):
 
     def _on_reprocess_finished(self, success_count, total, processed_uuids, original_uuids, progress_dialog, uuid_to_restore=None):
         progress_dialog.close()
-        self.reprocess_worker = None # Cleanup ref
+        
+        # Safe Thread Cleanup
+        if self.reprocess_worker:
+            self.reprocess_worker.wait() # Ensure it's fully done
+            self.reprocess_worker.deleteLater() # Schedule deletion
+            self.reprocess_worker = None # Clear ref
         
         # Refresh Editor logic
         if self.editor_widget:
