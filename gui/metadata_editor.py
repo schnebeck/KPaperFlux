@@ -68,7 +68,26 @@ class MetadataEditorWidget(QWidget):
         general_layout.addRow(self.tr("Date:"), self.date_edit)
         
         self.amount_edit = QLineEdit()
-        general_layout.addRow(self.tr("Amount:"), self.amount_edit)
+        # Rename to "Netto-Betrag"
+        general_layout.addRow(self.tr("Netto-Betrag:"), self.amount_edit)
+        
+        self.gross_amount_edit = QLineEdit()
+        general_layout.addRow(self.tr("Brutto-Betrag:"), self.gross_amount_edit)
+        
+        # Financial Row (Postage, Packaging, Tax, Currency)
+        # We use a Grid or HBoxes. Let's use simple rows for now or grouped.
+        
+        self.postage_edit = QLineEdit()
+        general_layout.addRow(self.tr("Porto:"), self.postage_edit)
+        
+        self.packaging_edit = QLineEdit()
+        general_layout.addRow(self.tr("Verpackung:"), self.packaging_edit)
+        
+        self.tax_rate_edit = QLineEdit()
+        general_layout.addRow(self.tr("Tax %:"), self.tax_rate_edit)
+        
+        self.currency_edit = QLineEdit()
+        general_layout.addRow(self.tr("Währung:"), self.currency_edit)
         
         self.type_edit = QLineEdit()
         general_layout.addRow(self.tr("Type:"), self.type_edit)
@@ -205,6 +224,12 @@ class MetadataEditorWidget(QWidget):
             "sender": self.sender_edit,
             "doc_date": self.date_edit,
             "amount": self.amount_edit,
+            "gross_amount": self.gross_amount_edit,
+            "postage": self.postage_edit,
+            "packaging": self.packaging_edit,
+            "tax_rate": self.tax_rate_edit,
+            "currency": self.currency_edit,
+            
             "doc_type": self.type_edit,
             "export_filename": self.export_filename_edit,
             "iban": self.iban_edit,
@@ -296,11 +321,25 @@ class MetadataEditorWidget(QWidget):
                 qdate = QDate(doc.doc_date.year, doc.doc_date.month, doc.doc_date.day)
             self.date_edit.setDate(qdate)
         else:
-            # Default to today if null? Or special handling?
-            # User wants "Eingabehilfe", so usually valid date.
             self.date_edit.setDate(QDate.currentDate())
             
-        self.amount_edit.setText(str(doc.amount) if doc.amount is not None else "")
+        def fmt_money(val):
+            if val is not None:
+                try: return f"{float(val):.2f}"
+                except: return str(val)
+            return ""
+
+        self.amount_edit.setText(fmt_money(doc.amount))
+        self.gross_amount_edit.setText(fmt_money(doc.gross_amount))
+        self.postage_edit.setText(fmt_money(doc.postage))
+        self.packaging_edit.setText(fmt_money(doc.packaging))
+        
+        # Tax Rate might not be currency. e.g. 19.0.
+        # Maybe fmt_decimal? But 2 decimals is fine. 19.00
+        self.tax_rate_edit.setText(fmt_money(doc.tax_rate))
+        
+        self.currency_edit.setText(doc.currency or "")
+        
         self.type_edit.setText(doc.doc_type or "")
         self.export_filename_edit.setText(doc.export_filename or "")
         self.iban_edit.setText(doc.iban or "")
@@ -446,6 +485,12 @@ class MetadataEditorWidget(QWidget):
             "sender": self.sender_edit,
             "doc_date": self.date_edit,
             "amount": self.amount_edit,
+            "gross_amount": self.gross_amount_edit,
+            "postage": self.postage_edit,
+            "packaging": self.packaging_edit,
+            "tax_rate": self.tax_rate_edit,
+            "currency": self.currency_edit,
+            
             "doc_type": self.type_edit,
             "export_filename": self.export_filename_edit,
             "iban": self.iban_edit,
@@ -516,7 +561,12 @@ class MetadataEditorWidget(QWidget):
         # Document (Pydantic) will coerce types? Yes, if valid.
         # But text "" for Date might fail.
         
-        if "amount" in updates and updates["amount"] == "": updates["amount"] = None
+        # Validation / Cleanup
+        financial_fields = ["amount", "gross_amount", "postage", "packaging", "tax_rate", "currency"]
+        for f in financial_fields:
+            if f in updates and updates[f] == "":
+                updates[f] = None
+                
         if "doc_date" in updates and updates["doc_date"] == "": updates["doc_date"] = None
         
         # Extra Data (Batch + Single)

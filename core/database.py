@@ -82,7 +82,14 @@ class DatabaseManager:
                 "created_at_iso": "TEXT", # Kept for compatibility if used elsewhere or future
                 "extra_data": "TEXT", # JSON for dynamic fields
                 "last_processed_at": "TEXT", # ISO format
-                "export_filename": "TEXT" 
+                "export_filename": "TEXT",
+                
+                # Phase 45 Financials
+                "gross_amount": "REAL",
+                "postage": "REAL",
+                "packaging": "REAL",
+                "tax_rate": "REAL",
+                "currency": "TEXT"
             }
             
             for col_name, col_type in new_columns.items():
@@ -101,17 +108,23 @@ class DatabaseManager:
             sender_address, iban, phone, tags,
             recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country,
             sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country,
-            page_count, created_at, extra_data, last_processed_at, export_filename
+            page_count, created_at, extra_data, last_processed_at, export_filename,
+            gross_amount, postage, packaging, tax_rate, currency
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?
         )
         """
         
         amount_val = float(doc.amount) if doc.amount is not None else None
+        gross_val = float(doc.gross_amount) if doc.gross_amount is not None else None
+        post_val = float(doc.postage) if doc.postage is not None else None
+        pack_val = float(doc.packaging) if doc.packaging is not None else None
+        tax_val = float(doc.tax_rate) if doc.tax_rate is not None else None
         
         values = (
             doc.uuid,
@@ -132,7 +145,8 @@ class DatabaseManager:
             doc.created_at,
             json.dumps(doc.extra_data) if doc.extra_data else None,
             doc.last_processed_at,
-            doc.export_filename
+            doc.export_filename,
+            gross_val, post_val, pack_val, tax_val, doc.currency
         )
         
         cursor = self.connection.cursor()
@@ -145,7 +159,7 @@ class DatabaseManager:
         Retrieve all documents from the database.
         Returns a list of Document objects.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename FROM documents ORDER BY created_at DESC"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename, gross_amount, postage, packaging, tax_rate, currency FROM documents ORDER BY created_at DESC"
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
@@ -170,7 +184,12 @@ class DatabaseManager:
                 page_count=row[24], created_at=row[25],
                 extra_data=json.loads(row[26]) if row[26] else None,
                 last_processed_at=row[27],
-                export_filename=row[28]
+                export_filename=row[28],
+                gross_amount=row[29],
+                postage=row[30],
+                packaging=row[31],
+                tax_rate=row[32],
+                currency=row[33]
             )
             results.append(doc)
             
@@ -180,7 +199,7 @@ class DatabaseManager:
         """
         Retrieve a single document by its UUID.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename FROM documents WHERE uuid = ?"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename, gross_amount, postage, packaging, tax_rate, currency FROM documents WHERE uuid = ?"
         cursor = self.connection.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
@@ -204,7 +223,12 @@ class DatabaseManager:
                 page_count=row[24], created_at=row[25],
                 extra_data=json.loads(row[26]) if row[26] else None,
                 last_processed_at=row[27],
-                export_filename=row[28]
+                export_filename=row[28],
+                gross_amount=row[29],
+                postage=row[30],
+                packaging=row[31],
+                tax_rate=row[32],
+                currency=row[33]
             )
         return None
 
@@ -223,7 +247,10 @@ class DatabaseManager:
             "doc_type", "phash", "text_content", "sender_address", "iban", "phone", "tags",
             "recipient_company", "recipient_name", "recipient_street", "recipient_zip", "recipient_city", "recipient_country",
             "sender_company", "sender_name", "sender_street", "sender_zip", "sender_city", "sender_country",
-            "page_count", "created_at", "extra_data", "last_processed_at", "export_filename"
+            "page_count", "created_at", "extra_data", "last_processed_at", "export_filename",
+            
+            # Phase 45 Financials
+            "amount", "gross_amount", "postage", "packaging", "tax_rate", "currency"
         }
         
         set_clauses = []

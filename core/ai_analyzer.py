@@ -10,6 +10,14 @@ class AIAnalysisResult:
     sender: Optional[str] = None
     doc_date: Optional[datetime.date] = None
     amount: Optional[Decimal] = None
+    
+    # Phase 45 Financials
+    gross_amount: Optional[Decimal] = None
+    postage: Optional[Decimal] = None
+    packaging: Optional[Decimal] = None
+    tax_rate: Optional[Decimal] = None
+    currency: Optional[str] = None
+    
     doc_type: Optional[str] = None
     sender_address: Optional[str] = None
     iban: Optional[str] = None
@@ -59,7 +67,12 @@ class AIAnalyzer:
         1. Main Details:
            - sender: Summary name of sender.
            - doc_date: YYYY-MM-DD.
-           - amount: numeric literal.
+           - amount: numeric literal (Net Amount).
+           - gross_amount: numeric literal (Brutto Amount).
+           - postage: numeric literal (Porto/Versand).
+           - packaging: numeric literal (Verpackung).
+           - tax_rate: numeric literal (e.g. 19.0 for 19%).
+           - currency: ISO Code (EUR, USD, etc.).
            - doc_type: Invoice, Receipt, Contract, Letter, Auftragsbestätigung, Lieferschein, etc.
              (Note: "Auftragsbestätigung" -> "Order Confirmation", but keep German if document is German).
            - tags: Comma-separated keywords.
@@ -96,6 +109,11 @@ class AIAnalyzer:
           "sender": "...",
           "doc_date": "YYYY-MM-DD",
           "amount": 12.50,
+          "gross_amount": 14.88,
+          "postage": 0.00,
+          "packaging": 0.00,
+          "tax_rate": 19.0,
+          "currency": "EUR",
           "doc_type": "...",
           "iban": "...",
           "phone": "...",
@@ -139,18 +157,31 @@ class AIAnalyzer:
                 except ValueError:
                     pass
             
-            # Parse Amount
-            amount = None
-            if data.get("amount") is not None:
-                try:
-                    amount = Decimal(str(data["amount"]))
-                except Exception:
-                    pass
+            # Parse Amounts (Safe Decimal conversion)
+            def get_decimal(key):
+                val = data.get(key)
+                if val is not None:
+                    try: return Decimal(str(val))
+                    except: pass
+                return None
+
+            amount = get_decimal("amount")
+            gross_amount = get_decimal("gross_amount")
+            postage = get_decimal("postage")
+            packaging = get_decimal("packaging")
+            tax_rate = get_decimal("tax_rate")
+            currency = data.get("currency")
                     
             return AIAnalysisResult(
                 sender=data.get("sender"),
                 doc_date=doc_date,
                 amount=amount,
+                gross_amount=gross_amount,
+                postage=postage,
+                packaging=packaging,
+                tax_rate=tax_rate,
+                currency=currency,
+                
                 doc_type=data.get("doc_type"),
                 sender_address=data.get("sender_address"),
                 iban=data.get("iban"),

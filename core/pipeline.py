@@ -320,6 +320,14 @@ class PipelineProcessor:
         if result.sender: doc.sender = result.sender
         if result.doc_date: doc.doc_date = result.doc_date
         if result.amount: doc.amount = result.amount
+        
+        # Phase 45 Financials
+        if result.gross_amount: doc.gross_amount = result.gross_amount
+        if result.postage: doc.postage = result.postage
+        if result.packaging: doc.packaging = result.packaging
+        if result.tax_rate: doc.tax_rate = result.tax_rate
+        if result.currency: doc.currency = result.currency
+        
         if result.doc_type: doc.doc_type = result.doc_type
         if result.tags: doc.tags = result.tags
         

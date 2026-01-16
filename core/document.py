@@ -16,6 +16,14 @@ class Document(BaseModel):
     doc_date: Optional[date] = None
     sender: Optional[str] = None
     amount: Optional[Decimal] = None
+    
+    # Phase 45: Extended Finance
+    gross_amount: Optional[Decimal] = None
+    postage: Optional[Decimal] = None
+    packaging: Optional[Decimal] = None
+    tax_rate: Optional[Decimal] = None
+    currency: Optional[str] = None
+
     doc_type: Optional[str] = None
     
     # Extended Metadata (Phase 3)

@@ -27,7 +27,7 @@ class DocumentListWidget(QTableWidget):
             self.tr("Sender"), 
             self.tr("Type"), 
             self.tr("Tags"),
-            self.tr("Amount"), 
+            self.tr("Netto"), 
             self.tr("Filename"),
             self.tr("Pages"),
             self.tr("Created"),
@@ -286,7 +286,14 @@ class DocumentListWidget(QTableWidget):
             sender = doc.sender or ""
             doc_type = doc.doc_type or ""
             tags = doc.tags or ""
-            amount_str = locale.toString(float(doc.amount), 'f', 2) if doc.amount is not None else ""
+            amount_str = ""
+            if doc.amount is not None:
+                try:
+                     amount_str = f"{float(doc.amount):.2f}"
+                     if doc.currency:
+                         amount_str += f" {doc.currency}"
+                except:
+                     amount_str = str(doc.amount)
             filename = doc.original_filename
             
             pages_str = str(doc.page_count) if doc.page_count is not None else ""
