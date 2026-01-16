@@ -76,8 +76,6 @@ class DocumentListWidget(QTableWidget):
             action.setData(i)
             action.triggered.connect(lambda checked, idx=i: self.toggle_column(idx, checked))
             
-        menu.exec(header.mapToGlobal(pos))
-        
         # Separator
         menu.addSeparator()
         
