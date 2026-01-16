@@ -153,6 +153,8 @@ class PdfViewerWidget(QWidget):
             self.spin_page.setValue(1)
             self.spin_page.blockSignals(False)
             self.enable_controls(True)
+        elif status == QPdfDocument.Status.Error:
+            self.enable_controls(False)
         else:
             self.enable_controls(False)
             
@@ -165,10 +167,7 @@ class PdfViewerWidget(QWidget):
         self.spin_page.setEnabled(enabled)
             
     def clear(self):
-        # QPdfDocument doesn't have close/clear easily.
-        # Load empty?
-        # Re-instantiate is cleaner but heavy.
-        # But we can hide view or disable controls
+        """Release the document file lock."""
         self.current_uuid = None
         self.lbl_total.setText("/ 0")
         self.spin_page.setRange(0, 0)
