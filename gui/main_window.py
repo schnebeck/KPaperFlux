@@ -242,28 +242,48 @@ class MainWindow(QMainWindow):
                 if path: self.pdf_viewer.load_document(path, uuid=docs[0].uuid)
 
     def delete_selected_slot(self):
-        """Handle deletion via Menu."""
-        # Logic to get selected item from list widget needs to be exposed
-        # For now, simplistic approach: check if list has connection, or if we can track current selection
-        QMessageBox.information(self, self.tr("Info"), self.tr("Please use the context menu on the list to delete specific items."))
+        """Handle deletion via Menu Hack."""
+        if hasattr(self, 'list_widget'):
+            uuids = self.list_widget.get_selected_uuids()
+            if uuids:
+                self.delete_document_slot(uuids)
+            else:
+                 QMessageBox.information(self, self.tr("Info"), self.tr("Please select documents to delete."))
 
-    def delete_document_slot(self, uuid: str):
-        """Handle delete request from List."""
-        # Confirm deletion
+    def delete_document_slot(self, uuids):
+        """Handle delete request from List (Single or Batch)."""
+        if not isinstance(uuids, list):
+            uuids = [uuids]
+            
+        if not uuids:
+            return
+
+        count = len(uuids)
+        msg = self.tr("Are you sure you want to delete this document?") if count == 1 else self.tr(f"Are you sure you want to delete {count} documents?")
+        
         reply = QMessageBox.question(self, self.tr("Confirm Delete"), 
-                                   self.tr("Are you sure you want to delete this document?"),
+                                   msg,
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:
             if self.db_manager and self.pipeline:
-                doc = self.db_manager.get_document_by_uuid(uuid)
-                if doc:
-                    self.pipeline.vault.delete_document(doc)
-                    self.db_manager.delete_document(uuid)
-                    
-                    self.list_widget.refresh_list()
-                    self.editor_widget.clear()
-                    self.pdf_viewer.clear()
+                deleted_count = 0
+                for uuid in uuids:
+                    doc = self.db_manager.get_document_by_uuid(uuid)
+                    if doc:
+                        # Delete from Vault
+                        self.pipeline.vault.delete_document(doc)
+                        # Delete from DB
+                        if self.db_manager.delete_document(uuid):
+                            deleted_count += 1
+                            
+                self.list_widget.refresh_list()
+                self.editor_widget.clear()
+                self.pdf_viewer.clear()
+                
+                # Feedback? Maybe only if batch
+                if count > 1:
+                    QMessageBox.information(self, self.tr("Deleted"), self.tr(f"Deleted {deleted_count} documents."))
                     
     def reprocess_document_slot(self, uuids: list):
         """Re-run pipeline for list of documents."""

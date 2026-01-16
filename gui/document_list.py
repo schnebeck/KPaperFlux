@@ -8,7 +8,7 @@ class DocumentListWidget(QTableWidget):
     Displays the list of documents from the database.
     """
     document_selected = pyqtSignal(list) # List[str] UUIDs
-    delete_requested = pyqtSignal(str) # UUID
+    delete_requested = pyqtSignal(list) # List[str] UUIDs
     reprocess_requested = pyqtSignal(list) # List[str] UUIDs (Changed from str)
     merge_requested = pyqtSignal(list) # List[str] UUIDs
     export_requested = pyqtSignal(list) # List[str] UUIDs
@@ -214,14 +214,17 @@ class DocumentListWidget(QTableWidget):
             self.reprocess_requested.emit(uuids)
             
         elif action == delete_action:
-            # Emit for all selected? Or just focused?
-            # Standard: if multiple selected, delete all.
-            # But currently signal is 'delete_requested(str)'. 
-            # I will just emit for the item right-clicked for now to avoid breaking interface signatue
-            # OR iterate. MainWindow handles single uuid.
-            # I'll stick to single delete via context menu for now, or emit multiple?
-            # Let's emit for the focused one `uuid` (line 47).
-            self.delete_requested.emit(uuid)
+            # Gather UUIDs
+            uuids = []
+            for row in selected_rows:
+                u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
+                if u: uuids.append(u)
+            
+            # Fallback for single item right-click without selection
+            if not uuids and uuid:
+                uuids = [uuid]
+                
+            self.delete_requested.emit(uuids)
         elif merge_action and action == merge_action:
              # Gather UUIDs
              uuids = []
