@@ -147,10 +147,8 @@ class PdfViewerWidget(QWidget):
         self.clear()
             
     def on_document_status(self, status):
-        print(f"DEBUG VIEWER: Document Status Changed to {status}")
         if status == QPdfDocument.Status.Ready:
             count = self.document.pageCount()
-            print(f"DEBUG VIEWER: Ready. Page Count: {count}")
             self.lbl_total.setText(f"/ {count}")
             self.spin_page.blockSignals(True)
             self.spin_page.setRange(1, count)
@@ -158,7 +156,6 @@ class PdfViewerWidget(QWidget):
             self.spin_page.blockSignals(False)
             self.enable_controls(True)
         else:
-            print(f"DEBUG VIEWER: Not Ready (Disabled Controls)")
             self.enable_controls(False)
             
     def enable_controls(self, enabled: bool):
