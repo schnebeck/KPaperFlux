@@ -176,8 +176,8 @@ class AIQueueWorker(QThread):
                 # Heuristic: vault_path / doc.uuid + suffix?
                 # Vault stores as {uuid}.pdf usually or with original name?
                 # Vault behavior: store_document returns path.
-                # Let's use `pipeline.vault.get_content_path(doc)`
-                path = self.pipeline.vault.get_document_path(doc)
+                # Let's use `pipeline.vault.get_file_path(doc.uuid)`
+                path = self.pipeline.vault.get_file_path(doc.uuid)
                 
                 # Run AI
                 try:
