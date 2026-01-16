@@ -58,10 +58,8 @@ class MetadataEditorWidget(QWidget):
         
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
-        # Handle nullable dates: If user clears it? QDateEdit doesn't support clear easily.
-        # But we can default to today or enable strict checking.
-        # We'll use a standard format for Input.
-        self.date_edit.setDisplayFormat(QLocale.system().dateFormat(QLocale.FormatType.ShortFormat))
+        # Force 4-digit year as requested ("17.12.2025")
+        self.date_edit.setDisplayFormat("dd.MM.yyyy")
         # Initial invalid date to represent "None" if needed? 
         # For simplicity, we just set Date. Empty is hard.
         # Let's add a "Clear Date" action or button? 

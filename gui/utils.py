@@ -19,7 +19,7 @@ def format_date(d) -> str:
     if isinstance(d, datetime):
         d = d.date()
         
-    return locale.toString(d, QLocale.FormatType.ShortFormat)
+    return locale.toString(d, "dd.MM.yyyy")
 
 def format_datetime(dt) -> str:
     """
