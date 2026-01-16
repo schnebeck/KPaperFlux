@@ -147,6 +147,10 @@ class PdfViewerWidget(QWidget):
         self.clear()
             
     def on_document_status(self, status):
+        # Ignore signals from old/deleted documents
+        if self.sender() != self.document:
+             return
+             
         if status == QPdfDocument.Status.Ready:
             count = self.document.pageCount()
             self.lbl_total.setText(f"/ {count}")
