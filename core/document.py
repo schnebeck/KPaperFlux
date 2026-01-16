@@ -48,5 +48,8 @@ class Document(BaseModel):
     phash: Optional[str] = None
     text_content: Optional[str] = None
     
+    # Phase 39: Export Filename
+    export_filename: Optional[str] = None
+
     # Phase 29: Dynamic Data
     extra_data: Optional[dict] = None

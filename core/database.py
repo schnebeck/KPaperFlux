@@ -81,7 +81,8 @@ class DatabaseManager:
                 "page_count": "INTEGER",
                 "created_at_iso": "TEXT", # Kept for compatibility if used elsewhere or future
                 "extra_data": "TEXT", # JSON for dynamic fields
-                "last_processed_at": "TEXT" # ISO format
+                "last_processed_at": "TEXT", # ISO format
+                "export_filename": "TEXT" 
             }
             
             for col_name, col_type in new_columns.items():
@@ -100,8 +101,14 @@ class DatabaseManager:
             sender_address, iban, phone, tags,
             recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country,
             sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country,
-            page_count, created_at, extra_data, last_processed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            page_count, created_at, extra_data, last_processed_at, export_filename
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?
+        )
         """
         
         amount_val = float(doc.amount) if doc.amount is not None else None
@@ -124,7 +131,8 @@ class DatabaseManager:
             doc.page_count,
             doc.created_at,
             json.dumps(doc.extra_data) if doc.extra_data else None,
-            doc.last_processed_at
+            doc.last_processed_at,
+            doc.export_filename
         )
         
         cursor = self.connection.cursor()
@@ -132,12 +140,12 @@ class DatabaseManager:
         self.connection.commit()
         return cursor.lastrowid
 
-    def get_all_documents(self) -> list[Document]:
+    def get_all_documents(self) -> List[Document]:
         """
         Retrieve all documents from the database.
         Returns a list of Document objects.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at FROM documents"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename FROM documents ORDER BY created_at DESC"
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
@@ -161,7 +169,8 @@ class DatabaseManager:
                 sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
                 page_count=row[24], created_at=row[25],
                 extra_data=json.loads(row[26]) if row[26] else None,
-                last_processed_at=row[27]
+                last_processed_at=row[27],
+                export_filename=row[28]
             )
             results.append(doc)
             
@@ -171,7 +180,7 @@ class DatabaseManager:
         """
         Retrieve a single document by its UUID.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at FROM documents WHERE uuid = ?"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename FROM documents WHERE uuid = ?"
         cursor = self.connection.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
@@ -194,7 +203,8 @@ class DatabaseManager:
                 sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
                 page_count=row[24], created_at=row[25],
                 extra_data=json.loads(row[26]) if row[26] else None,
-                last_processed_at=row[27]
+                last_processed_at=row[27],
+                export_filename=row[28]
             )
         return None
 
@@ -210,11 +220,10 @@ class DatabaseManager:
             
         # Security: Allow-list columns to prevent injection
         allowed_columns = {
-            "original_filename", "doc_date", "sender", "amount", "doc_type", 
-            "phash", "text_content", "sender_address", "iban", "phone", "tags",
+            "doc_type", "phash", "text_content", "sender_address", "iban", "phone", "tags",
             "recipient_company", "recipient_name", "recipient_street", "recipient_zip", "recipient_city", "recipient_country",
             "sender_company", "sender_name", "sender_street", "sender_zip", "sender_city", "sender_country",
-            "page_count", "created_at", "extra_data", "last_processed_at"
+            "page_count", "created_at", "extra_data", "last_processed_at", "export_filename"
         }
         
         set_clauses = []

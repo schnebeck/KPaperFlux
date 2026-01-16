@@ -12,6 +12,7 @@ from core.database import DatabaseManager
 from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
 from pdf2image import convert_from_path
+import re
 
 class PipelineProcessor:
     """
@@ -61,6 +62,7 @@ class PipelineProcessor:
             
         # 6. Save to DB
         doc.last_processed_at = datetime.datetime.now().isoformat()
+        doc.export_filename = self._generate_export_filename(doc)
         self.db.insert_document(doc)
         
         return doc
@@ -106,6 +108,7 @@ class PipelineProcessor:
         
         # Update DB
         doc.last_processed_at = datetime.datetime.now().isoformat()
+        doc.export_filename = self._generate_export_filename(doc)
         self.db.insert_document(doc)
         
         return doc
@@ -165,6 +168,7 @@ class PipelineProcessor:
                         new_doc.text_content = self._run_ocr(full_stored_path)
                         
                 self._run_ai_analysis(new_doc, stored_path)
+                new_doc.export_filename = self._generate_export_filename(new_doc)
                 self.db.insert_document(new_doc)
                 
                 return new_doc
@@ -341,3 +345,26 @@ class PipelineProcessor:
         # Map Dynamic Data (Stamps, etc.)
         if result.extra_data: doc.extra_data = result.extra_data
             
+    def _generate_export_filename(self, doc: Document) -> str:
+        """
+        Generate a standardized export filename base.
+        Pattern: Sender_Type_Date
+        """
+        sender = doc.sender or "Unknown"
+        if doc.sender_company:
+             sender = doc.sender_company
+        elif doc.sender_name:
+             sender = doc.sender_name
+             
+        doc_type = doc.doc_type or "Document"
+        date_part = str(doc.doc_date) if doc.doc_date else "UnknownDate"
+        
+        def clean(s):
+             # Remove invalid chars for filenames
+             s = str(s).strip()
+             s = re.sub(r'[^\w\s-]', '', s) # Keep word chars, space, dash
+             s = re.sub(r'[\s]+', '_', s)   # Space to underscore
+             return s
+             
+        base = f"{clean(sender)}_{clean(doc_type)}_{clean(date_part)}"
+        return base

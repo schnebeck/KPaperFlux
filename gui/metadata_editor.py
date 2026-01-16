@@ -62,6 +62,19 @@ class MetadataEditorWidget(QWidget):
         self.type_edit = QLineEdit()
         general_layout.addRow(self.tr("Type:"), self.type_edit)
         
+        # Export Filename
+        export_container = QWidget()
+        export_layout = QHBoxLayout(export_container)
+        export_layout.setContentsMargins(0, 0, 0, 0)
+        self.export_filename_edit = QLineEdit()
+        self.btn_regen_export = QPushButton("↺")
+        self.btn_regen_export.setToolTip(self.tr("Regenerate Filename based on Sender/Type/Date"))
+        self.btn_regen_export.clicked.connect(self.regenerate_export_filename)
+        self.btn_regen_export.setFixedWidth(30)
+        export_layout.addWidget(self.export_filename_edit)
+        export_layout.addWidget(self.btn_regen_export)
+        general_layout.addRow(self.tr("Export Filename:"), export_container)
+        
         self.iban_edit = QLineEdit()
         general_layout.addRow(self.tr("IBAN:"), self.iban_edit)
         
@@ -153,6 +166,7 @@ class MetadataEditorWidget(QWidget):
             "doc_date": self.date_edit,
             "amount": self.amount_edit,
             "doc_type": self.type_edit,
+            "export_filename": self.export_filename_edit,
             "iban": self.iban_edit,
             "phone": self.phone_edit,
             "tags": self.tags_edit,
@@ -236,6 +250,7 @@ class MetadataEditorWidget(QWidget):
         self.date_edit.setText(str(doc.doc_date) if doc.doc_date else "")
         self.amount_edit.setText(str(doc.amount) if doc.amount is not None else "")
         self.type_edit.setText(doc.doc_type or "")
+        self.export_filename_edit.setText(doc.export_filename or "")
         self.iban_edit.setText(doc.iban or "")
         self.phone_edit.setText(doc.phone or "")
         self.tags_edit.setText(doc.tags or "")
@@ -280,6 +295,7 @@ class MetadataEditorWidget(QWidget):
         self.date_edit.clear()
         self.amount_edit.clear()
         self.type_edit.clear()
+        self.export_filename_edit.clear()
         self.iban_edit.clear()
         self.phone_edit.clear()
         self.tags_edit.clear()
@@ -315,6 +331,7 @@ class MetadataEditorWidget(QWidget):
             "doc_date": self.date_edit,
             "amount": self.amount_edit,
             "doc_type": self.type_edit,
+            "export_filename": self.export_filename_edit,
             "iban": self.iban_edit,
             "phone": self.phone_edit,
             "tags": self.tags_edit,
@@ -385,3 +402,19 @@ class MetadataEditorWidget(QWidget):
             self.metadata_saved.emit()
         else:
             QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to save changes."))
+
+    def regenerate_export_filename(self):
+        import re
+        # Gather data from widgets
+        sender = self.sender_company_edit.text() or self.sender_name_edit.text() or self.sender_edit.text() or "Unknown"
+        doc_type = self.type_edit.text() or "Document"
+        date_part = self.date_edit.text() or "UnknownDate"
+        
+        def clean(s):
+             s = str(s).strip()
+             s = re.sub(r'[^\w\s-]', '', s)
+             s = re.sub(r'[\s]+', '_', s)
+             return s
+             
+        base = f"{clean(sender)}_{clean(doc_type)}_{clean(date_part)}"
+        self.export_filename_edit.setText(base)

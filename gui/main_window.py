@@ -610,18 +610,25 @@ class MainWindow(QMainWindow):
             # Get vault path
             src_path = self.pipeline.vault.get_file_path(uuid)
             if src_path and os.path.exists(src_path):
-                # Determine filename: uuid.pdf or original_filename?
-                # User prefers readable names.
-                # Get doc from DB to find original filename?
+                # Determine filename
                 doc = self.db_manager.get_document_by_uuid(uuid)
-                filename = doc.original_filename if doc else f"{uuid}.pdf"
+                filename = f"{uuid}.pdf"
                 
-                # Check collision
+                if doc:
+                    if doc.export_filename:
+                        filename = doc.export_filename
+                        if not filename.lower().endswith(".pdf"):
+                            filename += ".pdf"
+                    elif doc.original_filename:
+                        filename = doc.original_filename
+                
+                # Check collision with incremental counter
                 dst_path = os.path.join(target_dir, filename)
-                if os.path.exists(dst_path):
-                    # Append uuid to unique
-                    base, ext = os.path.splitext(filename)
-                    dst_path = os.path.join(target_dir, f"{base}_{uuid[:8]}{ext}")
+                base, ext = os.path.splitext(filename)
+                counter = 1
+                while os.path.exists(dst_path):
+                     dst_path = os.path.join(target_dir, f"{base}_{counter:03d}{ext}")
+                     counter += 1
                     
                 try:
                     shutil.copy2(src_path, dst_path)
