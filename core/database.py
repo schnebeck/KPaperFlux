@@ -16,9 +16,12 @@ class DatabaseManager:
 
     def _connect(self):
         """Establish connection to the database."""
-        self.connection = sqlite3.connect(self.db_path)
+        # check_same_thread=False allows using the connection across threads (Worker support)
+        self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         # Enable foreign keys
         self.connection.execute("PRAGMA foreign_keys = ON")
+        # Enable WAL mode for better concurrency
+        self.connection.execute("PRAGMA journal_mode = WAL")
 
     def init_db(self):
         """Initialize the database schema."""
