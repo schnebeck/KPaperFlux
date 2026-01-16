@@ -287,6 +287,9 @@ class MainWindow(QMainWindow):
         # Disable main window interaction? Or just modal dialog.
         # Dialog is already modal.
         
+        if self.pdf_viewer and self.pdf_viewer.current_uuid in uuids:
+             self.pdf_viewer.unload()
+             
         self.reprocess_worker = ReprocessWorker(self.pipeline, uuids)
         
         # Connect Signals

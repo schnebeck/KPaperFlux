@@ -93,7 +93,8 @@ class PipelineProcessor:
             
             
         # Re-run AI
-        self._run_ai_analysis(doc)
+        # Re-run AI
+        self._run_ai_analysis(doc, file_path)
         
         # Recalculate Page Count (in case it was missing or file changed)
         if hasattr(doc, 'page_count'): # Ensure field exists on doc model
@@ -163,7 +164,7 @@ class PipelineProcessor:
                 else:
                         new_doc.text_content = self._run_ocr(full_stored_path)
                         
-                self._run_ai_analysis(new_doc)
+                self._run_ai_analysis(new_doc, stored_path)
                 self.db.insert_document(new_doc)
                 
                 return new_doc

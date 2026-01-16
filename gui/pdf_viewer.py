@@ -116,15 +116,21 @@ class PdfViewerWidget(QWidget):
             if self.document:
                 self.view.setDocument(None) # Detach first
                 self.document.deleteLater()
+                self.document = None
                 
             self.document = QPdfDocument(self)
             self.document.statusChanged.connect(self.on_document_status)
             
+            # Note: We set document AFTER loading? No, QPdfView needs it. 
+            # But maybe load first?
+            # Qt docs say: setDocument then load usually works.
+            
             self.view.setDocument(self.document)
             self.view.setPageMode(QPdfView.PageMode.MultiPage)
             
-            # Fix: Re-acquire navigator and connect signals because setDocument might reset it
+            # Re-acquire navigator
             self.nav = self.view.pageNavigator()
+            # Disconnect old signals if any (safe due to try/except block below or recreation)
             try:
                 self.nav.currentPageChanged.disconnect(self.on_page_changed)
             except Exception:
@@ -134,6 +140,11 @@ class PdfViewerWidget(QWidget):
             self.document.load(str(path))
         except Exception as e:
             print(f"Error loading PDF: {e}")
+            self.clear()
+
+    def unload(self):
+        """Release the document file lock."""
+        self.clear()
             
     def on_document_status(self, status):
         if status == QPdfDocument.Status.Ready:
