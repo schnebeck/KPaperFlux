@@ -278,10 +278,22 @@ class MetadataEditorWidget(QWidget):
             
             if len(values) == 1:
                 # All same
-                val = values.pop()
-                if isinstance(widget, QLineEdit): widget.setText(val)
+                if isinstance(widget, QDateEdit):
+                    # QDateEdit special handling
+                    # If multiple values, what to show?
+                    # We can use setSpecialValueText if we set date to min?
+                    # Or just leave it as is (showing one of them or min)?
+                    # Ideally we want to show empty or "Mixed".
+                    # setSpecialValueText works if date == minimumDate.
+                    widget.setDate(values.pop() if isinstance(values, set) and len(values)==1 else QDate.currentDate())
+                    # If we really want to show mixed, we need more logic. 
+                    # For now, just ensure we don't crash.
+                    pass
+                elif isinstance(widget, QLineEdit): widget.setText(val)
                 elif isinstance(widget, QTextEdit): widget.setPlainText(val)
-                widget.setPlaceholderText("")
+                
+                if isinstance(widget, (QLineEdit, QTextEdit)):
+                    widget.setPlaceholderText("")
             else:
                 # Mixed
                 self.mixed_fields.add(attr)
@@ -291,6 +303,10 @@ class MetadataEditorWidget(QWidget):
                 elif isinstance(widget, QTextEdit): 
                     widget.clear()
                     widget.setPlaceholderText("<Multiple Values>")
+                elif isinstance(widget, QDateEdit):
+                    # Handle Mixed Date
+                     widget.setSpecialValueText("<Multiple Values>")
+                     widget.setDate(widget.minimumDate())
 
         # Info Labels (Special handling)
         self.uuid_lbl.setText("<Multiple Selected>")
