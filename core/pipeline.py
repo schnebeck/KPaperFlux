@@ -70,15 +70,12 @@ class PipelineProcessor:
         
         return doc
 
-    def reprocess_document(self, uuid: str) -> Optional[Document]:
+    def reprocess_document(self, uuid: str, skip_ai: bool = False) -> Optional[Document]:
         """
         Reprocess an existing document:
         1.  Fetch from DB
         2.  Locate in Vault
-        3.  Re-run Extraction (Force OCR? or Auto?)
-            - User request: "Reprocess (OCR)" implies forcing OCR usually.
-            - But let's stick to Auto logic or allow forced mode.
-            - For now: Use Auto but prioritize improvement.
+        3.  Re-run Extraction
         4.  Update DB
         """
         doc = self.db.get_document_by_uuid(uuid)
@@ -90,16 +87,12 @@ class PipelineProcessor:
             print(f"File not found in vault: {file_path}")
             return None
             
-        # Re-run Extraction (Force OCR for reprocess usually makes sense if native failed)
-        # Re-run Extraction (Smart detection, not forced OCR unless needed)
-        # Assuming we want to refresh text content too (e.g. if OCR improved or Native check changed)
-        # If user really wanted FORCE OCR, we'd need a flag. But "Reprocess" usually means "Try again cleanly".
+        # Re-run Extraction
         doc.text_content = self._detect_and_extract_text(doc, Path(file_path))
             
-            
         # Re-run AI
-        # Re-run AI
-        self._run_ai_analysis(doc, file_path)
+        if not skip_ai:
+            self._run_ai_analysis(doc, file_path)
         
         # Recalculate Page Count (in case it was missing or file changed)
         if hasattr(doc, 'page_count'): # Ensure field exists on doc model

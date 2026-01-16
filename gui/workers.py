@@ -77,7 +77,8 @@ class ReprocessWorker(QThread):
                 self.progress.emit(i, uuid)
                 
                 try:
-                    doc = self.pipeline.reprocess_document(uuid)
+                    # Async Reprocess: Skip AI initially (Local Extraction only)
+                    doc = self.pipeline.reprocess_document(uuid, skip_ai=True)
                     if doc:
                         success_count += 1
                         processed_uuids.append(uuid)

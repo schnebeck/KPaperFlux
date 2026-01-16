@@ -379,7 +379,13 @@ class MainWindow(QMainWindow):
         # This is cleaner than manually calling load_document.
         if uuid_to_restore and uuid_to_restore in processed_uuids:
              self.list_widget.select_document(uuid_to_restore)
-        QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.")
+             
+        # Async: Queue for AI Analysis
+        if self.ai_worker and processed_uuids:
+            for uid in processed_uuids:
+                self.ai_worker.add_task(uid)
+                
+        QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nAI Analysis queued.")
 
     def import_document_slot(self):
         """Handle import button click."""
@@ -587,7 +593,7 @@ class MainWindow(QMainWindow):
             from PyQt6.QtWidgets import QProgressDialog
             from PyQt6.QtCore import QCoreApplication
             
-            progress = QProgressDialog(self.tr("Importing..."), self.tr("Cancel"), 0, count, self)
+            progress = QProgressDialog(self.tr("Extracting & Indexing..."), self.tr("Cancel"), 0, count, self)
             progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.setMinimumDuration(0)
             progress.forceShow()
