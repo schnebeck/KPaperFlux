@@ -286,6 +286,7 @@ class MainWindow(QMainWindow):
                 break
                 
             progress.setLabelText(self.tr(f"Reprocessing {i+1} of {count}..."))
+            QCoreApplication.processEvents()
             
             # Since pipeline is blocking, we process one by one
             # The dialog updates when we call setValue or processEvents implicitly
@@ -524,13 +525,32 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             move_source = chk_move.isChecked()
             success_count = 0
+            count = len(files)
             
-            for fpath in files:
+            # Progress Dialog
+            from PyQt6.QtWidgets import QProgressDialog
+            from PyQt6.QtCore import QCoreApplication
+            
+            progress = QProgressDialog(self.tr("Importing..."), self.tr("Cancel"), 0, count, self)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.setMinimumDuration(0)
+            progress.forceShow()
+            QCoreApplication.processEvents()
+            
+            for i, fpath in enumerate(files):
+                if progress.wasCanceled():
+                    break
+                    
+                progress.setLabelText(self.tr(f"Importing {os.path.basename(fpath)}..."))
+                QCoreApplication.processEvents()
+                
                 try:
                     self.pipeline.process_document(fpath, move_source=move_source)
                     success_count += 1
                 except Exception as e:
                     print(f"Error importing {fpath}: {e}")
+                
+                progress.setValue(i + 1)
             
             QMessageBox.information(self, self.tr("Import Complete"),
                                   self.tr(f"Successfully imported {success_count} of {len(files)} files."))

@@ -29,7 +29,8 @@ class DocumentListWidget(QTableWidget):
             self.tr("Amount"), 
             self.tr("Filename"),
             self.tr("Pages"),
-            self.tr("Created")
+            self.tr("Created"),
+            self.tr("Updated")
         ]
         self.setColumnCount(len(self.columns))
         self.setHorizontalHeaderLabels(self.columns)
@@ -95,6 +96,9 @@ class DocumentListWidget(QTableWidget):
             # Defaults: Hide Pages (6), Created (7)
             self.horizontalHeader().hideSection(6)
             self.horizontalHeader().hideSection(7)
+            # Updated (8) defaults to Visible? Or Hidden?
+            # User request implies they want to see it.
+            # So we leave it visible (default)
 
     def show_context_menu(self, pos: QPoint):
         """Show context menu for selected item."""
@@ -114,7 +118,7 @@ class DocumentListWidget(QTableWidget):
              merge_action = menu.addAction(self.tr("Merge Selected"))
         else:
              merge_action = None
-  
+   
         reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
         tags_action = menu.addAction(self.tr("Manage Tags..."))
         stamp_action = menu.addAction(self.tr("Stamp..."))
@@ -197,9 +201,11 @@ class DocumentListWidget(QTableWidget):
         
         self.setRowCount(len(documents))
         
+        from datetime import datetime # Import local to avoid top-level clutter if not used elsewhere
+        
         for row, doc in enumerate(documents):
             # Map Document fields to columns
-            # ["Date", "Sender", "Type", "Tags", "Amount", "Filename"]
+            # ["Date", "Sender", "Type", "Tags", "Amount", "Filename", "Pages", "Created", "Updated"]
             
             date_str = str(doc.doc_date) if doc.doc_date else ""
             sender = doc.sender or ""
@@ -210,6 +216,15 @@ class DocumentListWidget(QTableWidget):
             
             pages_str = str(doc.page_count) if doc.page_count is not None else ""
             created_str = doc.created_at or ""
+            
+            # Format Updated
+            updated_str = ""
+            if doc.last_processed_at:
+                try:
+                    dt = datetime.fromisoformat(str(doc.last_processed_at))
+                    updated_str = dt.strftime("%d.%m.%Y %H:%M")
+                except Exception:
+                    updated_str = str(doc.last_processed_at)
             
             item_date = QTableWidgetItem(date_str)
             item_date.setData(Qt.ItemDataRole.UserRole, doc.uuid) # Store UUID
@@ -222,6 +237,7 @@ class DocumentListWidget(QTableWidget):
             self.setItem(row, 5, QTableWidgetItem(filename))
             self.setItem(row, 6, QTableWidgetItem(pages_str))
             self.setItem(row, 7, QTableWidgetItem(created_str))
+            self.setItem(row, 8, QTableWidgetItem(updated_str))
             
         self.setSortingEnabled(True)
         

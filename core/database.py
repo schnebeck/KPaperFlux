@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from typing import Optional
+from typing import Optional, List
 from decimal import Decimal
 from core.document import Document
 
@@ -77,7 +77,8 @@ class DatabaseManager:
                 "sender_country": "TEXT",
                 "page_count": "INTEGER",
                 "created_at_iso": "TEXT", # Kept for compatibility if used elsewhere or future
-                "extra_data": "TEXT" # JSON for dynamic fields
+                "extra_data": "TEXT", # JSON for dynamic fields
+                "last_processed_at": "TEXT" # ISO format
             }
             
             for col_name, col_type in new_columns.items():
@@ -96,8 +97,8 @@ class DatabaseManager:
             sender_address, iban, phone, tags,
             recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country,
             sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country,
-            page_count, created_at, extra_data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            page_count, created_at, extra_data, last_processed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         amount_val = float(doc.amount) if doc.amount is not None else None
@@ -119,7 +120,8 @@ class DatabaseManager:
             doc.sender_company, doc.sender_name, doc.sender_street, doc.sender_zip, doc.sender_city, doc.sender_country,
             doc.page_count,
             doc.created_at,
-            json.dumps(doc.extra_data) if doc.extra_data else None
+            json.dumps(doc.extra_data) if doc.extra_data else None,
+            doc.last_processed_at
         )
         
         cursor = self.connection.cursor()
@@ -132,7 +134,7 @@ class DatabaseManager:
         Retrieve all documents from the database.
         Returns a list of Document objects.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data FROM documents"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at FROM documents"
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
@@ -155,7 +157,8 @@ class DatabaseManager:
                 recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
                 sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
                 page_count=row[24], created_at=row[25],
-                extra_data=json.loads(row[26]) if row[26] else None
+                extra_data=json.loads(row[26]) if row[26] else None,
+                last_processed_at=row[27]
             )
             results.append(doc)
             
@@ -165,7 +168,7 @@ class DatabaseManager:
         """
         Retrieve a single document by its UUID.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data FROM documents WHERE uuid = ?"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at FROM documents WHERE uuid = ?"
         cursor = self.connection.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
@@ -187,7 +190,8 @@ class DatabaseManager:
                 recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
                 sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
                 page_count=row[24], created_at=row[25],
-                extra_data=json.loads(row[26]) if row[26] else None
+                extra_data=json.loads(row[26]) if row[26] else None,
+                last_processed_at=row[27]
             )
         return None
 
@@ -207,7 +211,7 @@ class DatabaseManager:
             "phash", "text_content", "sender_address", "iban", "phone", "tags",
             "recipient_company", "recipient_name", "recipient_street", "recipient_zip", "recipient_city", "recipient_country",
             "sender_company", "sender_name", "sender_street", "sender_zip", "sender_city", "sender_country",
-            "page_count", "created_at", "extra_data"
+            "page_count", "created_at", "extra_data", "last_processed_at"
         }
         
         set_clauses = []
@@ -239,6 +243,71 @@ class DatabaseManager:
         except sqlite3.Error as e:
             print(f"Database Error updating {uuid}: {e}")
             return False
+
+    def search_documents(self, text_query: str = None, dynamic_filters: dict = None) -> List[Document]:
+        """
+        Search documents by text content/filename AND/OR dynamic JSON properties.
+        
+        :param text_query: Search string for text_content, original_filename, or tags (LIKE %query%).
+        :param dynamic_filters: Dictionary of JSON paths to values.
+               Example: {"stamps.cost_center": "100"}
+               Logic: json_extract(extra_data, '$.stamps.cost_center') = '100'
+        :return: List of matching Documents.
+        """
+        
+        # Base query
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at FROM documents WHERE 1=1"
+        values = []
+        
+        # Text Search
+        if text_query:
+            # We use a simple OR logic for text fields
+            # Note: LIKE is case-insensitive in SQLite for ASCII, but content might need lower()
+            sql += " AND (text_content LIKE ? OR original_filename LIKE ? OR tags LIKE ?)"
+            wildcard = f"%{text_query}%"
+            values.extend([wildcard, wildcard, wildcard])
+            
+        # Dynamic JSON Filters
+        # Assumption: Keys are dot-notation paths relative to root of extra_data object
+        # e.g. "stamps.cost_center" -> "$.stamps.cost_center"
+        if dynamic_filters:
+            for key, value in dynamic_filters.items():
+                json_path = f"$.{key}"
+                sql += f" AND json_extract(extra_data, ?) = ?"
+                values.extend([json_path, str(value)])
+                
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(sql, values)
+            rows = cursor.fetchall()
+            
+            results = []
+            for row in rows:
+                doc = Document(
+                    uuid=row[0],
+                    original_filename=row[1],
+                    doc_date=row[2], 
+                    sender=row[3],
+                    amount=row[4],
+                    doc_type=row[5],
+                    phash=row[6],
+                    text_content=row[7],
+                    sender_address=row[8],
+                    iban=row[9],
+                    phone=row[10],
+                    tags=row[11],
+                    recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
+                    sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
+                    page_count=row[24], created_at=row[25],
+                    extra_data=json.loads(row[26]) if row[26] else None,
+                    last_processed_at=row[27]
+                )
+                results.append(doc)
+            return results
+            
+        except sqlite3.Error as e:
+            print(f"Search Error: {e}")
+            return []
 
     def delete_document(self, uuid: str) -> bool:
         """

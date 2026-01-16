@@ -59,6 +59,7 @@ class PipelineProcessor:
         self._run_ai_analysis(doc)
             
         # 6. Save to DB
+        doc.last_processed_at = datetime.datetime.now().isoformat()
         self.db.insert_document(doc)
         
         return doc
@@ -102,6 +103,7 @@ class PipelineProcessor:
              doc.created_at = datetime.datetime.now().isoformat()
         
         # Update DB
+        doc.last_processed_at = datetime.datetime.now().isoformat()
         self.db.insert_document(doc)
         
         return doc
