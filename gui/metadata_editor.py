@@ -322,29 +322,67 @@ class MetadataEditorWidget(QWidget):
         self.recipient_name_edit.setText(doc.recipient_name or "")
         self.recipient_street_edit.setText(doc.recipient_street or "")
         self.recipient_zip_edit.setText(doc.recipient_zip or "")
-        self.recipient_city_edit.setText(doc.recipient_city or "")
-        self.recipient_country_edit.setText(doc.recipient_country or "")
-        
-        # Extra Data
+        # Extra Data - Batch Logic
         self.extra_table.setRowCount(0)
         self.extra_table.setSortingEnabled(False)
-        if doc.extra_data:
-            for k, v in doc.extra_data.items():
+        
+        # 1. Collect all extra_data dicts
+        all_extras = []
+        for d in docs:
+            all_extras.append(d.extra_data or {})
+            
+        if all_extras:
+            # 2. Find all unique keys (Union) or Intersection?
+            # User wants "common keys" -> Intersection is implied for safe batch editing.
+            # But Union allows seeing what exists.
+            # Usually: Show Intersection + maybe others?
+            # Let's start with Union but mark mixed?
+            # User: "gemeinsame Keys" (common keys).
+            # Let's use Intersection for editable fields.
+            # Or Union to allow adding missing keys to others?
+            # Standard approach: Union of keys. If a key is missing in some, treat as empty value.
+            
+            keys = set()
+            for e in all_extras:
+                keys.update(e.keys())
+            sorted_keys = sorted(list(keys))
+            
+            for k in sorted_keys:
                 row = self.extra_table.rowCount()
                 self.extra_table.insertRow(row)
                 
-                # Format value
-                val_str = ""
-                if isinstance(v, (dict, list)):
+                # Check values
+                values = []
+                for e in all_extras:
+                    val = e.get(k, None)
+                    # Serialize for comparison
                     try:
-                        val_str = json.dumps(v, ensure_ascii=False)
+                        if isinstance(val, (dict, list)):
+                            s = json.dumps(val, sort_keys=True, ensure_ascii=False)
+                        else:
+                            s = str(val) if val is not None else ""
                     except:
-                        val_str = str(v)
+                        s = str(val)
+                    values.append(s)
+                
+                unique_values = set(values)
+                display_val = ""
+                if len(unique_values) == 1:
+                    display_val = values[0]
                 else:
-                    val_str = str(v)
+                    display_val = "<Multiple Values>"
                     
-                self.extra_table.setItem(row, 0, QTableWidgetItem(k))
-                self.extra_table.setItem(row, 1, QTableWidgetItem(val_str))
+                key_item = QTableWidgetItem(k)
+                self.extra_table.setItem(row, 0, key_item)
+                
+                val_item = QTableWidgetItem(display_val)
+                if display_val == "<Multiple Values>":
+                    val_item.setForeground(Qt.GlobalColor.gray)
+                    # Store special flag? Or just rely on text.
+                    val_item.setData(Qt.ItemDataRole.UserRole, "MIXED")
+                
+                self.extra_table.setItem(row, 1, val_item)
+
         self.extra_table.setSortingEnabled(True)
         
     def _reset_placeholders(self):
@@ -480,27 +518,95 @@ class MetadataEditorWidget(QWidget):
         if "amount" in updates and updates["amount"] == "": updates["amount"] = None
         if "doc_date" in updates and updates["doc_date"] == "": updates["doc_date"] = None
         
-        # Extra Data (Only for single doc mode)
-        if len(self.current_uuids) == 1:
-            new_extra = {}
-            for row in range(self.extra_table.rowCount()):
-                key_item = self.extra_table.item(row, 0)
-                val_item = self.extra_table.item(row, 1)
-                if key_item and key_item.text().strip():
-                     key = key_item.text().strip()
-                     val_raw = val_item.text().strip() if val_item else ""
-                     
-                     # Try to parse JSON value
-                     try:
-                         val = json.loads(val_raw)
-                     except:
-                         val = val_raw
-                     new_extra[key] = val
-            updates["extra_data"] = new_extra
-
-        count = 0
+        # Extra Data (Batch + Single)
+        # Strategy:
+        # 1. Gather all keys from table.
+        # 2. Identify if value is "MIXED" (unchanged) or new value.
+        # 3. For each doc, update ONLY keys present in table? 
+        #    Or merge?
+        #    If Table has row "K", Value "V", we should set K=V for all docs.
+        #    If Table has row "K", Value "<Multiple Values>", we skip K (no change).
+        #    If Table is missing a key found in doc? 
+        #       - If user deleted it explicitly? (Using Remove button)
+        #       - We need to track deletion vs just not showing.
+        #       - With Union display, if row is gone, it means DELETE from all docs?
+        #       - Yes, "Remove" button should mean "Remove Key from All".
+        
+        # Capture current table state
+        table_keys = set()
+        table_updates = {} # Key -> Value (or MIXED_MARKER)
+        
+        for row in range(self.extra_table.rowCount()):
+            key_item = self.extra_table.item(row, 0)
+            val_item = self.extra_table.item(row, 1)
+            
+            if key_item and key_item.text().strip():
+                k = key_item.text().strip()
+                table_keys.add(k)
+                
+                # Check for Mixed
+                is_mixed = False
+                if val_item:
+                    # Check UserRole first
+                    if val_item.data(Qt.ItemDataRole.UserRole) == "MIXED":
+                         # Verify text wasn't changed by user
+                         if val_item.text() == "<Multiple Values>":
+                             is_mixed = True
+                
+                if not is_mixed:
+                    val_raw = val_item.text().strip() if val_item else ""
+                    try:
+                        val = json.loads(val_raw)
+                    except:
+                        val = val_raw
+                    table_updates[k] = val
+                    
+        # Apply to each doc
+        # We need to fetch current doc extra_data to merge? 
+        # Or does update_document_metadata support partials? 
+        # DatabaseManager.update replaces the column value. So we must merge and Write Full.
+        # This is expensive for Batch... we need to fetch, merge, update.
+        # self.current_uuids are known.
+        
         for uuid in self.current_uuids:
-             if self.db_manager.update_document_metadata(uuid, updates):
+             # Fetch current extra_data? 
+             # We assume db_manager.get_document_by_uuid is fast enough or we check self.doc but that's only for single.
+             # Batch save is heavy.
+             
+             # Optimization: We already fetched docs in display_documents?
+             # But they might be stale if we edit.
+             # Let's fetch fresh to be safe.
+             
+             current_doc = self.db_manager.get_document_by_uuid(uuid)
+             if not current_doc: continue
+             
+             current_extra = current_doc.extra_data or {}
+             dirty_extra = False
+             
+             # 1. Updates
+             for k, v in table_updates.items():
+                 if current_extra.get(k) != v:
+                     current_extra[k] = v
+                     dirty_extra = True
+                     
+             # 2. Deletions 
+             # If a key exists in current_extra but NOT in table_keys:
+             # It means user removed it (since we showed Union of keys).
+             # So we delete it.
+             keys_to_remove = [k for k in current_extra.keys() if k not in table_keys]
+             for k in keys_to_remove:
+                 del current_extra[k]
+                 dirty_extra = True
+                 
+             # Prepare individual update
+             doc_updates = updates.copy()
+             if dirty_extra:
+                 doc_updates["extra_data"] = current_extra
+             
+             if not doc_updates and not dirty_extra:
+                 continue
+                 
+             if self.db_manager.update_document_metadata(uuid, doc_updates):
                  count += 1
                  
         if count > 0:
