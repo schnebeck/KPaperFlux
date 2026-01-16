@@ -15,8 +15,6 @@ from core.database import DatabaseManager
 from core.stamper import DocumentStamper
 from gui.workers import AIQueueWorker, ImportWorker
 from gui.document_list import DocumentListWidget
-from core.stamper import DocumentStamper
-from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
 from gui.filter_widget import FilterWidget
