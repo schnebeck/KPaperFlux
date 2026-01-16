@@ -79,7 +79,6 @@ class MainWindow(QMainWindow):
             self.filter_widget.filter_changed.connect(self.list_widget.apply_filter)
             
             self.left_pane_splitter.addWidget(self.list_widget)
-            self.list_widget.refresh_list()
         else:
             self.list_widget = QWidget() # Placeholder
             self.left_pane_splitter.addWidget(self.list_widget)
@@ -118,6 +117,10 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(self.tr("Ready"))
         
         self.read_settings()
+        
+        # Initial Refresh
+        if self.db_manager and hasattr(self, 'list_widget') and isinstance(self.list_widget, DocumentListWidget):
+            self.list_widget.refresh_list()
 
     def create_menu_bar(self):
         menubar = self.menuBar()
