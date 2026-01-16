@@ -244,6 +244,7 @@ class DatabaseManager:
             
         # Security: Allow-list columns to prevent injection
         allowed_columns = {
+            "uuid", "original_filename", "doc_date", "sender",
             "doc_type", "phash", "text_content", "sender_address", "iban", "phone", "tags",
             "recipient_company", "recipient_name", "recipient_street", "recipient_zip", "recipient_city", "recipient_country",
             "sender_company", "sender_name", "sender_street", "sender_zip", "sender_city", "sender_country",
