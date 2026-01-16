@@ -287,7 +287,9 @@ class MainWindow(QMainWindow):
         # Disable main window interaction? Or just modal dialog.
         # Dialog is already modal.
         
+        uuid_to_restore = None
         if self.pdf_viewer and self.pdf_viewer.current_uuid in uuids:
+             uuid_to_restore = self.pdf_viewer.current_uuid
              self.pdf_viewer.unload()
              
         self.reprocess_worker = ReprocessWorker(self.pipeline, uuids)
@@ -300,15 +302,22 @@ class MainWindow(QMainWindow):
             )
         )
         
+        # Capture UUID to restore if any
+        # We assume self.pdf_viewer.current_uuid was just unloaded so it's None NOW if we called unload.
+        # But we called unload above.
+        # So we need to capture it BEFORE unload.
+        # Wait, I need to restructure the slot to capture it before unload.
+        # See correction below (I will use a local var captured in closure).
+        
         self.reprocess_worker.finished.connect(
-            lambda success, total, processed_uuids: self._on_reprocess_finished(success, total, processed_uuids, uuids, progress)
+            lambda success, total, processed_uuids: self._on_reprocess_finished(success, total, processed_uuids, uuids, progress, uuid_to_restore)
         )
         
         progress.canceled.connect(self.reprocess_worker.cancel)
         
         self.reprocess_worker.start()
 
-    def _on_reprocess_finished(self, success_count, total, processed_uuids, original_uuids, progress_dialog):
+    def _on_reprocess_finished(self, success_count, total, processed_uuids, original_uuids, progress_dialog, uuid_to_restore=None):
         progress_dialog.close()
         self.reprocess_worker = None # Cleanup ref
         
@@ -324,8 +333,8 @@ class MainWindow(QMainWindow):
                      self.editor_widget.display_documents(docs_to_refresh)
                      
         # Reload PDF Viewer if active document was reprocessed
-        if self.pdf_viewer and self.pdf_viewer.current_uuid in processed_uuids:
-            doc = self.db_manager.get_document_by_uuid(self.pdf_viewer.current_uuid)
+        if self.pdf_viewer and uuid_to_restore and uuid_to_restore in processed_uuids:
+            doc = self.db_manager.get_document_by_uuid(uuid_to_restore)
             if doc:
                 file_path = self.vault_manager.get_file_path(doc.uuid)
                 if file_path:
