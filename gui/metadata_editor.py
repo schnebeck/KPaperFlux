@@ -2,13 +2,14 @@
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QMessageBox, QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QDateEdit
+    QDateEdit, QComboBox, QCompleter
 )
 import json
 import datetime
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QLocale
 from core.document import Document
 from core.database import DatabaseManager
+from core.vocabulary import VocabularyManager
 from gui.utils import format_date, format_datetime
 
 class MetadataEditorWidget(QWidget):
@@ -20,6 +21,7 @@ class MetadataEditorWidget(QWidget):
     def __init__(self, db_manager: DatabaseManager = None):
         super().__init__()
         self.db_manager = db_manager
+        self.vocabulary = VocabularyManager()
         self.current_uuids = []
         self.mixed_fields = set()
         self.doc = None
@@ -93,7 +95,9 @@ class MetadataEditorWidget(QWidget):
         self.currency_edit = QLineEdit()
         general_layout.addRow(self.tr("Währung:"), self.currency_edit)
         
-        self.type_edit = QLineEdit()
+        self.type_edit = QComboBox()
+        self.type_edit.setEditable(True)
+        self.type_edit.addItems(self.vocabulary.get_all_types())
         general_layout.addRow(self.tr("Type:"), self.type_edit)
         
         # Export Filename
@@ -117,6 +121,12 @@ class MetadataEditorWidget(QWidget):
         
         self.tags_edit = QLineEdit()
         self.tags_edit.setPlaceholderText("Tag1, Tag2...")
+        
+        # Completer for tags (Simple one-tag completion support)
+        completer = QCompleter(self.vocabulary.get_all_tags())
+        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.tags_edit.setCompleter(completer)
+        
         general_layout.addRow(self.tr("Tags:"), self.tags_edit)
         
         self.tab_widget.addTab(self.general_scroll, self.tr("General"))
@@ -291,6 +301,7 @@ class MetadataEditorWidget(QWidget):
                     pass
                 elif isinstance(widget, QLineEdit): widget.setText(val)
                 elif isinstance(widget, QTextEdit): widget.setPlainText(val)
+                elif isinstance(widget, QComboBox): widget.setCurrentText(val)
                 
                 if isinstance(widget, (QLineEdit, QTextEdit)):
                     widget.setPlaceholderText("")
@@ -307,6 +318,9 @@ class MetadataEditorWidget(QWidget):
                     # Handle Mixed Date
                      widget.setSpecialValueText("<Multiple Values>")
                      widget.setDate(widget.minimumDate())
+                elif isinstance(widget, QComboBox):
+                     widget.setCurrentText("")
+                     widget.lineEdit().setPlaceholderText("<Multiple Values>")
 
         # Info Labels (Special handling)
         self.uuid_lbl.setText("<Multiple Selected>")
@@ -368,7 +382,7 @@ class MetadataEditorWidget(QWidget):
         
         self.currency_edit.setText(doc.currency or "")
         
-        self.type_edit.setText(doc.doc_type or "")
+        self.type_edit.setCurrentText(doc.doc_type or "")
         self.export_filename_edit.setText(doc.export_filename or "")
         self.iban_edit.setText(doc.iban or "")
         self.phone_edit.setText(doc.phone or "")
@@ -474,7 +488,7 @@ class MetadataEditorWidget(QWidget):
         self.sender_edit.clear()
         self.date_edit.setDate(QDate.currentDate()) # Or some default
         self.amount_edit.clear()
-        self.type_edit.clear()
+        self.type_edit.setCurrentText("")
         self.export_filename_edit.clear()
         self.iban_edit.clear()
         self.phone_edit.clear()
@@ -559,6 +573,8 @@ class MetadataEditorWidget(QWidget):
                 text = widget.text().strip()
             elif isinstance(widget, QTextEdit):
                 text = widget.toPlainText().strip()
+            elif isinstance(widget, QComboBox):
+                text = widget.currentText().strip()
                 
             # Logic:
             # 1. If field was mixed (in self.mixed_fields):

@@ -11,6 +11,7 @@ from core.vault import DocumentVault
 from core.database import DatabaseManager
 from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
+from core.vocabulary import VocabularyManager
 from pdf2image import convert_from_path
 import re
 
@@ -24,6 +25,7 @@ class PipelineProcessor:
         self.config = AppConfig()
         self.vault = vault if vault else DocumentVault(self.config.get_vault_path())
         self.db = db if db else DatabaseManager(db_path)
+        self.vocabulary = VocabularyManager()
         
     def process_document(self, file_path: str, move_source: bool = False) -> Optional[Document]:
         """
@@ -328,8 +330,17 @@ class PipelineProcessor:
         if result.tax_rate: doc.tax_rate = result.tax_rate
         if result.currency: doc.currency = result.currency
         
-        if result.doc_type: doc.doc_type = result.doc_type
-        if result.tags: doc.tags = result.tags
+        if result.doc_type: 
+            doc.doc_type = self.vocabulary.normalize_type(result.doc_type)
+
+        if result.tags: 
+            raw_tags = result.tags
+            # Split comma separated tags if any
+            normalized_tags = []
+            for t in raw_tags.split(','):
+                normalized = self.vocabulary.normalize_tag(t.strip())
+                if normalized: normalized_tags.append(normalized)
+            doc.tags = ", ".join(normalized_tags)
         
         if result.sender_address: doc.sender_address = result.sender_address
         if result.iban: doc.iban = result.iban

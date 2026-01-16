@@ -1,9 +1,10 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, 
-    QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel
+    QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget
 )
 from PyQt6.QtCore import pyqtSignal
 from core.config import AppConfig
+from gui.vocabulary_settings import VocabularySettingsWidget
 
 class SettingsDialog(QDialog):
     """
@@ -14,7 +15,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Settings"))
-        self.resize(500, 300)
+        self.resize(600, 500)
         self.config = AppConfig()
         
         self._setup_ui()
@@ -22,7 +23,14 @@ class SettingsDialog(QDialog):
         
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        form = QFormLayout()
+        
+        # Tabs
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
+        
+        # --- General Tab ---
+        general_tab = QWidget()
+        form = QFormLayout(general_tab)
         
         # Language
         self.combo_lang = QComboBox()
@@ -64,7 +72,11 @@ class SettingsDialog(QDialog):
         self.edit_api_key.setPlaceholderText("google_api_key_...")
         form.addRow(self.tr("API Key:"), self.edit_api_key)
         
-        layout.addLayout(form)
+        self.tabs.addTab(general_tab, self.tr("General"))
+        
+        # --- Vocabulary Tab ---
+        self.vocab_widget = VocabularySettingsWidget()
+        self.tabs.addTab(self.vocab_widget, self.tr("Vocabulary"))
         
         # Buttons
         btn_box = QHBoxLayout()
