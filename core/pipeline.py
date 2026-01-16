@@ -27,14 +27,14 @@ class PipelineProcessor:
         self.db = db if db else DatabaseManager(db_path)
         self.vocabulary = VocabularyManager()
         
-    def process_document(self, file_path: str, move_source: bool = False) -> Optional[Document]:
+    def process_document(self, file_path: str, move_source: bool = False, skip_ai: bool = False) -> Optional[Document]:
         """
         Main entry point:
         1. Create Document object
         2. Store file in Vault (Copy or Move)
         3. Determine Type (Native vs Scanned)
         4. Extract Text (Native or OCR)
-        5. AI Analysis (Sender, Amount, Date, etc.)
+        5. AI Analysis (Optional via skip_ai)
         6. Save metadata to DB
         """
         path = Path(file_path)
@@ -60,7 +60,8 @@ class PipelineProcessor:
         doc.text_content = self._detect_and_extract_text(doc, full_stored_path)
             
         # 5. AI Analysis
-        self._run_ai_analysis(doc, full_stored_path)
+        if not skip_ai:
+             self._run_ai_analysis(doc, full_stored_path)
             
         # 6. Save to DB
         doc.last_processed_at = datetime.datetime.now().isoformat()

@@ -13,6 +13,7 @@ import shutil
 from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager
 from core.stamper import DocumentStamper
+from gui.workers import AIQueueWorker, ImportWorker
 from gui.document_list import DocumentListWidget
 from core.stamper import DocumentStamper
 from gui.document_list import DocumentListWidget
@@ -121,6 +122,13 @@ class MainWindow(QMainWindow):
         # Initial Refresh
         if self.db_manager and hasattr(self, 'list_widget') and isinstance(self.list_widget, DocumentListWidget):
             self.list_widget.refresh_list()
+
+        # Start AI Worker
+        if self.pipeline:
+             self.ai_worker = AIQueueWorker(self.pipeline)
+             self.ai_worker.doc_updated.connect(self._on_ai_doc_updated)
+             self.ai_worker.status_changed.connect(self._on_ai_status_changed)
+             self.ai_worker.start()
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -586,8 +594,6 @@ class MainWindow(QMainWindow):
             QCoreApplication.processEvents()
             
             # Worker Setup
-            from gui.workers import ImportWorker
-            
             self.import_worker = ImportWorker(self.pipeline, files, move_source=move_source)
             
             # Signals
@@ -599,12 +605,62 @@ class MainWindow(QMainWindow):
             )
             
             self.import_worker.finished.connect(
-                lambda success, total, err: self._on_import_finished(success, total, err, len(files), progress)
+                lambda s, t, uuids, err: self._on_import_finished(s, t, uuids, err, progress)
             )
             
             progress.canceled.connect(self.import_worker.cancel)
             
             self.import_worker.start()
+
+    def _on_import_finished(self, success_count, total, imported_uuids, error_msg, progress_dialog):
+        progress_dialog.close()
+        
+        if error_msg:
+             QMessageBox.critical(self, self.tr("Import Error"), error_msg)
+        else:
+             QMessageBox.information(self, self.tr("Import Finished"), 
+                                   self.tr(f"Imported {success_count}/{total} documents.\n"
+                                           f"AI Analysis queued in background."))
+                                           
+        # Refresh List
+        if self.list_widget:
+            self.list_widget.refresh_list()
+            
+        # Queue for AI
+        if self.pipeline and imported_uuids:
+             for uid in imported_uuids:
+                 self.ai_worker.add_task(uid)
+
+    def _on_ai_doc_updated(self, uuid, doc):
+        """Called when AI finishes a doc in background."""
+        # Refresh specific item in list?
+        # Or just refresh list fully? Full refresh is safer but maybe flickering?
+        # Let's try to update specific item if possible?
+        # ListWidget doesn't expose update_item easily.
+        # Just refresh_list() for now.
+        # To avoid scroll jump, maybe store state?
+        # Refreshing is fast enough usually.
+        # But wait, if we process 10 docs, it will refresh 10 times?
+        # Ideally we only update the changed row.
+        # For MVP, full refresh is acceptable.
+        if self.list_widget:
+            # Maybe restrict refresh?
+            # self.list_widget.refresh_list() # Full refresh causes UI jump
+            # We can rely on user refreshing OR simple silent refresh?
+            # Let's emit signal to list widget to update specific uuid?
+            # ListWidget logic: it reads from DB.
+            # If DB is updated, we just need to repaint row.
+            # But we don't know the row for UUID easily without search.
+            # Let's assume refresh_list for now.
+            # User experience: "Pop in".
+            # If user is scrolling, random refresh is annoying.
+            # But user wants to see results...
+            # Compromise: Status bar shows progress. List refreshes.
+            self.list_widget.refresh_list()
+
+    def _on_ai_status_changed(self, msg):
+        self.statusBar().showMessage(msg)
+            
 
     def _on_import_finished(self, success_count, total, error_msg, original_total, progress_dialog):
         progress_dialog.close()

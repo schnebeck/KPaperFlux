@@ -3,7 +3,11 @@ from dataclasses import dataclass
 import datetime
 import json
 from decimal import Decimal
+from decimal import Decimal
+import time
+import random
 from google import genai
+from google.genai.errors import ClientError
 
 @dataclass
 class AIAnalysisResult:
@@ -46,10 +50,26 @@ class AIAnalyzer:
     """
     Analyzes document text using Google Gemini to extract structured data.
     """
+    MAX_RETRIES = 5
+    _cooldown_until: Optional[datetime.datetime] = None # Shared cooldown state
+    
     def __init__(self, api_key: str, model_name: str = 'gemini-2.0-flash'):
         self.api_key = api_key
         self.client = genai.Client(api_key=self.api_key)
         self.model_name = model_name 
+
+    def _wait_for_cooldown(self):
+        """Check shared cooldown and sleep if necessary."""
+        if AIAnalyzer._cooldown_until:
+            now = datetime.datetime.now()
+            if AIAnalyzer._cooldown_until > now:
+                wait_time = (AIAnalyzer._cooldown_until - now).total_seconds()
+                if wait_time > 0:
+                    print(f"AI Rate Limit Active. Sleeping for {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+            
+            # Clear cooldown after waiting or if expired
+            AIAnalyzer._cooldown_until = None
 
     def analyze_text(self, text: str, image=None) -> AIAnalysisResult:
         """
@@ -134,10 +154,44 @@ class AIAnalyzer:
             if image:
                 contents.append(image)
                 
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=contents
-            )
+            response = None
+            
+            # Retry Loop
+            for attempt in range(self.MAX_RETRIES):
+                self._wait_for_cooldown()
+                
+                try:
+                    response = self.client.models.generate_content(
+                        model=self.model_name,
+                        contents=contents
+                    )
+                    break # Success
+                except ClientError as e:
+                    # Check for 429 Resource Exhausted
+                    # e.code or e.status might be present
+                    is_429 = False
+                    if hasattr(e, "code") and e.code == 429: is_429 = True
+                    if hasattr(e, "status") and "RESOURCE_EXHAUSTED" in str(e.status): is_429 = True
+                    # Check message text as fallback
+                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e): is_429 = True
+                    
+                    if is_429:
+                        # Exponential Backoff
+                        delay = 2 * (2 ** attempt) + random.uniform(0, 1)
+                        print(f"AI 429 Error. Backing off for {delay:.1f}s (Attempt {attempt+1}/{self.MAX_RETRIES})")
+                        
+                        # Set Cooldown
+                        AIAnalyzer._cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=delay)
+                        
+                        # Loop will check cooldown next iteration
+                        continue
+                    else:
+                        raise e # Other error
+            
+            if not response:
+                print("AI Analysis Failed after retries.")
+                return AIAnalysisResult()
+
             response_text = response.text
             
             # Clean up markdown code blocks if present
