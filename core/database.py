@@ -1,4 +1,5 @@
 import sqlite3
+import json
 from typing import Optional
 from decimal import Decimal
 from core.document import Document
@@ -59,7 +60,6 @@ class DatabaseManager:
             
             new_columns = {
                 "sender_address": "TEXT",
-                "sender_address": "TEXT",
                 "iban": "TEXT",
                 "phone": "TEXT",
                 "tags": "TEXT",
@@ -76,14 +76,13 @@ class DatabaseManager:
                 "sender_city": "TEXT",
                 "sender_country": "TEXT",
                 "page_count": "INTEGER",
-                "created_at_iso": "TEXT" # Different from auto created_at? Or use SQLite default? Let's treat created_at from pipeline. created_at exists. Let's use `created_at_iso` or overwrite created_at? Existing table has created_at DATETIME DEFAULT. We can write to it. Wait, init_db defined it. We can just use it? No, insert ignores it. Let's add `page_count`. The `created_at` column is usually auto. If we want to set it from pipeline (e.g. file date), we should allow writing. But we need to add it to INSERT list.
+                "created_at_iso": "TEXT", # Kept for compatibility if used elsewhere or future
+                "extra_data": "TEXT" # JSON for dynamic fields
             }
             
             for col_name, col_type in new_columns.items():
                 if col_name not in existing_columns:
                     print(f"Migrating DB: Adding column '{col_name}'")
-                    # ALTER TABLE cannot add multiple columns in one statement in standard verification, 
-                    # but one by one is safe.
                     self.connection.execute(f"ALTER TABLE documents ADD COLUMN {col_name} {col_type}")
 
     def insert_document(self, doc: Document) -> int:
@@ -97,8 +96,8 @@ class DatabaseManager:
             sender_address, iban, phone, tags,
             recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country,
             sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country,
-            page_count, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            page_count, created_at, extra_data
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         amount_val = float(doc.amount) if doc.amount is not None else None
@@ -119,8 +118,8 @@ class DatabaseManager:
             doc.recipient_company, doc.recipient_name, doc.recipient_street, doc.recipient_zip, doc.recipient_city, doc.recipient_country,
             doc.sender_company, doc.sender_name, doc.sender_street, doc.sender_zip, doc.sender_city, doc.sender_country,
             doc.page_count,
-            doc.created_at # If None, SQLite default current_timestamp triggered ONLY if column omitted? No, if passed None it is NULL. We want DEFAULT? If doc.created_at is None, we should not insert, or use fetch to get default? 
-            # Or easier: set created_at in python.
+            doc.created_at,
+            json.dumps(doc.extra_data) if doc.extra_data else None
         )
         
         cursor = self.connection.cursor()
@@ -133,7 +132,7 @@ class DatabaseManager:
         Retrieve all documents from the database.
         Returns a list of Document objects.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at FROM documents"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data FROM documents"
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
@@ -155,7 +154,8 @@ class DatabaseManager:
                 tags=row[11],
                 recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
                 sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
-                page_count=row[24], created_at=row[25]
+                page_count=row[24], created_at=row[25],
+                extra_data=json.loads(row[26]) if row[26] else None
             )
             results.append(doc)
             
@@ -165,7 +165,7 @@ class DatabaseManager:
         """
         Retrieve a single document by its UUID.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at FROM documents WHERE uuid = ?"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data FROM documents WHERE uuid = ?"
         cursor = self.connection.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
@@ -186,7 +186,8 @@ class DatabaseManager:
                 tags=row[11],
                 recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
                 sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
-                page_count=row[24], created_at=row[25]
+                page_count=row[24], created_at=row[25],
+                extra_data=json.loads(row[26]) if row[26] else None
             )
         return None
 
@@ -206,7 +207,7 @@ class DatabaseManager:
             "phash", "text_content", "sender_address", "iban", "phone", "tags",
             "recipient_company", "recipient_name", "recipient_street", "recipient_zip", "recipient_city", "recipient_country",
             "sender_company", "sender_name", "sender_street", "sender_zip", "sender_city", "sender_country",
-            "page_count", "created_at"
+            "page_count", "created_at", "extra_data"
         }
         
         set_clauses = []
@@ -216,6 +217,11 @@ class DatabaseManager:
             if key not in allowed_columns:
                 print(f"Warning: Attempt to update invalid column '{key}'")
                 continue
+            
+            # Serialize extra_data if dictionary
+            if key == "extra_data" and isinstance(value, dict):
+                value = json.dumps(value)
+                
             set_clauses.append(f"{key} = ?")
             values.append(value)
             

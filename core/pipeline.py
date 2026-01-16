@@ -314,5 +314,8 @@ class PipelineProcessor:
             if result.sender_city: doc.sender_city = result.sender_city
             if result.sender_country: doc.sender_country = result.sender_country
             
+            # Map Dynamic Data (Stamps, etc.)
+            if result.extra_data: doc.extra_data = result.extra_data
+            
         except Exception as e:
             print(f"AI Pipeline Error: {e}")

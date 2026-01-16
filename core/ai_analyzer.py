@@ -30,6 +30,9 @@ class AIAnalysisResult:
     sender_zip: Optional[str] = None
     sender_city: Optional[str] = None
     sender_country: Optional[str] = None
+    
+    # Phase 30: Dynamic Data
+    extra_data: Optional[dict] = None
 
 class AIAnalyzer:
     """
@@ -69,9 +72,14 @@ class AIAnalyzer:
            
         3. Recipient Details (To whom):
            - Look for "Empfänger", "Rechnungsadresse", "Lieferadresse".
-           - recipient_company
-           - recipient_name
+           - recipient_company, recipient_name
            - recipient_street, recipient_zip, recipient_city, recipient_country
+
+        4. Stamp & Custom Data (Dynamic):
+           - Look for "Eingangsstempel" (Entry Stamp) or "Kontorierungsstempel" (Accounting Stamp).
+           - These often appear as stamps with fields like "Eingegangen am", "Kst", "Ktr", "Freigabe", "Gebucht".
+           - If found, extract all fields into a "stamps" object within "extra_data".
+           - Example: extra_data: { "stamps": [{"type": "entry", "date": "...", "cost_center": "..."}] }
            
         Return ONLY valid JSON.
         JSON Structure:
@@ -83,19 +91,10 @@ class AIAnalyzer:
           "iban": "...",
           "phone": "...",
           "tags": "...",
-          "sender_address": "Full string representation...",
-          "sender_company": "...",
-          "sender_name": "...",
-          "sender_street": "...",
-          "sender_zip": "...",
-          "sender_city": "...",
-          "sender_country": "...",
-          "recipient_company": "...",
-          "recipient_name": "...",
-          "recipient_street": "...",
-          "recipient_zip": "...",
-          "recipient_city": "...",
-          "recipient_country": "..."
+          "sender_address": "...",
+          "sender_company": "...", "sender_name": "...", "sender_street": "...", "sender_zip": "...", "sender_city": "...", "sender_country": "...",
+          "recipient_company": "...", "recipient_name": "...", "recipient_street": "...", "recipient_zip": "...", "recipient_city": "...", "recipient_country": "...",
+          "extra_data": { ... }
         }
         If a field is not found, set to null.
         
@@ -156,7 +155,9 @@ class AIAnalyzer:
                 sender_street=data.get("sender_street"),
                 sender_zip=data.get("sender_zip"),
                 sender_city=data.get("sender_city"),
-                sender_country=data.get("sender_country")
+                sender_country=data.get("sender_country"),
+                
+                extra_data=data.get("extra_data")
             )
             
         except Exception as e:

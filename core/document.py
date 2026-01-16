@@ -46,3 +46,6 @@ class Document(BaseModel):
     # Duplicate detection fingerprints
     phash: Optional[str] = None
     text_content: Optional[str] = None
+    
+    # Phase 29: Dynamic Data
+    extra_data: Optional[dict] = None
