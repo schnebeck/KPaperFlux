@@ -1,17 +1,24 @@
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSpinBox, QFrame
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSpinBox, QFrame, QMenu
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import QUrl, Qt, QPoint, QPointF
+from PyQt6.QtCore import QUrl, Qt, QPoint, QPointF, pyqtSignal
 from pathlib import Path
 
 class PdfViewerWidget(QWidget):
     """
     Modern PDF Viewer using QtPdf (Qt6).
     """
+    stamp_requested = pyqtSignal(str)
+    tags_update_requested = pyqtSignal(list)
+    reprocess_requested = pyqtSignal(list)
+    export_requested = pyqtSignal(list)
+    delete_requested = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         
+        self.current_uuid = None
         self.document = QPdfDocument(self)
         self.view = QPdfView(self)
         self.view.setDocument(self.document)
@@ -57,7 +64,7 @@ class PdfViewerWidget(QWidget):
         self.btn_next.clicked.connect(self.next_page)
         
         toolbar.addStretch()
-        toolbar.addWidget(QLabel("Page:"))
+        toolbar.addWidget(QLabel(self.tr("Page:")))
         toolbar.addWidget(self.btn_prev)
         toolbar.addWidget(self.spin_page)
         toolbar.addWidget(self.lbl_total)
@@ -68,7 +75,7 @@ class PdfViewerWidget(QWidget):
         line.setFrameShadow(QFrame.Shadow.Sunken)
         toolbar.addWidget(line)
         
-        toolbar.addWidget(QLabel("Zoom:"))
+        toolbar.addWidget(QLabel(self.tr("Zoom:")))
         toolbar.addWidget(self.btn_zoom_out)
         toolbar.addWidget(self.lbl_zoom)
         toolbar.addWidget(self.btn_zoom_in)
@@ -81,16 +88,22 @@ class PdfViewerWidget(QWidget):
         # Connect signals
         self.view.zoomFactorChanged.connect(self.update_zoom_label)
         
+        # Context Menu
+        self.view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.view.customContextMenuRequested.connect(self.show_context_menu)
+        
         # Navigator
         self.nav = self.view.pageNavigator()
         self.nav.currentPageChanged.connect(self.on_page_changed)
         
         self.document.statusChanged.connect(self.on_document_status)
         
-    def load_document(self, file_path: str):
+    def load_document(self, file_path: str, uuid: str = None):
         if not file_path:
             self.clear()
             return
+            
+        self.current_uuid = uuid
             
         path = Path(file_path).resolve()
         if not path.exists():
@@ -101,6 +114,7 @@ class PdfViewerWidget(QWidget):
             # Re-create document to ensure fresh load and avoid "No file name" warnings from load("")
             # and to guarantee that the viewer picks up changes (caching issues).
             if self.document:
+                self.view.setDocument(None) # Detach first
                 self.document.deleteLater()
                 
             self.document = QPdfDocument(self)
@@ -146,6 +160,7 @@ class PdfViewerWidget(QWidget):
         # Load empty?
         # Re-instantiate is cleaner but heavy.
         # But we can hide view or disable controls
+        self.current_uuid = None
         self.lbl_total.setText("/ 0")
         self.spin_page.setRange(0, 0)
         self.spin_page.clear()
@@ -194,3 +209,30 @@ class PdfViewerWidget(QWidget):
         self.spin_page.blockSignals(True)
         self.spin_page.setValue(page + 1)
         self.spin_page.blockSignals(False)
+
+    def show_context_menu(self, pos: QPoint):
+        if not self.current_uuid:
+            return
+            
+        menu = QMenu(self)
+        
+        reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
+        tags_action = menu.addAction(self.tr("Manage Tags..."))
+        stamp_action = menu.addAction(self.tr("Stamp..."))
+        menu.addSeparator()
+        export_action = menu.addAction(self.tr("Export Document..."))
+        menu.addSeparator()
+        delete_action = menu.addAction(self.tr("Delete Document"))
+        
+        action = menu.exec(self.view.mapToGlobal(pos))
+        
+        if action == reprocess_action:
+            self.reprocess_requested.emit([self.current_uuid])
+        elif action == tags_action:
+            self.tags_update_requested.emit([self.current_uuid])
+        elif action == stamp_action:
+            self.stamp_requested.emit(self.current_uuid)
+        elif action == export_action:
+            self.export_requested.emit([self.current_uuid])
+        elif action == delete_action:
+            self.delete_requested.emit(self.current_uuid)

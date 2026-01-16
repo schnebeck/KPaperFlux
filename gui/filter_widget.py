@@ -22,6 +22,7 @@ class FilterWidget(QWidget):
         
         # Smart Search Row
         search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(10, 0, 0, 0)
         self.txt_smart_search = QLineEdit()
         self.txt_smart_search.setPlaceholderText(self.tr("Search documents (e.g. 'Amazon 2024 Invoice')..."))
         self.txt_smart_search.returnPressed.connect(self.emit_smart_filter)

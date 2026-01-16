@@ -93,6 +93,11 @@ class MainWindow(QMainWindow):
         
         # --- Right Pane (PDF Viewer) ---
         self.pdf_viewer = PdfViewerWidget()
+        self.pdf_viewer.stamp_requested.connect(self.stamp_document_slot)
+        self.pdf_viewer.tags_update_requested.connect(self.manage_tags_slot)
+        self.pdf_viewer.export_requested.connect(self.export_documents_slot)
+        self.pdf_viewer.reprocess_requested.connect(self.reprocess_document_slot)
+        self.pdf_viewer.delete_requested.connect(self.delete_document_slot)
         self.main_splitter.addWidget(self.pdf_viewer)
         
         # Set Initial Sizes
@@ -109,6 +114,7 @@ class MainWindow(QMainWindow):
         self.main_splitter.setSizes([400, 600])
 
         self.setStatusBar(QStatusBar())
+        self.statusBar().showMessage(self.tr("Ready"))
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -213,7 +219,7 @@ class MainWindow(QMainWindow):
             if self.pipeline and self.pipeline.vault:
                 path = self.pipeline.vault.get_file_path(docs[0].uuid)
                 if path:
-                    self.pdf_viewer.load_document(path)
+                    self.pdf_viewer.load_document(path, uuid=docs[0].uuid)
                 else:
                      self.pdf_viewer.clear()
         else:
@@ -227,7 +233,7 @@ class MainWindow(QMainWindow):
             # It's fine to show Doc A as reference.
             if self.pipeline and self.pipeline.vault:
                 path = self.pipeline.vault.get_file_path(docs[0].uuid)
-                if path: self.pdf_viewer.load_document(path)
+                if path: self.pdf_viewer.load_document(path, uuid=docs[0].uuid)
 
     def delete_selected_slot(self):
         """Handle deletion via Menu."""
@@ -312,7 +318,7 @@ class MainWindow(QMainWindow):
              # Let's simple reload if single selection matches.
              if len(docs_to_refresh) == 1 and docs_to_refresh[0].uuid in uuids:
                   path = self.pipeline.vault.get_file_path(docs_to_refresh[0].uuid)
-                  if path: self.pdf_viewer.load_document(path)
+                  if path: self.pdf_viewer.load_document(path, uuid=docs_to_refresh[0].uuid)
 
         self.list_widget.refresh_list()
         
@@ -448,9 +454,13 @@ class MainWindow(QMainWindow):
         from gui.duplicate_dialog import DuplicateFinderDialog
         
         sim_manager = SimilarityManager(self.db_manager, self.pipeline.vault)
+        duplicates = sim_manager.find_duplicates()
         
-        # Show progress?
-        dialog = DuplicateFinderDialog(sim_manager, self)
+        if not duplicates:
+             QMessageBox.information(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."))
+             return
+
+        dialog = DuplicateFinderDialog(duplicates, self.db_manager, self)
         dialog.exec()
 
     def open_maintenance_slot(self):
@@ -574,30 +584,45 @@ class MainWindow(QMainWindow):
 
         from gui.stamper_dialog import StamperDialog
         dialog = StamperDialog(self)
+        
+        # Check for existing stamps
+        stamper = DocumentStamper()
+        existing_stamps = stamper.get_stamps(src_path)
+        
+        dialog.populate_stamps(existing_stamps)
+        
         if dialog.exec():
-            text, pos, color = dialog.get_data()
-            stamper = DocumentStamper()
+            action, text, pos, color, rotation, remove_id = dialog.get_data()
             try:
-                # Modify in place? or tmp and move?
-                # PikePDF save to same file sometimes issues?
-                # Better safe: temp output, then move.
                 base, ext = os.path.splitext(src_path)
-                tmp_path = f"{base}_stamped{ext}"
                 
-                stamper.apply_stamp(src_path, tmp_path, text, position=pos, color=color)
-                
-                # Move back
-                shutil.move(tmp_path, src_path)
-                
-                QMessageBox.information(self, self.tr("Success"), self.tr("Stamp applied."))
+                if action == "remove":
+                    removed = stamper.remove_stamp(src_path, stamp_id=remove_id)
+                    if removed:
+                        QMessageBox.information(self, self.tr("Success"), self.tr("Stamp removed."))
+                    else:
+                        QMessageBox.information(self, self.tr("Info"), self.tr("Failed to remove stamp."))
+                else:
+                    # APPLY
+                    # Note: We use tmp path to ensure safe write, then move back.
+                    # apply_stamp uses pikepdf default open, so saving to same file might need allow_overwriting_input.
+                    # The tmp file approach is safe.
+                    tmp_path = f"{base}_stamped{ext}"
+                    stamper.apply_stamp(src_path, tmp_path, text, position=pos, color=color, rotation=rotation)
+                    
+                    # Move back
+                    shutil.move(tmp_path, src_path)
+                    
+                    QMessageBox.information(self, self.tr("Success"), self.tr("Stamp applied."))
                 
                 # Refresh viewer if this doc is selected
                 # self.detail_widget.display_document(doc) -> triggers reload
                 # Or just emit selection again
-                self.list_widget.document_selected.emit(uuid)
+                # Fix: Signal expects list[str]
+                self.list_widget.document_selected.emit([uuid])
                 
             except Exception as e:
-                QMessageBox.critical(self, self.tr("Error"), self.tr(f"Stamping failed: {e}"))
+                QMessageBox.critical(self, self.tr("Error"), self.tr(f"Stamping operation failed: {e}"))
 
     def manage_tags_slot(self, uuids: list[str]):
         """Open dialog to add/remove tags for selected documents."""

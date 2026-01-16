@@ -31,7 +31,7 @@ class ScannerWorker(QThread):
 class ScannerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Scanner")
+        self.setWindowTitle(self.tr("Scanner"))
         self.resize(400, 200)
         
         self.driver = get_scanner_driver("auto")
@@ -45,7 +45,7 @@ class ScannerDialog(QDialog):
         
         # Device Selection
         self.device_combo = QComboBox()
-        layout.addWidget(QLabel("Device:"))
+        layout.addWidget(QLabel(self.tr("Device:")))
         layout.addWidget(self.device_combo)
         
         # Settings Layout
@@ -57,14 +57,16 @@ class ScannerDialog(QDialog):
         self.dpi_spin.setValue(200)
         self.dpi_spin.setSuffix(" dpi")
         
-        settings_layout.addWidget(QLabel("Resolution:"))
+        settings_layout.addWidget(QLabel(self.tr("Resolution:")))
         settings_layout.addWidget(self.dpi_spin)
         
         # Mode
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["Color", "Gray", "Lineart"])
+        self.mode_combo.addItem(self.tr("Color"), "Color")
+        self.mode_combo.addItem(self.tr("Gray"), "Gray")
+        self.mode_combo.addItem(self.tr("Lineart"), "Lineart")
         
-        settings_layout.addWidget(QLabel("Mode:"))
+        settings_layout.addWidget(QLabel(self.tr("Mode:")))
         settings_layout.addWidget(self.mode_combo)
         
         layout.addLayout(settings_layout)
@@ -77,11 +79,11 @@ class ScannerDialog(QDialog):
         
         # Buttons
         btn_layout = QHBoxLayout()
-        self.scan_btn = QPushButton("Scan")
+        self.scan_btn = QPushButton(self.tr("Scan"))
         self.scan_btn.clicked.connect(self.start_scan)
         self.scan_btn.setDefault(True)
         
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton(self.tr("Cancel"))
         self.cancel_btn.clicked.connect(self.reject)
         
         btn_layout.addStretch()
@@ -94,7 +96,7 @@ class ScannerDialog(QDialog):
         try:
             devices = self.driver.list_devices()
             if not devices:
-                self.device_combo.addItem("No devices found", None)
+                self.device_combo.addItem(self.tr("No devices found"), None)
                 self.scan_btn.setEnabled(False)
             else:
                 for dev in devices:
@@ -103,7 +105,7 @@ class ScannerDialog(QDialog):
                     self.device_combo.addItem(label, dev[0])
                 self.scan_btn.setEnabled(True)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to list devices: {e}")
+            QMessageBox.critical(self, self.tr("Error"), self.tr(f"Failed to list devices: {e}"))
             
     def start_scan(self):
         device_id = self.device_combo.currentData()
@@ -111,11 +113,18 @@ class ScannerDialog(QDialog):
             return
             
         dpi = self.dpi_spin.value()
-        mode = self.mode_combo.currentText()
-        
+        mode = self.mode_combo.currentText() # NOTE: This might need adjustment if we want to send English mode to backend
+        # Actually in _init_ui I added "Color", "data". 
+        # But QComboBox.addItems only takes list of texts. 
+        # I changed to addItem(text, userData).
+        # We need to retrieve userData to send to backend if backend expects English.
+        mode = self.mode_combo.currentData()
+        if not mode: # Fallback if no user data (should not happen with my change)
+             mode = self.mode_combo.currentText()
+
         self.scan_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.progress.setFormat("Scanning...")
+        self.progress.setFormat(self.tr("Scanning..."))
         
         self.worker = ScannerWorker(self.driver, device_id, dpi, mode)
         self.worker.finished.connect(self.on_scan_finished)
@@ -127,15 +136,15 @@ class ScannerDialog(QDialog):
         self.scanned_file = path
         # Verify file exists
         if os.path.exists(path):
-            QMessageBox.information(self, "Success", "Scan completed successfully.")
+            QMessageBox.information(self, self.tr("Success"), self.tr("Scan completed successfully."))
             self.accept()
         else:
-            self.on_scan_error("Output file missing.")
+            self.on_scan_error(self.tr("Output file missing."))
             
     def on_scan_error(self, msg):
         self.progress.setVisible(False)
         self.scan_btn.setEnabled(True)
-        QMessageBox.critical(self, "Scan Error", msg)
+        QMessageBox.critical(self, self.tr("Scan Error"), msg)
         
     def get_scanned_file(self) -> Optional[str]:
         return self.scanned_file

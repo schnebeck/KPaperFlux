@@ -7,6 +7,8 @@ import math
 from pathlib import Path
 from pdf2image import convert_from_path
 from PIL import Image, ImageChops, ImageStat
+import os
+
 
 class SimilarityManager:
     """
@@ -43,7 +45,17 @@ class SimilarityManager:
         Calculate a similarity score between 0.0 and 1.0.
         Max of (Text Jaccard, Visual Similarity) boosted by Metadata.
         """
-        # Metadata Score
+        # Critical Metadata Check (Veto Power)
+        # If dates are present and differ, these are likely different monthly invoices (same template).
+        if doc_a.doc_date and doc_b.doc_date and doc_a.doc_date != doc_b.doc_date:
+            return 0.0 # Strongly reject different dates
+            
+        # If amounts are present and differ significanly, likely different files.
+        if doc_a.amount is not None and doc_b.amount is not None and doc_a.amount != doc_b.amount:
+            # Allow small float tolerance? Assuming exact match needed for duplicates.
+            return 0.1 # Very low score
+            
+        # Metadata Score (Boost)
         metadata_score = 0.0
         if doc_a.amount is not None and doc_b.amount is not None and doc_a.amount == doc_b.amount:
              metadata_score += 0.3
@@ -138,7 +150,7 @@ class SimilarityManager:
         return sim
 
     def _get_cached_thumbnails(self, doc: Document) -> List[Image.Image]:
-        """Return list of thumbnails for up to first 5 pages."""
+        """Return list of thumbnails for up to first 5 pages, ignoring KPaperFlux stamps."""
         if doc.uuid in self.thumbnail_cache:
             return self.thumbnail_cache[doc.uuid]
             
@@ -150,9 +162,36 @@ class SimilarityManager:
         if not path.exists():
             return []
             
+        # Check for stamps and create clean temp if needed
+        render_path = path
+        temp_file = None
+        
+        try:
+            from core.stamper import DocumentStamper
+            import tempfile
+            import shutil
+            
+            stamper = DocumentStamper()
+            if stamper.has_stamp(str(path)):
+                # Create temp file
+                fd, temp_path = tempfile.mkstemp(suffix=".pdf")
+                os.close(fd)
+                shutil.copy2(path, temp_path)
+                
+                # Check stamps on temp (same as original)
+                # Remove all stamps
+                if stamper.remove_stamp(temp_path):
+                    render_path = Path(temp_path)
+                    temp_file = temp_path
+                else:
+                    # Failed to strip or no stamps found? Use temp anyway or original?
+                    pass
+        except Exception as e:
+            print(f"Error checking/stripping stamps for {doc.original_filename}: {e}")
+            
         try:
             # Render first 5 pages, Size 128px
-            images = convert_from_path(str(path), first_page=1, last_page=5, size=128, grayscale=True)
+            images = convert_from_path(str(render_path), first_page=1, last_page=5, size=128, grayscale=True)
             thumbnails = []
             for img in images:
                 # Resize to fixed 64x80
@@ -160,10 +199,17 @@ class SimilarityManager:
                 thumbnails.append(thumb)
                 
             self.thumbnail_cache[doc.uuid] = thumbnails
+            
+            # Cleanup temp
+            if temp_file and os.path.exists(temp_file):
+                os.unlink(temp_file)
+                
             return thumbnails
             
         except Exception as e:
             print(f"Visual Sim Error {doc.original_filename}: {e}")
+            if temp_file and os.path.exists(temp_file):
+                os.unlink(temp_file)
             
         return []
 
