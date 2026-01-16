@@ -32,6 +32,8 @@ class DocumentListWidget(QTableWidget):
             self.tr("Created"),
             self.tr("Updated")
         ]
+        self.dynamic_columns = []
+        
         self.setColumnCount(len(self.columns))
         self.setHorizontalHeaderLabels(self.columns)
         
@@ -76,6 +78,31 @@ class DocumentListWidget(QTableWidget):
             
         menu.exec(header.mapToGlobal(pos))
         
+        # Separator
+        menu.addSeparator()
+        
+        # Dynamic Columns Submenu
+        dyn_menu = menu.addMenu(self.tr("Add JSON Column..."))
+        
+        available_keys = self.db.get_available_extra_keys()
+        for key in available_keys:
+             # Check if already added
+             if key in self.dynamic_columns:
+                 action = dyn_menu.addAction(f"✓ {key}")
+                 action.setEnabled(False)
+             else:
+                 action = dyn_menu.addAction(key)
+                 action.triggered.connect(lambda checked, k=key: self.add_dynamic_column(k))
+                 
+        # Remove Dynamic Column
+        if self.dynamic_columns:
+            rem_menu = menu.addMenu(self.tr("Remove JSON Column..."))
+            for i, key in enumerate(self.dynamic_columns):
+                action = rem_menu.addAction(key)
+                action.triggered.connect(lambda checked, k=key: self.remove_dynamic_column(k))
+
+        menu.exec(header.mapToGlobal(pos))
+        
     def toggle_column(self, index: int, visible: bool):
         if visible:
             self.horizontalHeader().showSection(index)
@@ -83,12 +110,55 @@ class DocumentListWidget(QTableWidget):
             self.horizontalHeader().hideSection(index)
         self.save_state()
 
+    def add_dynamic_column(self, key: str):
+        if key in self.dynamic_columns:
+            return
+            
+        self.dynamic_columns.append(key)
+        self.columns.append(key) # Use key as header
+        
+        # reset table columns
+        self.setColumnCount(len(self.columns))
+        self.setHorizontalHeaderLabels(self.columns)
+        
+        self.refresh_list()
+        self.save_state()
+        
+    def remove_dynamic_column(self, key: str):
+        if key not in self.dynamic_columns:
+            return
+            
+        idx = self.dynamic_columns.index(key)
+        col_idx = len(self.columns) - len(self.dynamic_columns) + idx
+        
+        self.dynamic_columns.remove(key)
+        self.columns.pop(col_idx)
+        
+        self.removeColumn(col_idx)
+        self.setHorizontalHeaderLabels(self.columns)
+        
+        self.save_state()
+
     def save_state(self):
         settings = QSettings("KPaperFlux", "DocumentList")
         settings.setValue("headerState", self.horizontalHeader().saveState())
+        settings.setValue("dynamicColumns", self.dynamic_columns)
         
     def restore_state(self):
         settings = QSettings("KPaperFlux", "DocumentList")
+        
+        # Restore dynamic columns first
+        dyn_cols = settings.value("dynamicColumns", [])
+        # Ensure it's a list (QSettings quirks)
+        if isinstance(dyn_cols, str): dyn_cols = [dyn_cols]
+        elif not isinstance(dyn_cols, list): dyn_cols = []
+        
+        if dyn_cols:
+            self.dynamic_columns = dyn_cols
+            self.columns.extend(dyn_cols)
+            self.setColumnCount(len(self.columns))
+            self.setHorizontalHeaderLabels(self.columns)
+
         state = settings.value("headerState")
         if state:
             self.horizontalHeader().restoreState(state)
@@ -240,6 +310,26 @@ class DocumentListWidget(QTableWidget):
             self.setItem(row, 6, QTableWidgetItem(pages_str))
             self.setItem(row, 7, QTableWidgetItem(created_str))
             self.setItem(row, 8, QTableWidgetItem(updated_str))
+            
+            # Dynamic Columns (Index 9+)
+            for i, key in enumerate(self.dynamic_columns):
+                # Resolve value path
+                val = ""
+                if doc.extra_data:
+                    parts = key.split('.')
+                    data = doc.extra_data
+                    for p in parts:
+                        if isinstance(data, dict):
+                            data = data.get(p)
+                        else:
+                            data = None
+                            break
+                    
+                    if data is not None:
+                        val = str(data)
+                
+                col_idx = 9 + i
+                self.setItem(row, col_idx, QTableWidgetItem(val))
             
         self.setSortingEnabled(True)
         

@@ -256,7 +256,7 @@ class DatabaseManager:
         """
         
         # Base query
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at FROM documents WHERE 1=1"
+        sql = "SELECT uuid, original_filename, text_content, created_at, sender, doc_date, amount, doc_type, tags, page_count, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, sender_address, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, iban, phone, tax_id, extra_data, last_processed_at FROM documents WHERE 1=1"
         values = []
         
         # Text Search
@@ -286,19 +286,44 @@ class DatabaseManager:
                 doc = Document(
                     uuid=row[0],
                     original_filename=row[1],
-                    doc_date=row[2], 
-                    sender=row[3],
-                    amount=row[4],
-                    doc_type=row[5],
-                    phash=row[6],
-                    text_content=row[7],
-                    sender_address=row[8],
-                    iban=row[9],
-                    phone=row[10],
-                    tags=row[11],
-                    recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
-                    sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
-                    page_count=row[24], created_at=row[25],
+                    text_content=row[2],
+                    created_at=row[3],
+                    sender=row[4],
+                    doc_date=row[5],
+                    amount=row[6],
+                    doc_type=row[7],
+                    tags=row[8],
+                    page_count=row[9],
+                    sender_company=row[10],
+                    sender_name=row[11],
+                    sender_street=row[12],
+                    sender_zip=row[13],
+                    sender_city=row[14],
+                    sender_country=row[15],
+                    sender_address=row[16],
+                    recipient_company=row[17],
+                    recipient_name=row[18],
+                    recipient_street=row[19],
+                    recipient_zip=row[20],
+                    recipient_city=row[21],
+                    recipient_country=row[22],
+                    iban=row[23],
+                    phone=row[24],
+                    # tax_id=row[25], # This column is not in the original schema, and not in the SQL query.
+                    # Assuming it should be extra_data=row[25] and last_processed_at=row[26]
+                    # Based on the provided SQL, the column order is:
+                    # uuid, original_filename, text_content, created_at, sender, doc_date, amount, doc_type, tags, page_count,
+                    # sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, sender_address,
+                    # recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country,
+                    # iban, phone, tax_id, extra_data, last_processed_at
+                    # This means tax_id is row[25], extra_data is row[26], last_processed_at is row[27]
+                    # The provided code snippet for Document construction has 28 fields (0-27).
+                    # The original Document constructor had 28 fields (0-27).
+                    # The new SQL query has 28 fields.
+                    # The new Document constructor has 28 fields.
+                    # The `tax_id` field is new in the SQL query and the Document constructor.
+                    # I will assume `tax_id` is a valid field for the Document class and the database.
+                    tax_id=row[25],
                     extra_data=json.loads(row[26]) if row[26] else None,
                     last_processed_at=row[27]
                 )
@@ -307,6 +332,59 @@ class DatabaseManager:
             
         except sqlite3.Error as e:
             print(f"Search Error: {e}")
+            return []
+
+    def get_available_extra_keys(self) -> list[str]:
+        """
+        Scan all documents for unique keys in the 'extra_data' JSON.
+        Returns flattened keys like 'stamps.cost_center'.
+        """
+        sql = "SELECT extra_data FROM documents WHERE extra_data IS NOT NULL"
+        cursor = self.connection.cursor()
+        keys = set()
+        
+        try:
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            
+            for row in rows:
+                try:
+                    data = json.loads(row[0])
+                    if not isinstance(data, dict):
+                        continue
+                        
+                    # Flatten keys
+                    # Supported depth: 2 levels for now (e.g. stamps.cost_center)
+                    # Or generic recursion.
+                    def extract_keys(obj, prefix=""):
+                        if isinstance(obj, dict):
+                            for k, v in obj.items():
+                                new_prefix = f"{prefix}.{k}" if prefix else k
+                                if isinstance(v, (dict, list)):
+                                     # If it's a list (like "stamps": [...]), we might want "stamps" itself
+                                     # OR if user wants to search inside list?
+                                     # AI Extractor output: extra_data: { "stamps": [ { "cost_center": "100" } ] }
+                                     # We probably want to offer "stamps" as a column (showing summary?)
+                                     # OR "stamps.cost_center" (aggregating all cost centers?)
+                                     
+                                     # If it's a list, lets just add the key itself.
+                                     # If it's a dict, recurse.
+                                     if isinstance(v, dict):
+                                         extract_keys(v, new_prefix)
+                                     else:
+                                         keys.add(new_prefix) 
+                                else:
+                                     keys.add(new_prefix)
+                                     
+                    extract_keys(data)
+                    
+                except json.JSONDecodeError:
+                    continue
+                    
+            return sorted(list(keys))
+            
+        except sqlite3.Error as e:
+            print(f"Error fetching extra keys: {e}")
             return []
 
     def delete_document(self, uuid: str) -> bool:

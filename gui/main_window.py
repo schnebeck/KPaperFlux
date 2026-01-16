@@ -281,49 +281,52 @@ class MainWindow(QMainWindow):
         QCoreApplication.processEvents()
 
         # Loop
-        for i, uuid in enumerate(uuids):
-            if progress.wasCanceled():
-                break
-                
-            progress.setLabelText(self.tr(f"Reprocessing {i+1} of {count}..."))
-            QCoreApplication.processEvents()
-            
-            # Since pipeline is blocking, we process one by one
-            # The dialog updates when we call setValue or processEvents implicitly
-            doc = self.pipeline.reprocess_document(uuid)
-            if doc:
-                success_count += 1
-            
-            progress.setValue(i + 1)
-                
-        # If currently edited documents were in the reprocess list, we should refresh the editor.
-        # Check intersection
-        intersect = set(uuids) & set(self.editor_widget.current_uuids)
-        if intersect:
-             # Refresh Editor
-             # We need to re-fetch the currently displayed docs from DB to get updated fields
-             docs_to_refresh = []
-             for uid in self.editor_widget.current_uuids:
-                 d = self.db_manager.get_document_by_uuid(uid)
-                 if d: docs_to_refresh.append(d)
+        # Worker Setup
+        from gui.workers import ReprocessWorker
+        
+        # Disable main window interaction? Or just modal dialog.
+        # Dialog is already modal.
+        
+        self.reprocess_worker = ReprocessWorker(self.pipeline, uuids)
+        
+        # Connect Signals
+        self.reprocess_worker.progress.connect(
+            lambda i, uid: (
+                progress.setLabelText(self.tr(f"Reprocessing {i+1} of {count}...")),
+                progress.setValue(i)
+            )
+        )
+        
+        self.reprocess_worker.finished.connect(
+            lambda success, total, processed_uuids: self._on_reprocess_finished(success, total, processed_uuids, uuids, progress)
+        )
+        
+        progress.canceled.connect(self.reprocess_worker.cancel)
+        
+        self.reprocess_worker.start()
+
+    def _on_reprocess_finished(self, success_count, total, processed_uuids, original_uuids, progress_dialog):
+        progress_dialog.close()
+        self.reprocess_worker = None # Cleanup ref
+        
+        # Refresh Editor logic
+        if self.editor_widget:
+            intersect = set(processed_uuids) & set(self.editor_widget.current_uuids)
+            if intersect:
+                 docs_to_refresh = []
+                 for uid in self.editor_widget.current_uuids:
+                     d = self.db_manager.get_document_by_uuid(uid)
+                     if d: docs_to_refresh.append(d)
+                 if docs_to_refresh:
+                     self.editor_widget.display_documents(docs_to_refresh)
                  
-             if docs_to_refresh:
-                 self.editor_widget.display_documents(docs_to_refresh)
-                 
-             # Refresh Viewer if "current" view changed?
-             # Viewer shows only ONE document usually (the first selected, or specific one).
-             # We rely on on_document_selected usually.
-             # If we just refresh editor metadata, that's enough properly.
-             # But if OCR content changed, might want to reload viewer?
-             # Only if single selection matches Reprocessed UUID?
-             # Let's simple reload if single selection matches.
-             if len(docs_to_refresh) == 1 and docs_to_refresh[0].uuid in uuids:
-                  path = self.pipeline.vault.get_file_path(docs_to_refresh[0].uuid)
-                  if path: self.pdf_viewer.load_document(path, uuid=docs_to_refresh[0].uuid)
+                 # Viewer reload if relevant
+                 if len(docs_to_refresh) == 1 and docs_to_refresh[0].uuid in processed_uuids:
+                       path = self.pipeline.vault.get_file_path(docs_to_refresh[0].uuid)
+                       if path: self.pdf_viewer.load_document(path, uuid=docs_to_refresh[0].uuid)
 
         self.list_widget.refresh_list()
-        
-        QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{count} documents.")
+        QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.")
 
     def import_document_slot(self):
         """Handle import button click."""
@@ -537,26 +540,40 @@ class MainWindow(QMainWindow):
             progress.forceShow()
             QCoreApplication.processEvents()
             
-            for i, fpath in enumerate(files):
-                if progress.wasCanceled():
-                    break
-                    
-                progress.setLabelText(self.tr(f"Importing {os.path.basename(fpath)}..."))
-                QCoreApplication.processEvents()
-                
-                try:
-                    self.pipeline.process_document(fpath, move_source=move_source)
-                    success_count += 1
-                except Exception as e:
-                    print(f"Error importing {fpath}: {e}")
-                
-                progress.setValue(i + 1)
+            # Worker Setup
+            from gui.workers import ImportWorker
             
-            QMessageBox.information(self, self.tr("Import Complete"),
-                                  self.tr(f"Successfully imported {success_count} of {len(files)} files."))
+            self.import_worker = ImportWorker(self.pipeline, files, move_source=move_source)
             
-            if self.list_widget:
-                self.list_widget.refresh_list()
+            # Signals
+            self.import_worker.progress.connect(
+                lambda i, fname: (
+                    progress.setLabelText(self.tr(f"Importing {os.path.basename(fname)}...")),
+                    progress.setValue(i)
+                )
+            )
+            
+            self.import_worker.finished.connect(
+                lambda success, total, err: self._on_import_finished(success, total, err, len(files), progress)
+            )
+            
+            progress.canceled.connect(self.import_worker.cancel)
+            
+            self.import_worker.start()
+
+    def _on_import_finished(self, success_count, total, error_msg, original_total, progress_dialog):
+        progress_dialog.close()
+        self.import_worker = None
+        
+        if error_msg:
+             # Just print/log, assuming partial success is common or handled individually
+             print(f"Worker finished with error signal: {error_msg}")
+
+        QMessageBox.information(self, self.tr("Import Complete"),
+                              self.tr(f"Successfully imported {success_count} of {total} files."))
+        
+        if self.list_widget:
+            self.list_widget.refresh_list()
 
     def export_documents_slot(self, uuids: list[str]):
         """Export selected documents to a folder."""
