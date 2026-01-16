@@ -319,9 +319,16 @@ class DocumentListWidget(QTableWidget):
                     for p in parts:
                         if isinstance(data, dict):
                             data = data.get(p)
+                        elif isinstance(data, list):
+                            # List traversal: Try to find key in first dict item
+                            if data and isinstance(data[0], dict):
+                                data = data[0].get(p)
+                            else:
+                                data = None
                         else:
                             data = None
-                            break
+                        
+                        if data is None: break
                     
                     if data is not None:
                         val = str(data)

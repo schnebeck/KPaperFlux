@@ -322,11 +322,15 @@ class MainWindow(QMainWindow):
                      if d: docs_to_refresh.append(d)
                  if docs_to_refresh:
                      self.editor_widget.display_documents(docs_to_refresh)
+                     
+        # Reload PDF Viewer if active document was reprocessed
+        if self.pdf_viewer and self.pdf_viewer.current_uuid in processed_uuids:
+            doc = self.db_manager.get_document_by_uuid(self.pdf_viewer.current_uuid)
+            if doc:
+                file_path = self.vault_manager.get_file_path(doc.uuid)
+                if file_path:
+                    self.pdf_viewer.load_document(str(file_path), uuid=doc.uuid)
                  
-                 # Viewer reload if relevant
-                 if len(docs_to_refresh) == 1 and docs_to_refresh[0].uuid in processed_uuids:
-                       path = self.pipeline.vault.get_file_path(docs_to_refresh[0].uuid)
-                       if path: self.pdf_viewer.load_document(path, uuid=docs_to_refresh[0].uuid)
 
         self.list_widget.refresh_list()
         QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.")

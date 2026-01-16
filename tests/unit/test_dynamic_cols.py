@@ -32,7 +32,9 @@ def test_get_available_extra_keys(db_manager):
     # Doc 4: List inside (should be handled gracefully, likely ignored or just top level)
     # Our implementation: recurses dicts. If list, currently ignores elements or adds key?
     # Logic was: if dict recurse, else add key. So "tags": ["a", "b"] -> key "tags" added.
-    doc4 = Document(original_filename="doc4.pdf", extra_data={"flags": ["urgent"]})
+    # Doc 4: List inside (should be handled gracefully)
+    # New logic: Recurse into list items (dicts)
+    doc4 = Document(original_filename="doc4.pdf", extra_data={"flags": ["urgent"], "stamps": [{"cost_center": "ABC", "approved": True}]})
     
     db_manager.insert_document(doc1)
     db_manager.insert_document(doc2)
@@ -42,13 +44,21 @@ def test_get_available_extra_keys(db_manager):
     keys = db_manager.get_available_extra_keys()
     
     # Expected: 
-    # cost_center (from 1 & 3)
-    # approved (from 1)
-    # stamps.type (from 2)
-    # stamps.date (from 2)
-    # stamps.user (from 3)
-    # flags (from 4)
+    # cost_center (1, 3)
+    # approved (1)
+    # stamps.type (2)
+    # stamps.date (2)
+    # stamps.user (3)
+    # flags (4)
+    # stamps (2, 3, 4) - List key itself
+    # stamps.cost_center (4) - Deep discovery
+    # stamps.approved (4) - Deep discovery
     
-    expected = sorted(["cost_center", "approved", "stamps.type", "stamps.date", "stamps.user", "flags"])
+    expected = sorted([
+        "cost_center", "approved", 
+        "stamps", "stamps.type", "stamps.date", "stamps.user", 
+        "flags", 
+        "stamps.cost_center", "stamps.approved"
+    ])
     
     assert keys == expected

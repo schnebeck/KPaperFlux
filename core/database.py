@@ -363,19 +363,15 @@ class DatabaseManager:
                         if isinstance(obj, dict):
                             for k, v in obj.items():
                                 new_prefix = f"{prefix}.{k}" if prefix else k
-                                if isinstance(v, (dict, list)):
-                                     # If it's a list (like "stamps": [...]), we might want "stamps" itself
-                                     # OR if user wants to search inside list?
-                                     # AI Extractor output: extra_data: { "stamps": [ { "cost_center": "100" } ] }
-                                     # We probably want to offer "stamps" as a column (showing summary?)
-                                     # OR "stamps.cost_center" (aggregating all cost centers?)
-                                     
-                                     # If it's a list, lets just add the key itself.
-                                     # If it's a dict, recurse.
-                                     if isinstance(v, dict):
-                                         extract_keys(v, new_prefix)
-                                     else:
-                                         keys.add(new_prefix) 
+                                if isinstance(v, dict):
+                                     extract_keys(v, new_prefix)
+                                elif isinstance(v, list):
+                                     # Recurse into list items (dictionaries) to discover nested keys
+                                     # e.g. stamps -> [{cost_center: 10}] -> keys: stamps, stamps.cost_center
+                                     keys.add(new_prefix) # Add the list key itself
+                                     for item in v:
+                                         if isinstance(item, dict):
+                                             extract_keys(item, new_prefix)
                                 else:
                                      keys.add(new_prefix)
                                      
