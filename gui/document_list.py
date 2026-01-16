@@ -96,9 +96,11 @@ class DocumentListWidget(QTableWidget):
             # Defaults: Hide Pages (6), Created (7)
             self.horizontalHeader().hideSection(6)
             self.horizontalHeader().hideSection(7)
-            # Updated (8) defaults to Visible? Or Hidden?
-            # User request implies they want to see it.
-            # So we leave it visible (default)
+            
+        # Fix: Always ensure 'Updated' (8) is visible if newly added
+        # This handles cases where old settings obscure the new column
+        if self.horizontalHeader().isSectionHidden(8):
+             self.horizontalHeader().showSection(8)
 
     def show_context_menu(self, pos: QPoint):
         """Show context menu for selected item."""

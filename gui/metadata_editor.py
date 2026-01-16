@@ -43,6 +43,9 @@ class MetadataEditorWidget(QWidget):
         self.created_at_lbl = QLabel()
         general_layout.addRow(self.tr("Created At:"), self.created_at_lbl)
         
+        self.updated_at_lbl = QLabel()
+        general_layout.addRow(self.tr("Updated At:"), self.updated_at_lbl)
+        
         self.page_count_lbl = QLabel()
         general_layout.addRow(self.tr("Pages:"), self.page_count_lbl)
         
@@ -201,6 +204,7 @@ class MetadataEditorWidget(QWidget):
         # Info Labels (Special handling)
         self.uuid_lbl.setText("<Multiple Selected>")
         self.created_at_lbl.setText("-")
+        self.updated_at_lbl.setText("-")
         # Sum pages? Or range?
         pages = sum((d.page_count or 0) for d in docs)
         self.page_count_lbl.setText(f"Total: {pages}")
@@ -217,6 +221,16 @@ class MetadataEditorWidget(QWidget):
         # General
         self.uuid_lbl.setText(doc.uuid)
         self.created_at_lbl.setText(doc.created_at or "-")
+        
+        updated = "-"
+        if doc.last_processed_at:
+             try:
+                 from datetime import datetime
+                 dt = datetime.fromisoformat(str(doc.last_processed_at))
+                 updated = dt.strftime("%Y-%m-%d %H:%M")
+             except:
+                 updated = str(doc.last_processed_at)
+        self.updated_at_lbl.setText(updated)
         self.page_count_lbl.setText(str(doc.page_count) if doc.page_count is not None else "-")
         self.sender_edit.setText(doc.sender or "")
         self.date_edit.setText(str(doc.doc_date) if doc.doc_date else "")
@@ -260,6 +274,7 @@ class MetadataEditorWidget(QWidget):
         # General
         self.uuid_lbl.clear()
         self.created_at_lbl.clear()
+        self.updated_at_lbl.clear()
         self.page_count_lbl.clear()
         self.sender_edit.clear()
         self.date_edit.clear()
