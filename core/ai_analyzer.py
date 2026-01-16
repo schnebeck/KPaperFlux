@@ -186,13 +186,18 @@ class AIAnalyzer:
                     if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e): is_429 = True
                     
                     if is_429:
-                        # 1. Increase Adaptive Delay (Multiplicative Increase)
-                        # If 0, jump to 2.0s. Else double.
+                        # 1. Increase Adaptive Delay (Multiplicative Increase with CAP)
+                        # Limit max delay to 60s to prevent death spiral.
+                        # We use 60s because if the API is that throttled, we should just wait a minute.
                         old_delay = AIAnalyzer._adaptive_delay
-                        AIAnalyzer._adaptive_delay = max(2.0, AIAnalyzer._adaptive_delay * 2.0)
-                        print(f"AI Rate Limit Hit! Increasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+                        new_delay = max(2.0, AIAnalyzer._adaptive_delay * 2.0)
+                        AIAnalyzer._adaptive_delay = min(60.0, new_delay)
+                        
+                        if AIAnalyzer._adaptive_delay != old_delay:
+                            print(f"AI Rate Limit Hit! Increasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
 
                         # 2. Exponential Backoff for *this* retry
+                        # We still wait exponentially for the current request to clear the immediate congestion.
                         delay = 2 * (2 ** attempt) + random.uniform(0, 1)
                         print(f"AI 429 Error. Backing off for {delay:.1f}s (Attempt {attempt+1}/{self.MAX_RETRIES})")
                         
