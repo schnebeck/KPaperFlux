@@ -99,6 +99,7 @@ class PdfViewerWidget(QWidget):
         self.document.statusChanged.connect(self.on_document_status)
         
     def load_document(self, file_path: str, uuid: str = None):
+        print(f"DEBUG VIEWER: load_document called for {uuid} path={file_path}")
         if not file_path:
             self.clear()
             return
@@ -107,52 +108,57 @@ class PdfViewerWidget(QWidget):
             
         path = Path(file_path).resolve()
         if not path.exists():
+            print(f"DEBUG VIEWER: File not found {path}")
             self.clear()
             return
             
         try:
-            # Re-create document to ensure fresh load and avoid "No file name" warnings from load("")
-            # and to guarantee that the viewer picks up changes (caching issues).
+            # Re-create document
             if self.document:
+                print(f"DEBUG VIEWER: Deleting old document {id(self.document)}")
                 self.view.setDocument(None) # Detach first
                 self.document.deleteLater()
                 self.document = None
                 
             self.document = QPdfDocument(self)
+            print(f"DEBUG VIEWER: Created new document {id(self.document)}")
             self.document.statusChanged.connect(self.on_document_status)
-            
-            # Note: We set document AFTER loading? No, QPdfView needs it. 
-            # But maybe load first?
-            # Qt docs say: setDocument then load usually works.
             
             self.view.setDocument(self.document)
             self.view.setPageMode(QPdfView.PageMode.MultiPage)
             
             # Re-acquire navigator
             self.nav = self.view.pageNavigator()
-            # Disconnect old signals if any (safe due to try/except block below or recreation)
             try:
                 self.nav.currentPageChanged.disconnect(self.on_page_changed)
             except Exception:
                 pass
             self.nav.currentPageChanged.connect(self.on_page_changed)
             
+            print(f"DEBUG VIEWER: Calling load() on {id(self.document)}")
             self.document.load(str(path))
         except Exception as e:
-            print(f"Error loading PDF: {e}")
+            print(f"DEBUG VIEWER: Error loading PDF: {e}")
             self.clear()
 
     def unload(self):
         """Release the document file lock."""
+        print("DEBUG VIEWER: unload() called")
         self.clear()
             
     def on_document_status(self, status):
+        sender_id = id(self.sender()) if self.sender() else "None"
+        current_id = id(self.document) if self.document else "None"
+        print(f"DEBUG VIEWER: Status {status} from sender {sender_id} (Current Doc: {current_id})")
+        
         # Ignore signals from old/deleted documents
         if self.sender() != self.document:
+             print("DEBUG VIEWER: Ignoring signal from stale document")
              return
              
         if status == QPdfDocument.Status.Ready:
             count = self.document.pageCount()
+            print(f"DEBUG VIEWER: Ready. Page Count: {count}")
             self.lbl_total.setText(f"/ {count}")
             self.spin_page.blockSignals(True)
             self.spin_page.setRange(1, count)
@@ -160,6 +166,7 @@ class PdfViewerWidget(QWidget):
             self.spin_page.blockSignals(False)
             self.enable_controls(True)
         else:
+            print(f"DEBUG VIEWER: Not Ready ({status}) -> Disabling Controls")
             self.enable_controls(False)
             
     def enable_controls(self, enabled: bool):
