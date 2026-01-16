@@ -56,7 +56,7 @@ class PipelineProcessor:
         doc.text_content = self._detect_and_extract_text(doc, full_stored_path)
             
         # 5. AI Analysis
-        self._run_ai_analysis(doc)
+        self._run_ai_analysis(doc, full_stored_path)
             
         # 6. Save to DB
         doc.last_processed_at = datetime.datetime.now().isoformat()
@@ -275,49 +275,67 @@ class PipelineProcessor:
             print(f"Error counting pages for {path}: {e}")
             return 0
 
-    def _run_ai_analysis(self, doc: Document):
+    def _run_ai_analysis(self, doc: Document, file_path: str = None):
         """
-        Use AI Analyzer to extract metadata if API key is present.
+        Run AI Analysis on the document text + Image (Multimodal).
+        Updates the doc object with extracted metadata.
         """
-        api_key = self.config.get_api_key()
+        api_key = os.environ.get("GEMINI_API_KEY") # Or config
+        # Fallback to Config
+        from core.config import AppConfig
         if not api_key:
+            config = AppConfig()
+            api_key = config.get("gemini_api_key")
+            
+        if not api_key:
+            print("Skipping AI Analysis: No API Key")
             return
+
+        model_name = "gemini-2.0-flash" # or pro
+        analyzer = AIAnalyzer(api_key, model_name=model_name)
+        
+        # Generate Image for Vision
+        image = None
+        if file_path:
+            try:
+                # Render first page as image
+                # poppler_path=None assumes it's in PATH (checked with which pdftoppm)
+                images = convert_from_path(str(file_path), first_page=1, last_page=1)
+                if images:
+                    image = images[0]
+                    print("Generated page image for AI Vision analysis.")
+            except Exception as e:
+                print(f"Vision Generation Failed (pdf2image): {e}")
+                # Continue with text only
+        
+        result = analyzer.analyze_text(doc.text_content, image=image)
+        
+        # Map result to doc
+        if result.sender: doc.sender = result.sender
+        if result.doc_date: doc.doc_date = result.doc_date
+        if result.amount: doc.amount = result.amount
+        if result.doc_type: doc.doc_type = result.doc_type
+        if result.tags: doc.tags = result.tags
+        
+        if result.sender_address: doc.sender_address = result.sender_address
+        if result.iban: doc.iban = result.iban
+        if result.phone: doc.phone = result.phone
+        
+        # Extended fields (Phase 8)
+        if result.recipient_company: doc.recipient_company = result.recipient_company
+        if result.recipient_name: doc.recipient_name = result.recipient_name
+        if result.recipient_street: doc.recipient_street = result.recipient_street
+        if result.recipient_zip: doc.recipient_zip = result.recipient_zip
+        if result.recipient_city: doc.recipient_city = result.recipient_city
+        if result.recipient_country: doc.recipient_country = result.recipient_country
+        
+        if result.sender_company: doc.sender_company = result.sender_company
+        if result.sender_name: doc.sender_name = result.sender_name
+        if result.sender_street: doc.sender_street = result.sender_street
+        if result.sender_zip: doc.sender_zip = result.sender_zip
+        if result.sender_city: doc.sender_city = result.sender_city
+        if result.sender_country: doc.sender_country = result.sender_country
+        
+        # Map Dynamic Data (Stamps, etc.)
+        if result.extra_data: doc.extra_data = result.extra_data
             
-        if not doc.text_content:
-            return
-            
-        try:
-            model_name = self.config.get_gemini_model()
-            analyzer = AIAnalyzer(api_key, model_name=model_name)
-            result = analyzer.analyze_text(doc.text_content)
-            
-            # Map result to doc
-            if result.sender: doc.sender = result.sender
-            if result.doc_date: doc.doc_date = result.doc_date
-            if result.amount is not None: doc.amount = result.amount
-            if result.doc_type: doc.doc_type = result.doc_type
-            if result.sender_address: doc.sender_address = result.sender_address
-            if result.iban: doc.iban = result.iban
-            if result.phone: doc.phone = result.phone
-            if result.tags: doc.tags = result.tags
-            
-            # Map Extended Address Fields
-            if result.recipient_company: doc.recipient_company = result.recipient_company
-            if result.recipient_name: doc.recipient_name = result.recipient_name
-            if result.recipient_street: doc.recipient_street = result.recipient_street
-            if result.recipient_zip: doc.recipient_zip = result.recipient_zip
-            if result.recipient_city: doc.recipient_city = result.recipient_city
-            if result.recipient_country: doc.recipient_country = result.recipient_country
-            
-            if result.sender_company: doc.sender_company = result.sender_company
-            if result.sender_name: doc.sender_name = result.sender_name
-            if result.sender_street: doc.sender_street = result.sender_street
-            if result.sender_zip: doc.sender_zip = result.sender_zip
-            if result.sender_city: doc.sender_city = result.sender_city
-            if result.sender_country: doc.sender_country = result.sender_country
-            
-            # Map Dynamic Data (Stamps, etc.)
-            if result.extra_data: doc.extra_data = result.extra_data
-            
-        except Exception as e:
-            print(f"AI Pipeline Error: {e}")

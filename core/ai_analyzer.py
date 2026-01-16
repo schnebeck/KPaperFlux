@@ -43,15 +43,17 @@ class AIAnalyzer:
         self.client = genai.Client(api_key=self.api_key)
         self.model_name = model_name 
 
-    def analyze_text(self, text: str) -> AIAnalysisResult:
+    def analyze_text(self, text: str, image=None) -> AIAnalysisResult:
         """
-        Send text to Gemini and parse the JSON response.
+        Send text and optional image to Gemini and parse the JSON response.
+        :param text: Text content of the document.
+        :param image: PIL.Image object of the first page (optional).
         """
-        if not text or not text.strip():
+        if (not text or not text.strip()) and not image:
             return AIAnalysisResult()
 
         prompt = """
-        You are a document extraction assistant. Analyze the following document text and extract specific metadata.
+        You are a document extraction assistant. Analyze the following document (text and optional image) and extract specific metadata.
         
         Extract:
         1. Main Details:
@@ -76,8 +78,9 @@ class AIAnalyzer:
            - recipient_street, recipient_zip, recipient_city, recipient_country
 
         4. Stamp & Custom Data (Dynamic):
+           - LOOK AT THE IMAGE VISUALLY for stamps (Boxed areas, ink stamps).
            - Look for "Eingangsstempel" (Entry Stamp) or "Kontorierungsstempel" (Accounting Stamp).
-           - These often appear as stamps with fields like "Eingegangen am", "Kst", "Ktr", "Freigabe", "Gebucht".
+           - These often appear as rectangular stamps with handwritten or typed fields like "Eingegangen am", "Kst", "Ktr", "Freigabe", "Gebucht".
            - If found, extract all fields into a "stamps" object within "extra_data".
            - Example: extra_data: { "stamps": [{"type": "entry", "date": "...", "cost_center": "..."}] }
            
@@ -103,9 +106,13 @@ class AIAnalyzer:
         """
         
         try:
+            contents = [prompt.replace("{text}", text)]
+            if image:
+                contents.append(image)
+                
             response = self.client.models.generate_content(
                 model=self.model_name,
-                contents=prompt.replace("{text}", text)
+                contents=contents
             )
             response_text = response.text
             
@@ -116,6 +123,7 @@ class AIAnalyzer:
                 response_text = response_text.replace("```", "")
                 
             data = json.loads(response_text)
+            print(f"DEBUG AI Response: {json.dumps(data, indent=2)}")
             
             # Parse Date
             doc_date = None
