@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox, QStatusBar
 )
 from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSettings
 import sys
 import platform
 import os
@@ -115,6 +115,8 @@ class MainWindow(QMainWindow):
 
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage(self.tr("Ready"))
+        
+        self.read_settings()
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -732,6 +734,32 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """Save state before closing."""
-        if self.list_widget:
+        self.write_settings()
+        if self.list_widget and hasattr(self.list_widget, 'save_state'):
             self.list_widget.save_state()
         event.accept()
+
+    def write_settings(self):
+        settings = QSettings("KPaperFlux", "MainWindow")
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("windowState", self.saveState())
+        settings.setValue("mainSplitter", self.main_splitter.saveState())
+        settings.setValue("leftPaneSplitter", self.left_pane_splitter.saveState())
+        
+    def read_settings(self):
+        settings = QSettings("KPaperFlux", "MainWindow")
+        geometry = settings.value("geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+            
+        state = settings.value("windowState")
+        if state:
+            self.restoreState(state)
+            
+        main_splitter = settings.value("mainSplitter")
+        if main_splitter:
+            self.main_splitter.restoreState(main_splitter)
+            
+        left_splitter = settings.value("leftPaneSplitter")
+        if left_splitter:
+            self.left_pane_splitter.restoreState(left_splitter)
