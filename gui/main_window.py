@@ -666,19 +666,6 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(msg)
             
 
-    def _on_import_finished(self, success_count, total, error_msg, original_total, progress_dialog):
-        progress_dialog.close()
-        self.import_worker = None
-        
-        if error_msg:
-             # Just print/log, assuming partial success is common or handled individually
-             print(f"Worker finished with error signal: {error_msg}")
-
-        QMessageBox.information(self, self.tr("Import Complete"),
-                              self.tr(f"Successfully imported {success_count} of {total} files."))
-        
-        if self.list_widget:
-            self.list_widget.refresh_list()
 
     def export_documents_slot(self, uuids: list[str]):
         """Export selected documents to a folder."""
