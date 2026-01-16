@@ -194,6 +194,7 @@ class MetadataEditorWidget(QWidget):
             self.clear()
             return
             
+        self.setEnabled(True)    
         if len(docs) == 1:
             self.display_document(docs[0])
             return
@@ -433,6 +434,7 @@ class MetadataEditorWidget(QWidget):
         self.extra_table.setRowCount(0)
         
         self._reset_placeholders()
+        self.setEnabled(False) 
 
     def save_changes(self):
         if not self.current_uuids or not self.db_manager:

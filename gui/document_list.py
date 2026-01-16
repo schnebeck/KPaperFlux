@@ -446,3 +446,38 @@ class DocumentListWidget(QTableWidget):
                 visible_count += 1
                 
         self.document_count_changed.emit(visible_count, self.rowCount())
+
+    def get_selected_uuids(self) -> list[str]:
+        """Return list of UUIDs for selected rows."""
+        uuids = set()
+        for item in self.selectedItems():
+            row = item.row()
+            uuid_item = self.item(row, 0)
+            if uuid_item:
+                uid = uuid_item.data(Qt.ItemDataRole.UserRole)
+                if uid:
+                    uuids.add(uid)
+        return list(uuids)
+
+    def select_rows_by_uuids(self, uuids: list[str]):
+        """Select rows matching the given UUIDs."""
+        self.clearSelection()
+        if not uuids: 
+            return
+        
+        uuid_set = set(uuids)
+        
+        # Check selection mode
+        if self.selectionMode() == QTableWidget.SelectionMode.SingleSelection and len(uuids) > 1:
+             # Only pick first if strictly single selection
+             uuid_set = {uuids[0]}
+             
+        selection_model = self.selectionModel()
+        
+        for row in range(self.rowCount()):
+             item = self.item(row, 0)
+             if not item: continue
+             
+             uid = item.data(Qt.ItemDataRole.UserRole)
+             if uid in uuid_set:
+                 self.selectRow(row)

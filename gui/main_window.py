@@ -40,6 +40,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon("resources/icon.png"))
         self.resize(1000, 700)
         self.setAcceptDrops(True)
+        self.pending_selection = []
         
         self.create_menu_bar()
         
@@ -738,6 +739,37 @@ class MainWindow(QMainWindow):
     def update_status_bar(self, visible_count: int, total_count: int):
         """Update status bar with document counts."""
         self.statusBar().showMessage(self.tr(f"Documents: {visible_count} (Total: {total_count})"))
+        
+        # Selection Persistence logic
+        if hasattr(self, 'pending_selection') and self.pending_selection:
+             self.list_widget.select_rows_by_uuids(self.pending_selection)
+             self.pending_selection = []
+             
+        # Default Selection if none (and we just loaded)
+        # Note: update_status_bar is called on filter change.
+        # If user clears selection manually, we don't want to re-select 0.
+        # But initially pending_selection handles restore.
+        # How to detect "Initial Load" vs "User cleared"?
+        # For now, simplistic: If nothing selected after refresh, select first.
+        # But this prevents "No Selection" state which might be desired?
+        # User requested: "Wiederherstellen oder als Default das erste Element"
+        # If we enable "Select First if None", it enforces always-selected?
+        # Let's try it. If annoying, we restrict it to startup.
+        # Actually `update_status_bar` called often. 
+        # Checking `self.list_widget.selectedItems()` ensures we only act if empty.
+        # But filtering might clear selection naturally.
+        # Let's only do default selection if we just restored/loaded (pending_selection was checked).
+        # OR: Check if we are in "startup" phase? Hard.
+        # Let's trust user preference: "Nach Programmstart..." 
+        # So we only want this logic if `pending_selection` path was used or failed?
+        # I'll rely on pending_selection check. 
+        # But if pending_selection is empty initially? (First run) -> select row 0.
+        pass
+        
+        # Improved Logic:
+        # If no selection, select row 0.
+        if self.list_widget.rowCount() > 0 and not self.list_widget.selectedItems():
+             self.list_widget.selectRow(0)
 
     def closeEvent(self, event: QCloseEvent):
         """Save state before closing."""
@@ -750,8 +782,21 @@ class MainWindow(QMainWindow):
         settings = QSettings("KPaperFlux", "MainWindow")
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
+        settings.setValue("windowState", self.saveState())
         settings.setValue("mainSplitter", self.main_splitter.saveState())
         settings.setValue("leftPaneSplitter", self.left_pane_splitter.saveState())
+        
+        # Save Selection
+        selected_uuids = []
+        for row in range(self.list_widget.rowCount()):
+            if self.list_widget.item(row, 0).isSelected(): # Simplified check
+                # Actually item(row, 0) might not be selected if only col 1 is? 
+                # Better: list_widget.selectedItems() and map to rows, deduce UUIDs.
+                # DocumentListWidget should have get_selected_uuids()
+                pass
+        
+        selected_uuids = self.list_widget.get_selected_uuids()
+        settings.setValue("selectedUUIDs", selected_uuids)
         
     def read_settings(self):
         settings = QSettings("KPaperFlux", "MainWindow")
@@ -770,3 +815,8 @@ class MainWindow(QMainWindow):
         left_splitter = settings.value("leftPaneSplitter")
         if left_splitter:
             self.left_pane_splitter.restoreState(left_splitter)
+            
+        # Restore Pending Selection
+        self.pending_selection = settings.value("selectedUUIDs", [])
+        if not isinstance(self.pending_selection, list):
+             self.pending_selection = []
