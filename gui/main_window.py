@@ -336,7 +336,7 @@ class MainWindow(QMainWindow):
         if self.pdf_viewer and uuid_to_restore and uuid_to_restore in processed_uuids:
             doc = self.db_manager.get_document_by_uuid(uuid_to_restore)
             if doc:
-                file_path = self.vault_manager.get_file_path(doc.uuid)
+                file_path = self.pipeline.vault.get_file_path(doc.uuid)
                 if file_path:
                     self.pdf_viewer.load_document(str(file_path), uuid=doc.uuid)
                  
