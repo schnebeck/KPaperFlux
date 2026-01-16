@@ -11,6 +11,7 @@ from core.vault import DocumentVault
 from core.database import DatabaseManager
 from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
+from pdf2image import convert_from_path
 
 class PipelineProcessor:
     """
@@ -285,7 +286,7 @@ class PipelineProcessor:
         from core.config import AppConfig
         if not api_key:
             config = AppConfig()
-            api_key = config.get("gemini_api_key")
+            api_key = config.get_api_key()
             
         if not api_key:
             print("Skipping AI Analysis: No API Key")
