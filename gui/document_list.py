@@ -344,6 +344,19 @@ class DocumentListWidget(QTableWidget):
         else:
              self.document_count_changed.emit(self.rowCount(), self.rowCount())
 
+    def select_document(self, uuid: str):
+        """Programmatically select a document by UUID."""
+        if not uuid:
+            return
+            
+        # Find row with this UUID
+        for row in range(self.rowCount()):
+            item = self.item(row, 0)
+            if item and item.data(Qt.ItemDataRole.UserRole) == uuid:
+                self.selectRow(row)
+                self.scrollToItem(item)
+                break
+
     def apply_filter(self, criteria: dict):
         """
         Filter rows based on criteria: 'date_from', 'date_to', 'type', 'tags'.

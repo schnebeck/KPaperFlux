@@ -337,16 +337,14 @@ class MainWindow(QMainWindow):
                  if docs_to_refresh:
                      self.editor_widget.display_documents(docs_to_refresh)
                      
-        # Reload PDF Viewer if active document was reprocessed
-        if self.pdf_viewer and uuid_to_restore and uuid_to_restore in processed_uuids:
-            doc = self.db_manager.get_document_by_uuid(uuid_to_restore)
-            if doc:
-                file_path = self.pipeline.vault.get_file_path(doc.uuid)
-                if file_path:
-                    self.pdf_viewer.load_document(str(file_path), uuid=doc.uuid)
-                 
-
+        # Refresh List First (this typically clears selection and viewer)
         self.list_widget.refresh_list()
+        
+        # Restore Selection and Viewer
+        # If we select the document in the list, on_document_selected will fire and reload the viewer.
+        # This is cleaner than manually calling load_document.
+        if uuid_to_restore and uuid_to_restore in processed_uuids:
+             self.list_widget.select_document(uuid_to_restore)
         QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.")
 
     def import_document_slot(self):
