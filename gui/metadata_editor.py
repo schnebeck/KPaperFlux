@@ -329,6 +329,7 @@ class MetadataEditorWidget(QWidget):
         
         # 1. Collect all extra_data dicts
         all_extras = []
+        docs = [doc]
         for d in docs:
             all_extras.append(d.extra_data or {})
             
