@@ -182,7 +182,8 @@ class AIQueueWorker(QThread):
                 # Run AI
                 try:
                     self.pipeline._run_ai_analysis(doc, path)
-                    self.pipeline.db.update_document_metadata(doc)
+                    # We use insert_document for full update/upsert of the modified doc object
+                    self.pipeline.db.insert_document(doc)
                     self.doc_updated.emit(uuid, doc)
                 except Exception as e:
                     print(f"AI Queue Error {uuid}: {e}")
