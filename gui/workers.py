@@ -4,6 +4,7 @@ import traceback
 import queue
 import time
 from core.document import Document
+from core.ai_analyzer import AIAnalyzer
 
 class ImportWorker(QThread):
     """
@@ -124,8 +125,12 @@ class AIQueueWorker(QThread):
                     if self.queue.qsize() == 0:
                         self.status_changed.emit("AI: Idle")
                     continue
-                    
-                self.status_changed.emit(f"AI: Processing {uuid[:8]}...")
+                
+                delay = AIAnalyzer.get_adaptive_delay()
+                msg = f"AI: Processing {uuid[:8]}..."
+                if delay > 0:
+                    msg += f" (Delay: {delay:.1f}s)"
+                self.status_changed.emit(msg)
                 
                 # Fetch Doc
                 doc = self.pipeline.db.get_document_by_uuid(uuid)

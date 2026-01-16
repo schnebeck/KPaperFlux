@@ -1,0 +1,83 @@
+import pytest
+from unittest.mock import MagicMock, patch
+from core.ai_analyzer import AIAnalyzer
+from google.genai.errors import ClientError
+
+@pytest.fixture
+def analyzer_and_mock():
+    # Reset state
+    AIAnalyzer._adaptive_delay = 0.0
+    AIAnalyzer._cooldown_until = None
+    
+    with patch("core.ai_analyzer.genai") as mock_genai:
+        analyzer = AIAnalyzer(api_key="test")
+        yield analyzer, mock_genai
+
+def test_adaptive_delay_increase(analyzer_and_mock):
+    """Test that adaptive delay doubles on 429."""
+    analyzer, mock_genai = analyzer_and_mock
+    
+    # Mock Models
+    mock_model = MagicMock()
+    # Ensure the client instance used by analyzer (mock_genai.Client.return_value) has models
+    # Note: AIAnalyzer init: self.client = genai.Client(...)
+    # So self.client is mock_genai.Client.return_value
+    analyzer.client.models = mock_model
+    
+    # Create 429 Error
+    error_429 = ClientError("Resource Exhausted", {})
+    error_429.code = 429
+    
+    # Fail twice with 429, then succeed
+    success_response = MagicMock()
+    success_response.text = "{}"
+    mock_model.generate_content.side_effect = [
+        error_429, 
+        error_429, 
+        success_response
+    ]
+    
+    # Mock sleep to intercept calls
+    with patch("time.sleep") as mock_sleep:
+        analyzer.analyze_text("foo")
+        
+        # Check delay progression
+        # Start: 0.0
+        # Attempt 1 (429): Increase -> max(2.0, 0*2) = 2.0
+        # Attempt 2 (429): Increase -> max(2.0, 2.0*2) = 4.0
+        # Attempt 3 (Success): Decrease -> max(0.0, 4.0*0.5) = 2.0
+        
+        assert AIAnalyzer.get_adaptive_delay() == 2.0
+
+def test_adaptive_delay_decrease(analyzer_and_mock):
+    """Test that adaptive delay halves on success."""
+    analyzer, mock_genai = analyzer_and_mock
+    
+    # Set initial delay
+    AIAnalyzer._adaptive_delay = 4.0
+    
+    mock_model = MagicMock()
+    analyzer.client.models = mock_model
+    
+    success_response = MagicMock()
+    success_response.text = "{}"
+    mock_model.generate_content.return_value = success_response
+    
+    with patch("time.sleep") as mock_sleep:
+        analyzer.analyze_text("foo")
+        
+        # Verify result
+        assert AIAnalyzer.get_adaptive_delay() == 2.0
+
+def test_adaptive_delay_snap_to_zero(analyzer_and_mock):
+    """Test that small delay snaps to zero."""
+    analyzer, mock_genai = analyzer_and_mock
+    AIAnalyzer._adaptive_delay = 0.15
+    
+    mock_model = MagicMock()
+    analyzer.client.models = mock_model
+    mock_model.generate_content.return_value = MagicMock(text="{}")
+    
+    with patch("time.sleep"):
+        analyzer.analyze_text("foo")
+        assert AIAnalyzer.get_adaptive_delay() == 0.0

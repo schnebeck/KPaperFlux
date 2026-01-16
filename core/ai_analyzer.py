@@ -52,6 +52,11 @@ class AIAnalyzer:
     """
     MAX_RETRIES = 5
     _cooldown_until: Optional[datetime.datetime] = None # Shared cooldown state
+    _adaptive_delay: float = 0.0 # Adaptive delay in seconds (Harmonic Oscillation)
+
+    @classmethod
+    def get_adaptive_delay(cls) -> float:
+        return cls._adaptive_delay
     
     def __init__(self, api_key: str, model_name: str = 'gemini-2.0-flash'):
         self.api_key = api_key
@@ -156,6 +161,11 @@ class AIAnalyzer:
                 
             response = None
             
+            # 0. Adaptive Delay (Swing In)
+            if AIAnalyzer._adaptive_delay > 0:
+                print(f"AI Adaptive Delay: Sleeping {AIAnalyzer._adaptive_delay:.2f}s...")
+                time.sleep(AIAnalyzer._adaptive_delay)
+
             # Retry Loop
             for attempt in range(self.MAX_RETRIES):
                 self._wait_for_cooldown()
@@ -176,7 +186,13 @@ class AIAnalyzer:
                     if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e): is_429 = True
                     
                     if is_429:
-                        # Exponential Backoff
+                        # 1. Increase Adaptive Delay (Multiplicative Increase)
+                        # If 0, jump to 2.0s. Else double.
+                        old_delay = AIAnalyzer._adaptive_delay
+                        AIAnalyzer._adaptive_delay = max(2.0, AIAnalyzer._adaptive_delay * 2.0)
+                        print(f"AI Rate Limit Hit! Increasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+
+                        # 2. Exponential Backoff for *this* retry
                         delay = 2 * (2 ** attempt) + random.uniform(0, 1)
                         print(f"AI 429 Error. Backing off for {delay:.1f}s (Attempt {attempt+1}/{self.MAX_RETRIES})")
                         
@@ -192,6 +208,15 @@ class AIAnalyzer:
                 print("AI Analysis Failed after retries.")
                 return AIAnalysisResult()
 
+            # Success: Decrease Adaptive Delay (Multiplicative Decrease)
+            # "Swing in" towards 0 if stable.
+            if AIAnalyzer._adaptive_delay > 0:
+                 old_delay = AIAnalyzer._adaptive_delay
+                 AIAnalyzer._adaptive_delay = max(0.0, AIAnalyzer._adaptive_delay * 0.5)
+                 # If very small, snap to 0
+                 if AIAnalyzer._adaptive_delay < 0.1: AIAnalyzer._adaptive_delay = 0.0
+                 print(f"AI Success. Decreasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+                 
             response_text = response.text
             
             # Clean up markdown code blocks if present
