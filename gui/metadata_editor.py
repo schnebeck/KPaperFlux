@@ -37,8 +37,12 @@ class MetadataEditorWidget(QWidget):
         layout.addWidget(self.tab_widget)
         
         # --- Tab 1: General ---
-        self.general_tab = QWidget()
-        general_layout = QFormLayout(self.general_tab)
+        self.general_scroll = QScrollArea()
+        self.general_scroll.setWidgetResizable(True)
+        self.general_content = QWidget()
+        self.general_scroll.setWidget(self.general_content)
+        
+        general_layout = QFormLayout(self.general_content)
         
         self.uuid_lbl = QLabel()
         self.uuid_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -115,11 +119,15 @@ class MetadataEditorWidget(QWidget):
         self.tags_edit.setPlaceholderText("Tag1, Tag2...")
         general_layout.addRow(self.tr("Tags:"), self.tags_edit)
         
-        self.tab_widget.addTab(self.general_tab, self.tr("General"))
+        self.tab_widget.addTab(self.general_scroll, self.tr("General"))
         
         # --- Tab 2: Sender Details ---
-        self.sender_tab = QWidget()
-        sender_layout = QFormLayout(self.sender_tab)
+        self.sender_scroll = QScrollArea()
+        self.sender_scroll.setWidgetResizable(True)
+        self.sender_content = QWidget()
+        self.sender_scroll.setWidget(self.sender_content)
+        
+        sender_layout = QFormLayout(self.sender_content)
         
         self.sender_company_edit = QLineEdit()
         sender_layout.addRow(self.tr("Company:"), self.sender_company_edit)
@@ -143,11 +151,15 @@ class MetadataEditorWidget(QWidget):
         self.sender_address_raw.setMaximumHeight(60)
         sender_layout.addRow(self.tr("Full Address (Raw):"), self.sender_address_raw)
         
-        self.tab_widget.addTab(self.sender_tab, self.tr("Sender"))
+        self.tab_widget.addTab(self.sender_scroll, self.tr("Sender"))
         
         # --- Tab 3: Recipient Details ---
-        self.recipient_tab = QWidget()
-        recipient_layout = QFormLayout(self.recipient_tab)
+        self.recipient_scroll = QScrollArea()
+        self.recipient_scroll.setWidgetResizable(True)
+        self.recipient_content = QWidget()
+        self.recipient_scroll.setWidget(self.recipient_content)
+        
+        recipient_layout = QFormLayout(self.recipient_content)
         
         self.recipient_company_edit = QLineEdit()
         recipient_layout.addRow(self.tr("Company:"), self.recipient_company_edit)
@@ -167,7 +179,7 @@ class MetadataEditorWidget(QWidget):
         self.recipient_country_edit = QLineEdit()
         recipient_layout.addRow(self.tr("Country:"), self.recipient_country_edit)
 
-        self.tab_widget.addTab(self.recipient_tab, self.tr("Recipient"))
+        self.tab_widget.addTab(self.recipient_scroll, self.tr("Recipient"))
         
         # --- Tab 4: Extra JSON Data ---
         self.extra_tab = QWidget()
