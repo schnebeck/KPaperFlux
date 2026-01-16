@@ -380,6 +380,8 @@ class DatabaseManager:
         """
         sql = "SELECT extra_data FROM documents WHERE extra_data IS NOT NULL"
         cursor = self.connection.cursor()
+        print(f"DEBUG SEARCH SQL: {sql} VALUES: {[]}")
+        print(f"DEBUG COUNT: {cursor.execute('SELECT COUNT(*) FROM documents').fetchone()}")
         keys = set()
         
         try:

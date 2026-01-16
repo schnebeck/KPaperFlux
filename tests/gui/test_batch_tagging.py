@@ -46,7 +46,8 @@ def test_manage_tags_logic(qtbot, db_for_tags):
         instance.get_data.return_value = (["new", "tax"], ["old"])
         
         # Call slot with both UUIDs
-        mw.manage_tags_slot(["1", "2"])
+        with patch('gui.main_window.QMessageBox'):
+             mw.manage_tags_slot(["1", "2"])
         
         # Verify DB updates
         doc1 = db_for_tags.get_document_by_uuid("1")

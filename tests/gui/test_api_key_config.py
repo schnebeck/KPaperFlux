@@ -35,8 +35,11 @@ def test_api_key_storage(clean_config):
         clean_config.set_api_key("test_key_123")
         assert clean_config.get_api_key() == "test_key_123"
         
-        # 3. Persistence (create new instance sharing same file logic - mocked here by checking settings obj)
-        assert clean_config.settings.value(AppConfig.KEY_API_KEY) == "test_key_123"
+        # 3. Persistence
+        clean_config.settings.beginGroup("AI")
+        val = clean_config.settings.value(AppConfig.KEY_API_KEY)
+        clean_config.settings.endGroup()
+        assert val == "test_key_123"
         
     finally:
         if original_env:

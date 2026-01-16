@@ -42,7 +42,8 @@ def test_process_document_flow(pipeline, mock_vault, mock_db):
          patch('pathlib.Path.exists', return_value=True):
          
         # Configure AI mock to update the doc object
-        def side_effect_ai(doc):
+        # Configure AI mock to update the doc object
+        def side_effect_ai(doc, path):
             doc.sender = "AI_Sender"
             
         mock_ai.side_effect = side_effect_ai
@@ -57,7 +58,11 @@ def test_process_document_flow(pipeline, mock_vault, mock_db):
         
         # Verify calls
         mock_ocr.assert_called_once()
-        mock_ai.assert_called_once_with(result_doc)
+        # Verify calls
+        mock_ocr.assert_called_once()
+        # Expect the PATH returned by store_document ("/vault/1234.pdf"), not source_path
+        # Note: Code converts string to Path object before passing
+        mock_ai.assert_called_once_with(result_doc, Path("/vault/1234.pdf"))
         
         # Verify Vault storage
         mock_vault.store_document.assert_called_once()
@@ -70,7 +75,8 @@ def test_process_document_flow(pipeline, mock_vault, mock_db):
 
 @patch("core.pipeline.subprocess.run")
 @patch("core.pipeline.tempfile.TemporaryDirectory")
-def test_run_ocr_success(mock_temp_dir, mock_run, pipeline, tmp_path):
+@patch("core.config.AppConfig.get_ocr_binary", return_value="ocrmypdf")
+def test_run_ocr_success(mock_get_ocr, mock_temp_dir, mock_run, pipeline, tmp_path):
     """Test successful OCR execution."""
     # Setup
     input_file = tmp_path / "test.pdf"
@@ -170,13 +176,18 @@ def test_pipeline_integration_ai(pipeline):
             
             # Mock OCR to avoid errors
             with patch.object(pipeline, '_run_ocr', return_value="Some text to analyze"), \
-                 patch("core.pipeline.Path") as MP: # Mock Path for exist check
+                 patch("core.pipeline.Path") as MP, \
+                 patch("core.pipeline.convert_from_path") as MockConvert:
+                    
                     MP.return_value.exists.return_value = True
+                    mock_image = MagicMock()
+                    MockConvert.return_value = [mock_image]
                     
                     pipeline.reprocess_document(doc.uuid)
             
             # Verify AI called
-            mock_analyzer.analyze_text.assert_called_with("Some text to analyze")
+            # Verify AI called (now includes image object)
+            mock_analyzer.analyze_text.assert_called_with("Some text to analyze", image=mock_image)
             
             # Verify doc fields updated
             assert doc.sender == "AI Sender"
