@@ -1,11 +1,13 @@
 
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
-    QPushButton, QScrollArea, QMessageBox, QTabWidget
+    QPushButton, QScrollArea, QMessageBox, QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView
 )
+import json
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.document import Document
 from core.database import DatabaseManager
+from gui.utils import format_date, format_datetime
 
 class MetadataEditorWidget(QWidget):
     """
@@ -138,6 +140,34 @@ class MetadataEditorWidget(QWidget):
         recipient_layout.addRow(self.tr("Country:"), self.recipient_country_edit)
 
         self.tab_widget.addTab(self.recipient_tab, self.tr("Recipient"))
+        
+        # --- Tab 4: Extra JSON Data ---
+        self.extra_tab = QWidget()
+        extra_layout = QVBoxLayout(self.extra_tab)
+        
+        self.extra_table = QTableWidget()
+        self.extra_table.setColumnCount(2)
+        self.extra_table.setHorizontalHeaderLabels([self.tr("Key"), self.tr("Value")])
+        self.extra_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.extra_table.setAlternatingRowColors(True)
+        
+        # Toolbar for adding keys?
+        extra_tools = QHBoxLayout()
+        self.btn_add_key = QPushButton("+")
+        self.btn_add_key.setToolTip(self.tr("Add new field"))
+        self.btn_add_key.clicked.connect(self.add_extra_field)
+        self.btn_remove_key = QPushButton("-")
+        self.btn_remove_key.setToolTip(self.tr("Remove selected field"))
+        self.btn_remove_key.clicked.connect(self.remove_extra_field)
+        
+        extra_tools.addWidget(self.btn_add_key)
+        extra_tools.addWidget(self.btn_remove_key)
+        extra_tools.addStretch()
+        
+        extra_layout.addLayout(extra_tools)
+        extra_layout.addWidget(self.extra_table)
+        
+        self.tab_widget.addTab(self.extra_tab, self.tr("Extra Data"))
 
         # Buttons
         self.btn_save = QPushButton(self.tr("Save Changes"))
@@ -222,6 +252,10 @@ class MetadataEditorWidget(QWidget):
         # Sum pages? Or range?
         pages = sum((d.page_count or 0) for d in docs)
         self.page_count_lbl.setText(f"Total: {pages}")
+        
+        # Extra Data - Batch editing not easily supported yet
+        self.extra_table.setRowCount(0)
+        # Maybe show common keys? For now clear to avoid confusion.
 
     def display_document(self, doc: Document):
         """Populate fields for single document."""
@@ -234,17 +268,9 @@ class MetadataEditorWidget(QWidget):
 
         # General
         self.uuid_lbl.setText(doc.uuid)
-        self.created_at_lbl.setText(doc.created_at or "-")
+        self.created_at_lbl.setText(format_datetime(doc.created_at) or "-")
+        self.updated_at_lbl.setText(format_datetime(doc.last_processed_at) or "-")
         
-        updated = "-"
-        if doc.last_processed_at:
-             try:
-                 from datetime import datetime
-                 dt = datetime.fromisoformat(str(doc.last_processed_at))
-                 updated = dt.strftime("%Y-%m-%d %H:%M")
-             except:
-                 updated = str(doc.last_processed_at)
-        self.updated_at_lbl.setText(updated)
         self.page_count_lbl.setText(str(doc.page_count) if doc.page_count is not None else "-")
         self.sender_edit.setText(doc.sender or "")
         self.date_edit.setText(str(doc.doc_date) if doc.doc_date else "")
@@ -271,6 +297,28 @@ class MetadataEditorWidget(QWidget):
         self.recipient_zip_edit.setText(doc.recipient_zip or "")
         self.recipient_city_edit.setText(doc.recipient_city or "")
         self.recipient_country_edit.setText(doc.recipient_country or "")
+        
+        # Extra Data
+        self.extra_table.setRowCount(0)
+        self.extra_table.setSortingEnabled(False)
+        if doc.extra_data:
+            for k, v in doc.extra_data.items():
+                row = self.extra_table.rowCount()
+                self.extra_table.insertRow(row)
+                
+                # Format value
+                val_str = ""
+                if isinstance(v, (dict, list)):
+                    try:
+                        val_str = json.dumps(v, ensure_ascii=False)
+                    except:
+                        val_str = str(v)
+                else:
+                    val_str = str(v)
+                    
+                self.extra_table.setItem(row, 0, QTableWidgetItem(k))
+                self.extra_table.setItem(row, 1, QTableWidgetItem(val_str))
+        self.extra_table.setSortingEnabled(True)
         
     def _reset_placeholders(self):
         """Reset standard placeholders."""
@@ -316,6 +364,8 @@ class MetadataEditorWidget(QWidget):
         self.recipient_zip_edit.clear()
         self.recipient_city_edit.clear()
         self.recipient_country_edit.clear()
+        
+        self.extra_table.setRowCount(0)
         
         self._reset_placeholders()
 
@@ -391,6 +441,24 @@ class MetadataEditorWidget(QWidget):
         
         if "amount" in updates and updates["amount"] == "": updates["amount"] = None
         if "doc_date" in updates and updates["doc_date"] == "": updates["doc_date"] = None
+        
+        # Extra Data (Only for single doc mode)
+        if len(self.current_uuids) == 1:
+            new_extra = {}
+            for row in range(self.extra_table.rowCount()):
+                key_item = self.extra_table.item(row, 0)
+                val_item = self.extra_table.item(row, 1)
+                if key_item and key_item.text().strip():
+                     key = key_item.text().strip()
+                     val_raw = val_item.text().strip() if val_item else ""
+                     
+                     # Try to parse JSON value
+                     try:
+                         val = json.loads(val_raw)
+                     except:
+                         val = val_raw
+                     new_extra[key] = val
+            updates["extra_data"] = new_extra
 
         count = 0
         for uuid in self.current_uuids:
@@ -418,3 +486,14 @@ class MetadataEditorWidget(QWidget):
              
         base = f"{clean(sender)}_{clean(doc_type)}_{clean(date_part)}"
         self.export_filename_edit.setText(base)
+
+    def add_extra_field(self):
+        row = self.extra_table.rowCount()
+        self.extra_table.insertRow(row)
+        self.extra_table.setItem(row, 0, QTableWidgetItem("new_key"))
+        self.extra_table.setItem(row, 1, QTableWidgetItem(""))
+        
+    def remove_extra_field(self):
+        row = self.extra_table.currentRow()
+        if row >= 0:
+            self.extra_table.removeRow(row)

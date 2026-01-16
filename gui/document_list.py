@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu
 from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale
 from core.database import DatabaseManager
+from gui.utils import format_date, format_datetime
 
 class DocumentListWidget(QTableWidget):
     """
@@ -280,9 +281,7 @@ class DocumentListWidget(QTableWidget):
             locale = QLocale.system()
             
             # Localized Date (doc_date)
-            date_str = ""
-            if doc.doc_date:
-                date_str = locale.toString(doc.doc_date, QLocale.FormatType.ShortFormat)
+            date_str = format_date(doc.doc_date)
 
             sender = doc.sender or ""
             doc_type = doc.doc_type or ""
@@ -291,17 +290,10 @@ class DocumentListWidget(QTableWidget):
             filename = doc.original_filename
             
             pages_str = str(doc.page_count) if doc.page_count is not None else ""
-            created_str = doc.created_at or "" # TODO: Parse and format created_at if desired
+            created_str = format_datetime(doc.created_at)
             
             # Localized Updated (last_processed_at)
-            updated_str = ""
-            if doc.last_processed_at:
-                try:
-                    dt = datetime.fromisoformat(str(doc.last_processed_at))
-                    # Combined Date and Time
-                    updated_str = locale.toString(dt, QLocale.FormatType.ShortFormat)
-                except Exception:
-                    updated_str = str(doc.last_processed_at)
+            updated_str = format_datetime(doc.last_processed_at)
             
             item_date = QTableWidgetItem(date_str)
             item_date.setData(Qt.ItemDataRole.UserRole, doc.uuid) # Store UUID
