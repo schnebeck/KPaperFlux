@@ -82,7 +82,13 @@ class AIAnalyzer:
            - Look for "Eingangsstempel" (Entry Stamp) or "Kontorierungsstempel" (Accounting Stamp).
            - These often appear as rectangular stamps with handwritten or typed fields like "Eingegangen am", "Kst", "Ktr", "Freigabe", "Gebucht".
            - If found, extract all fields into a "stamps" object within "extra_data".
-           - Example: extra_data: { "stamps": [{"type": "entry", "date": "...", "cost_center": "..."}] }
+           - IMPORTANT: Normalize all JSON keys to lowercase English, even if the stamp is German:
+             - "Kst" / "Kostenstelle" -> "cost_center"
+             - "Ktr" / "Kostenträger" -> "cost_bearer"
+             - "Bearbeiter" / "Kürzel" -> "editor"
+             - "Bemerkung" -> "note"
+             - "Datum" -> "date" (Use ISO YYYY-MM-DD)
+           - Example: extra_data: { "stamps": [{"type": "entry", "date": "2024-05-12", "cost_center": "10", "editor": "ABC"}] }
            
         Return ONLY valid JSON.
         JSON Structure:

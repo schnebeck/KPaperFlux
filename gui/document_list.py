@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu
-from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings
+from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale
 from core.database import DatabaseManager
 
 class DocumentListWidget(QTableWidget):
@@ -277,22 +277,29 @@ class DocumentListWidget(QTableWidget):
             # Map Document fields to columns
             # ["Date", "Sender", "Type", "Tags", "Amount", "Filename", "Pages", "Created", "Updated"]
             
-            date_str = str(doc.doc_date) if doc.doc_date else ""
+            locale = QLocale.system()
+            
+            # Localized Date (doc_date)
+            date_str = ""
+            if doc.doc_date:
+                date_str = locale.toString(doc.doc_date, QLocale.FormatType.ShortFormat)
+
             sender = doc.sender or ""
             doc_type = doc.doc_type or ""
             tags = doc.tags or ""
-            amount_str = f"{doc.amount:.2f}" if doc.amount is not None else ""
+            amount_str = locale.toString(float(doc.amount), 'f', 2) if doc.amount is not None else ""
             filename = doc.original_filename
             
             pages_str = str(doc.page_count) if doc.page_count is not None else ""
-            created_str = doc.created_at or ""
+            created_str = doc.created_at or "" # TODO: Parse and format created_at if desired
             
-            # Format Updated
+            # Localized Updated (last_processed_at)
             updated_str = ""
             if doc.last_processed_at:
                 try:
                     dt = datetime.fromisoformat(str(doc.last_processed_at))
-                    updated_str = dt.strftime("%d.%m.%Y %H:%M")
+                    # Combined Date and Time
+                    updated_str = locale.toString(dt, QLocale.FormatType.ShortFormat)
                 except Exception:
                     updated_str = str(doc.last_processed_at)
             
