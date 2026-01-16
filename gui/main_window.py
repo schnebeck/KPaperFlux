@@ -338,20 +338,12 @@ class MainWindow(QMainWindow):
                      self.editor_widget.display_documents(docs_to_refresh)
                      
         # Reload PDF Viewer if active document was reprocessed
-        print(f"DEBUG MAIN: Reprocess Finished. uuid_to_restore={uuid_to_restore}")
         if self.pdf_viewer and uuid_to_restore and uuid_to_restore in processed_uuids:
             doc = self.db_manager.get_document_by_uuid(uuid_to_restore)
             if doc:
                 file_path = self.pipeline.vault.get_file_path(doc.uuid)
-                print(f"DEBUG MAIN: Restoring viewer for {doc.uuid} path={file_path}")
                 if file_path:
                     self.pdf_viewer.load_document(str(file_path), uuid=doc.uuid)
-                else:
-                    print("DEBUG MAIN: No file path found for restore.")
-            else:
-                print("DEBUG MAIN: Document not found in DB for restore.")
-        else:
-             print(f"DEBUG MAIN: Skipping viewer restore. processed={processed_uuids}")
                  
 
         self.list_widget.refresh_list()
