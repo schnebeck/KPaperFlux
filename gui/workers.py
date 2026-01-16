@@ -108,13 +108,13 @@ class AIQueueWorker(QThread):
         self.pipeline = pipeline
         self.queue = queue.Queue() # Items: (uuid, file_path)
         self.is_running = True
+        self.total_added = 0
+        self.processed_count = 0
         
     def add_task(self, uuid: str):
         """Add a document to the AI processing queue."""
-        # We need the file path? Or can pipeline resolve it from UUID?
-        # Pipeline._run_ai_analysis needs doc object and path (for image).
-        # We can fetch doc from DB.
         self.queue.put(uuid)
+        self.total_added += 1
         
     def run(self):
         while self.is_running:
@@ -125,12 +125,22 @@ class AIQueueWorker(QThread):
                 except queue.Empty:
                     if self.queue.qsize() == 0:
                         self.status_changed.emit("AI: Idle")
+                        # Reset counters on idle
+                        self.total_added = 0
+                        self.processed_count = 0
                     continue
                 
+                # Calculate Progress
+                current_idx = self.processed_count + 1
+                percent = int((current_idx / self.total_added) * 100) if self.total_added > 0 else 0
+                
                 delay = AIAnalyzer.get_adaptive_delay()
-                msg = f"AI: Processing {uuid[:8]}..."
+                # Format: "AI: Processing {uuid} (3/10 - 33%). Delay: {delay}s"
+                msg = f"AI: Processing {uuid[:8]}... ({current_idx}/{self.total_added} - {percent}%)"
+                
                 if delay > 0:
-                    msg += f" (Delay: {delay:.1f}s)"
+                    msg += f", Delaytime: {delay:.1f}sec."
+                    
                 self.status_changed.emit(msg)
                 
                 # Fetch Doc
@@ -177,6 +187,7 @@ class AIQueueWorker(QThread):
                 except Exception as e:
                     print(f"AI Queue Error {uuid}: {e}")
                 
+                self.processed_count += 1
                 self.queue.task_done()
                 
             except Exception as e:

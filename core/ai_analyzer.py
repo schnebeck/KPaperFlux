@@ -187,11 +187,10 @@ class AIAnalyzer:
                     
                     if is_429:
                         # 1. Increase Adaptive Delay (Multiplicative Increase with CAP)
-                        # Limit max delay to 60s to prevent death spiral.
-                        # We use 60s because if the API is that throttled, we should just wait a minute.
+                        # Limit max delay to 256s (approx 4 mins) as per user request.
                         old_delay = AIAnalyzer._adaptive_delay
                         new_delay = max(2.0, AIAnalyzer._adaptive_delay * 2.0)
-                        AIAnalyzer._adaptive_delay = min(60.0, new_delay)
+                        AIAnalyzer._adaptive_delay = min(256.0, new_delay)
                         
                         if AIAnalyzer._adaptive_delay != old_delay:
                             print(f"AI Rate Limit Hit! Increasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
