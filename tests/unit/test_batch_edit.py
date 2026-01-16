@@ -1,6 +1,7 @@
 
 import pytest
-from unittest.mock import MagicMock
+import pytest
+from unittest.mock import MagicMock, patch
 from PyQt6.QtWidgets import QLineEdit, QTextEdit
 from core.document import Document
 from gui.metadata_editor import MetadataEditorWidget
@@ -44,7 +45,8 @@ def test_save_changes_batch(editor, mock_db):
     # User leaves Amount (Common) alone
     # User leaves Date (Mixed/Empty) alone
     
-    editor.save_changes()
+    with patch("gui.metadata_editor.QMessageBox"):
+        editor.save_changes()
     
     # Verify DB calls
     # Should update BOTH documents
@@ -74,12 +76,26 @@ def test_save_changes_partial(editor, mock_db):
     assert editor.sender_edit.text() == ""
     assert "sender" in editor.mixed_fields
     
-    editor.save_changes()
+    with patch("gui.metadata_editor.QMessageBox"):
+         editor.save_changes()
     
     args, _ = mock_db.update_document_metadata.call_args_list[0]
     uuid, updates = args
     
     # Sender should NOT be in updates because it was mixed and left empty
     assert "sender" not in updates
-    # Or handled by logic:
-    # if attr in mixed: if text: update. else no.
+    # Handler logic
+    pass
+
+def test_display_documents_date_string_conversion(editor):
+    """Regression test: Ensure string dates in Document don't crash QDateEdit."""
+    from PyQt6.QtCore import QDate
+    
+    # Document stores date as string (JSON serialization).
+    doc1 = Document(uuid="1", original_filename="a.pdf")
+    doc1.doc_date = "2025-01-01" # String format
+    
+    editor.display_documents([doc1])
+    
+    # Check if set correctly specific to QDate(2025, 1, 1)
+    assert editor.date_edit.date() == QDate(2025, 1, 1)

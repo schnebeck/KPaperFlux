@@ -289,16 +289,14 @@ class MetadataEditorWidget(QWidget):
             if len(values) == 1:
                 # All same
                 if isinstance(widget, QDateEdit):
-                    # QDateEdit special handling
-                    # If multiple values, what to show?
-                    # We can use setSpecialValueText if we set date to min?
-                    # Or just leave it as is (showing one of them or min)?
-                    # Ideally we want to show empty or "Mixed".
-                    # setSpecialValueText works if date == minimumDate.
-                    widget.setDate(values.pop() if isinstance(values, set) and len(values)==1 else QDate.currentDate())
-                    # If we really want to show mixed, we need more logic. 
-                    # For now, just ensure we don't crash.
-                    pass
+                    # Convert string "YYYY-MM-DD" back to QDate
+                    val_str = values.pop() if isinstance(values, set) and len(values)==1 else ""
+                    qdate = QDate.fromString(val_str, Qt.DateFormat.ISODate)
+                    if not qdate.isValid():
+                        qdate = QDate.currentDate()
+                    
+                    widget.setSpecialValueText("") # Clear any previous mixed state
+                    widget.setDate(qdate)
                 elif isinstance(widget, QLineEdit): widget.setText(val)
                 elif isinstance(widget, QTextEdit): widget.setPlainText(val)
                 elif isinstance(widget, QComboBox): widget.setCurrentText(val)
@@ -663,6 +661,7 @@ class MetadataEditorWidget(QWidget):
         # This is expensive for Batch... we need to fetch, merge, update.
         # self.current_uuids are known.
         
+        count = 0 
         for uuid in self.current_uuids:
              # Fetch current extra_data? 
              # We assume db_manager.get_document_by_uuid is fast enough or we check self.doc but that's only for single.
