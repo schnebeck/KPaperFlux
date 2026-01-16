@@ -56,6 +56,7 @@ class PdfViewerWidget(QWidget):
         self.btn_next.setFixedWidth(30)
         self.btn_next.clicked.connect(self.next_page)
         
+        toolbar.addStretch()
         toolbar.addWidget(QLabel("Page:"))
         toolbar.addWidget(self.btn_prev)
         toolbar.addWidget(self.spin_page)
@@ -97,8 +98,26 @@ class PdfViewerWidget(QWidget):
             return
             
         try:
+            # Re-create document to ensure fresh load and avoid "No file name" warnings from load("")
+            # and to guarantee that the viewer picks up changes (caching issues).
+            if self.document:
+                self.document.deleteLater()
+                
+            self.document = QPdfDocument(self)
+            self.document.statusChanged.connect(self.on_document_status)
+            
+            self.view.setDocument(self.document)
+            self.view.setPageMode(QPdfView.PageMode.MultiPage)
+            
+            # Fix: Re-acquire navigator and connect signals because setDocument might reset it
+            self.nav = self.view.pageNavigator()
+            try:
+                self.nav.currentPageChanged.disconnect(self.on_page_changed)
+            except Exception:
+                pass
+            self.nav.currentPageChanged.connect(self.on_page_changed)
+            
             self.document.load(str(path))
-            # Status changed will trigger updates
         except Exception as e:
             print(f"Error loading PDF: {e}")
             
