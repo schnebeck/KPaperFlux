@@ -85,10 +85,6 @@
     <context>
         <name>DocumentListWidget</name>
         <message>
-            <source>Amount</source>
-            <translation>Betrag</translation>
-        </message>
-        <message>
             <source>Created</source>
             <translation>Erstellt</translation>
         </message>
@@ -139,6 +135,54 @@
         <message>
             <source>Type</source>
             <translation>Typ</translation>
+        </message>
+        <message>
+            <source>Add JSON Column...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>UUID</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Brutto</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>IBAN</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Netto</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>#</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Tax %</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Remove JSON Column...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Updated</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Recipient</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Postage</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Packaging</source>
+            <translation type="unfinished" />
         </message>
     </context>
     <context>
@@ -338,10 +382,6 @@
             <translation>Duplikate finden</translation>
         </message>
         <message>
-            <source>Import Complete</source>
-            <translation>Import abgeschlossen</translation>
-        </message>
-        <message>
             <source>Import Dropped Files</source>
             <translation>Abgelegte Dateien importieren</translation>
         </message>
@@ -372,10 +412,6 @@
         <message>
             <source>PDF Files (*.pdf);;All Files (*)</source>
             <translation>PDF Dateien (*.pdf);;Alle Dateien (*)</translation>
-        </message>
-        <message>
-            <source>Please use the context menu on the list to delete specific items.</source>
-            <translation>Bitte nutzen Sie das Kontextmenü der Liste, um spezifische Elemente zu löschen.</translation>
         </message>
         <message>
             <source>Ready</source>
@@ -424,6 +460,34 @@
         <message>
             <source>Unknown</source>
             <translation>Unbekannt</translation>
+        </message>
+        <message>
+            <source>Deleted</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Extracting &amp; Indexing...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Import Finished</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>No Duplicates</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Import Error</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>No duplicates found with current threshold.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Please select documents to delete.</source>
+            <translation type="unfinished" />
         </message>
     </context>
     <context>
@@ -475,10 +539,6 @@
     </context>
     <context>
         <name>MetadataEditorWidget</name>
-        <message>
-            <source>Amount:</source>
-            <translation>Betrag:</translation>
-        </message>
         <message>
             <source>City:</source>
             <translation>Stadt:</translation>
@@ -566,6 +626,62 @@
         <message>
             <source>ZIP:</source>
             <translation>PLZ:</translation>
+        </message>
+        <message>
+            <source>Regenerate Filename based on Sender/Type/Date</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Value</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Tax %:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Brutto-Betrag:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Remove selected field</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Verpackung:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Extra Data</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Export Filename:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Porto:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Add new field</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Key</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Updated At:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Netto-Betrag:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Währung:</source>
+            <translation type="unfinished" />
         </message>
     </context>
     <context>
@@ -716,6 +832,14 @@
             <source>Vault Path:</source>
             <translation>Tresor Pfad:</translation>
         </message>
+        <message>
+            <source>General</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Vocabulary</source>
+            <translation type="unfinished" />
+        </message>
     </context>
     <context>
         <name>StamperDialog</name>
@@ -762,6 +886,97 @@
         <message>
             <source>Text:</source>
             <translation>Text:</translation>
+        </message>
+    </context>
+    <context>
+        <name>VocabularySettingsWidget</name>
+        <message>
+            <source>Add Alias</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Document Type:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Add Tag</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Approved Types</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Tag:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Alias (e.g. Rechnung):</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Define tags first.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Error</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Aliases (Synonyms)</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Tags</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Alias</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Map to Tag:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Target Type</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Aliases</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Map to Type:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Alias (e.g. Wichtig):</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Approved Tags</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Select Target</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Target Tag</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Document Types</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Define types first.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>Add Type</source>
+            <translation type="unfinished" />
         </message>
     </context>
 </TS>

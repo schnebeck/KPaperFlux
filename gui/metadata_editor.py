@@ -2,11 +2,11 @@
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QMessageBox, QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QDateEdit, QComboBox, QCompleter
+    QDateEdit, QComboBox, QCompleter, QCheckBox
 )
 import json
 import datetime
-from PyQt6.QtCore import Qt, pyqtSignal, QDate, QLocale
+from PyQt6.QtCore import Qt, pyqtSignal, QDate, QLocale, QSignalBlocker
 from core.document import Document
 from core.database import DatabaseManager
 from core.vocabulary import VocabularyManager
@@ -35,6 +35,11 @@ class MetadataEditorWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
+        # Lock Checkbox
+        self.chk_locked = QCheckBox("Locked (Immutable)")
+        self.chk_locked.clicked.connect(self.on_lock_clicked)
+        layout.addWidget(self.chk_locked)
+
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
         
@@ -224,6 +229,35 @@ class MetadataEditorWidget(QWidget):
         self.btn_save.clicked.connect(self.save_changes)
         layout.addWidget(self.btn_save)
 
+    def on_lock_clicked(self, checked):
+        """Handle immediate locking/unlocking."""
+        if not self.current_uuids or not self.db_manager:
+            return
+            
+        # Determine new state based on checkstate (Checked/Unchecked)
+        # If partial, clicking usually sets to Checked or Unchecked depending on cycle.
+        # But we get the boolean 'checked' here.
+        
+        # Enforce consistency: If clicked, we apply this state to ALL current documents.
+        new_state = self.chk_locked.isChecked()
+        
+        # Update DB immediately
+        for uuid in self.current_uuids:
+             self.db_manager.update_document_metadata(uuid, {"locked": new_state})
+             # Update local doc reference if single
+             if self.doc and self.doc.uuid == uuid:
+                 self.doc.locked = new_state
+        
+        # Update UI state
+        self.toggle_lock(new_state)
+        
+        # Notify others (List refresh)
+        self.metadata_saved.emit()
+
+    def toggle_lock(self, checked):
+        """Disable editing fields when locked."""
+        self.tab_widget.setEnabled(not checked)
+
     def display_documents(self, docs: list[Document]):
         """Populate fields for multiple documents."""
         self.doc = None # Single doc reference invalid
@@ -238,7 +272,25 @@ class MetadataEditorWidget(QWidget):
             self.display_document(docs[0])
             return
 
+        if len(docs) == 1:
+            self.display_document(docs[0])
+            return
+
         # Batch Display
+        
+        # Locking Logic
+        locked_values = {d.locked for d in docs}
+        with QSignalBlocker(self.chk_locked):
+            if len(locked_values) == 1:
+                 val = locked_values.pop()
+                 self.chk_locked.setTristate(False)
+                 self.chk_locked.setChecked(val)
+                 self.toggle_lock(val)
+            else:
+                 self.chk_locked.setTristate(True)
+                 self.chk_locked.setCheckState(Qt.CheckState.PartiallyChecked)
+                 self.toggle_lock(False) # Enable editing if mixed
+
         # Determine common values
         
         # Fields mapping: attr -> widget
@@ -342,6 +394,15 @@ class MetadataEditorWidget(QWidget):
         self._reset_placeholders()
 
         # General
+        self.doc = doc # Ensure doc is set before toggling?? No matter.
+        
+        # Locking
+        # Block signals to prevent auto-toggle if connected? 
+        # But toggle_lock logic is purely visual update based on state.
+        with QSignalBlocker(self.chk_locked):
+             self.chk_locked.setChecked(doc.locked)
+        self.toggle_lock(doc.locked)
+
         self.uuid_lbl.setText(doc.uuid)
         self.created_at_lbl.setText(format_datetime(doc.created_at) or "-")
         self.updated_at_lbl.setText(format_datetime(doc.last_processed_at) or "-")
@@ -558,15 +619,13 @@ class MetadataEditorWidget(QWidget):
         for attr, widget in fields.items():
             text = None
             if isinstance(widget, QDateEdit):
-                # QDateEdit always has a date.
-                # If mixed, how do we know if user changed it?
-                # Complex. For now, we assume if user Saves, they overwrite common value.
-                # But for mixed, we might overwrite indiscriminately?
-                # Better: check if we are in mixed mode for this attr.
-                # If mixed, maybe we shouldn't enable editing easily without explicit "Set" action?
-                # For simplicity in this iteration:
-                # convert to iso string
-                text = widget.date().toString(Qt.DateFormat.ISODate)
+                # QDateEdit logic:
+                # If mixed field AND value == minimumDate (which holds our special text), ignore it.
+                current_qdate = widget.date()
+                if attr in self.mixed_fields and current_qdate == widget.minimumDate():
+                    continue # User didn't change the mixed value placeholder
+                
+                text = current_qdate.toString(Qt.DateFormat.ISODate)
             elif isinstance(widget, QLineEdit):
                 text = widget.text().strip()
             elif isinstance(widget, QTextEdit):
@@ -610,6 +669,12 @@ class MetadataEditorWidget(QWidget):
                 updates[f] = None
                 
         if "doc_date" in updates and updates["doc_date"] == "": updates["doc_date"] = None
+        
+        # Locked State handled immediately via on_lock_clicked
+        # We do NOT save it here to avoid overwriting if user didn't touch it?
+        # Or should we?
+        # If we remove it here, locking via checkbox is isolated.
+        # This is what user requested ("Verzichten wir auf Änderungen speichern").
         
         # Extra Data (Batch + Single)
         # Strategy:

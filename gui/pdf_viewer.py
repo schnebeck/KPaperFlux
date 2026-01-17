@@ -2,7 +2,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSpinBox, QFrame, QMenu
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import QUrl, Qt, QPoint, QPointF, pyqtSignal
+from PyQt6.QtCore import QUrl, Qt, QPoint, QPointF, pyqtSignal, QSettings
 from pathlib import Path
 
 class PdfViewerWidget(QWidget):
@@ -88,6 +88,9 @@ class PdfViewerWidget(QWidget):
         # Connect signals
         self.view.zoomFactorChanged.connect(self.update_zoom_label)
         
+        # Restore State
+        self.restore_state()
+        
         # Context Menu
         self.view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.view.customContextMenuRequested.connect(self.show_context_menu)
@@ -153,6 +156,9 @@ class PdfViewerWidget(QWidget):
             self.spin_page.setValue(1)
             self.spin_page.blockSignals(False)
             self.enable_controls(True)
+            
+            # Restore persistent zoom
+            self.restore_state()
         elif status == QPdfDocument.Status.Error:
             self.enable_controls(False)
         else:
@@ -168,12 +174,48 @@ class PdfViewerWidget(QWidget):
             
     def clear(self):
         """Release the document file lock."""
+        print(f"[DEBUG] PdfViewer: Unload called - Clearing document")
+        
+        if self.document:
+            self.view.setDocument(None)
+            self.document.deleteLater()
+            self.document = None
+            
+        # Re-initialize empty document for safety if View needs one? 
+        # Or leave None. QPdfView can handle None.
+        
         self.current_uuid = None
         self.lbl_total.setText("/ 0")
         self.spin_page.setRange(0, 0)
         self.spin_page.clear()
         self.enable_controls(False)
         self.lbl_zoom.setText("-")
+
+    def save_state(self):
+        settings = QSettings("KPaperFlux", "PdfViewer")
+        settings.setValue("zoomFactor", self.view.zoomFactor())
+        settings.setValue("zoomMode", self.view.zoomMode().value)
+
+    def restore_state(self):
+        settings = QSettings("KPaperFlux", "PdfViewer")
+        try:
+            factor = float(settings.value("zoomFactor", 1.0))
+            mode_val = int(settings.value("zoomMode", QPdfView.ZoomMode.Custom.value))
+            mode = QPdfView.ZoomMode(mode_val)
+        except:
+            factor = 1.0
+            mode = QPdfView.ZoomMode.Custom
+            
+        self.view.blockSignals(True)
+        try:
+            self.view.setZoomMode(mode)
+            if mode == QPdfView.ZoomMode.Custom:
+                 self.view.setZoomFactor(factor)
+        finally:
+            self.view.blockSignals(False)
+            
+        self.btn_fit.setChecked(mode == QPdfView.ZoomMode.FitInView)
+        self.lbl_zoom.setText(f"{int(self.view.zoomFactor() * 100)}%")
 
     def zoom_in(self):
         self.view.setZoomMode(QPdfView.ZoomMode.Custom)
@@ -194,9 +236,11 @@ class PdfViewerWidget(QWidget):
             self.view.setZoomMode(QPdfView.ZoomMode.Custom)
             # Restore current factor? Or keep what Fit set?
             # Usually keep factor.
+        self.save_state()
         
     def update_zoom_label(self, factor):
         self.lbl_zoom.setText(f"{int(factor * 100)}%")
+        self.save_state()
         
     def prev_page(self):
         curr = self.nav.currentPage()

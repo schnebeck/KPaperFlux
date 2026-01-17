@@ -1,91 +1,181 @@
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu
-from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QTreeWidgetItem, QTreeWidget, QWidget, QVBoxLayout, QAbstractItemView, QStyledItemDelegate, QMessageBox
+from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QEvent
+
+class RowNumberDelegate(QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        option.text = str(index.row() + 1)
+        option.displayAlignment = Qt.AlignmentFlag.AlignCenter
+
+class FixedFirstColumnHeader(QHeaderView):
+    def mousePressEvent(self, event):
+        # Disable sort click for Column 0
+        if self.logicalIndexAt(event.pos()) == 0:
+            return
+        super().mousePressEvent(event)
 from core.database import DatabaseManager
 from gui.utils import format_date, format_datetime
+from gui.utils import format_date, format_datetime
+from gui.export_dialog import ExportDialog
+from gui.dialogs.save_list_dialog import SaveListDialog
+from core.config import AppConfig
+from pathlib import Path
+from typing import Optional
+import datetime
+import os
 
-class DocumentListWidget(QTableWidget):
+class SortableTreeWidgetItem(QTreeWidgetItem):
+    def __lt__(self, other):
+        tree = self.treeWidget()
+        if not tree:
+            return super().__lt__(other)
+
+        column = tree.sortColumn()
+        key1 = self.data(column, Qt.ItemDataRole.UserRole)
+        key2 = other.data(column, Qt.ItemDataRole.UserRole)
+        
+        # If UserRole data is available and comparable, use it for sorting
+        if key1 is not None and key2 is not None:
+            try:
+                if isinstance(key1, (int, float)) and isinstance(key2, (int, float)):
+                    return key1 < key2
+                key1_float = float(key1)
+                key2_float = float(key2)
+                return key1_float < key2_float
+            except (ValueError, TypeError):
+                # Fallback to string comparison
+                return str(key1) < str(key2)
+        
+        return super().__lt__(other)
+
+class DocumentListWidget(QWidget):
     """
-    Displays the list of documents from the database.
+    Widget to display list of documents in a tree view with sorting.
     """
     document_selected = pyqtSignal(list) # List[str] UUIDs
-    delete_requested = pyqtSignal(list) # List[str] UUIDs
-    reprocess_requested = pyqtSignal(list) # List[str] UUIDs (Changed from str)
-    merge_requested = pyqtSignal(list) # List[str] UUIDs
-    export_requested = pyqtSignal(list) # List[str] UUIDs
-    stamp_requested = pyqtSignal(str) # UUID (Single for now, or list?) Let's support single for stamp simplicity.
-    tags_update_requested = pyqtSignal(list) # List[str] UUIDs
-    document_count_changed = pyqtSignal(int, int) # visible, total
+    delete_requested = pyqtSignal(list)
+    reprocess_requested = pyqtSignal(list)
+    merge_requested = pyqtSignal(list)
+    # export_requested = pyqtSignal(list) # Handled locally via open_export_dialog
+    stamp_requested = pyqtSignal(list)
+    tags_update_requested = pyqtSignal(list)
+    stamp_requested = pyqtSignal(list)
+    tags_update_requested = pyqtSignal(list)
+    document_count_changed = pyqtSignal(int, int) # visible_count, total_count
+    save_list_requested = pyqtSignal(str, list) # name, uuids
     
-    def __init__(self, db_manager: DatabaseManager):
+    def __init__(self, db_manager: DatabaseManager, pipeline: Optional[object] = None):
         super().__init__()
-        self.db = db_manager
-        self.current_filter = {} # Store current filter criteria
-        
-        # Setup table columns
-        self.columns = [
-            self.tr("Date"), 
-            self.tr("Sender"), 
-            self.tr("Type"), 
-            self.tr("Tags"),
-            self.tr("Netto"), 
-            self.tr("Filename"),
-            self.tr("Pages"),
-            self.tr("Created"),
-            self.tr("Updated")
-        ]
+        self.db_manager = db_manager
+        self.pipeline = pipeline
+        self.current_filter = {}
+        self.current_filter_text = ""
+        self.current_advanced_query = None # Phase 58: Store advanced query state
         self.dynamic_columns = []
         
-        self.setColumnCount(len(self.columns))
-        self.setHorizontalHeaderLabels(self.columns)
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        header = self.horizontalHeader()
-        header.setSectionsMovable(True)
-        header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        header.customContextMenuRequested.connect(self.show_header_menu)
+        self.tree = QTreeWidget()
+        # Set Custom Header (Disable sort click on Col 0)
+        self.tree.setHeader(FixedFirstColumnHeader(Qt.Orientation.Horizontal, self.tree))
+        self.update_headers()
         
-        self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
-        self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.setSortingEnabled(True)
+        # Row Counter Delegate (Column 0)
+        self.tree.setItemDelegateForColumn(0, RowNumberDelegate(self.tree))
         
-        self.itemSelectionChanged.connect(self._on_selection_changed)
+        self.tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.tree.setSortingEnabled(True)
+        self.tree.itemSelectionChanged.connect(self._on_selection_changed)
         
         # Context Menu
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.show_context_menu)
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self.show_context_menu)
+        
+        # Header Menu
+        self.tree.header().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.header().customContextMenuRequested.connect(self.show_header_menu)
 
+        layout.addWidget(self.tree)
+        
         # Restore State
         self.restore_state()
+
+        if self.db_manager:
+            self.refresh_list()
+
+        # Enforce Resize Modes and sane defaults
+        header = self.tree.header()
         
-        # Enforce Resize Modes AFTER restore
-        header = self.horizontalHeader()
-        for i in range(len(self.columns)):
+        # If columns are squashed (e.g. valid restoration of 0-width or first run), fix them
+        # We check a key column (e.g. Date at index 1)
+        if header.sectionSize(1) < 50:
+             for i in range(self.tree.columnCount()):
+                 self.tree.resizeColumnToContents(i)
+                 # Ensure strict minimum
+                 if header.sectionSize(i) < 50:
+                     header.resizeSection(i, 100)
+                     
+        for i in range(self.tree.columnCount()):
             header.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
             
         header.setStretchLastSection(False)
-        header.setCascadingSectionResizes(True) # Improve resizing UX
-
+        header.setCascadingSectionResizes(True)
+            
+    def update_headers(self):
+        """Set tree headers including dynamic ones."""
+        # Fixed Columns: 0-16 (Added # at 0)
+        labels = [
+            self.tr("#"),           # 0
+            self.tr("UUID"),        # 1
+            self.tr("Date"),        # 2
+            self.tr("Sender"),      # 3
+            self.tr("Type"),        # 4
+            self.tr("Tags"),        # 5
+            self.tr("Netto"),       # 6 (was Amount)
+            self.tr("Filename"),    # 7
+            self.tr("Pages"),       # 8
+            self.tr("Created"),     # 9
+            self.tr("Updated"),     # 10
+            self.tr("Brutto"),      # 11 (was Gross)
+            self.tr("Tax %"),       # 12
+            self.tr("Postage"),     # 13
+            self.tr("Packaging"),   # 14
+            self.tr("IBAN"),        # 15
+            self.tr("Recipient")    # 16
+        ]
+        labels.extend(self.dynamic_columns)
+        self.tree.setHeaderLabels(labels)
+            
     def show_header_menu(self, pos: QPoint):
         """Show context menu to toggle columns."""
         menu = QMenu(self)
-        header = self.horizontalHeader()
+        header = self.tree.header()
         
-        for i, col_name in enumerate(self.columns):
+        for i in range(self.tree.columnCount()):
+            # Name resolution
+            col_name = self.tree.headerItem().text(i)
             action = menu.addAction(col_name)
             action.setCheckable(True)
-            action.setChecked(not header.isSectionHidden(i))
+            # Disable toggling of Row Counter (#)
+            if i == 0:
+                action.setChecked(True)
+                action.setEnabled(False)
+            else:
+                action.setChecked(not header.isSectionHidden(i))
             action.setData(i)
             action.triggered.connect(lambda checked, idx=i: self.toggle_column(idx, checked))
             
-        # Separator
         menu.addSeparator()
         
         # Dynamic Columns Submenu
         dyn_menu = menu.addMenu(self.tr("Add JSON Column..."))
         
-        available_keys = self.db.get_available_extra_keys()
+        available_keys = self.db_manager.get_available_extra_keys()
         for key in available_keys:
-             # Check if already added
              if key in self.dynamic_columns:
                  action = dyn_menu.addAction(f"✓ {key}")
                  action.setEnabled(False)
@@ -104,9 +194,9 @@ class DocumentListWidget(QTableWidget):
         
     def toggle_column(self, index: int, visible: bool):
         if visible:
-            self.horizontalHeader().showSection(index)
+            self.tree.header().showSection(index)
         else:
-            self.horizontalHeader().hideSection(index)
+            self.tree.header().hideSection(index)
         self.save_state()
 
     def add_dynamic_column(self, key: str):
@@ -114,12 +204,7 @@ class DocumentListWidget(QTableWidget):
             return
             
         self.dynamic_columns.append(key)
-        self.columns.append(key) # Use key as header
-        
-        # reset table columns
-        self.setColumnCount(len(self.columns))
-        self.setHorizontalHeaderLabels(self.columns)
-        
+        self.update_headers()
         self.refresh_list()
         self.save_state()
         
@@ -127,248 +212,181 @@ class DocumentListWidget(QTableWidget):
         if key not in self.dynamic_columns:
             return
             
-        idx = self.dynamic_columns.index(key)
-        col_idx = len(self.columns) - len(self.dynamic_columns) + idx
-        
         self.dynamic_columns.remove(key)
-        self.columns.pop(col_idx)
-        
-        self.removeColumn(col_idx)
-        self.setHorizontalHeaderLabels(self.columns)
-        
+        self.update_headers()
+        self.refresh_list()
         self.save_state()
 
     def save_state(self):
         settings = QSettings("KPaperFlux", "DocumentList")
-        settings.setValue("headerState", self.horizontalHeader().saveState())
+        settings.setValue("headerState", self.tree.header().saveState())
         settings.setValue("dynamicColumns", self.dynamic_columns)
         
     def restore_state(self):
         settings = QSettings("KPaperFlux", "DocumentList")
         
-        # Restore dynamic columns first
         dyn_cols = settings.value("dynamicColumns", [])
-        # Ensure it's a list (QSettings quirks)
         if isinstance(dyn_cols, str): dyn_cols = [dyn_cols]
         elif not isinstance(dyn_cols, list): dyn_cols = []
         
         if dyn_cols:
             self.dynamic_columns = dyn_cols
-            self.columns.extend(dyn_cols)
-            self.setColumnCount(len(self.columns))
-            self.setHorizontalHeaderLabels(self.columns)
+            self.update_headers()
 
         state = settings.value("headerState")
         if state:
-            self.horizontalHeader().restoreState(state)
+            self.tree.header().restoreState(state)
         else:
-            # Defaults: Hide Pages (6), Created (7)
-            self.horizontalHeader().hideSection(6)
-            self.horizontalHeader().hideSection(7)
-            
-        # Fix: Always ensure 'Updated' (8) is visible if newly added
-        # This handles cases where old settings obscure the new column
-        if self.horizontalHeader().isSectionHidden(8):
-             self.horizontalHeader().showSection(8)
+            # Default Hiding: Hide Metadata & Finance extras to keep clean
+            # Visible: #, UUID, Date, Sender, Type, Tags, Netto, Filename (0-7)
+            # Hide: 8 (Pages) ...
+            to_hide = [8, 9, 10, 11, 12, 13, 14, 15, 16] 
+            for i in to_hide:
+                self.tree.header().hideSection(i)
+
+    def delete_selected_documents(self, uuids: list[str]):
+        """Filter out locked documents before requesting deletion."""
+        to_delete = []
+        skipped = 0
+        
+        for uuid in uuids:
+             doc = self.documents_cache.get(uuid)
+             if doc and getattr(doc, 'locked', False):
+                 skipped += 1
+                 continue
+             to_delete.append(uuid)
+             
+        if skipped > 0:
+             QMessageBox.information(
+                 self,
+                 self.tr("Locked Documents"),
+                 self.tr(f"{skipped} document(s) are locked and cannot be deleted.")
+             )
+             
+        if to_delete:
+             self.delete_requested.emit(to_delete)
 
     def show_context_menu(self, pos: QPoint):
         """Show context menu for selected item."""
-        item = self.itemAt(pos)
+        item = self.tree.itemAt(pos)
         if not item:
             return
             
-        uuid = self.item(item.row(), 0).data(Qt.ItemDataRole.UserRole)
+        uuid = item.data(1, Qt.ItemDataRole.UserRole)
         if not uuid:
             return
             
         menu = QMenu(self)
         
-        # Check selection count for Merge
-        selected_rows = self.selectionModel().selectedRows()
-        if len(selected_rows) > 1:
+        selected_items = self.tree.selectedItems()
+        
+        if len(selected_items) > 1:
              merge_action = menu.addAction(self.tr("Merge Selected"))
         else:
              merge_action = None
-   
+    
         reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
         tags_action = menu.addAction(self.tr("Manage Tags..."))
         stamp_action = menu.addAction(self.tr("Stamp..."))
         menu.addSeparator()
+        save_list_action = menu.addAction(self.tr("Save as List..."))
+        save_list_action.triggered.connect(self.save_as_list)
+        menu.addSeparator()
         export_action = menu.addAction(self.tr("Export Selected..."))
+        export_all_action = menu.addAction(self.tr("Export All Visible..."))
         menu.addSeparator()
         delete_action = menu.addAction(self.tr("Delete Document"))
         
-        action = menu.exec(self.mapToGlobal(pos))
+        action = menu.exec(self.tree.viewport().mapToGlobal(pos))
         
+        uuids = []
+        for i in selected_items:
+            u = i.data(1, Qt.ItemDataRole.UserRole)
+            if u: uuids.append(u)
+        
+        if not uuids and uuid:
+            uuids = [uuid]
+            
         if action == reprocess_action:
-            # Gather UUIDs
-            uuids = []
-            if len(selected_rows) > 0:
-                for row in selected_rows:
-                     u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
-                     if u: uuids.append(u)
-            else:
-                 # Fallback to single item if selection model behaves oddly (right click sometimes selects only one)
-                 uuids.append(uuid)
-            
             self.reprocess_requested.emit(uuids)
-            
         elif action == delete_action:
-            # Gather UUIDs
-            uuids = []
-            for row in selected_rows:
-                u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
-                if u: uuids.append(u)
-            
-            # Fallback for single item right-click without selection
-            if not uuids and uuid:
-                uuids = [uuid]
-                
-            self.delete_requested.emit(uuids)
+            self.delete_selected_documents(uuids)
         elif merge_action and action == merge_action:
-             # Gather UUIDs
-             uuids = []
-             for row in selected_rows:
-                 u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
-                 if u: uuids.append(u)
              self.merge_requested.emit(uuids)
         elif action == tags_action:
-             # Gather UUIDs
-             uuids = []
-             for row in selected_rows:
-                 u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
-                 if u: uuids.append(u)
-             if uuids:
-                 self.tags_update_requested.emit(uuids)
+             self.tags_update_requested.emit(uuids)
         elif action == stamp_action:
-            self.stamp_requested.emit(uuid)
+            self.stamp_requested.emit(uuids)
         elif action == export_action:
-            # Export all selected
-            uuids = []
-            for row in selected_rows:
-                 u = self.item(row.row(), 0).data(Qt.ItemDataRole.UserRole)
-                 if u: uuids.append(u)
-            self.export_requested.emit(uuids)
+            # Get selected documents
+            docs = []
+            for u in uuids:
+                if u in self.documents_cache:
+                    docs.append(self.documents_cache[u])
+            self.open_export_dialog(docs)
+        elif action == export_all_action:
+            # Get ALL visible documents (respecting filters)
+            docs = self.get_visible_documents()
+            self.open_export_dialog(docs)
+
+    def get_visible_documents(self) -> list:
+        """Return list of Document objects currently visible in the tree."""
+        visible_docs = []
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if not item.isHidden():
+                uuid = item.data(1, Qt.ItemDataRole.UserRole)
+                if uuid in self.documents_cache:
+                    visible_docs.append(self.documents_cache[uuid])
+        return visible_docs
 
     def _on_selection_changed(self):
         """Emit signal with selected UUID(s)."""
-        selected_rows = self.selectionModel().selectedRows()
-        if not selected_rows:
-            self.document_selected.emit([])
-            return
-            
+        selected_items = self.tree.selectedItems()
         uuids = []
-        for row in selected_rows:
-            uuid_item = self.item(row.row(), 0)
-            if uuid_item:
-                u = uuid_item.data(Qt.ItemDataRole.UserRole)
-                if u: uuids.append(u)
+        for item in selected_items:
+            u = item.data(1, Qt.ItemDataRole.UserRole)
+            if u: uuids.append(u)
         
         self.document_selected.emit(uuids)
 
     def refresh_list(self):
-        """Fetch data from DB and populate table."""
-        self.setSortingEnabled(False) # Disable during populate
-        self.setRowCount(0) # Clear existing
-        documents = self.db.get_all_documents()
-        self.documents_cache = {doc.uuid: doc for doc in documents}
-        
-        self.setRowCount(len(documents))
-        
-        from datetime import datetime # Import local to avoid top-level clutter if not used elsewhere
-        
-        for row, doc in enumerate(documents):
-            # Map Document fields to columns
-            # ["Date", "Sender", "Type", "Tags", "Amount", "Filename", "Pages", "Created", "Updated"]
+        """Fetch docs from DB and populate tree."""
+        if not self.db_manager:
+            return
             
-            locale = QLocale.system()
-            
-            # Localized Date (doc_date)
-            date_str = format_date(doc.doc_date)
+        try:
+             # Prioritize Advanced Query if active
+             if self.current_advanced_query:
+                 docs = self.db_manager.search_documents_advanced(self.current_advanced_query)
+             else:
+                 query = getattr(self, "current_filter_text", None)
+                 if query:
+                     docs = self.db_manager.search_documents(query)
+                 else:
+                     docs = self.db_manager.get_all_documents()
+        except:
+             docs = []
+             
+        self.populate_tree(docs)
+        return
 
-            sender = doc.sender or ""
-            doc_type = doc.doc_type or ""
-            tags = doc.tags or ""
-            amount_str = ""
-            if doc.amount is not None:
-                try:
-                     amount_str = f"{float(doc.amount):.2f}"
-                     if doc.currency:
-                         amount_str += f" {doc.currency}"
-                except:
-                     amount_str = str(doc.amount)
-            filename = doc.original_filename
-            
-            pages_str = str(doc.page_count) if doc.page_count is not None else ""
-            created_str = format_datetime(doc.created_at)
-            
-            # Localized Updated (last_processed_at)
-            updated_str = format_datetime(doc.last_processed_at)
-            
-            item_date = QTableWidgetItem(date_str)
-            item_date.setData(Qt.ItemDataRole.UserRole, doc.uuid) # Store UUID
-            
-            self.setItem(row, 0, item_date)
-            self.setItem(row, 1, QTableWidgetItem(sender))
-            self.setItem(row, 2, QTableWidgetItem(doc_type))
-            self.setItem(row, 3, QTableWidgetItem(tags))
-            self.setItem(row, 4, QTableWidgetItem(amount_str))
-            self.setItem(row, 5, QTableWidgetItem(filename))
-            self.setItem(row, 6, QTableWidgetItem(pages_str))
-            self.setItem(row, 7, QTableWidgetItem(created_str))
-            self.setItem(row, 8, QTableWidgetItem(updated_str))
-            
-            # Dynamic Columns (Index 9+)
-            for i, key in enumerate(self.dynamic_columns):
-                # Resolve value path
-                val = ""
-                if doc.extra_data:
-                    parts = key.split('.')
-                    data = doc.extra_data
-                    for p in parts:
-                        if isinstance(data, dict):
-                            data = data.get(p)
-                        elif isinstance(data, list):
-                            # List traversal: Try to find key in first dict item
-                            if data and isinstance(data[0], dict):
-                                data = data[0].get(p)
-                            else:
-                                data = None
-                        else:
-                            data = None
-                        
-                        if data is None: break
-                    
-                    if data is not None:
-                        val = str(data)
-                
-                col_idx = 9 + i
-                self.setItem(row, col_idx, QTableWidgetItem(val))
-            
-        self.setSortingEnabled(True)
-        
-        # Re-apply filter if exists
-        if self.current_filter:
-            self.apply_filter(self.current_filter)
-        else:
-             self.document_count_changed.emit(self.rowCount(), self.rowCount())
 
     def select_document(self, uuid: str):
         """Programmatically select a document by UUID."""
         if not uuid:
             return
             
-        # Find row with this UUID
-        for row in range(self.rowCount()):
-            item = self.item(row, 0)
-            if item and item.data(Qt.ItemDataRole.UserRole) == uuid:
-                self.selectRow(row)
-                self.scrollToItem(item)
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item.data(1, Qt.ItemDataRole.UserRole) == uuid:
+                item.setSelected(True)
+                self.tree.scrollToItem(item)
                 break
 
     def apply_filter(self, criteria: dict):
         """
-        Filter rows based on criteria: 'date_from', 'date_to', 'type', 'tags'.
+        Filter items based on criteria.
         """
         self.current_filter = criteria
         
@@ -378,52 +396,39 @@ class DocumentListWidget(QTableWidget):
         target_tags = criteria.get('tags')
         text_search = criteria.get('text_search')
         
-        for row in range(self.rowCount()):
+        visible_count = 0
+        total_count = self.tree.topLevelItemCount()
+        
+        for i in range(total_count):
+            item = self.tree.topLevelItem(i)
             show = True
             
-            # Get UUID to lookup cache for text search
-            uuid_item = self.item(row, 0)
-            if not uuid_item: continue
-            uuid = uuid_item.data(Qt.ItemDataRole.UserRole)
+            uuid = item.data(1, Qt.ItemDataRole.UserRole)
             doc = self.documents_cache.get(uuid)
             
-            # Date Filter (Col 0)
             if date_from or date_to:
-                date_item = self.item(row, 0)
-                date_val = date_item.text() if date_item else ""
+                date_val = str(doc.doc_date) if doc and doc.doc_date else ""
                 
                 if not date_val:
-                    # Decide if docs with no date should be hidden?
-                    # Generally yes if date range is specific.
-                    show = False
+                    if date_from or date_to: show = False
                 else:
-                    # String comparison works for ISO dates
                     if date_from and date_val < date_from:
                         show = False
                     if date_to and date_val > date_to:
                         show = False
             
-            # Type Filter (Col 2)
             if show and target_type:
-                type_item = self.item(row, 2)
-                type_val = type_item.text() if type_item else ""
+                type_val = doc.doc_type if doc and doc.doc_type else ""
                 if target_type != type_val:
                     show = False
                     
-            # Tag Filter (Col 3) - Contains
             if show and target_tags:
-                tag_item = self.item(row, 3)
-                tag_val = tag_item.text().lower() if tag_item else ""
-                # Simple substring check
+                tag_val = doc.tags.lower() if doc and doc.tags else ""
                 if target_tags.lower() not in tag_val:
                     show = False
 
-            # Text Search (Smart Search)
             if show and text_search and doc:
                 query = text_search.lower()
-                # Fields to search: Sender, Type, Tags, Filename, Address, Content?
-                # Content might be huge. Let's include it for "Smart" search.
-                
                 haystack = [
                     doc.sender or "",
                     doc.doc_type or "",
@@ -431,63 +436,256 @@ class DocumentListWidget(QTableWidget):
                     doc.original_filename or "",
                     doc.sender_address or "",
                     doc.text_content or "",
-                    # Extended Logic (Phase 8)
                     doc.recipient_company or "",
                     doc.recipient_name or "",
                     doc.recipient_city or "",
                     doc.sender_company or "",
                     doc.sender_city or "",
                     str(doc.page_count or ""),
-                    doc.created_at or ""
+                    str(doc.created_at or "")
                 ]
-                
-                # Check if query words are in haystack
-                # Simple containment: query string in combined haystack
                 full_text = " ".join(haystack).lower()
                 if query not in full_text:
                     show = False
             
-            self.setRowHidden(row, not show)
-
-        # Count visible
-        visible_count = 0
-        for i in range(self.rowCount()):
-            if not self.isRowHidden(i):
+            item.setHidden(not show)
+            if show:
                 visible_count += 1
                 
-        self.document_count_changed.emit(visible_count, self.rowCount())
+        print(f"[DEBUG] DocumentList: Emitting count visible={visible_count}, total={total_count} (Filter Logic)")
+        self.document_count_changed.emit(visible_count, total_count)
+
+    def rowCount(self) -> int:
+        """Compatibility method for MainWindow (QTreeWidget -> QTableWidget check)."""
+        return self.tree.topLevelItemCount()
+        
+    def selectedItems(self) -> list[QTreeWidgetItem]:
+        """Compatibility method for MainWindow (QTreeWidget -> QTableWidget check)."""
+        return self.tree.selectedItems()
+
+    def selectRow(self, row: int):
+        """Compatibility method for MainWindow (QTableWidget -> QTreeWidget)."""
+        if 0 <= row < self.tree.topLevelItemCount():
+            item = self.tree.topLevelItem(row)
+            item.setSelected(True)
+            self.tree.scrollToItem(item)
+
+    def item(self, row: int, column: int = 0) -> QTreeWidgetItem:
+        """Compatibility method for MainWindow (QTableWidget -> QTreeWidget)."""
+        # QTreeWidget doesn't have 'cells', it has Items. 
+        # MainWindow uses this to check if a row is selected -> item(row, 0).isSelected()
+        if 0 <= row < self.tree.topLevelItemCount():
+            return self.tree.topLevelItem(row)
+        return None
 
     def get_selected_uuids(self) -> list[str]:
-        """Return list of UUIDs for selected rows."""
+        """Return list of UUIDs for selected items."""
         uuids = set()
-        for item in self.selectedItems():
-            row = item.row()
-            uuid_item = self.item(row, 0)
-            if uuid_item:
-                uid = uuid_item.data(Qt.ItemDataRole.UserRole)
-                if uid:
-                    uuids.add(uid)
+        for item in self.tree.selectedItems():
+            uid = item.data(1, Qt.ItemDataRole.UserRole)
+            if uid:
+                uuids.add(uid)
         return list(uuids)
 
     def select_rows_by_uuids(self, uuids: list[str]):
-        """Select rows matching the given UUIDs."""
-        self.clearSelection()
+        """Select items matching the given UUIDs."""
+        self.tree.clearSelection()
         if not uuids: 
             return
         
         uuid_set = set(uuids)
         
-        # Check selection mode
-        if self.selectionMode() == QTableWidget.SelectionMode.SingleSelection and len(uuids) > 1:
-             # Only pick first if strictly single selection
+        if self.tree.selectionMode() == QAbstractItemView.SelectionMode.SingleSelection and len(uuids) > 1:
              uuid_set = {uuids[0]}
              
-        selection_model = self.selectionModel()
+        for i in range(self.tree.topLevelItemCount()):
+             item = self.tree.topLevelItem(i)
+             uid = item.data(1, Qt.ItemDataRole.UserRole)
+             if uid in uuid_set and not item.isHidden():
+                 item.setSelected(True)
+
+    def apply_advanced_filter(self, query: dict):
+        """Apply advanced search query."""
+        print(f"[DEBUG] DocumentList Received Query: {query}")
+        self.current_advanced_query = query # Persist
+        self.current_filter_text = None # Clear simple text search
         
-        for row in range(self.rowCount()):
-             item = self.item(row, 0)
-             if not item: continue
+        docs = self.db_manager.search_documents_advanced(query)
+        self.populate_tree(docs)
+        if docs:
+            self.selectRow(0)
+
+    def populate_tree(self, docs):
+        self.tree.setSortingEnabled(False)
+        self.tree.clear()
+        self.documents_cache = {doc.uuid: doc for doc in docs}
+        
+        for i, doc in enumerate(docs):
+            # --- Field Formatting ---
+            doc_date_str = format_date(doc.doc_date)
+            date_sort = str(doc.doc_date) if doc.doc_date else "" 
+            
+            created_str = format_datetime(doc.created_at)
+            created_sort = str(doc.created_at) if doc.created_at else ""
+
+            updated_str = format_datetime(doc.last_processed_at)
+            updated_sort = str(doc.last_processed_at) if doc.last_processed_at else ""
+            
+            sender = doc.sender or ""
+            doc_type = doc.doc_type or ""
+            tags = doc.tags or ""
+            filename = doc.original_filename or ""
+            
+            # Helper for formatting monetary values
+            def format_money(val, curr):
+                s_sort = 0.0
+                s_str = ""
+                if val is not None:
+                    try:
+                        s_sort = float(val)
+                        s_str = f"{s_sort:.2f}"
+                        if curr: s_str += f" {curr}"
+                    except:
+                        s_str = str(val)
+                return s_str, s_sort
+
+            amount_str, amount_sort = format_money(doc.amount, doc.currency)
+            gross_str, gross_sort = format_money(doc.gross_amount, doc.currency)
+            postage_str, postage_sort = format_money(doc.postage, doc.currency)
+            packaging_str, packaging_sort = format_money(doc.packaging, doc.currency)
+            
+            # Tax
+            tax_sort = 0.0
+            tax_str = ""
+            if doc.tax_rate is not None:
+                try:
+                    tax_sort = float(doc.tax_rate)
+                    tax_str = f"{tax_sort:.1f}%"
+                except:
+                    tax_str = str(doc.tax_rate)
+            
+            iban = doc.iban or ""
+            recipient = doc.recipient_company or doc.recipient_name or ""
+            
+            pages_sort = doc.page_count if doc.page_count is not None else 0
+            pages_str = str(pages_sort) if doc.page_count is not None else ""
+
+            # Columns 0-16
+            col_data = [
+                "",                 # 0: # (Handled by Delegate)
+                doc.uuid,           # 1
+                doc_date_str,       # 2
+                sender,             # 3
+                doc_type,           # 4
+                tags,               # 5
+                amount_str,         # 6
+                filename,           # 7
+                pages_str,          # 8
+                created_str,        # 9
+                updated_str,        # 10
+                gross_str,          # 11
+                tax_str,            # 12
+                postage_str,        # 13
+                packaging_str,      # 14
+                iban,               # 15
+                recipient           # 16
+            ]
+            
+            if doc.extra_data:
+                 for key in self.dynamic_columns:
+                     val = ""
+                     parts = key.split('.')
+                     data = doc.extra_data
+                     for p in parts:
+                         if isinstance(data, dict):
+                             data = data.get(p)
+                         elif isinstance(data, list):
+                             if data and isinstance(data[0], dict):
+                                 data = data[0].get(p)
+                             else:
+                                 data = None
+                         else:
+                             data = None
+                         if data is None: break
+                     
+                     if data is not None:
+                         val = str(data)
+                     col_data.append(val)
+            else:
+                 col_data.extend([""] * len(self.dynamic_columns))
+            
+            item = SortableTreeWidgetItem(col_data)
+            
+            if getattr(doc, 'locked', False):
+                 for c in range(item.columnCount()):
+                     item.setForeground(c, Qt.GlobalColor.gray)
+            
+            item.setData(0, Qt.ItemDataRole.UserRole, i + 1)
+            item.setData(1, Qt.ItemDataRole.UserRole, doc.uuid)
+            item.setData(2, Qt.ItemDataRole.UserRole, date_sort)
+            item.setData(6, Qt.ItemDataRole.UserRole, amount_sort)
+            item.setData(8, Qt.ItemDataRole.UserRole, pages_sort)
+            item.setData(9, Qt.ItemDataRole.UserRole, created_sort)
+            item.setData(10, Qt.ItemDataRole.UserRole, updated_sort)
+            item.setData(11, Qt.ItemDataRole.UserRole, gross_sort)
+            item.setData(12, Qt.ItemDataRole.UserRole, tax_sort)
+            item.setData(13, Qt.ItemDataRole.UserRole, postage_sort)
+            item.setData(14, Qt.ItemDataRole.UserRole, packaging_sort)
+            
+            self.tree.addTopLevelItem(item)
+
+        self.tree.setSortingEnabled(True)
+        
+        if self.current_filter:
+             self.apply_filter(self.current_filter)
+        else:
+             print(f"[DEBUG] DocumentList: Emitting count visible={len(docs)}, total={len(docs)} (Populate Logic)")
+             self.document_count_changed.emit(len(docs), len(docs))
+    def open_export_dialog(self, documents: list):
+        if not documents:
+             QMessageBox.warning(self, self.tr("Export"), self.tr("No documents to export."))
+             return
              
-             uid = item.data(Qt.ItemDataRole.UserRole)
-             if uid in uuid_set:
-                 self.selectRow(row)
+        # Resolve file paths if missing
+        vault_path_str = AppConfig().get_vault_path()
+        if vault_path_str:
+            vault_path = Path(vault_path_str)
+            for doc in documents:
+                if not doc.file_path:
+                    # Construct default path
+                    # Try UUID.pdf
+                    potential = vault_path / f"{doc.uuid}.pdf"
+                    if potential.exists():
+                        doc.file_path = str(potential)
+
+        dlg = ExportDialog(self, documents)
+        dlg.exec()
+
+    def save_as_list(self):
+        # Determine if selection exists
+        selected = self.tree.selectedItems()
+        has_selection = bool(selected)
+        
+        dlg = SaveListDialog(self, has_selection=has_selection)
+        if dlg.exec():
+            name, only_selection = dlg.get_data()
+            
+            target_uuids = []
+            if only_selection and has_selection:
+                # Get Selected UUIDs
+                for item in selected:
+                     uuid = item.data(1, Qt.ItemDataRole.UserRole)
+                     if uuid:
+                         target_uuids.append(uuid)
+            else:
+                # Get All Displayed UUIDs
+                count = self.tree.topLevelItemCount()
+                for i in range(count):
+                    item = self.tree.topLevelItem(i)
+                    if not item.isHidden():
+                        uuid = item.data(1, Qt.ItemDataRole.UserRole)
+                        if uuid:
+                            target_uuids.append(uuid)
+                            
+            if target_uuids:
+                 self.save_list_requested.emit(name, target_uuids)

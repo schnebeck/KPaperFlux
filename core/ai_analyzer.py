@@ -125,8 +125,11 @@ class AIAnalyzer:
              - "Ktr" / "Kostenträger" -> "cost_bearer"
              - "Bearbeiter" / "Kürzel" -> "editor"
              - "Bemerkung" -> "note"
-             - "Datum" -> "date" (Use ISO YYYY-MM-DD)
-           - Example: extra_data: { "stamps": [{"type": "entry", "date": "2024-05-12", "cost_center": "10", "editor": "ABC"}] }
+             7. "stamps": A LIST of objects found.
+               - IMPORTANT: If a single visual stamp contains multiple fields (e.g. Date AND Cost Center), merge them into ONE object. Do NOT split them.
+               - Each object: {"type": "entry"|"accounting"|"paid", "date": "YYYY-MM-DD", "cost_center": "...", "cost_bearer": "...", "editor": "...", "note": "..."}
+               - Use "type": "accounting" if it contains financial codes (Cost Center/Bearer).
+               - Use "type": "entry" if it acts as a date-received stamp.
            
         Return ONLY valid JSON.
         JSON Structure:

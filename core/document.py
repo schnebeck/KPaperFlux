@@ -25,6 +25,7 @@ class Document(BaseModel):
     currency: Optional[str] = None
 
     doc_type: Optional[str] = None
+    locked: bool = False
     
     # Extended Metadata (Phase 3)
     # sender_address might be used as "raw" address or specific fields below
@@ -47,6 +48,11 @@ class Document(BaseModel):
     sender_zip: Optional[str] = None
     sender_city: Optional[str] = None
     sender_country: Optional[str] = None
+
+    # Transient / Runtime (not stored in DB metadata table usually)
+    file_path: Optional[str] = None
+    export_filename: Optional[str] = None
+    text_content: Optional[str] = None
     
     page_count: Optional[int] = None
     created_at: Optional[str] = None # ISO format

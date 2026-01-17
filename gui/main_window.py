@@ -13,13 +13,16 @@ import shutil
 from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager
 from core.stamper import DocumentStamper
+from core.stamper import DocumentStamper
+from core.filter_tree import FilterTree
+import json
+from pathlib import Path
 from gui.workers import AIQueueWorker, ImportWorker
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
 from gui.filter_widget import FilterWidget
-from gui.settings_dialog import SettingsDialog
-from gui.filter_widget import FilterWidget
+from gui.advanced_filter import AdvancedFilterWidget
 from gui.settings_dialog import SettingsDialog
 
 class MainWindow(QMainWindow):
@@ -40,6 +43,8 @@ class MainWindow(QMainWindow):
         self.resize(1000, 700)
         self.setAcceptDrops(True)
         self.pending_selection = []
+        
+        self.filter_config_path = Path("filter_tree.json").resolve()
         
         self.create_menu_bar()
         
@@ -62,6 +67,19 @@ class MainWindow(QMainWindow):
         self.filter_widget = FilterWidget()
         self.left_pane_splitter.addWidget(self.filter_widget)
         
+        self.filter_tree = FilterTree()
+        self.load_filter_tree()
+        
+        self.advanced_filter = AdvancedFilterWidget(
+            db_manager=self.db_manager, 
+            filter_tree=self.filter_tree,
+            save_callback=self.save_filter_tree
+        )
+        self.advanced_filter.setVisible(False)
+        self.left_pane_splitter.addWidget(self.advanced_filter)
+        
+        self.filter_widget.complex_filter_toggled.connect(self.advanced_filter.setVisible)
+        
         # 2. Document List
         if self.db_manager:
             self.list_widget = DocumentListWidget(self.db_manager)
@@ -69,13 +87,17 @@ class MainWindow(QMainWindow):
             self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
             self.list_widget.merge_requested.connect(self.merge_documents_slot)
-            self.list_widget.export_requested.connect(self.export_documents_slot)
+            self.list_widget.merge_requested.connect(self.merge_documents_slot)
+            # self.list_widget.export_requested.connect(self.export_documents_slot) # Handled internally
+            self.list_widget.stamp_requested.connect(self.stamp_document_slot)
             self.list_widget.stamp_requested.connect(self.stamp_document_slot)
             self.list_widget.tags_update_requested.connect(self.manage_tags_slot)
             self.list_widget.document_count_changed.connect(self.update_status_bar)
+            self.list_widget.save_list_requested.connect(self.save_static_list)
             
             # Connect Filter
             self.filter_widget.filter_changed.connect(self.list_widget.apply_filter)
+            self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
             
             self.left_pane_splitter.addWidget(self.list_widget)
         else:
@@ -84,7 +106,8 @@ class MainWindow(QMainWindow):
             
         # 3. Metadata Editor
         self.editor_widget = MetadataEditorWidget(self.db_manager)
-        self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
+        if hasattr(self.list_widget, 'refresh_list'):
+            self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
         self.left_pane_splitter.addWidget(self.editor_widget)
         
         # Add Left Pane to Main Splitter
@@ -126,7 +149,61 @@ class MainWindow(QMainWindow):
              self.ai_worker = AIQueueWorker(self.pipeline)
              self.ai_worker.doc_updated.connect(self._on_ai_doc_updated)
              self.ai_worker.status_changed.connect(self._on_ai_status_changed)
+             self.ai_worker.doc_updated.connect(self._on_ai_doc_updated)
+             self.ai_worker.status_changed.connect(self._on_ai_status_changed)
              self.ai_worker.start()
+
+    def load_filter_tree(self):
+        """Load Filter Tree from JSON file."""
+        if self.filter_config_path.exists():
+            print(f"[DEBUG] Loading Filter Tree from: {self.filter_config_path}")
+            try:
+                with open(self.filter_config_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.filter_tree.load(data)
+                print(f"[DEBUG] Loaded {len(self.filter_tree.root.children)} root items.")
+            except Exception as e:
+                print(f"[ERROR] Error loading filter tree: {e}")
+        
+        # Check for Legacy Filters (QSettings) and migrate
+        self.migrate_legacy_filters()
+
+    def migrate_legacy_filters(self):
+        settings = QSettings("KPaperFlux", "AdvancedFilters")
+        if settings.contains("saved_filters"):
+            try:
+                saved_json = settings.value("saved_filters")
+                if isinstance(saved_json, str):
+                    legacy_map = json.loads(saved_json)
+                    if legacy_map:
+                        # Create "Imported" folder
+                        folder = self.filter_tree.add_folder(self.filter_tree.root, "Imported (Legacy)")
+                        count = 0
+                        for name, query in legacy_map.items():
+                            self.filter_tree.add_filter(folder, name, query)
+                            count += 1
+                        
+                        print(f"Migrated {count} legacy filters.")
+                        
+                # Clean up "Dead Files"
+                settings.remove("saved_filters")
+                settings.sync()
+                print("Legacy filter config removed.")
+                
+            except Exception as e:
+                print(f"Migration error: {e}")
+
+    def save_filter_tree(self):
+        """Save Filter Tree to JSON file."""
+        try:
+            print(f"[DEBUG] Saving Filter Tree to: {self.filter_config_path}")
+            with open(self.filter_config_path, "w", encoding="utf-8") as f:
+                f.write(self.filter_tree.to_json())
+                f.flush()
+                os.fsync(f.fileno()) # Force write to disk
+            print("[DEBUG] Filter Tree saved successfully.")
+        except Exception as e:
+             print(f"[ERROR] Error saving filter tree: {e}")
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -159,10 +236,24 @@ class MainWindow(QMainWindow):
         
         file_menu.addSeparator()
         
+        action_export = QAction(self.tr("Export shown List..."), self)
+        action_export.triggered.connect(self.export_visible_documents_slot)
+        file_menu.addAction(action_export)
+
+        file_menu.addSeparator()
+        
+        action_exit = QAction(self.tr("E&xit"), self)
+        action_exit.setShortcut("Ctrl+Q")
+        action_exit.triggered.connect(self.close)
         action_exit = QAction(self.tr("E&xit"), self)
         action_exit.setShortcut("Ctrl+Q")
         action_exit.triggered.connect(self.close)
         file_menu.addAction(action_exit)
+
+    def closeEvent(self, event: QCloseEvent):
+        # Save Tree on close
+        self.save_filter_tree()
+        super().closeEvent(event)
         
         # -- View Menu --
         view_menu = menubar.addMenu(self.tr("&View"))
@@ -523,6 +614,10 @@ class MainWindow(QMainWindow):
 
         dialog = DuplicateFinderDialog(duplicates, self.db_manager, self)
         dialog.exec()
+        
+        # Refresh list as files might have been deleted
+        if self.list_widget:
+            self.list_widget.refresh_list()
 
     def open_maintenance_slot(self):
         """Open Maintenance Dialog."""
@@ -668,46 +763,29 @@ class MainWindow(QMainWindow):
 
 
     def export_documents_slot(self, uuids: list[str]):
-        """Export selected documents to a folder."""
-        if not uuids or not self.pipeline:
+        """Export selected documents via ListWidget dialog."""
+        if not uuids or not self.list_widget:
             return
             
-        target_dir = QFileDialog.getExistingDirectory(self, self.tr("Select Export Directory"))
-        if not target_dir:
+        docs = []
+        for u in uuids:
+            doc = self.db_manager.get_document_by_uuid(u)
+            if doc:
+                docs.append(doc)
+                
+        if docs:
+            self.list_widget.open_export_dialog(docs)
+
+    def export_visible_documents_slot(self):
+        """Export all currently visible documents."""
+        if not self.list_widget: return
+        
+        docs = self.list_widget.get_visible_documents()
+        if not docs:
+            QMessageBox.information(self, self.tr("Export"), self.tr("No documents visible to export."))
             return
             
-        count = 0
-        for uuid in uuids:
-            # Get vault path
-            src_path = self.pipeline.vault.get_file_path(uuid)
-            if src_path and os.path.exists(src_path):
-                # Determine filename
-                doc = self.db_manager.get_document_by_uuid(uuid)
-                filename = f"{uuid}.pdf"
-                
-                if doc:
-                    if doc.export_filename:
-                        filename = doc.export_filename
-                        if not filename.lower().endswith(".pdf"):
-                            filename += ".pdf"
-                    elif doc.original_filename:
-                        filename = doc.original_filename
-                
-                # Check collision with incremental counter
-                dst_path = os.path.join(target_dir, filename)
-                base, ext = os.path.splitext(filename)
-                counter = 1
-                while os.path.exists(dst_path):
-                     dst_path = os.path.join(target_dir, f"{base}_{counter:03d}{ext}")
-                     counter += 1
-                    
-                try:
-                    shutil.copy2(src_path, dst_path)
-                    count += 1
-                except Exception as e:
-                    print(f"Export error {uuid}: {e}")
-                    
-        QMessageBox.information(self, self.tr("Export"), self.tr(f"Exported {count} documents to {target_dir}."))
+        self.list_widget.open_export_dialog(docs)
 
     def stamp_document_slot(self, uuid: str):
         """Stamp a document."""
@@ -808,10 +886,18 @@ class MainWindow(QMainWindow):
         
     def update_status_bar(self, visible_count: int, total_count: int):
         """Update status bar with document counts."""
+        print(f"[DEBUG] MainWindow: Received count visible={visible_count}, total={total_count}")
         self.statusBar().showMessage(self.tr(f"Documents: {visible_count} (Total: {total_count})"))
         
+        # Phase 58: Clear viewer if list is empty
+        if visible_count == 0:
+            if self.pdf_viewer:
+                self.pdf_viewer.unload()
+            # Clear pending selection since nothing can be selected
+            self.pending_selection = []
+        
         # Selection Persistence logic
-        if hasattr(self, 'pending_selection') and self.pending_selection:
+        if visible_count > 0 and hasattr(self, 'pending_selection') and self.pending_selection:
              self.list_widget.select_rows_by_uuids(self.pending_selection)
              self.pending_selection = []
              
@@ -890,3 +976,31 @@ class MainWindow(QMainWindow):
         self.pending_selection = settings.value("selectedUUIDs", [])
         if not isinstance(self.pending_selection, list):
              self.pending_selection = []
+
+    def save_static_list(self, name: str, uuids: list):
+        """Save a static list of UUIDs as a filter."""
+        if not self.filter_tree:
+             return
+             
+        # Create Filter Data: {field: uuid, operator: in, value: [ids]}
+        filter_data = {
+            'operator': 'AND',
+            'conditions': [
+                {
+                    'field': 'uuid',
+                    'op': 'in',
+                    'value': uuids
+                }
+            ]
+        }
+        
+        # Add to Tree (Root)
+        self.filter_tree.add_filter(self.filter_tree.root, name, filter_data)
+        
+        # Persist
+        self.save_filter_tree()
+        
+        # Refresh UI
+        self.advanced_filter.load_known_filters()
+        
+        self.statusBar().showMessage(self.tr(f"List '{name}' saved with {len(uuids)} items."), 3000)

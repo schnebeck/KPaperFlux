@@ -11,6 +11,7 @@ class FilterWidget(QWidget):
     Widget for filtering documents by Date, Type, and Tags.
     """
     filter_changed = pyqtSignal(dict) # Emits dictionary of filter criteria
+    complex_filter_toggled = pyqtSignal(bool)
     
     def __init__(self):
         super().__init__()
@@ -33,6 +34,11 @@ class FilterWidget(QWidget):
         btn_advanced.setCheckable(True)
         btn_advanced.toggled.connect(self._toggle_advanced)
         search_layout.addWidget(btn_advanced)
+        
+        btn_complex = QPushButton(self.tr("Rules..."))
+        btn_complex.setCheckable(True)
+        btn_complex.toggled.connect(self.complex_filter_toggled.emit)
+        search_layout.addWidget(btn_complex)
         
         self.layout.addLayout(search_layout)
         

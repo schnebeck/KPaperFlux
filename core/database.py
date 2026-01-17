@@ -89,7 +89,10 @@ class DatabaseManager:
                 "postage": "REAL",
                 "packaging": "REAL",
                 "tax_rate": "REAL",
-                "currency": "TEXT"
+                "currency": "TEXT",
+                
+                # Phase 68 Locking
+                "locked": "INTEGER" # Boolean (0/1)
             }
             
             for col_name, col_type in new_columns.items():
@@ -109,14 +112,14 @@ class DatabaseManager:
             recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country,
             sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country,
             page_count, created_at, extra_data, last_processed_at, export_filename,
-            gross_amount, postage, packaging, tax_rate, currency
+            gross_amount, postage, packaging, tax_rate, currency, locked
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ? , ?
         )
         """
         
@@ -146,7 +149,7 @@ class DatabaseManager:
             json.dumps(doc.extra_data) if doc.extra_data else None,
             doc.last_processed_at,
             doc.export_filename,
-            gross_val, post_val, pack_val, tax_val, doc.currency
+            gross_val, post_val, pack_val, tax_val, doc.currency, 1 if doc.locked else 0
         )
         
         cursor = self.connection.cursor()
@@ -159,7 +162,7 @@ class DatabaseManager:
         Retrieve all documents from the database.
         Returns a list of Document objects.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename, gross_amount, postage, packaging, tax_rate, currency FROM documents ORDER BY created_at DESC"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename, gross_amount, postage, packaging, tax_rate, currency, locked FROM documents ORDER BY created_at DESC"
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
@@ -189,7 +192,8 @@ class DatabaseManager:
                 postage=row[30],
                 packaging=row[31],
                 tax_rate=row[32],
-                currency=row[33]
+                currency=row[33],
+                locked=bool(row[34]) if len(row) > 34 and row[34] is not None else False
             )
             results.append(doc)
             
@@ -199,7 +203,7 @@ class DatabaseManager:
         """
         Retrieve a single document by its UUID.
         """
-        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename, gross_amount, postage, packaging, tax_rate, currency FROM documents WHERE uuid = ?"
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename, gross_amount, postage, packaging, tax_rate, currency, locked FROM documents WHERE uuid = ?"
         cursor = self.connection.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
@@ -228,7 +232,8 @@ class DatabaseManager:
                 postage=row[30],
                 packaging=row[31],
                 tax_rate=row[32],
-                currency=row[33]
+                currency=row[33],
+                locked=bool(row[34]) if len(row) > 34 and row[34] is not None else False
             )
         return None
 
@@ -251,7 +256,7 @@ class DatabaseManager:
             "page_count", "created_at", "extra_data", "last_processed_at", "export_filename",
             
             # Phase 45 Financials
-            "amount", "gross_amount", "postage", "packaging", "tax_rate", "currency"
+            "amount", "gross_amount", "postage", "packaging", "tax_rate", "currency", "locked"
         }
         
         set_clauses = []
@@ -295,26 +300,26 @@ class DatabaseManager:
         :return: List of matching Documents.
         """
         
-        # Base query
-        sql = "SELECT uuid, original_filename, text_content, created_at, sender, doc_date, amount, doc_type, tags, page_count, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, sender_address, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, iban, phone, tax_id, extra_data, last_processed_at FROM documents WHERE 1=1"
+        # Base query - MATCHES get_all_documents SCHEMA (34 columns)
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename, gross_amount, postage, packaging, tax_rate, currency, locked FROM documents WHERE 1=1"
         values = []
         
         # Text Search
         if text_query:
             # We use a simple OR logic for text fields
-            # Note: LIKE is case-insensitive in SQLite for ASCII, but content might need lower()
             sql += " AND (text_content LIKE ? OR original_filename LIKE ? OR tags LIKE ?)"
             wildcard = f"%{text_query}%"
             values.extend([wildcard, wildcard, wildcard])
             
         # Dynamic JSON Filters
-        # Assumption: Keys are dot-notation paths relative to root of extra_data object
-        # e.g. "stamps.cost_center" -> "$.stamps.cost_center"
         if dynamic_filters:
             for key, value in dynamic_filters.items():
                 json_path = f"$.{key}"
                 sql += f" AND json_extract(extra_data, ?) = ?"
                 values.extend([json_path, str(value)])
+                
+        # Sort desc
+        sql += " ORDER BY created_at DESC"
                 
         cursor = self.connection.cursor()
         try:
@@ -326,49 +331,35 @@ class DatabaseManager:
                 doc = Document(
                     uuid=row[0],
                     original_filename=row[1],
-                    text_content=row[2],
-                    created_at=row[3],
-                    sender=row[4],
-                    doc_date=row[5],
-                    amount=row[6],
-                    doc_type=row[7],
-                    tags=row[8],
-                    page_count=row[9],
-                    sender_company=row[10],
-                    sender_name=row[11],
-                    sender_street=row[12],
-                    sender_zip=row[13],
-                    sender_city=row[14],
-                    sender_country=row[15],
-                    sender_address=row[16],
-                    recipient_company=row[17],
-                    recipient_name=row[18],
-                    recipient_street=row[19],
-                    recipient_zip=row[20],
-                    recipient_city=row[21],
-                    recipient_country=row[22],
-                    iban=row[23],
-                    phone=row[24],
-                    # tax_id=row[25], # This column is not in the original schema, and not in the SQL query.
-                    # Assuming it should be extra_data=row[25] and last_processed_at=row[26]
-                    # Based on the provided SQL, the column order is:
-                    # uuid, original_filename, text_content, created_at, sender, doc_date, amount, doc_type, tags, page_count,
-                    # sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, sender_address,
-                    # recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country,
-                    # iban, phone, tax_id, extra_data, last_processed_at
-                    # This means tax_id is row[25], extra_data is row[26], last_processed_at is row[27]
-                    # The provided code snippet for Document construction has 28 fields (0-27).
-                    # The original Document constructor had 28 fields (0-27).
-                    # The new SQL query has 28 fields.
-                    # The new Document constructor has 28 fields.
-                    # The `tax_id` field is new in the SQL query and the Document constructor.
-                    # I will assume `tax_id` is a valid field for the Document class and the database.
-                    tax_id=row[25],
+                    doc_date=row[2], 
+                    sender=row[3],
+                    amount=row[4],
+                    doc_type=row[5],
+                    phash=row[6],
+                    text_content=row[7],
+                    sender_address=row[8],
+                    iban=row[9],
+                    phone=row[10],
+                    tags=row[11],
+                    recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
+                    sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
+                    page_count=row[24], created_at=row[25],
                     extra_data=json.loads(row[26]) if row[26] else None,
-                    last_processed_at=row[27]
+                    last_processed_at=row[27],
+                    export_filename=row[28],
+                    gross_amount=row[29],
+                    postage=row[30],
+                    packaging=row[31],
+                    tax_rate=row[32],
+                    currency=row[33],
+                    locked=bool(row[34]) if len(row) > 34 and row[34] is not None else False
                 )
                 results.append(doc)
             return results
+            
+        except sqlite3.Error as e:
+            print(f"Search Error: {e}")
+            return []
             
         except sqlite3.Error as e:
             print(f"Search Error: {e}")
@@ -381,8 +372,6 @@ class DatabaseManager:
         """
         sql = "SELECT extra_data FROM documents WHERE extra_data IS NOT NULL"
         cursor = self.connection.cursor()
-        print(f"DEBUG SEARCH SQL: {sql} VALUES: {[]}")
-        print(f"DEBUG COUNT: {cursor.execute('SELECT COUNT(*) FROM documents').fetchone()}")
         keys = set()
         
         try:
@@ -424,6 +413,192 @@ class DatabaseManager:
         except sqlite3.Error as e:
             print(f"Error fetching extra keys: {e}")
             return []
+
+    def search_documents_advanced(self, query: dict) -> List[Document]:
+        """
+        Search documents using a structured query object.
+        Supported operators: AND, OR, equals, contains, starts_with, gt, lt, gte, lte.
+        """
+        # Base query - MATCHES get_all_documents SCHEMA
+        sql = "SELECT uuid, original_filename, doc_date, sender, amount, doc_type, phash, text_content, sender_address, iban, phone, tags, recipient_company, recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, sender_company, sender_name, sender_street, sender_zip, sender_city, sender_country, page_count, created_at, extra_data, last_processed_at, export_filename, gross_amount, postage, packaging, tax_rate, currency, locked FROM documents WHERE 1=1"
+        params = []
+        
+        if query:
+            where_clause = self._build_advanced_sql(query, params)
+            if where_clause:
+                sql += f" AND ({where_clause})"
+                
+        sql += " ORDER BY created_at DESC"
+        
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            
+            results = []
+            for row in rows:
+                doc = Document(
+                    uuid=row[0],
+                    original_filename=row[1],
+                    doc_date=row[2], 
+                    sender=row[3],
+                    amount=row[4],
+                    doc_type=row[5],
+                    phash=row[6],
+                    text_content=row[7],
+                    sender_address=row[8],
+                    iban=row[9],
+                    phone=row[10],
+                    tags=row[11],
+                    recipient_company=row[12], recipient_name=row[13], recipient_street=row[14], recipient_zip=row[15], recipient_city=row[16], recipient_country=row[17],
+                    sender_company=row[18], sender_name=row[19], sender_street=row[20], sender_zip=row[21], sender_city=row[22], sender_country=row[23],
+                    page_count=row[24], created_at=row[25],
+                    extra_data=json.loads(row[26]) if row[26] else None,
+                    last_processed_at=row[27],
+                    export_filename=row[28],
+                    gross_amount=row[29],
+                    postage=row[30],
+                    packaging=row[31],
+                    tax_rate=row[32],
+                    currency=row[33],
+                    locked=bool(row[34]) if len(row) > 34 and row[34] is not None else False
+                )
+                results.append(doc)
+            return results
+        except sqlite3.Error as e:
+            print(f"Advanced Search Error: {e}")
+            return []
+
+    def _build_advanced_sql(self, node: dict, params: list) -> str:
+        if not node:
+            return ""
+            
+        # Recursive Group
+        if "operator" in node and "conditions" in node:
+            op = node["operator"].upper()
+            if op not in ["AND", "OR"]:
+                op = "AND"
+            
+            parts = []
+            for child in node["conditions"]:
+                child_sql = self._build_advanced_sql(child, params)
+                if child_sql:
+                    parts.append(child_sql)
+            
+            if not parts:
+                return ""
+            
+            separator = f" {op} "
+            joined = separator.join(parts)
+            return f"({joined})" if len(parts) > 1 else parts[0]
+            
+        # Leaf Condition
+        field = node.get("field")
+        op = node.get("op", "equals")
+        val = node.get("value")
+        negate = node.get("negate", False)
+        
+        if not field:
+            return ""
+            
+        # Map Field
+        col_sql = ""
+        is_json_field = False
+        json_pattern = ""
+        
+        if field.startswith("json:"):
+            is_json_field = True
+            key = field[5:]
+            # Generate LIKE pattern for json_tree fullkey
+            # e.g. key="stamps.cost_bearer" -> pattern="%stamps%cost_bearer%"
+            # This handles arrays ($[0]), quotes ("key"), and separation (.)
+            parts = key.split(".")
+            # Escape pattern parts to avoid injection? (Parameters handled separately)
+            # For typical alphanumeric keys this is fine. 
+            # We construct: %part1%part2%...%
+            json_pattern = "%" + "%".join(parts) + "%"
+        else:
+            # Prevent SQL Injection on column names via allowlist
+            allowed_cols = [
+                "amount", "doc_date", "sender", "tags", "doc_type", "original_filename", "created_at", 
+                "recipient_name", "gross_amount", "tax_rate",
+                "last_processed_at", 
+                "recipient_company", "recipient_street", "recipient_city", "recipient_zip", "recipient_country",
+                "sender_name", "sender_company", "sender_street", "sender_city", "sender_zip", "sender_country",
+                "postage", "packaging", "currency",
+                "iban", "phone", "page_count", "export_filename", "text_content", "uuid"
+            ]
+            if field in allowed_cols:
+                col_sql = field
+            else:
+                return "" # Ignore unknown columns
+                
+        # Map Operator
+        sql_op = "="
+        if op == "contains":
+            sql_op = "LIKE"
+            val = f"%{val}%"
+        elif op == "starts_with":
+            sql_op = "LIKE"
+            val = f"{val}%"
+        elif op == "gt":
+            sql_op = ">"
+        elif op == "lt":
+            sql_op = "<"
+        elif op == "gte":
+            sql_op = ">="
+        elif op == "lte":
+            sql_op = "<="
+        
+        # Handle special IS EMPTY / IS NOT EMPTY
+        if op == "is_empty":
+            if is_json_field:
+                # Recursive NOT EXISTS
+                return f"NOT EXISTS (SELECT 1 FROM json_tree(documents.extra_data) WHERE fullkey LIKE ? AND value != '' AND value IS NOT NULL)"
+            else:
+                return f"({col_sql} IS NULL OR {col_sql} = '')"
+        elif op == "is_not_empty":
+            if is_json_field:
+                return f"EXISTS (SELECT 1 FROM json_tree(documents.extra_data) WHERE fullkey LIKE ? AND value != '' AND value IS NOT NULL)"
+            else:
+                return f"({col_sql} IS NOT NULL AND {col_sql} != '')"
+        elif op in ["in", "is_in_list"]:
+             # List Operator: val should be a list of strings/ints
+             if not isinstance(val, list) or not val:
+                 # Empty list -> Matches Nothing
+                 return "1=0"
+             
+             if is_json_field:
+                 # JSON Array containment or direct value?
+                 # Assuming direct value check against list
+                 # We construct multiple LIKE ? OR ... 
+                 # OR better: EXISTS ... AND value IN (?,?,?)
+                 # SQLite json_tree value is string/num.
+                 placeholders = ",".join(["?"] * len(val))
+                 params.append(json_pattern)
+                 params.extend(val)
+                 return f"EXISTS (SELECT 1 FROM json_tree(documents.extra_data) WHERE fullkey LIKE ? AND value IN ({placeholders}))"
+             else:
+                 placeholders = ",".join(["?"] * len(val))
+                 params.extend(val)
+                 return f"{col_sql} IN ({placeholders})"
+            
+        sql = f"{col_sql} {sql_op} ?"
+        if is_json_field:
+             # Logic for JSON...
+             if op in ["is_empty", "is_not_empty"]:
+                  params.append(json_pattern)
+             else:
+                  params.append(json_pattern)
+                  params.append(val)
+                  sql = f"EXISTS (SELECT 1 FROM json_tree(documents.extra_data) WHERE fullkey LIKE ? AND value {sql_op} ?)"
+
+        else:
+             params.append(val)
+
+        if negate:
+             return f"NOT ({sql})"
+        return sql
 
     def delete_document(self, uuid: str) -> bool:
         """
