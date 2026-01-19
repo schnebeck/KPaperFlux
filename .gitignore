@@ -9,3 +9,10 @@ venv/
 .idea/
 .DS_Store
 vault/
+
+*.db-shm
+*.db-wal
+*.xlsx
+filter_tree.json
+verify_*.py
+System Prompt*

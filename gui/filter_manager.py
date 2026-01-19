@@ -133,6 +133,9 @@ class FilterManagerDialog(QDialog):
         if node.node_type == NodeType.FOLDER:
             item.setIcon(0, QIcon.fromTheme("folder"))
             item.setExpanded(True)
+        elif node.node_type == NodeType.TRASH:
+            item.setIcon(0, QIcon.fromTheme("user-trash"))
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsDragEnabled) # Trash is dragging disabled
         else:
             # Check if it's a Static List (UUID IN ...)
             is_static_list = False
@@ -214,6 +217,11 @@ class FilterManagerDialog(QDialog):
             self.details_label.setText(f"<b>Folder:</b> {node.name}")
             html = f"Contains {len(node.children)} items."
             self.details_text.setHtml(html)
+            return
+
+        if node.node_type == NodeType.TRASH:
+            self.details_label.setText(f"<b>{node.name}</b>")
+            self.details_text.setHtml("<p>Deleted documents live here.</p><p>Select this implementation to restore or permanently delete files.</p>")
             return
 
         # Regular Filter or Snapshot

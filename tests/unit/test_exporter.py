@@ -55,24 +55,29 @@ def test_export_to_zip(tmp_path):
         with zf.open("manifest.xlsx") as excel_file:
             df = pd.read_excel(excel_file)
             
-            # Check Columns
-            assert "Amount (Net)" in df.columns
+            # Check Columns (Renamed)
+            # "Amount (Net)" -> "Net Amount" (English Default)
+            assert "Net Amount" in df.columns
             assert "Date" in df.columns
             assert "File Link" in df.columns
+            
+            # Semantic Field Check (Phase 86)
+            # "invoice_number" -> "Invoice Number" (English Default)
+            # Note: doc1 is generic, no semantic data set in test.
             
             # Check Values & Types
             # Row 0: Amazon
             row0 = df.iloc[0]
             assert row0["Sender"] == "Amazon"
-            assert row0["Amount (Net)"] == 123.45
-            assert isinstance(row0["Amount (Net)"], (float, int))
+            assert row0["Net Amount"] == 123.45 # Renamed Column
+            assert isinstance(row0["Net Amount"], (float, int))
             
             # Date check
             # Pandas reads dates as Timestamp
             assert pd.to_datetime(row0["Date"]) == pd.Timestamp("2023-10-25")
             
             # Check ID
-            assert row0["ID"] == "uuid1"
+            assert row0["UUID"] == "uuid1" # Renamed ID -> UUID
             
             # Check Hyperlink Formula (pandas might read value or formula dep. on engine)
             # But the column 'File Link' should act as link.
@@ -81,3 +86,68 @@ def test_export_to_zip(tmp_path):
             # But we can check content.
             # Note: read_excel might return the display text or NaN for formulas depending on openpyxl.
             # But we generated it with xlsxwriter.
+
+
+def test_export_semantic_fields(tmp_path, monkeypatch):
+    # Mock Config
+    from core.metadata_normalizer import MetadataNormalizer
+    mock_config = {
+        "types": {
+            "Invoice": {
+                "fields": [
+                    {
+                        "id": "invoice_number", 
+                        "label_key": "lbl_inv_num",
+                        "strategies": [{"type": "json_path", "path": "summary.invoice_number"}]
+                    },
+                    {
+                        "id": "iban", 
+                        "label_key": "lbl_iban",
+                        "strategies": [{"type": "json_path", "path": "summary.iban"}]
+                    }
+                ]
+            }
+        }
+    }
+    monkeypatch.setattr(MetadataNormalizer, "get_config", lambda: mock_config)
+    
+    # Setup Doc with Semantic Data
+    doc = Document(
+        uuid="sem1",
+        original_filename="sem.pdf",
+        doc_type="Invoice"
+    )
+    doc.semantic_data = {
+        "summary": {
+            "invoice_number": "INV-2023-999",
+            "iban": "DE123456789"
+        }
+    }
+    
+    zip_path = tmp_path / "semantic_export.zip"
+    DocumentExporter.export_to_zip([doc], str(zip_path), include_pdfs=False)
+    
+    with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zf.open("manifest.xlsx") as excel_file:
+            df = pd.read_excel(excel_file)
+            
+            # Check for localized/renamed columns
+            # "invoice_number" -> "lbl_inv_num" (Translated or Key)
+            # In test environment without proper translator setup, it returns Key or ID.
+            # SemanticTranslator instance() might be singleton. 
+            # If QApp not initialized, tr() returns key.
+            
+            print(f"Columns: {df.columns}")
+            
+            col_map = {c: c for c in df.columns}
+            
+            # Since translator might not translate "lbl_inv_num", look for it
+            inv_col = next((c for c in df.columns if "lbl_inv_num" in c or "invoice_number" in c), None)
+            assert inv_col is not None, f"Invoice Column not found in {df.columns}"
+            
+            row = df.iloc[0]
+            assert row[inv_col] == "INV-2023-999"
+            
+            iban_col = next((c for c in df.columns if "lbl_iban" in c or "iban" in c), None)
+            assert iban_col is not None
+            assert row[iban_col] == "DE123456789"

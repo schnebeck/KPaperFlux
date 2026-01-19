@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QTreeWidgetItem, QTreeWidget, QWidget, QVBoxLayout, QAbstractItemView, QStyledItemDelegate, QMessageBox
-from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QEvent
+from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QEvent, QTimer
 
 class RowNumberDelegate(QStyledItemDelegate):
     def initStyleOption(self, option, index):
@@ -23,6 +23,10 @@ from pathlib import Path
 from typing import Optional
 import datetime
 import os
+from core.metadata_normalizer import MetadataNormalizer
+from core.metadata_normalizer import MetadataNormalizer
+from core.semantic_translator import SemanticTranslator
+from gui.delegates.tag_delegate import TagDelegate
 
 class SortableTreeWidgetItem(QTreeWidgetItem):
     def __lt__(self, other):
@@ -54,16 +58,40 @@ class DocumentListWidget(QWidget):
     """
     document_selected = pyqtSignal(list) # List[str] UUIDs
     delete_requested = pyqtSignal(list)
+    active_filter_changed = pyqtSignal(dict) # Emitted when a view loads a filter
     reprocess_requested = pyqtSignal(list)
     merge_requested = pyqtSignal(list)
     # export_requested = pyqtSignal(list) # Handled locally via open_export_dialog
     stamp_requested = pyqtSignal(list)
     tags_update_requested = pyqtSignal(list)
-    stamp_requested = pyqtSignal(list)
-    tags_update_requested = pyqtSignal(list)
     document_count_changed = pyqtSignal(int, int) # visible_count, total_count
     save_list_requested = pyqtSignal(str, list) # name, uuids
-    
+    restore_requested = pyqtSignal(list) # Phase 92: Trash Restore
+    # Logical Index -> Label Mapping (Fixed Columns)
+    FIXED_COLUMNS = {
+        0: "#",
+        1: "Entity ID",
+        2: "Doc Date",
+        3: "Sender",
+        4: "Type",
+        5: "Tags",
+        6: "Netto",
+        7: "Filename",
+        8: "Pages",
+        9: "Created",
+        10: "Updated",
+        11: "Brutto",
+        12: "Tax %",
+        13: "Postage",
+        14: "Packaging",
+        15: "IBAN",
+        16: "Recipient",
+        17: "[v] Sender",
+        18: "Status", # Was [v] Date
+        19: "[v] Amount"
+    }
+    purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
+
     def __init__(self, db_manager: DatabaseManager, pipeline: Optional[object] = None):
         super().__init__()
         self.db_manager = db_manager
@@ -72,6 +100,7 @@ class DocumentListWidget(QWidget):
         self.current_filter_text = ""
         self.current_advanced_query = None # Phase 58: Store advanced query state
         self.dynamic_columns = []
+        self.is_trash_mode = False # Phase 92
         
         self.init_ui()
 
@@ -80,12 +109,16 @@ class DocumentListWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         
         self.tree = QTreeWidget()
-        # Set Custom Header (Disable sort click on Col 0)
-        self.tree.setHeader(FixedFirstColumnHeader(Qt.Orientation.Horizontal, self.tree))
+        # Header (Standard)
+        # self.tree.setHeader(FixedFirstColumnHeader(...)) -> Removed to enable DnD
+        # Standard QTreeWidget header is QHeaderView, which supports DnD if setSectionsMovable(True)
         self.update_headers()
         
         # Row Counter Delegate (Column 0)
         self.tree.setItemDelegateForColumn(0, RowNumberDelegate(self.tree))
+        
+        # Tag Delegate (Column 5)
+        self.tree.setItemDelegateForColumn(5, TagDelegate(self.tree))
         
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.tree.setSortingEnabled(True)
@@ -98,6 +131,7 @@ class DocumentListWidget(QWidget):
         # Header Menu
         self.tree.header().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.header().customContextMenuRequested.connect(self.show_header_menu)
+        self.tree.header().setSectionsMovable(True) # Explicitly enable DnD reordering
 
         layout.addWidget(self.tree)
         
@@ -124,73 +158,173 @@ class DocumentListWidget(QWidget):
             
         header.setStretchLastSection(False)
         header.setCascadingSectionResizes(True)
+        header.setSectionsMovable(True) # Force enable DnD reordering LAST
+        
+        # Persistence: Auto-save on move/resize/sort (Debounced)
+        self._save_timer = QTimer()
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(1000) # 1 second delay
+        self._save_timer.timeout.connect(self.save_state)
+        
+        header.sectionMoved.connect(lambda: self.schedule_save())
+        header.sectionResized.connect(lambda: self.schedule_save())
+        header.sortIndicatorChanged.connect(lambda: self.schedule_save())
+            
+    def schedule_save(self):
+        """Debounce save operation."""
+        self._save_timer.start()
             
     def update_headers(self):
         """Set tree headers including dynamic ones."""
-        # Fixed Columns: 0-16 (Added # at 0)
-        labels = [
-            self.tr("#"),           # 0
-            self.tr("UUID"),        # 1
-            self.tr("Date"),        # 2
-            self.tr("Sender"),      # 3
-            self.tr("Type"),        # 4
-            self.tr("Tags"),        # 5
-            self.tr("Netto"),       # 6 (was Amount)
-            self.tr("Filename"),    # 7
-            self.tr("Pages"),       # 8
-            self.tr("Created"),     # 9
-            self.tr("Updated"),     # 10
-            self.tr("Brutto"),      # 11 (was Gross)
-            self.tr("Tax %"),       # 12
-            self.tr("Postage"),     # 13
-            self.tr("Packaging"),   # 14
-            self.tr("IBAN"),        # 15
-            self.tr("Recipient")    # 16
-        ]
+        # Fixed Columns from dict
+        labels = [self.tr(self.FIXED_COLUMNS[i]) for i in range(len(self.FIXED_COLUMNS))]
+        
+        # Dynamic Columns
         labels.extend(self.dynamic_columns)
         self.tree.setHeaderLabels(labels)
             
     def show_header_menu(self, pos: QPoint):
-        """Show context menu to toggle columns."""
+        """Show context menu to configure or hide columns."""
         menu = QMenu(self)
         header = self.tree.header()
         
-        for i in range(self.tree.columnCount()):
-            # Name resolution
-            col_name = self.tree.headerItem().text(i)
-            action = menu.addAction(col_name)
-            action.setCheckable(True)
-            # Disable toggling of Row Counter (#)
-            if i == 0:
-                action.setChecked(True)
-                action.setEnabled(False)
-            else:
-                action.setChecked(not header.isSectionHidden(i))
-            action.setData(i)
-            action.triggered.connect(lambda checked, idx=i: self.toggle_column(idx, checked))
+        # Action to open Manager
+        config_action = menu.addAction(self.tr("Configure Columns..."))
+        config_action.triggered.connect(self.open_column_manager_slot)
+        
+        # Determine clicked section
+        logic_idx = header.logicalIndexAt(pos)
+        
+        if logic_idx > 0: # Do not allow hiding Row Counter (0)
+            menu.addSeparator()
+            col_name = self.tree.headerItem().text(logic_idx)
+            hide_action = menu.addAction(self.tr(f"Hide '{col_name}'"))
             
-        menu.addSeparator()
-        
-        # Dynamic Columns Submenu
-        dyn_menu = menu.addMenu(self.tr("Add JSON Column..."))
-        
-        available_keys = self.db_manager.get_available_extra_keys()
-        for key in available_keys:
-             if key in self.dynamic_columns:
-                 action = dyn_menu.addAction(f"✓ {key}")
-                 action.setEnabled(False)
-             else:
-                 action = dyn_menu.addAction(key)
-                 action.triggered.connect(lambda checked, k=key: self.add_dynamic_column(k))
-                 
-        # Remove Dynamic Column
-        if self.dynamic_columns:
-            rem_menu = menu.addMenu(self.tr("Remove JSON Column..."))
-            for i, key in enumerate(self.dynamic_columns):
-                action = rem_menu.addAction(key)
-                action.triggered.connect(lambda checked, k=key: self.remove_dynamic_column(k))
+            def hide_slot():
+                header.setSectionHidden(logic_idx, True)
+                self.save_state()
+                
+            hide_action.triggered.connect(hide_slot)
 
+        menu.addSeparator()
+        views_action = menu.addAction(self.tr("Saved Views..."))
+        views_action.triggered.connect(self.open_view_manager_slot)
+            
         menu.exec(header.mapToGlobal(pos))
+
+    def open_view_manager_slot(self):
+        from gui.view_manager import ViewManagerDialog
+        
+        dlg = ViewManagerDialog(
+            self.filter_tree, 
+            parent=self, 
+            db_manager=None, # Passed if available, DocumentList might not have it directly?
+            # DocumentList is usually child of MainWindow which has db_manager.
+            # We might need to access parent or store db_manager.
+            current_state_callback=self.get_view_state
+        )
+        
+        # We need db_manager for saving deeply. 
+        # Assuming MainWindow sets it or we traverse parent.
+        mw = self.window()
+        if hasattr(mw, "db_manager"):
+            dlg.db_manager = mw.db_manager
+            
+        dlg.view_selected.connect(self._on_view_loaded)
+        dlg.exec()
+        
+    def _on_view_loaded(self, state):
+        filter_data = self.set_view_state(state)
+        if filter_data:
+            # We have a filter to apply.
+            # DocumentListWidget doesn't usually emit filter changes UP, 
+            # it receives them. But here the user changed filter via List's View Manager.
+            # We should probably notify MainWindow to update the Filter Widget.
+            # Or define a signal `view_loaded` that carries the filter.
+            self.active_filter_changed.emit(filter_data) 
+            # We need to define this signal if not exists.
+            
+    # Existing methods
+    def open_column_manager_slot(self):
+        """Open the dynamic column manager dialog."""
+        from gui.column_manager_dialog import ColumnManagerDialog
+        
+        # Get Available Keys
+        available = []
+        if self.db_manager:
+            available = self.db_manager.get_available_extra_keys()
+            
+        dlg = ColumnManagerDialog(self, self.FIXED_COLUMNS, self.dynamic_columns, available, self.tree.header())
+        
+        if dlg.exec():
+            new_dyn_cols, ordered_items = dlg.get_result()
+            
+            # 1. Update Dynamic Columns Logic
+            self.dynamic_columns = new_dyn_cols
+            self.update_headers() # This resets the model columns (logical)
+            
+            # 2. Refresh List to fetch new data
+            self.refresh_list()
+            
+            # 3. Apply Visual Order and Visibility
+            header = self.tree.header()
+            
+            # 3. Apply Visual Order and Visibility
+            header = self.tree.header()
+            
+            # CRITICAL: Unhide all sections first to ensure moveSection works on full visual indices
+            for i in range(header.count()):
+                header.showSection(i)
+                
+            # FORCE Column 0 ("#") to act as visual index 0?
+            # Ideally we move Logical 0 to Visual 0 first.
+            current_visual_0 = header.visualIndex(0)
+            if current_visual_0 != 0:
+                header.moveSection(current_visual_0, 0)
+
+            # We iterate through the DESIRED visual order (ordered_items)
+            # The dialog returns items WITHOUT Col 0.
+            # So the first item in 'ordered_items' should be at visual_pos = 1.
+            
+            for list_idx, item in enumerate(ordered_items):
+                visual_pos = list_idx + 1 # Offset by 1 for "#" column
+                
+                # Determine Logical Index of this item in the NEW model
+                logical_idx = -1
+                
+                if item["type"] == "fixed":
+                    logical_idx = item["orig_idx"]
+                elif item["type"] == "dynamic":
+                    key = item["key"]
+                    if key in self.dynamic_columns:
+                        logical_idx = len(self.FIXED_COLUMNS) + self.dynamic_columns.index(key)
+                
+                if logical_idx != -1:
+                    # Move Section
+                    current_visual = header.visualIndex(logical_idx)
+                    if current_visual != visual_pos: # Only move if necessary
+                        header.moveSection(current_visual, visual_pos)
+            
+            # Apply Visibility separately AFTER reordering
+            # Note: Col 0 ("#") is always visible? Or do we allow hiding?
+            # Dialog logic excluded it, but context menu allows hiding/showing except #.
+            # So we only touch visibility for items in the list. # stays Visible.
+            
+            for item in ordered_items:
+                 logical_idx = -1
+                 if item["type"] == "fixed":
+                    logical_idx = item["orig_idx"]
+                 elif item["type"] == "dynamic":
+                    key = item["key"]
+                    if key in self.dynamic_columns:
+                        logical_idx = len(self.FIXED_COLUMNS) + self.dynamic_columns.index(key)
+                        
+                 if logical_idx != -1:
+                     header.setSectionHidden(logical_idx, not item["visible"])
+            
+            self.save_state()
+        
+
         
     def toggle_column(self, index: int, visible: bool):
         if visible:
@@ -199,12 +333,22 @@ class DocumentListWidget(QWidget):
             self.tree.header().hideSection(index)
         self.save_state()
 
-    def add_dynamic_column(self, key: str):
-        if key in self.dynamic_columns:
-            return
-            
-        self.dynamic_columns.append(key)
+    def set_dynamic_columns(self, columns):
+        """Update the list of dynamic columns to display."""
+        self.dynamic_columns = columns
         self.update_headers()
+        self.refresh_list()
+
+    def show_trash_bin(self, enable: bool):
+        """Switch between Normal View and Trash View."""
+        self.is_trash_mode = enable
+        
+        # Clear filters if entering trash mode to avoid confusion?
+        if enable:
+            self.current_filter = {}
+            self.current_filter_text = ""
+            self.current_advanced_query = None
+            
         self.refresh_list()
         self.save_state()
         
@@ -236,13 +380,50 @@ class DocumentListWidget(QWidget):
         state = settings.value("headerState")
         if state:
             self.tree.header().restoreState(state)
+            # FORCE Enable DnD because restoreState might reset it to False (legacy state)
+            self.tree.header().setSectionsMovable(True)
         else:
             # Default Hiding: Hide Metadata & Finance extras to keep clean
             # Visible: #, UUID, Date, Sender, Type, Tags, Netto, Filename (0-7)
             # Hide: 8 (Pages) ...
-            to_hide = [8, 9, 10, 11, 12, 13, 14, 15, 16] 
+            to_hide = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19] 
             for i in to_hide:
                 self.tree.header().hideSection(i)
+
+    def get_view_state(self):
+        """Capture current filter and layout state for Saved Views."""
+        state = {
+            "version": 1,
+            "dynamic_columns": self.dynamic_columns,
+            "header_state": self.tree.header().saveState().data().hex(),
+            "filter": self.current_advanced_query if hasattr(self, "current_advanced_query") else None
+        }
+        return state
+
+    def set_view_state(self, state):
+        """Restore a Saved View."""
+        if not state: return
+        
+        # 1. Restore Dynamic Columns
+        self.dynamic_columns = state.get("dynamic_columns", [])
+        self.update_headers()
+        
+        # 2. Restore Header Layout
+        header_hex = state.get("header_state")
+        if header_hex:
+            try:
+                ba = bytes.fromhex(header_hex)
+                self.tree.header().restoreState(ba)
+                self.tree.header().setSectionsMovable(True) # Ensure DnD persists
+            except Exception as e:
+                print(f"Error restoring header state: {e}")
+                
+        # 3. Apply Filter (Caller must handle this? Or we emit signal?)
+        # DocumentListWidget usually receives filter, doesn't generate it.
+        # But if the View contains the filter, the ListWidget acts as the applier?
+        # Ideally, MainWindow handles the filter application part.
+        # But here we can return the filter to the caller.
+        return state.get("filter")
 
     def delete_selected_documents(self, uuids: list[str]):
         """Filter out locked documents before requesting deletion."""
@@ -295,7 +476,16 @@ class DocumentListWidget(QWidget):
         export_action = menu.addAction(self.tr("Export Selected..."))
         export_all_action = menu.addAction(self.tr("Export All Visible..."))
         menu.addSeparator()
-        delete_action = menu.addAction(self.tr("Delete Document"))
+        
+        if self.is_trash_mode:
+             restore_action = menu.addAction(self.tr("Restore"))
+             purge_action = menu.addAction(self.tr("Delete Permanently"))
+             reprocess_action = None # Disable reprocess in trash
+             delete_action = None
+        else:
+             delete_action = menu.addAction(self.tr("Delete Document"))
+             restore_action = None
+             purge_action = None
         
         action = menu.exec(self.tree.viewport().mapToGlobal(pos))
         
@@ -328,6 +518,20 @@ class DocumentListWidget(QWidget):
             # Get ALL visible documents (respecting filters)
             docs = self.get_visible_documents()
             self.open_export_dialog(docs)
+        
+        # Phase 92: Trash Actions
+        elif self.is_trash_mode:
+            if action == restore_action:
+                self.restore_requested.emit(uuids)
+            elif action == purge_action:
+                confirm = QMessageBox.question(
+                    self, 
+                    self.tr("Delete Permanently"), 
+                    self.tr(f"Are you sure you want to permanently delete {len(uuids)} document(s)?\nThis cannot be undone."),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if confirm == QMessageBox.StandardButton.Yes:
+                     self.purge_requested.emit(uuids)
 
     def get_visible_documents(self) -> list:
         """Return list of Document objects currently visible in the tree."""
@@ -356,15 +560,23 @@ class DocumentListWidget(QWidget):
             return
             
         try:
+             # Phase 92: Trash Mode
+             if self.is_trash_mode:
+                 docs = self.db_manager.get_deleted_documents()
+                 # TODO: Apply basic text filter on trash? For now, show all.
+                 
              # Prioritize Advanced Query if active
-             if self.current_advanced_query:
+             elif self.current_advanced_query:
                  docs = self.db_manager.search_documents_advanced(self.current_advanced_query)
              else:
                  query = getattr(self, "current_filter_text", None)
                  if query:
                      docs = self.db_manager.search_documents(query)
+                     docs = self.db_manager.search_documents(query)
                  else:
-                     docs = self.db_manager.get_all_documents()
+                     # Phase 98: Switch to Entity View
+                     docs = self.db_manager.get_all_entities_view()
+
         except:
              docs = []
              
@@ -507,13 +719,43 @@ class DocumentListWidget(QWidget):
     def apply_advanced_filter(self, query: dict):
         """Apply advanced search query."""
         print(f"[DEBUG] DocumentList Received Query: {query}")
-        self.current_advanced_query = query # Persist
-        self.current_filter_text = None # Clear simple text search
         
-        docs = self.db_manager.search_documents_advanced(query)
-        self.populate_tree(docs)
-        if docs:
-            self.selectRow(0)
+        # Check if query implies Trash Mode
+        is_trash = False
+        # Basic check for single condition or root group
+        # If user explicitly filters for 'deleted', switch mode
+        # Helper usually better, but inline for MVP:
+        def check_trash(q):
+            if not q: return False
+            if "field" in q and q["field"] == "deleted":
+                val = q.get("value")
+                # Robust check for True/true/1
+                if val is True: return True
+                if isinstance(val, str) and val.lower() in ("true", "1", "yes"): return True
+                if isinstance(val, int) and val == 1: return True
+                return False
+            if "conditions" in q:
+                return any(check_trash(c) for c in q["conditions"])
+            return False
+            
+        is_mode_trash = check_trash(query)
+        print(f"[DEBUG] check_trash result: {is_mode_trash} for query: {query}")
+        
+        if is_mode_trash:
+            self.show_trash_bin(True)
+            self.current_advanced_query = None # Trash Mode takes precedence/is the mode
+            # But wait, what if they want "Deleted AND Type=Invoice"?
+            # For now, Trash Mode is a global toggle. Filters inside Trash are TODO.
+            # We just show All Trash.
+        else:
+            self.show_trash_bin(False) # Ensure we leave trash mode
+            self.current_advanced_query = query # Persist
+            self.current_filter_text = None # Clear simple text search
+            
+            docs = self.db_manager.search_documents_advanced(query)
+            self.populate_tree(docs)
+            if docs:
+                self.selectRow(0)
 
     def populate_tree(self, docs):
         self.tree.setSortingEnabled(False)
@@ -532,7 +774,10 @@ class DocumentListWidget(QWidget):
             updated_sort = str(doc.last_processed_at) if doc.last_processed_at else ""
             
             sender = doc.sender or ""
-            doc_type = doc.doc_type or ""
+            doc_type = doc.doc_type
+            if isinstance(doc_type, list):
+                doc_type = ", ".join(doc_type)
+            doc_type = doc_type or ""
             tags = doc.tags or ""
             filename = doc.original_filename or ""
             
@@ -588,7 +833,10 @@ class DocumentListWidget(QWidget):
                 postage_str,        # 13
                 packaging_str,      # 14
                 iban,               # 15
-                recipient           # 16
+                recipient,          # 16
+                doc.v_sender or "", # 17
+                doc.extra_data.get("entity_status", "") if doc.extra_data else "",# 18 (Status)
+                str(doc.v_amount) if doc.v_amount is not None else "" # 19
             ]
             
             if doc.extra_data:
@@ -629,6 +877,14 @@ class DocumentListWidget(QWidget):
             item.setData(10, Qt.ItemDataRole.UserRole, updated_sort)
             item.setData(11, Qt.ItemDataRole.UserRole, gross_sort)
             item.setData(12, Qt.ItemDataRole.UserRole, tax_sort)
+            item.setData(13, Qt.ItemDataRole.UserRole, postage_sort)
+            item.setData(14, Qt.ItemDataRole.UserRole, packaging_sort)
+            
+            # Tooltips for truncated content (DocType=4, Tags=5)
+            if doc_type:
+                item.setData(4, Qt.ItemDataRole.ToolTipRole, doc_type)
+            if tags:
+                item.setData(5, Qt.ItemDataRole.ToolTipRole, tags)
             item.setData(13, Qt.ItemDataRole.UserRole, postage_sort)
             item.setData(14, Qt.ItemDataRole.UserRole, packaging_sort)
             

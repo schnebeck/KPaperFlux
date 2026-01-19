@@ -1,38 +1,56 @@
-
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, 
-    QDialogButtonBox, QFormLayout
+    QDialogButtonBox, QFormLayout, QGroupBox
 )
+from PyQt6.QtCore import Qt
+from gui.completers import MultiTagCompleter
+from gui.widgets.multi_select_combo import MultiSelectComboBox
 
 class BatchTagDialog(QDialog):
     """
-    Dialog to specify tags to add and remove from selected documents.
+    Dialog to edit tags common to all selected documents.
+    Changes here are applied as diffs (Add/Remove) to preserve individual extra tags.
     """
-    def __init__(self, parent=None):
+    def __init__(self, available_tags: list[str] = None, common_tags: list[str] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Manage Tags"))
-        self.resize(400, 200)
+        self.setWindowTitle(self.tr("Batch Tag Editor"))
+        self.resize(500, 350)
         
         layout = QVBoxLayout(self)
+        
+        self.available_tags = available_tags or []
+        self.original_common = common_tags or []
+        self.original_common_set = set(t.strip() for t in self.original_common)
+        
+        # Explanation Box
+        info_group = QGroupBox(self.tr("Logic"))
+        info_layout = QVBoxLayout(info_group)
+        lbl_info = QLabel(
+            self.tr("<b>Checked Tags:</b> Will be present on ALL selected documents (Merged).<br>"
+                    "<b>Unchecked Tags:</b> Will be REMOVED from ALL selected documents (if they were common).<br>"
+                    "<i>Individual unique tags on specific documents are preserved unless forced removed.</i>")
+        )
+        lbl_info.setWordWrap(True)
+        lbl_info.setTextFormat(Qt.TextFormat.RichText)
+        info_layout.addWidget(lbl_info)
+        layout.addWidget(info_group)
+
         form = QFormLayout()
         
-        self.txt_add = QLineEdit()
-        self.txt_add.setPlaceholderText("tag1, tag2")
-        self.txt_add.setToolTip(self.tr("Tags to add to selected documents (comma separated)."))
+        # Common Tags Editor (Combo Box)
+        self.combo_common = MultiSelectComboBox()
+        self.combo_common.addItems(self.available_tags) # Populate with all known tags
+        self.combo_common.setCheckedItems(self.original_common) # Check the common ones
         
-        self.txt_remove = QLineEdit()
-        self.txt_remove.setPlaceholderText("tag3")
-        self.txt_remove.setToolTip(self.tr("Tags to remove from selected documents (comma separated)."))
+        form.addRow(self.tr("Common Tags:"), self.combo_common)
         
-        form.addRow(self.tr("Add Tags:"), self.txt_add)
-        form.addRow(self.tr("Remove Tags:"), self.txt_remove)
+        # Extra Force Remove
+        self.extra_remove = QLineEdit()
+        self.extra_remove.setPlaceholderText("Optional: Tags to strip from everyone...")
+        self.extra_remove.setCompleter(MultiTagCompleter(self.available_tags, self))
+        form.addRow(self.tr("Force Remove Mixed:"), self.extra_remove)
         
         layout.addLayout(form)
-        
-        # Info
-        lbl_info = QLabel(self.tr("Leave empty to make no changes."))
-        lbl_info.setStyleSheet("color: gray;")
-        layout.addWidget(lbl_info)
         
         # Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -41,11 +59,26 @@ class BatchTagDialog(QDialog):
         layout.addWidget(buttons)
         
     def get_data(self):
-        """Return (tags_to_add_list, tags_to_remove_list)"""
-        add_str = self.txt_add.text()
-        remove_str = self.txt_remove.text()
+        """
+        Calculate diff.
+        Returns (tags_to_add, tags_to_remove)
+        """
+        current_list = self.combo_common.getCheckedItems()
+        current_set = set(current_list)
         
-        def parse_tags(s):
-            return [t.strip() for t in s.split(",") if t.strip()]
-            
-        return parse_tags(add_str), parse_tags(remove_str)
+        # Added: In New (Checked) but not in Old (Common)
+        # This implies user checked a box that wasn't common before.
+        # Logic: Add this tag to EVERY document.
+        added = list(current_set - self.original_common_set)
+        
+        # Removed: In Old (Common) but not in New (Unchecked)
+        # User unchecked a box that was previously common.
+        # Logic: Remove this tag from EVERY document.
+        removed = list(self.original_common_set - current_set)
+        
+        # Extra Force Remove
+        force_rem_text = self.extra_remove.text()
+        force_rem_list = [t.strip() for t in force_rem_text.split(",") if t.strip()]
+        removed.extend(force_rem_list)
+        
+        return added, removed

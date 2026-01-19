@@ -1,0 +1,384 @@
+{
+    "types": {
+        "Invoice": {
+            "label_key": "type_invoice",
+            "fields": [
+                {
+                    "id": "invoice_number",
+                    "label_key": "field_invoice_number",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.invoice_number"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Rechnungsnummer",
+                                "Rechnung Nr.",
+                                "Rg-Nr",
+                                "Invoice No",
+                                "Invoice Number",
+                                "Belegnummer",
+                                "Facture n°"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "invoice_date",
+                    "label_key": "field_invoice_date",
+                    "type": "date",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.main_date"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Rechnungsdatum",
+                                "Datum",
+                                "Date",
+                                "Invoice Date",
+                                "Belegdatum"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "due_date",
+                    "label_key": "field_due_date",
+                    "type": "date",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.payment_terms.due_date"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Fällig am",
+                                "Zahlbar bis",
+                                "Fälligkeitsdatum",
+                                "Due Date",
+                                "Fälligkeit",
+                                "Payment Due"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "customer_id",
+                    "label_key": "field_customer_id",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.customer_id"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Kundennummer",
+                                "Kunden-Nr.",
+                                "Customer ID",
+                                "Client ID",
+                                "Debitor Nr."
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "order_id",
+                    "label_key": "field_order_id",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.order_id"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Bestellnummer",
+                                "Bestellung Nr.",
+                                "Order No",
+                                "Order Number",
+                                "Auftragsnummer",
+                                "PO Number"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "tax_amount",
+                    "label_key": "field_tax_amount",
+                    "type": "amount",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.tax_amount"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Steuerbetrag",
+                                "MwSt",
+                                "VAT",
+                                "Tax Amount"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "tax_rate",
+                    "label_key": "field_tax_rate",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.tax_rate"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Steuersatz",
+                                "MwSt Satz",
+                                "Tax Rate"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "iban",
+                    "label_key": "field_iban",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.iban"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "IBAN",
+                                "Konto"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "cost_center",
+                    "label_key": "field_cost_center",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.cost_center"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Kostenstelle",
+                                "Cost Center",
+                                "Kst"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "project_id",
+                    "label_key": "field_project_id",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.project_id"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Projekt",
+                                "Project",
+                                "Kommission"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "incoterms",
+                    "label_key": "field_incoterms",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.incoterms"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Lieferbedingung",
+                                "Incoterms",
+                                "Delivery Terms"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "delivery_date",
+                    "label_key": "field_delivery_date",
+                    "type": "date",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.delivery_date"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Lieferdatum",
+                                "Leistungsdatum",
+                                "Delivery Date"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "Contract": {
+            "label_key": "type_contract",
+            "fields": [
+                {
+                    "id": "contract_id",
+                    "label_key": "field_contract_id",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.contract_id"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Vertragsnummer",
+                                "Vertrag Nr.",
+                                "Contract ID",
+                                "Contract No",
+                                "Versicherungsscheinnummer",
+                                "Policy No"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "start_date",
+                    "label_key": "field_start_date",
+                    "type": "date",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.start_date"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Vertragsbeginn",
+                                "Startdatum",
+                                "Beginn",
+                                "Start Date",
+                                "Effective Date",
+                                "Laufzeitbeginn"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "end_date",
+                    "label_key": "field_end_date",
+                    "type": "date",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.end_date"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Laufzeitende",
+                                "Enddatum",
+                                "Vertragsende",
+                                "Ablauf",
+                                "End Date",
+                                "Expiration Date"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "cancellation_period",
+                    "label_key": "field_cancellation_period",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.cancellation_period"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Kündigungsfrist",
+                                "Kündigung zum",
+                                "Notice Period",
+                                "Cancellation Terms"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "Letter": {
+            "label_key": "type_letter",
+            "fields": [
+                {
+                    "id": "subject",
+                    "label_key": "field_subject",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "json_path",
+                            "path": "summary.subject"
+                        },
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Betreff",
+                                "Subject",
+                                "Re",
+                                "Ihr Zeichen",
+                                "Your Ref"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "our_ref",
+                    "label_key": "field_our_ref",
+                    "type": "string",
+                    "strategies": [
+                        {
+                            "type": "fuzzy_key",
+                            "aliases": [
+                                "Unser Zeichen",
+                                "Our Ref",
+                                "Bearbeitet von",
+                                "Reference"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

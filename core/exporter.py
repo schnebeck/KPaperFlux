@@ -1,9 +1,11 @@
 import os
 import zipfile
 import pandas as pd
-from typing import List
+from typing import List, Dict, Any
 from datetime import datetime
 from core.document import Document
+from core.metadata_normalizer import MetadataNormalizer
+from core.semantic_translator import SemanticTranslator
 
 class DocumentExporter:
     """
@@ -49,6 +51,19 @@ class DocumentExporter:
 
         # 2. Prepare Data for DataFrame
         data = []
+        translator = SemanticTranslator.instance()
+        
+        # Pre-scan schema to determine all possible columns from type_definitions
+        # This ensures consistent column order and existence even if docs are empty
+        config = MetadataNormalizer.get_config()
+        all_field_ids = set()
+        if config and "types" in config:
+            for t_def in config["types"].values():
+                for f in t_def.get("fields", []):
+                    all_field_ids.add(f["id"])
+                    
+        # Helper to format headers
+        # We will use keys for DataFrame but rename later for Excel
         
         for i, doc in enumerate(documents):
             # Parse Date
@@ -76,6 +91,7 @@ class DocumentExporter:
             # Determine export filename
             filename = unique_filenames.get(doc.uuid)
             
+            # Basic Columns
             row = {
                 "Date": dt,
                 "Sender": doc.sender_name or doc.sender_company or doc.sender, # Fallback
@@ -90,6 +106,24 @@ class DocumentExporter:
                 "ID": doc.uuid # Reference
             }
             
+            # Semantic Columns (Phase 86)
+            # Normalize to get flat dictionary of details
+            semantic_details = MetadataNormalizer.normalize_metadata(doc)
+            
+            # Add to row, prefixed or just as is?
+            # Let's prefix to avoid collision or just overwrite?
+            # Standard fields (IBAN, Tax) might duplicate. 
+            # We prefer the explicitly mapped ones above if they exist, 
+            # but semantic_details might have "tax_amount" which is "Tax Amount".
+            
+            for k, v in semantic_details.items():
+                # Translate key to label for consistency? 
+                # Or keep ID and rename columns later?
+                # Dataframe needs unique keys.
+                # Let's use the ID for now.
+                if k not in row: # Don't overwrite core fields like 'Date' (main_date)
+                     row[k] = v
+
             # Hyperlink Placeholder
             if include_pdfs:
                  # Excel Hyperlink Formula: HYPERLINK("path", "friendly_name")
@@ -104,6 +138,42 @@ class DocumentExporter:
 
         df = pd.DataFrame(data)
         
+        # Rename Columns using Semantic Translator
+        # We need to map field_ids to Labels
+        # AND Core columns are already English "Date", "Amount".
+        # Should we localize them too? Yes, user expects German.
+        
+        rename_map = {
+            "Date": translator.tr("Date"),
+            "Sender": translator.tr("Sender"),
+            "Content": translator.tr("Content"),
+            "Amount (Net)": translator.tr("Net Amount"),
+            "Tax Rate": translator.tr("Tax Rate"),
+            "Gross Amount": translator.tr("Gross Amount"),
+            "Currency": translator.tr("Currency"),
+            "Recipient": translator.tr("Recipient"),
+            "IBAN": translator.tr("IBAN"),
+            "Filename": translator.tr("Filename"),
+            "ID": "UUID",
+            "File Link": translator.tr("File Link")
+        }
+        
+        # Add dynamic fields
+        for field_id in all_field_ids:
+            # Find definition to get label_key
+            # Inefficient loop but safe
+             label_key = field_id # fallback
+             for t_def in config["types"].values():
+                for f in t_def.get("fields", []):
+                    if f["id"] == field_id:
+                        label_key = f.get("label_key", field_id)
+                        break
+             
+             # Translate
+             rename_map[field_id] = translator.translate(label_key)
+
+        df.rename(columns=rename_map, inplace=True)
+
         # 3. Create ZIP File
         with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
             
@@ -133,19 +203,23 @@ class DocumentExporter:
                     workbook = writer.book
                     worksheet = writer.sheets['Documents']
                     
-                    # Money Format
+                    # Formats
                     money_fmt = workbook.add_format({'num_format': '#,##0.00'})
                     date_fmt = workbook.add_format({'num_format': 'yyyy-mm-dd'})
                     
-                    # Apply formats
-                    # Find column indices
-                    for col_num, value in enumerate(df.columns.values):
-                        if value in ["Amount (Net)", "Gross Amount", "Tax Rate"]:
-                            worksheet.set_column(col_num, col_num, 15, money_fmt)
-                        elif value == "Date":
-                            worksheet.set_column(col_num, col_num, 15, date_fmt)
+                    # Auto-adjust columns
+                    for i, col in enumerate(df.columns):
+                        # Simple heuristic
+                        width = 20
+                        col_str = str(col).lower()
+                        if "amount" in col_str or "betrag" in col_str or "rate" in col_str:
+                            worksheet.set_column(i, i, 15, money_fmt)
+                        elif "date" in col_str or "datum" in col_str:
+                            worksheet.set_column(i, i, 15, date_fmt)
+                        elif "content" in col_str or "inhalt" in col_str:
+                            worksheet.set_column(i, i, 50) # Wider for text
                         else:
-                            worksheet.set_column(col_num, col_num, 20)
+                            worksheet.set_column(i, i, 25)
                             
                 # Add Excel to ZIP
                 zf.write(excel_path, excel_filename)

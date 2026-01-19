@@ -7,7 +7,13 @@ from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings
 from PyQt6.QtGui import QAction
 import json
 from gui.filter_manager import FilterManagerDialog
-from core.filter_tree import NodeType
+from core.filter_tree import NodeType, FilterNode
+from core.metadata_normalizer import MetadataNormalizer
+from core.semantic_translator import SemanticTranslator
+
+from gui.widgets.multi_select_combo import MultiSelectComboBox
+from gui.widgets.date_range_picker import DateRangePicker
+from PyQt6.QtWidgets import QStackedWidget
 
 class FilterConditionWidget(QWidget):
     """
@@ -51,7 +57,12 @@ class FilterConditionWidget(QWidget):
         "Pages": "page_count",
         "Export Filename": "export_filename",
         "Text Content": "text_content",
-        "UUID": "uuid"
+        "UUID": "uuid",
+        
+        # Phase 80: Virtual Columns
+        "Virtual Sender (AI)": "v_sender",
+        "Virtual Date (AI)": "v_doc_date",
+        "Virtual Amount (AI)": "v_amount"
     }
     
     # Operators per type hint (simplified)
@@ -64,22 +75,18 @@ class FilterConditionWidget(QWidget):
         ("Less Than", "lt"),
         ("Is Empty", "is_empty"),
         ("Is Not Empty", "is_not_empty"),
-        ("In List", "in")
+        ("In List", "in"),
+        ("Between", "between") # Added for ranges
     ]
 
-    def __init__(self, parent=None, extra_keys=None):
+    def __init__(self, parent=None, extra_keys=None, available_tags=None):
         super().__init__(parent)
+        self.available_tags = available_tags or []
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         
-        # Field Selector
         self.combo_field = QComboBox()
-        self.combo_field.addItems(self.FIELDS.keys())
-        
-        if extra_keys:
-            for key in extra_keys:
-                self.combo_field.addItem(f"JSON: {key}", f"json:{key}")
-                
+        self._populate_fields(extra_keys)
         self.combo_field.currentTextChanged.connect(self._on_field_changed)
         
         # Operator Selector
@@ -93,13 +100,22 @@ class FilterConditionWidget(QWidget):
         self.chk_negate.toggled.connect(self.changed)
             
         # Value Input (Stacked / Dynamic)
-        self.input_container = QWidget()
-        self.input_layout = QVBoxLayout(self.input_container)
-        self.input_layout.setContentsMargins(0, 0, 0, 0)
+        self.input_stack = QStackedWidget()
         
-        self.current_input = QLineEdit()
-        self.current_input.textChanged.connect(self.changed)
-        self.input_layout.addWidget(self.current_input)
+        # 0: Text Input (Default)
+        self.input_text = QLineEdit()
+        self.input_text.textChanged.connect(self.changed)
+        self.input_stack.addWidget(self.input_text)
+        
+        # 1: Multi Select (Tags / Enum)
+        self.input_multi = MultiSelectComboBox()
+        self.input_multi.selectionChanged.connect(lambda: self.changed.emit())
+        self.input_stack.addWidget(self.input_multi)
+        
+        # 2: Date Picker
+        self.input_date = DateRangePicker()
+        self.input_date.rangeChanged.connect(lambda: self.changed.emit())
+        self.input_stack.addWidget(self.input_date)
         
         # Remove Button
         self.btn_remove = QPushButton("X")
@@ -109,59 +125,148 @@ class FilterConditionWidget(QWidget):
         self.layout.addWidget(self.combo_field, 1)
         self.layout.addWidget(self.chk_negate)
         self.layout.addWidget(self.combo_op, 1)
-        self.layout.addWidget(self.input_container, 2)
+        self.layout.addWidget(self.input_stack, 2)
         self.layout.addWidget(self.btn_remove)
         
+    # ... _populate_fields ...
+
     def _on_field_changed(self, text):
         field_key = self.FIELDS.get(text)
-        # TODO: Switch input widget type based on field (Date -> DateEdit, Amount -> SpinBox)
-        # For prototype, keep Text/LineEdit, but maybe hint?
-        # If user selects "Date", we could swap self.current_input
+        # Check dynamic
+        if not field_key:
+             idx = self.combo_field.currentIndex()
+             field_key = self.combo_field.itemData(idx)
+             
+        # Logic to switch inputs
+        if field_key == "doc_date" or field_key == "created_at":
+            self.input_stack.setCurrentIndex(2) # Date
+        elif field_key == "tags":
+            self.input_stack.setCurrentIndex(1) # Multi
+            # Populate Tags
+            # Need to clear first? MultiSelect doesn't have clear?
+            # It has model. We can recreate or clear model.
+            self.input_multi.clear() # QComboBox clear
+            self.input_multi.addItems(self.available_tags)
+        elif field_key == "doc_type":
+             self.input_stack.setCurrentIndex(1)
+             self.input_multi.clear()
+             # Standard types?
+             self.input_multi.addItems(["invoice", "receipt", "contract", "other"])
+        else:
+            self.input_stack.setCurrentIndex(0) # Text
+            
         self.changed.emit()
+        
+    def _populate_fields(self, extra_keys):
+        self.combo_field.clear()
+        translator = SemanticTranslator.instance()
+        
+        # 1. Standard Fields (Grouped conceptually)
+        self.combo_field.addItem("--- " + self.tr("Standard") + " ---", None)
+        # Disable the header item? Qt doesn't make it easy in basic combo, 
+        # but we can check in logic.
+        
+        # Sort standard fields by display name for easier finding
+        sorted_standard = sorted(self.FIELDS.keys())
+        for name in sorted_standard:
+            self.combo_field.addItem(name, self.FIELDS[name])
+            
+        # 2. Semantic Types (Hierarchical)
+        config = MetadataNormalizer.get_config()
+        if config and "types" in config:
+            for type_name, type_def in config["types"].items():
+                # Translated Type Name
+                label_key = type_def.get("label_key", f"type_{type_name.lower()}")
+                type_label = translator.translate(label_key)
+                
+                self.combo_field.addItem(f"--- {type_label} ---", None)
+                
+                for field in type_def.get("fields", []):
+                    field_id = field["id"]
+                    field_label_key = field.get("label_key", field_id)
+                    field_label = translator.translate(field_label_key)
+                    
+                    # Determine Path Strategy
+                    # valid path strategy is strictly required for filter to work 
+                    # without complex normalization logic in SQL.
+                    # We look for "json_path" strategy.
+                    path = None
+                    for strat in field.get("strategies", []):
+                        if strat["type"] == "json_path":
+                            path = strat["path"]
+                            break
+                    
+                    if path:
+                        # Construct key: semantic:path 
+                        # e.g. semantic:summary.tax_amount
+                        key = f"semantic:{path}"
+                        display = f"{type_label} > {field_label}"
+                        self.combo_field.addItem(display, key)
+
+        # 3. Raw / Discovered Keys (Fallback)
+        if extra_keys:
+             self.combo_field.addItem("--- " + self.tr("Raw Data") + " ---", None)
+             for key in extra_keys:
+                 # Avoid duplicates if possible? 
+                 # Use a simplified display
+                 if key.startswith("semantic:"):
+                      short = key[9:]
+                      display = f"Raw: {short}"
+                      value = key
+                 elif key.startswith("json:"):
+                      short = key[5:]
+                      display = f"Raw: {short}"
+                      value = key
+                 else:
+                      display = f"Raw: {key}"
+                      value = f"json:{key}"
+                 
+                 # Check if this value is already added (by Type definition) to avoid clutter
+                 # But raw keys might be slightly different paths or deep nested
+                 # Simple check:
+                 if self.combo_field.findData(value) == -1:
+                     self.combo_field.addItem(display, value)
 
     def get_condition(self):
         # Handle standard vs dynamic fields
         if self.combo_field.currentData():
-            # It's a JSON field with data set
             field_key = self.combo_field.currentData()
         else:
-            # Standard field name -> lookup
             field_name = self.combo_field.currentText()
             field_key = self.FIELDS.get(field_name, field_name.lower())
         
         op = self.combo_op.currentData()
         
+        # Get Value from active input
+        idx = self.input_stack.currentIndex()
+        val = None
+        
         if op in ["is_empty", "is_not_empty"]:
             val = None
-        else:
-            if hasattr(self.current_input, "text"):
-                val = self.current_input.text()
-            elif hasattr(self.current_input, "date"):
-                val = self.current_input.date().toString(Qt.DateFormat.ISODate)
-            elif hasattr(self.current_input, "value"):
-                val = self.current_input.value()
-            else:
-                val = ""
-        
-        # If operator is 'in', we expect val to be a list or comma-separated string
-        if op == "in" and isinstance(val, str):
-            # Parse CSV to list for 'in' operator if manually entered
-            # Or if it was loaded as list, it should be fine? 
-            # But here we read from text input.
-            # Simple assumption: Comma separated UUIDs/Strings
-             val = [x.strip() for x in val.split(",") if x.strip()]
+        elif idx == 0: # Text
+            val = self.input_text.text()
+            # If op is 'in' and text input, split by comma
+            if op == "in" and val:
+                 val = [x.strip() for x in val.split(",") if x.strip()]
+        elif idx == 1: # Multi
+            val = self.input_multi.getCheckedItems()
+            # If single value expected? Logic handles lists usually.
+        elif idx == 2: # Date
+            val = self.input_date.get_value()
              
         return {"field": field_key, "op": op, "value": val, "negate": self.chk_negate.isChecked()}
 
     def set_condition(self, mode: dict):
         key = mode.get("field")
+        if not key:
+            return # Invalid condition data
         
         self.chk_negate.setChecked(mode.get("negate", False))
         
-        if key.startswith("json:"):
-             # Dynamic field
-             # Check if item exists, if not add it (persistence might have old keys)
-             found = False
+        # 1. Set Field (This triggers _on_field_changed -> sets up input stack)
+        found = False
+        if key.startswith("json:") or key.startswith("semantic:"):
+             # Check if item exists
              for i in range(self.combo_field.count()):
                  if self.combo_field.itemData(i) == key:
                      self.combo_field.setCurrentIndex(i)
@@ -169,44 +274,81 @@ class FilterConditionWidget(QWidget):
                      break
              if not found:
                  # Add ad-hoc
-                 display = f"JSON: {key[5:]}"
+                 if key.startswith("semantic:"): display = f"AI: {key[9:]}"
+                 elif key.startswith("json:"): display = f"JSON: {key[5:]}"
+                 else: display = f"JSON: {key}"
                  self.combo_field.addItem(display, key)
                  self.combo_field.setCurrentIndex(self.combo_field.count() - 1)
         else:
-            # Standard
-            key_to_name = {v: k for k, v in self.FIELDS.items()}
-            name = key_to_name.get(key, key)
-            self.combo_field.setCurrentText(name)
+             # Standard
+             # Reverse lookup FIELDS
+             text_key = None
+             for k, v in self.FIELDS.items():
+                 if v == key:
+                     text_key = k
+                     break
+             
+             if text_key:
+                 self.combo_field.setCurrentText(text_key)
+             else:
+                 # Fallback: Check if data exists or add it (System Fields like 'deleted')
+                 idx = self.combo_field.findData(key)
+                 if idx >= 0:
+                     self.combo_field.setCurrentIndex(idx)
+                 else:
+                     # Not found, add it so we can filter on it
+                     display = f"System: {key}"
+                     self.combo_field.addItem(display, key)
+                     self.combo_field.setCurrentIndex(self.combo_field.count() - 1)
+                 
+        # 2. Set Operator
+        op = mode.get("op", "contains")
+        idx = self.combo_op.findData(op)
+        if idx >= 0: self.combo_op.setCurrentIndex(idx)
         
-        idx = self.combo_op.findData(mode.get("op"))
-        if idx >= 0:
-            self.combo_op.setCurrentIndex(idx)
-            
+        # 3. Set Value
         val = mode.get("value")
-        if val is not None and hasattr(self.current_input, "setText"):
+        current_idx = self.input_stack.currentIndex()
+        
+        if current_idx == 0:
+             if isinstance(val, list): val = ", ".join(map(str, val))
+             self.input_text.setText(str(val) if val is not None else "")
+        elif current_idx == 1:
              if isinstance(val, list):
-                 val = ", ".join(map(str, val))
-             self.current_input.setText(str(val))
+                 self.input_multi.setCheckedItems(val)
+             elif isinstance(val, str):
+                 self.input_multi.setCheckedItems([val])
+        elif current_idx == 2:
+             self.input_date.set_value(val)
 
+
+
+
+from gui.widgets.filter_group import FilterGroupWidget
 
 class AdvancedFilterWidget(QWidget):
     """
     Widget to build complex query objects.
     """
     filter_changed = pyqtSignal(dict) # Emits Query Object
-    
+    trash_mode_changed = pyqtSignal(bool) # New signal for Trash Mode
     
     def __init__(self, parent=None, db_manager=None, filter_tree=None, save_callback=None):
         super().__init__(parent)
+        # ... validation ...
         self.db_manager = db_manager
         self.filter_tree = filter_tree
         self.save_callback = save_callback
         self.extra_keys = []
-        self.loaded_filter_node = None # Track currently loaded filter
-        self._loading = False # Flag to suppress dirty check during load
+        self.available_tags = []
+        self.loaded_filter_node = None
+        self._loading = False
+        
         if self.db_manager:
-             self.extra_keys = self.db_manager.get_available_extra_keys()
-             
+            self.extra_keys = self.db_manager.get_available_extra_keys()
+            if hasattr(self.db_manager, "get_available_tags"):
+                self.available_tags = self.db_manager.get_available_tags()
+
         self._init_ui()
         self.load_known_filters()
 
@@ -241,33 +383,29 @@ class AdvancedFilterWidget(QWidget):
         main_layout.addLayout(top_bar)
         
         # --- Logic Switch ---
-        logic_layout = QHBoxLayout()
-        logic_layout.addWidget(QLabel(self.tr("Match:")))
-        self.combo_logic = QComboBox()
-        self.combo_logic.addItems(["ALL (AND)", "ANY (OR)"])
-        self.combo_logic.currentIndexChanged.connect(self._emit_change)
-        logic_layout.addWidget(self.combo_logic)
-        logic_layout.addStretch()
-        main_layout.addLayout(logic_layout)
-
-        # --- Conditions List ---
+        # REMOVED: Nested Logic handles this per group.
+        # But we might want a legacy "Match: " label? 
+        # No, the root group has its own logic combo.
+        
+        # --- Conditions Area ---
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         
-        self.conditions_container = QWidget()
-        self.conditions_layout = QVBoxLayout(self.conditions_container)
-        self.conditions_layout.addStretch() # Push items up
-        self.scroll.setWidget(self.conditions_container)
+        # Root Group
+        self.root_group = FilterGroupWidget(extra_keys=self.extra_keys, 
+                                            available_tags=self.available_tags, 
+                                            is_root=True)
+        self.root_group.changed.connect(self._set_dirty)
+        self.scroll.setWidget(self.root_group)
         
         main_layout.addWidget(self.scroll, 1)
         
         # --- Bottom Bar ---
         bottom_bar = QHBoxLayout()
         
-        self.btn_add = QPushButton(self.tr("Add Condition"))
-        self.btn_add.clicked.connect(self.add_condition)
-        bottom_bar.addWidget(self.btn_add)
+        # Buttons are now inside the group headers (add condition/group).
+        # We only need Global actions here.
         
         self.btn_clear = QPushButton(self.tr("Clear All"))
         self.btn_clear.clicked.connect(lambda: self.clear_all(reset_combo=True))
@@ -286,45 +424,50 @@ class AdvancedFilterWidget(QWidget):
         bottom_bar.addWidget(self.chk_active)
         
         main_layout.addLayout(bottom_bar)
-        
-        # Initial empty state
-        self.rows = []
 
     def add_condition(self, data=None):
-        row = FilterConditionWidget(self, extra_keys=self.extra_keys)
-        if data:
-            row.set_condition(data)
-        
-        # Insert before stretch (last item)
-        count = self.conditions_layout.count()
-        self.conditions_layout.insertWidget(count - 1, row)
-        
-        row.remove_requested.connect(lambda: self.remove_condition(row))
-        row.changed.connect(self._set_dirty)
-        
-        self.rows.append(row)
-        self._set_dirty()
+        # Delegate to root group
+        self.root_group.add_condition(data)
 
     def remove_condition(self, row):
-        if row in self.rows:
-            self.rows.remove(row)
-            self.conditions_layout.removeWidget(row)
-            row.deleteLater()
-            self._set_dirty()
-            
+        # Handled internally by groups
+        pass
+
     def clear_all(self, reset_combo=True):
-        self._reset_dirty_indicator() # Reset * details before clearing
-        
+        self._reset_dirty_indicator()
         if reset_combo and isinstance(reset_combo, bool): 
-            # Check typing because clicked signal might pass 'checked' boolean if not careful
-            self.combo_filters.setCurrentIndex(0) # Reset selection
+            self.combo_filters.setCurrentIndex(0)
+            
+        self.root_group.clear()
+        self._set_dirty()
+        # Auto-apply to update view immediately (UX feedback)
+        self._emit_change()
         
-        for row in list(self.rows):
-            self.remove_condition(row)
-        self._set_dirty() # Changed to dirty instead of auto-emit? 
-        # Actually user wants Apply workflow. Clearing is a change.
-        # But for "Load" logic, we might need to bypass dirty if we immediately apply?
-        # See load_from_object.
+    def get_query(self):
+        # Delegate
+        return self.root_group.get_query()
+        
+    def load_from_node(self, node: FilterNode):
+        self._loading = True
+        self.loaded_filter_node = node
+        
+        # Clear UI
+        self.root_group.clear()
+        
+        # Load Data
+        data = node.data
+        if data:
+            self.root_group.set_query(data)
+            
+        self._loading = False
+        self._reset_dirty_indicator()
+        self.btn_apply.setEnabled(False)
+        self.btn_revert.setEnabled(False)
+        self.chk_active.setChecked(True) # Assume active upon load
+        
+        # Auto-Apply on Load? Usually yes for saved filters.
+        self._emit_change()
+            
 
     def _set_dirty(self):
         if getattr(self, '_loading', False):
@@ -336,6 +479,10 @@ class AdvancedFilterWidget(QWidget):
         if self.btn_revert and self.loaded_filter_node:
              self.btn_revert.setEnabled(True)
         
+        # Ignore Trash Node
+        if self.loaded_filter_node and hasattr(self.loaded_filter_node, "node_type") and self.loaded_filter_node.node_type == NodeType.TRASH:
+            return
+
         if self.loaded_filter_node:
             idx = self.combo_filters.findData(self.loaded_filter_node)
             if idx >= 0:
@@ -375,16 +522,10 @@ class AdvancedFilterWidget(QWidget):
         self.filter_changed.emit(query)
 
     def get_query_object(self):
-        if not self.rows:
-            return {}
-            
-        logic = "AND" if self.combo_logic.currentIndex() == 0 else "OR"
-        conditions = [row.get_condition() for row in self.rows]
-        
-        return {
-            "operator": logic,
-            "conditions": conditions
-        }
+        # Delegate to root group
+        if self.root_group:
+            return self.root_group.get_query()
+        return {}
 
     # --- Persistence ---
     def load_known_filters(self):
@@ -404,6 +545,10 @@ class AdvancedFilterWidget(QWidget):
                 for child in node.children:
                      if child.node_type == NodeType.FILTER:
                          display = f"{path_prefix}{child.name}" if path_prefix else child.name
+                         self.combo_filters.addItem(display, child)
+                     elif child.node_type == NodeType.TRASH:
+                         # Always show Trash at top level or appropriate usage
+                         display = f"[ {child.name} ]"
                          self.combo_filters.addItem(display, child)
                      elif child.node_type == NodeType.FOLDER:
                          new_prefix = f"{path_prefix}{child.name} / " if path_prefix else f"{child.name} / "
@@ -432,8 +577,28 @@ class AdvancedFilterWidget(QWidget):
             self.open_filter_manager()
             return
         
+        # Check if it is a FilterNode Object (which has node_type)
+        if hasattr(data, "node_type") and data.node_type == NodeType.TRASH:
+             self.loaded_filter_node = data
+             # Standardize Trash as a normal filter Query
+             # This ensures verify logic in DocumentList.apply_advanced_filter works.
+             # Must be a Group structure since set_query expects 'conditions' list.
+             trash_query = {
+                 "operator": "AND",
+                 "conditions": [
+                     {"field": "deleted", "op": "equals", "value": True}
+                 ]
+             }
+             self.load_from_object(trash_query)
+             self._emit_change()
+             return
+             
         # It's a FilterNode or saved dict (legacy)
         # We stored FilterNode object in addItem
+        
+        # Ensure we exit trash mode
+        self.trash_mode_changed.emit(False)
+        
         if hasattr(data, "data"):
              self.load_from_object(data.data)
              self.loaded_filter_node = data # Set loaded reference
@@ -458,7 +623,19 @@ class AdvancedFilterWidget(QWidget):
              self._sync_combo_selection(self.loaded_filter_node)
 
     def _on_manager_selected(self, node):
-        if node and node.data is not None:
+        if not node: return
+        
+        if node.node_type == NodeType.TRASH:
+            # Special Trash Handling
+            self.loaded_filter_node = node
+            self.trash_mode_changed.emit(True)
+            self._sync_combo_selection(node)
+            return
+        
+        # Normal Filter
+        self.trash_mode_changed.emit(False) # Exit trash mode
+        
+        if node.data is not None:
             self.load_from_object(node.data)
             self.loaded_filter_node = node
             self._emit_change()
@@ -492,21 +669,22 @@ class AdvancedFilterWidget(QWidget):
             if not query:
                 return
                 
-            # Set Logic
-            op = query.get("operator", "AND")
-            self.combo_logic.setCurrentIndex(0 if op == "AND" else 1)
-            
             self.chk_active.blockSignals(True)
             self.chk_active.setChecked(True)
             self.chk_active.blockSignals(False)
             
-            for cond in query.get("conditions", []):
-                if "conditions" in cond:
-                    # Nested not supported in UI MVP
-                    continue
-                self.add_condition(cond)
+            # Use root_group to load nested query
+            self.root_group.set_query(query)
+                
         finally:
             self._loading = False
+            self.btn_apply.setEnabled(False) # Loaded state is clean
+            self.btn_revert.setEnabled(False)
+            self._loading = False
+
+    def apply_advanced_filter(self):
+        """Public method to force application of current filter."""
+        self._emit_change()
 
     def save_current_filter(self):
         if not self.rows:

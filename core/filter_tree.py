@@ -7,6 +7,8 @@ class NodeType(str, Enum):
     FOLDER = "folder"
     FILTER = "filter"
     SNAPSHOT = "snapshot"
+    TRASH = "trash"
+    VIEW = "view"
 
 class FilterNode:
     def __init__(self, name: str, node_type: NodeType, data: Dict[str, Any] = None, parent: 'FilterNode' = None):
@@ -56,7 +58,14 @@ class FilterTree:
         parent.add_child(node)
         return node
         
+    def add_trash(self, parent: FilterNode) -> FilterNode:
+        node = FilterNode("Trash", NodeType.TRASH, parent=parent)
+        parent.add_child(node)
+        return node
+        
     def move_node(self, node: FilterNode, new_parent: FilterNode):
+        if node.node_type == NodeType.TRASH:
+             raise ValueError("Trash cannot be moved.")
         if node.parent:
             node.parent.remove_child(node)
         new_parent.add_child(node)

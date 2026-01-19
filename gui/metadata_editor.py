@@ -2,15 +2,22 @@
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QMessageBox, QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QDateEdit, QComboBox, QCompleter, QCheckBox
+    QDateEdit, QComboBox, QCompleter, QCheckBox, QFileDialog
 )
 import json
 import datetime
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QLocale, QSignalBlocker
 from core.document import Document
+from core.document import Document
 from core.database import DatabaseManager
 from core.vocabulary import VocabularyManager
 from gui.utils import format_date, format_datetime
+from core.metadata_normalizer import MetadataNormalizer
+from core.semantic_translator import SemanticTranslator
+from gui.widgets.multi_select_combo import MultiSelectComboBox
+from PyQt6.QtWidgets import QGroupBox, QCompleter
+from PyQt6.QtCore import QStringListModel
+from gui.completers import MultiTagCompleter
 
 class MetadataEditorWidget(QWidget):
     """
@@ -100,7 +107,7 @@ class MetadataEditorWidget(QWidget):
         self.currency_edit = QLineEdit()
         general_layout.addRow(self.tr("Währung:"), self.currency_edit)
         
-        self.type_edit = QComboBox()
+        self.type_edit = MultiSelectComboBox()
         self.type_edit.setEditable(True)
         self.type_edit.addItems(self.vocabulary.get_all_types())
         general_layout.addRow(self.tr("Type:"), self.type_edit)
@@ -127,10 +134,10 @@ class MetadataEditorWidget(QWidget):
         self.tags_edit = QLineEdit()
         self.tags_edit.setPlaceholderText("Tag1, Tag2...")
         
-        # Completer for tags (Simple one-tag completion support)
-        completer = QCompleter(self.vocabulary.get_all_tags())
-        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self.tags_edit.setCompleter(completer)
+        # Completer for tags (Custom Multi-Tag support)
+        # We need to refresh this when DB changes
+        self.tags_completer = MultiTagCompleter([], self)
+        self.tags_edit.setCompleter(self.tags_completer)
         
         general_layout.addRow(self.tr("Tags:"), self.tags_edit)
         
@@ -224,6 +231,56 @@ class MetadataEditorWidget(QWidget):
         
         self.tab_widget.addTab(self.extra_tab, self.tr("Extra Data"))
 
+        # --- Tab 5: Formatted Metadata (Type-Based) ---
+        self.normalized_scroll = QScrollArea()
+        self.normalized_scroll.setWidgetResizable(True)
+        self.normalized_content = QWidget()
+        self.normalized_scroll.setWidget(self.normalized_content)
+        self.normalized_layout = QVBoxLayout(self.normalized_content)
+        # We will populate this dynamically in display_document
+        
+        self.tab_widget.addTab(self.normalized_scroll, self.tr("Type Data"))
+        
+        # --- Tab 5: Semantic Data (Phase 70) ---
+        self.semantic_tab = QWidget()
+        semantic_layout = QVBoxLayout(self.semantic_tab)
+        
+        self.semantic_viewer = QTextEdit()
+        self.semantic_viewer.setReadOnly(True)
+        self.semantic_viewer.setFont(self.font()) # Or monospace?
+        # Set monospace font for JSON
+        font = self.semantic_viewer.font()
+        font.setFamily("Monospace")
+        font.setStyleHint(font.StyleHint.Monospace)
+        self.semantic_viewer.setFont(font)
+        
+        semantic_layout.addWidget(self.semantic_viewer)
+        self.tab_widget.addTab(self.semantic_tab, self.tr("Semantic"))
+
+        
+        # --- Tab 6: Canonical Entities (CDM) ---
+        self.entities_content = QWidget()
+        entities_layout = QVBoxLayout(self.entities_content)
+        
+        # Table to list entities
+        self.entities_table = QTableWidget()
+        self.entities_table.setColumnCount(4)
+        self.entities_table.setHorizontalHeaderLabels(["Type", "ID", "Date", "Status"])
+        self.entities_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.entities_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.entities_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        entities_layout.addWidget(self.entities_table)
+        
+        # Detail view for selected entity
+        self.entity_detail = QTextEdit()
+        self.entity_detail.setReadOnly(True)
+        self.entity_detail.setPlaceholderText("Select an entity to view Canonical Data...")
+        entities_layout.addWidget(self.entity_detail)
+        
+        self.entities_table.itemSelectionChanged.connect(self._on_entity_selected)
+        
+        self.tab_widget.addTab(self.entities_content, "Canonical Entities (CDM)")
+        
         # Buttons
         self.btn_save = QPushButton(self.tr("Save Changes"))
         self.btn_save.clicked.connect(self.save_changes)
@@ -260,8 +317,14 @@ class MetadataEditorWidget(QWidget):
 
     def display_documents(self, docs: list[Document]):
         """Populate fields for multiple documents."""
+        print(f"[DEBUG] MetadataEditor.display_documents called with {len(docs)} documents")
         self.doc = None # Single doc reference invalid
         self.current_uuids = [d.uuid for d in docs]
+        
+        # Refresh Tag Completer
+        if self.db_manager:
+            tags = list(self.db_manager.get_all_tags_with_counts().keys())
+            self.tags_completer.setModel(QStringListModel(tags))
         
         if not docs:
             self.clear()
@@ -386,6 +449,7 @@ class MetadataEditorWidget(QWidget):
 
     def display_document(self, doc: Document):
         """Populate fields for single document."""
+        print(f"[DEBUG] MetadataEditor.display_document called for {doc.uuid}")
         self.current_uuids = [doc.uuid]
         self.mixed_fields = set() # No mixed fields
         self.doc = doc
@@ -441,7 +505,16 @@ class MetadataEditorWidget(QWidget):
         
         self.currency_edit.setText(doc.currency or "")
         
-        self.type_edit.setCurrentText(doc.doc_type or "")
+        if isinstance(doc.doc_type, list) and doc.doc_type:
+            # Multi Select: Set Checked Items
+            self.type_edit.setCheckedItems(doc.doc_type)
+        else:
+            # Fallback for legacy single string or empty
+            val = str(doc.doc_type or "")
+            if val:
+                self.type_edit.setCheckedItems([val])
+            else:
+                self.type_edit.setCheckedItems([])
         self.export_filename_edit.setText(doc.export_filename or "")
         self.iban_edit.setText(doc.iban or "")
         self.phone_edit.setText(doc.phone or "")
@@ -525,6 +598,92 @@ class MetadataEditorWidget(QWidget):
 
         self.extra_table.setSortingEnabled(True)
         
+        # --- Formatted Metadata ---
+        self._populate_normalized_metadata(doc)
+        
+        # --- Canonical Entities (CDM) ---
+        self._load_semantic_entities(doc.uuid)
+
+    def _populate_normalized_metadata(self, doc: Document):
+        # Clear previous layout
+        while self.normalized_layout.count():
+            child = self.normalized_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+        
+        config = MetadataNormalizer.get_config()
+        # Resolve type
+        doc_type = doc.doc_type
+        if not doc_type and doc.semantic_data:
+             doc_type = doc.semantic_data.get("summary", {}).get("doc_type", "Other")
+        if isinstance(doc_type, list): 
+            doc_type = doc_type[0] if doc_type else "Other"
+        
+        if not doc_type:
+            doc_type = "Other"
+        
+        type_def = config.get("types", {}).get(doc_type)
+        
+        if not type_def:
+            lbl = QLabel(self.tr(f"No type definition for '{doc_type}'"))
+            self.normalized_layout.addWidget(lbl)
+            self.normalized_layout.addStretch()
+            return
+
+        # Get values
+        try:
+            values = MetadataNormalizer.normalize_metadata(doc)
+        except Exception as e:
+            print(f"Error normalizing metadata: {e}")
+            values = {}
+
+        # Render Fields
+        translator = SemanticTranslator.instance()
+        
+        # Translate the type label
+        type_label_key = type_def.get("label_key", doc_type)
+        grp_label = translator.translate(type_label_key) if type_label_key != doc_type else doc_type
+        
+        grp = QGroupBox(grp_label)
+        form = QFormLayout()
+        grp.setLayout(form)
+        
+        for field in type_def.get("fields", []):
+            label_key = field.get("label_key", field["id"])
+            label_text = translator.translate(label_key)
+            
+            val = values.get(field["id"])
+            
+            # Display widget
+            # We use QLineEdits, now enabled for editing (Phase 85)
+            edit = QLineEdit()
+            edit.setText(str(val) if val is not None else "")
+            # edit.setReadOnly(False) # Editable by default
+            edit.setCursorPosition(0)
+            
+            # Store field ID in widget for lookup
+            edit.setProperty("field_id", field["id"])
+
+            
+            # Add tooltip?
+            strategies = field.get("strategies", [])
+            tooltip = f"ID: {field['id']}\nStrategies: {len(strategies)}"
+            edit.setToolTip(tooltip)
+            
+            form.addRow(label_text + ":", edit)
+            
+        self.normalized_layout.addWidget(grp)
+        self.normalized_layout.addStretch()
+        
+        # Semantic Data
+        if doc.semantic_data:
+            try:
+                self.semantic_viewer.setPlainText(json.dumps(doc.semantic_data, indent=2, ensure_ascii=False))
+            except:
+                self.semantic_viewer.setPlainText(str(doc.semantic_data))
+        else:
+             self.semantic_viewer.setPlainText("No semantic data available.")
+        
     def _reset_placeholders(self):
         """Reset standard placeholders."""
         # self.date_edit.setPlaceholderText("YYYY-MM-DD") # QDateEdit doesn't supports this easily
@@ -573,6 +732,7 @@ class MetadataEditorWidget(QWidget):
         self.extra_table.setRowCount(0)
         
         self._reset_placeholders()
+        self.semantic_viewer.clear()
         self.setEnabled(False) 
 
     def save_changes(self):
@@ -630,6 +790,19 @@ class MetadataEditorWidget(QWidget):
                 text = widget.text().strip()
             elif isinstance(widget, QTextEdit):
                 text = widget.toPlainText().strip()
+            elif isinstance(widget, MultiSelectComboBox):
+                # Special Multi-Select Logic
+                checked = widget.getCheckedItems()
+                if checked:
+                    text = checked # Pass list directly
+                else:
+                     # Check if user typed something manually?
+                     raw = widget.currentText().strip()
+                     if raw:
+                         # Split by comma
+                         text = [t.strip() for t in raw.split(',') if t.strip()]
+                     else:
+                         text = []
             elif isinstance(widget, QComboBox):
                 text = widget.currentText().strip()
                 
@@ -690,6 +863,106 @@ class MetadataEditorWidget(QWidget):
         #       - With Union display, if row is gone, it means DELETE from all docs?
         #       - Yes, "Remove" button should mean "Remove Key from All".
         
+        # --- Phase 87: Sync Logic (General -> Semantic) ---
+        # When user edits Sender/Date/Amount in General Tab, we MUST sync to semantic_data
+        # to ensure Virtual Columns (v_sender, v_doc_date, v_amount) are correct.
+        
+        # We process each document
+        for uuid in self.current_uuids:
+            doc_updates = updates.copy() # Base updates
+            
+            # Fetch doc to get current semantic_data
+            # If batch, we might modify multiple.
+            # We can't easily modify semantic_data without the object.
+            # Let's use db_manager.get_document_by_uuid(uuid) if needed?
+            # Or use self.doc if single.
+            
+            target_doc = None
+            if self.doc and self.doc.uuid == uuid:
+                target_doc = self.doc
+            elif self.current_uuids:
+                 # In batch, we really should have cached docs or fetch them.
+                 # Let's trust self.db_manager to handle this if we pass "semantic_updates"?
+                 # No, db manager is generic.
+                 # We must fetch.
+                 target_doc = self.db_manager.get_document_by_uuid(uuid)
+            
+            if target_doc:
+                # Prepare semantic_data if missing
+                if not target_doc.semantic_data:
+                    target_doc.semantic_data = {"summary": {}}
+                if "summary" not in target_doc.semantic_data:
+                    target_doc.semantic_data["summary"] = {}
+                
+                summary = target_doc.semantic_data["summary"]
+                modified_semantic = False
+                
+                # Sync Sender
+                if "sender" in doc_updates and doc_updates["sender"] is not None:
+                    summary["sender_name"] = doc_updates["sender"]
+                    modified_semantic = True
+                    
+                # Sync Date
+                if "doc_date" in doc_updates and doc_updates["doc_date"] is not None:
+                     summary["main_date"] = str(doc_updates["doc_date"])
+                     modified_semantic = True
+                     
+                # Sync Amount
+                if "amount" in doc_updates:
+                    # Amount can be None or string
+                    amt = doc_updates["amount"]
+                    if amt is not None:
+                         summary["amount"] = str(amt) # JSON schema wants string
+                    else:
+                         summary["amount"] = None
+                    modified_semantic = True
+                
+                if modified_semantic:
+                    doc_updates["semantic_data"] = target_doc.semantic_data
+
+            # Apply Updates
+            self.db_manager.update_document_metadata(uuid, doc_updates)
+
+            # Capture Type Data Updates (Phase 85) - Only for single doc currently supported in UI logic
+            # These are ALREADY in semantic_data if we sync'd above? 
+            # No, these are EXTRA edits from the Type Tab.
+            # We must be careful not to overwrite if we merge.
+            # The Type Tab edits call MetadataNormalizer.update_field which modifies doc.semantic_data in place.
+            # So if we use target_doc above, we are safe.
+            
+            # Re-apply Type Tab edits if single doc (overwriting what we just prepared?)
+            # Actually, "Type Data" tab writes directly to doc.semantic_data via update_field.
+            # If we call update_document_metadata with semantic_data, we are good.
+            # BUT: update_field logic in save_changes (below) iterates widgets.
+            
+        # Capture Type Data Updates (Phase 85) - REVISED
+        if self.doc and len(self.current_uuids) == 1:
+             # Iterate widgets in Normalized Layout
+             doc_modified = False
+             for i in range(self.normalized_layout.count()):
+                item = self.normalized_layout.itemAt(i)
+                if not item: continue
+                
+                widget = item.widget()
+                if isinstance(widget, QGroupBox):
+                    form_layout = widget.layout()
+                    if form_layout:
+                        for r in range(form_layout.rowCount()):
+                            field_item = form_layout.itemAt(r, QFormLayout.ItemRole.FieldRole)
+                            if field_item and field_item.widget():
+                                w = field_item.widget()
+                                if isinstance(w, QLineEdit):
+                                    field_id = w.property("field_id")
+                                    if field_id:
+                                        new_val = w.text().strip()
+                                        if MetadataNormalizer.update_field(self.doc, field_id, new_val):
+                                           doc_modified = True
+             
+             if doc_modified:
+                 self.db_manager.update_document_metadata(self.doc.uuid, {"semantic_data": self.doc.semantic_data})
+
+        self.metadata_saved.emit()
+
         # Capture current table state
         table_keys = set()
         table_updates = {} # Key -> Value (or MIXED_MARKER)
@@ -800,3 +1073,80 @@ class MetadataEditorWidget(QWidget):
         row = self.extra_table.currentRow()
         if row >= 0:
             self.extra_table.removeRow(row)
+
+    def _clear_ui(self):
+        """Reset all fields."""
+        self.doc = None
+        self.uuid_lbl.setText("-")
+        self.created_at_lbl.setText("-")
+        self.updated_at_lbl.setText("-")
+        self.page_count_lbl.setText("-")
+        self.sender_edit.clear()
+        self.date_edit.setDate(QDate.currentDate())
+        self.amount_edit.clear()
+        self.gross_amount_edit.clear()
+        self.postage_edit.clear()
+        self.packaging_edit.clear()
+        self.tax_rate_edit.clear()
+        self.currency_edit.clear()
+        self.type_edit.setCheckedItems([])
+        self.export_filename_edit.clear()
+        self.iban_edit.clear()
+        self.phone_edit.clear()
+        self.tags_edit.clear()
+        self.sender_company_edit.clear()
+        self.sender_name_edit.clear()
+        self.sender_street_edit.clear()
+        self.sender_zip_edit.clear()
+        self.sender_city_edit.clear()
+        self.sender_country_edit.clear()
+        self.sender_address_raw.clear()
+        self.recipient_company_edit.clear()
+        self.recipient_name_edit.clear()
+        self.recipient_street_edit.clear()
+        self.recipient_zip_edit.clear()
+        self.recipient_city_edit.clear()
+        self.recipient_country_edit.clear()
+        self.extra_table.setRowCount(0)
+        self.json_edit.clear()
+        self.semantic_viewer.clear()
+        self.entities_table.setRowCount(0)
+        self.entity_detail.clear()
+        # Clear normalized tab
+        while self.normalized_layout.count():
+            child = self.normalized_layout.takeAt(0)
+            if child.widget(): child.widget().deleteLater()
+            
+    def _load_semantic_entities(self, uuid: str):
+        """Fetch and display CDM entities."""
+        print(f"[DEBUG] Loading CDM entities for {uuid}")
+        if not self.db_manager: return
+        
+        entities = self.db_manager.get_semantic_entities(uuid)
+        self.entities_data = entities # Store for detail view
+        
+        self.entities_table.setRowCount(0)
+        self.entities_table.setRowCount(len(entities))
+        
+        for i, ent in enumerate(entities):
+            type_item = QTableWidgetItem(str(ent.get("doc_type", "Unknown")))
+            id_item = QTableWidgetItem(str(ent.get("doc_id", "-")))
+            date_item = QTableWidgetItem(str(ent.get("doc_date", "-")))
+            status_item = QTableWidgetItem(str(ent.get("status", "NEW")))
+            
+            self.entities_table.setItem(i, 0, type_item)
+            self.entities_table.setItem(i, 1, id_item)
+            self.entities_table.setItem(i, 2, date_item)
+            self.entities_table.setItem(i, 3, status_item)
+            
+    def _on_entity_selected(self):
+        """Show JSON details for selected entity."""
+        rows = self.entities_table.selectionModel().selectedRows()
+        if not rows:
+            self.entity_detail.clear()
+            return
+            
+        row = rows[0].row()
+        if hasattr(self, 'entities_data') and row < len(self.entities_data):
+            ent = self.entities_data[row]
+            self.entity_detail.setText(json.dumps(ent, indent=2, ensure_ascii=False))

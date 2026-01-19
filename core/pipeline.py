@@ -68,6 +68,20 @@ class PipelineProcessor:
         doc.export_filename = self._generate_export_filename(doc)
         self.db.insert_document(doc)
         
+        # 7. Canonization (CDM Extraction) - Phase 98
+        # We run this immediately if AI was used
+        if not skip_ai:
+            try:
+                from core.canonizer import CanonizerService
+                # We instantiate service on demand (or store in self if preferred)
+                # But Analyzer is temporary? PipelineProcessor creates analyzer inside _run_ai?
+                # Actually _run_ai uses AIAnalyzer. We should reuse it or generic one.
+                # Let's instantiate Canonizer.
+                canonizer = CanonizerService(self.db)
+                canonizer.process_document(doc.uuid, doc.text_content, doc.semantic_data)
+            except Exception as e:
+                print(f"Canonization Error [{doc.uuid}]: {e}")
+        
         return doc
 
     def reprocess_document(self, uuid: str, skip_ai: bool = False) -> Optional[Document]:
@@ -312,6 +326,12 @@ class PipelineProcessor:
         
         result = analyzer.analyze_text(doc.text_content, image=image)
         
+        # Phase 72: Semantic Merging (Round 2)
+        if result.semantic_data:
+            print(f"[{doc.uuid}] Running Round 2: Semantic Merging...")
+            merged = analyzer.consolidate_semantics(result.semantic_data)
+            result.semantic_data = merged
+        
         # Map result to doc
         if result.sender: doc.sender = result.sender
         if result.doc_date: doc.doc_date = result.doc_date
@@ -357,6 +377,10 @@ class PipelineProcessor:
         
         # Map Dynamic Data (Stamps, etc.)
         if result.extra_data: doc.extra_data = result.extra_data
+        
+        # Phase 70: Map Semantic Data
+        if result.semantic_data: 
+            doc.semantic_data = result.semantic_data
             
     def _generate_export_filename(self, doc: Document) -> str:
         """
