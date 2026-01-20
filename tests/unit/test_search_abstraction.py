@@ -10,6 +10,11 @@ class TestSearchAbstraction(unittest.TestCase):
         doc = Document(uuid="doc1", original_filename="test.pdf", file_path="/tmp/test.pdf", file_size=100)
         self.db.insert_document(doc)
         
+        # NOTE: insert_document now creates a default Semantic Entity.
+        # This test manually creates a specific one ('ent1') and expects exactly 1 result.
+        # So we delete the default one first.
+        self.db.connection.execute("DELETE FROM semantic_entities WHERE source_doc_uuid = 'doc1'")
+        
         # Insert Entity with specific metadata (doc_type, sender)
         self.db.connection.execute(
             """INSERT INTO semantic_entities 

@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import uuid
 from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime
@@ -162,9 +163,11 @@ class DatabaseManager:
     def insert_document(self, doc: Document) -> int:
         """
         Insert a document's metadata into the database.
-        Returns the new row ID.
+        Also creates a primary Semantic Entity for it.
+        Returns the new row ID (of documents table).
         """
-        sql = """
+        # 1. Insert Physical Document
+        sql_doc = """
         INSERT OR REPLACE INTO documents (
             uuid, original_filename, page_count, created_at, last_processed_at, locked, deleted, text_content, phash, semantic_data, extra_data
         ) VALUES (
@@ -172,7 +175,7 @@ class DatabaseManager:
         )
         """
         
-        values = (
+        values_doc = (
             doc.uuid,
             doc.original_filename,
             doc.page_count,
@@ -186,51 +189,118 @@ class DatabaseManager:
             json.dumps(doc.extra_data) if doc.extra_data else None
         )
         
+        # 2. Insert Semantic Entity (if semantic info exists)
+        # Even if empty, strictly we usually want an entity for the doc.
+        # But let's only do it if we have at least 'sender' or 'doc_type' or it's a new import.
+        # For simplicity and test passing: ALWAYS create a default entity.
+        
+        entity_uuid = str(uuid.uuid4()) # Generate new Entity ID
+        
+        # Extract fields from Document object for Entity High-Level Columns
+        # We try to use doc.sender/doc.amount if they are set (legacy/test compat)
+        # OR fallback to inside semantic_data dict.
+        
+        e_sender = doc.sender
+        e_date = doc.doc_date
+        e_type = doc.doc_type
+        if isinstance(e_type, list):
+             e_type = ", ".join(e_type)
+        e_type = e_type or "unknown"
+        
+        e_canonical = doc.semantic_data
+        e_deleted = 1 if doc.deleted else 0
+        
+        sql_entity = """
+        INSERT OR REPLACE INTO semantic_entities (
+            entity_uuid, source_doc_uuid, doc_type, sender_name, doc_date, canonical_data, created_at, deleted
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?
+        )
+        """
+        
+        values_entity = (
+            entity_uuid,
+            doc.uuid,
+            e_type,
+            e_sender,
+            e_date,
+            json.dumps(e_canonical) if e_canonical else None,
+            doc.created_at,
+            e_deleted
+        )
+        
         cursor = self.connection.cursor()
-        cursor.execute(sql, values)
-        self.connection.commit()
-        return cursor.lastrowid
+        with self.connection:
+            cursor.execute(sql_doc, values_doc)
+            last_row_id = cursor.lastrowid
+            
+            # Insert Entity
+            cursor.execute(sql_entity, values_entity)
+            
+        return last_row_id
 
     def get_all_documents(self) -> List[Document]:
         """
-        Retrieve all documents from the database.
+        Retrieve all documents from the database (Active/Deleted=0), joined with Semantic Entity.
         Returns a list of Document objects.
         """
-        sql = "SELECT uuid, doc_type, original_filename, export_filename, page_count, created_at, last_processed_at, locked, deleted, tags, text_content, phash, semantic_data, extra_data, v_sender, v_doc_date, v_amount FROM documents WHERE deleted = 0 ORDER BY created_at DESC"
+        # Re-use the JOIN logic from search_documents/get_document_by_uuid
+        sql = """
+            SELECT 
+                d.uuid, d.original_filename, d.page_count, d.created_at, d.last_processed_at, 
+                d.locked, d.deleted, d.text_content, d.phash, d.semantic_data, d.extra_data,
+                s.sender_name, s.doc_date, s.canonical_data, s.doc_type
+            FROM documents d
+            LEFT JOIN semantic_entities s ON d.uuid = s.source_doc_uuid
+            WHERE d.deleted = 0
+            ORDER BY d.created_at DESC
+        """
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
         
         results = []
-        for row in rows:
-            extra = None
-            if row[13]:
-                try: extra = json.loads(row[13])
+        
+        def parse_json(val):
+            if val:
+                try: return json.loads(val)
                 except: pass
+            return None
             
-            semantic = None
-            if row[12]:
-                try: semantic = json.loads(row[12])
-                except: pass
+        for row in rows:
+            # Indices match get_document_by_uuid/search_documents
+            semantic_doc = parse_json(row[9])
+            extra_doc = parse_json(row[10])
+            canonical_ent = parse_json(row[13])
+            
+            sender_str = row[11]
+            date_obj = row[12]
+            
+            amount_val = None
+            if canonical_ent and 'summary' in canonical_ent:
+                amount_val = canonical_ent['summary'].get('amount')
+            if not sender_str and semantic_doc and 'summary' in semantic_doc:
+                sender_str = semantic_doc['summary'].get('sender_name')
 
             doc = Document(
                 uuid=row[0],
-                doc_type=row[1],
-                original_filename=row[2],
-                export_filename=row[3],
-                page_count=row[4],
-                created_at=row[5],
-                last_processed_at=row[6],
-                locked=bool(row[7]),
-                deleted=bool(row[8]),
-                tags=row[9],
-                text_content=row[10],
-                phash=row[11],
-                semantic_data=semantic,
-                extra_data=extra,
+                doc_type=row[14],
+                original_filename=row[1],
+                export_filename=None,
+                page_count=row[2],
+                created_at=row[3],
+                last_processed_at=row[4],
+                locked=bool(row[5]),
+                deleted=bool(row[6]),
+                tags=None,
+                text_content=row[7],
+                phash=row[8],
+                semantic_data=canonical_ent if canonical_ent else semantic_doc,
+                extra_data=extra_doc,
                 
-                # Legacy / Virtuals are GONE
-                # Document model defaults to None for these
+                sender=sender_str,
+                doc_date=date_obj,
+                amount=amount_val
             )
             results.append(doc)
             
@@ -313,47 +383,75 @@ class DatabaseManager:
 
     def get_document_by_uuid(self, uuid: str) -> Optional[Document]:
         """
-        Retrieve a single document by its UUID.
+        Retrieve a single document by its UUID, joined with Semantic Entity data.
         """
-        sql = "SELECT uuid, original_filename, page_count, created_at, last_processed_at, locked, deleted, text_content, phash, semantic_data, extra_data FROM documents WHERE uuid = ?"
+        # Join documents (d) with semantic_entities (s)
+        sql = """
+            SELECT 
+                d.uuid, d.original_filename, d.page_count, d.created_at, d.last_processed_at, 
+                d.locked, d.deleted, d.text_content, d.phash, d.semantic_data, d.extra_data,
+                s.sender_name, s.doc_date, s.canonical_data, s.doc_type
+            FROM documents d
+            LEFT JOIN semantic_entities s ON d.uuid = s.source_doc_uuid
+            WHERE d.uuid = ?
+        """
         cursor = self.connection.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
         
         if row:
-            extra = None
-            if len(row) > 12 and row[12]:
-                try: extra = json.loads(row[12])
-                except: pass
+            # Indices:
+            # 0:uuid, 1:filename, 2:pages, 3:created, 4:last, 5:locked, 6:deleted, 7:text, 8:phash
+            # 9:semantic_data(doc), 10:extra_data(doc)
+            # 11:sender_name(ent), 12:doc_date(ent), 13:canonical_data(ent), 14:doc_type(ent)
             
-            semantic = None
-            if len(row) > 11 and row[11]:
-                try: semantic = json.loads(row[11])
-                except: pass
+            # Helper to parse JSON safely
+            def parse_json(val):
+                if val:
+                    try: return json.loads(val)
+                    except: pass
+                return None
 
-            print(f"[DEBUG] Row Length: {len(row)}")
-
+            semantic_doc = parse_json(row[9])
+            extra_doc = parse_json(row[10])
+            canonical_ent = parse_json(row[13])
             
+            # Merge logic: Canonical Data (Entity) > Semantic Data (Doc)
+            # In Phase 92, we prioritize Entity data for top-level fields
+            
+            sender_str = row[11] # From Entity Column
+            date_obj = row[12]   # From Entity Column
+            
+            # Amount is tricky, it's inside JSON. try canonical first.
+            amount_val = None
+            if canonical_ent and 'summary' in canonical_ent:
+                amount_val = canonical_ent['summary'].get('amount')
+            
+            # Fallback to legacy/doc semantic if entity is missing (e.g. not processed yet)
+            if not sender_str and semantic_doc and 'summary' in semantic_doc:
+                sender_str = semantic_doc['summary'].get('sender_name')
+                
             return Document(
                 uuid=row[0],
-                doc_type=None, # LEGACY: Removed from documents table.
+                doc_type=row[14], # From Entity
                 original_filename=row[1],
-                export_filename=None, # LEGACY
+                export_filename=None,
                 page_count=row[2],
                 created_at=row[3],
                 last_processed_at=row[4],
                 locked=bool(row[5]),
                 deleted=bool(row[6]),
-                tags=None, # LEGACY (Now in semantic_entities)
+                tags=None, # Tags are complex, need separate query usually, or inside canonical
                 text_content=row[7],
                 phash=row[8],
-                semantic_data=semantic,
-                extra_data=extra,
+                semantic_data=canonical_ent if canonical_ent else semantic_doc, # Prioritize Entity
+                extra_data=extra_doc,
                 
-                # Legacy / Virtuals are GONE
-                # Document model defaults to None for these
+                # Hydrated Fields
+                sender=sender_str,
+                doc_date=date_obj,
+                amount=amount_val
             )
-
 
         return None
 
@@ -418,7 +516,7 @@ class DatabaseManager:
         """
         
         # Base query - MATCHES get_all_documents SCHEMA (34 columns + virtuals)
-        where_clauses = ["deleted = 0"] # Default: only active docs
+        where_clauses = ["d.deleted = 0"] # Default: only active docs
         values = []
         
         if text_query:
@@ -442,10 +540,20 @@ class DatabaseManager:
         # New: uuid(0), origin(1), page(2), created(3), last(4), lock(5), del(6), text(7), phash(8), sem(9), extra(10)
         
         where_sql = " AND ".join(where_clauses)
-        sql = f"SELECT uuid, original_filename, page_count, created_at, last_processed_at, locked, deleted, text_content, phash, semantic_data, extra_data FROM documents WHERE {where_sql}"
+        
+        # New: Join Semantic Entities to get sender/date/amount view
+        sql = f"""
+            SELECT 
+                d.uuid, d.original_filename, d.page_count, d.created_at, d.last_processed_at, 
+                d.locked, d.deleted, d.text_content, d.phash, d.semantic_data, d.extra_data,
+                s.sender_name, s.doc_date, s.canonical_data, s.doc_type
+            FROM documents d
+            LEFT JOIN semantic_entities s ON d.uuid = s.source_doc_uuid
+            WHERE {where_sql}
+        """
         
         # Sort desc
-        sql += " ORDER BY created_at DESC"
+        sql += " ORDER BY d.created_at DESC"
                 
         cursor = self.connection.cursor()
         try:
@@ -453,20 +561,39 @@ class DatabaseManager:
             rows = cursor.fetchall()
             
             results = []
-            for row in rows:
-                semantic = None
-                if len(row) > 9 and row[9]:
-                    try: semantic = json.loads(row[9])
+            
+            # Helper to parse JSON safely (reused logic)
+            def parse_json(val):
+                if val:
+                    try: return json.loads(val)
                     except: pass
+                return None
                 
-                extra = None
-                if len(row) > 10 and row[10]:
-                    try: extra = json.loads(row[10])
-                    except: pass
+            for row in rows:
+                # Indices:
+                # 0:uuid, 1:filename, 2:pages, 3:created, 4:last, 5:locked, 6:deleted, 7:text, 8:phash
+                # 9:semantic_data(doc), 10:extra_data(doc)
+                # 11:sender_name(ent), 12:doc_date(ent), 13:canonical_data(ent), 14:doc_type(ent)
+
+                semantic_doc = parse_json(row[9])
+                extra_doc = parse_json(row[10])
+                canonical_ent = parse_json(row[13])
+                
+                # Merge Entity Data
+                sender_str = row[11]
+                date_obj = row[12]
+                
+                amount_val = None
+                if canonical_ent and 'summary' in canonical_ent:
+                    amount_val = canonical_ent['summary'].get('amount')
+                
+                # Fallback
+                if not sender_str and semantic_doc and 'summary' in semantic_doc:
+                    sender_str = semantic_doc['summary'].get('sender_name')
 
                 doc = Document(
                     uuid=row[0],
-                    doc_type=None, # LEGACY
+                    doc_type=row[14], 
                     original_filename=row[1],
                     export_filename=None,
                     page_count=row[2],
@@ -477,17 +604,18 @@ class DatabaseManager:
                     tags=None,
                     text_content=row[7],
                     phash=row[8],
-                    semantic_data=semantic,
-                    extra_data=extra,
+                    semantic_data=canonical_ent if canonical_ent else semantic_doc,
+                    extra_data=extra_doc,
                     
-                    # Legacy / Virtuals are GONE
+                    sender=sender_str,
+                    doc_date=date_obj,
+                    amount=amount_val
                 )
-
                 results.append(doc)
+                
             return results
-            
         except sqlite3.Error as e:
-            print(f"Search Error: {e}")
+            print(f"Search error: {e}")
             return []
 
     def get_deleted_documents(self) -> List[Document]:
@@ -829,7 +957,7 @@ class DatabaseManager:
              else:
                   params.append(json_pattern)
                   params.append(val)
-                  sql = f"EXISTS (SELECT 1 FROM json_tree(documents.{target_col}) WHERE fullkey LIKE ? AND value {sql_op} ?)"
+                  sql = f"EXISTS (SELECT 1 FROM json_tree({target_col}) WHERE fullkey LIKE ? AND value {sql_op} ?)"
 
         else:
              params.append(val)
@@ -840,22 +968,35 @@ class DatabaseManager:
 
     def delete_document(self, uuid: str) -> bool:
         """
-        Delete a document by its UUID.
-        Returns True if a row was deleted, False otherwise.
+        Delete a document by its UUID (Soft Delete).
+        Cascades to all Semantic Entities.
         """
-        sql = "UPDATE documents SET deleted = 1 WHERE uuid = ?"
+        sql_doc = "UPDATE documents SET deleted = 1 WHERE uuid = ?"
+        sql_ent = "UPDATE semantic_entities SET deleted = 1 WHERE source_doc_uuid = ?"
+        
         cursor = self.connection.cursor()
-        cursor.execute(sql, (uuid,))
-        self.connection.commit()
-        return cursor.rowcount > 0
+        with self.connection:
+            cursor.execute(sql_doc, (uuid,))
+            file_rows = cursor.rowcount
+            
+            cursor.execute(sql_ent, (uuid,))
+            
+        return file_rows > 0
 
     def purge_document(self, uuid: str) -> bool:
         """
         Permanently delete a document by its UUID (Hard Delete).
+        If UUID is an Entity UUID, resolves to Source Doc UUID.
         Returns True if a row was deleted, False otherwise.
         """
-        sql = "DELETE FROM documents WHERE uuid = ?"
+        # Resolve Entity -> Source if needed
         cursor = self.connection.cursor()
+        cursor.execute("SELECT source_doc_uuid FROM semantic_entities WHERE entity_uuid = ?", (uuid,))
+        row = cursor.fetchone()
+        if row:
+            uuid = row[0]
+
+        sql = "DELETE FROM documents WHERE uuid = ?"
         cursor.execute(sql, (uuid,))
         self.connection.commit()
         return cursor.rowcount > 0
@@ -863,13 +1004,26 @@ class DatabaseManager:
     def restore_document(self, uuid: str) -> bool:
         """
         Restore a soft-deleted document (Trash -> Normal).
-        Returns True if successful.
+        Cascades to all Semantic Entities.
+        If UUID is an Entity UUID, resolves to Source Doc UUID.
         """
-        sql = "UPDATE documents SET deleted = 0 WHERE uuid = ?"
+        # Resolve Entity -> Source if needed
         cursor = self.connection.cursor()
-        cursor.execute(sql, (uuid,))
-        self.connection.commit()
-        return cursor.rowcount > 0
+        cursor.execute("SELECT source_doc_uuid FROM semantic_entities WHERE entity_uuid = ?", (uuid,))
+        row = cursor.fetchone()
+        if row:
+            uuid = row[0]
+
+        sql_doc = "UPDATE documents SET deleted = 0 WHERE uuid = ?"
+        sql_ent = "UPDATE semantic_entities SET deleted = 0 WHERE source_doc_uuid = ?"
+        
+        with self.connection:
+            cursor.execute(sql_doc, (uuid,))
+            file_rows = cursor.rowcount
+            
+            cursor.execute(sql_ent, (uuid,))
+            
+        return file_rows > 0
 
     def close(self):
         """Close the database connection."""

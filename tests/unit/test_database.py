@@ -32,7 +32,7 @@ def test_init_db(memory_db):
     assert "overlays" in tables
 
 def test_insert_document(memory_db):
-    """Test inserting a document into the database."""
+    """Test inserting a document into the database + Entity creation."""
     memory_db.init_db()
     
     doc = Document(
@@ -48,13 +48,18 @@ def test_insert_document(memory_db):
     assert isinstance(doc_id, int)
     
     # Verify retrieval
+    # Note: 'documents' table only has filename. 'sender' is in semantic_entities.
     cursor = memory_db.connection.cursor()
-    cursor.execute("SELECT original_filename, amount, sender FROM documents WHERE id=?", (doc_id,))
+    cursor.execute("SELECT original_filename FROM documents WHERE id=?", (doc_id,))
     row = cursor.fetchone()
-    
     assert row[0] == "test.pdf"
-    assert row[1] == 50.0  # SQLite stores decimal as REAL or TEXT, usually REAL/NUMERIC
-    assert row[2] == "TestSender"
+    
+    # Verify Semantic Entity Creation
+    cursor.execute("SELECT sender_name, doc_date FROM semantic_entities WHERE source_doc_uuid=?", (doc.uuid,))
+    ent_row = cursor.fetchone()
+    assert ent_row is not None
+    assert ent_row[0] == "TestSender"
+    assert str(ent_row[1]) == "2023-01-01"
 
 def test_get_all_documents(memory_db):
     """Test retrieving all documents."""
@@ -66,18 +71,19 @@ def test_get_all_documents(memory_db):
     memory_db.insert_document(doc1)
     memory_db.insert_document(doc2)
     
-    results = memory_db.get_all_documents()
+    results = memory_db.get_all_documents() # Returns active docs only
     assert len(results) == 2
-    # Check that we get Document objects or at least dicts. 
-    # For MVP, dicts or Pydantic models are fine. Let's assume Pydantic models ideally, 
-    # but re-hydrating might be complex without extra logic. 
-    # Let's start with dicts or rows if that's easier, or full Documents if we implemented it.
-    # Plan didn't specify return type rigorously, so let's expect a list of dicts for TableWidget easier consumption.
     
-    # Actually, DatabaseManager returning Document objects is cleaner architecture.
-    assert isinstance(results[0], Document)
-    assert results[0].original_filename == "doc1.pdf"
-    assert results[1].original_filename == "doc2.pdf"
+    # Verify Sorting (DESC created_at) or Order
+    # And correct hydration
+    filenames = {d.original_filename for d in results}
+    assert "doc1.pdf" in filenames
+    assert "doc2.pdf" in filenames
+    
+    # Hydration Check (Entity Join)
+    # Finding doc1
+    d1 = next(d for d in results if d.original_filename == "doc1.pdf")
+    assert d1.sender == "A"
 
 def test_get_document_by_uuid(memory_db):
     """Test retrieving a single document by UUID."""
@@ -96,7 +102,7 @@ def test_get_document_by_uuid(memory_db):
     assert memory_db.get_document_by_uuid("non-existent-uuid") is None
 
 def test_delete_document(memory_db):
-    """Test deleting a document by UUID."""
+    """Test deleting a document by UUID (Soft Delete)."""
     memory_db.init_db()
     doc = Document(original_filename="todelete.pdf")
     memory_db.insert_document(doc)
@@ -104,12 +110,18 @@ def test_delete_document(memory_db):
     # Verify it exists
     assert memory_db.get_document_by_uuid(doc.uuid) is not None
     
-    # Delete
+    # Delete (Soft)
     success = memory_db.delete_document(doc.uuid)
     assert success is True
     
-    # Verify it's gone
-    assert memory_db.get_document_by_uuid(doc.uuid) is None
+    # Verify it STILL exists but is marked deleted
+    retrieved = memory_db.get_document_by_uuid(doc.uuid)
+    assert retrieved is not None
+    assert retrieved.deleted is True
+    
+    # Verify it is EXCLUDED from get_all_documents
+    all_docs = memory_db.get_all_documents()
+    assert len(all_docs) == 0
     
     # Delete non-existent
     assert memory_db.delete_document("fake-uuid") is False

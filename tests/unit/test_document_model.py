@@ -26,7 +26,7 @@ def test_document_optional_fields():
     assert doc.doc_date == today
     assert doc.sender == "Amazon"
     assert doc.amount == Decimal("12.99")
-    assert doc.doc_type == "Rechnung"
+    assert doc.doc_type == ["Rechnung"]
     assert doc.phash == "a1b2c3d4"
     assert doc.text_content == "Total: 12.99"
 

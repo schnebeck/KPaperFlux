@@ -12,6 +12,11 @@ class TestUIDeleteFlow(unittest.TestCase):
         doc = Document(uuid="doc1", original_filename="test.pdf", file_path="/tmp/test.pdf", file_hash="123", file_size=100)
         self.db.insert_document(doc)
         
+        # New behavior: insert_document creates a default entity.
+        # This test manually creates 2 specific entities and expects only 2.
+        # Remove the auto-created one to match expected state.
+        self.db.connection.execute("DELETE FROM semantic_entities WHERE source_doc_uuid = 'doc1'")
+        
         # Entity 1
         self.db.connection.execute(
             "INSERT INTO semantic_entities (entity_uuid, source_doc_uuid, doc_type, deleted) VALUES (?, ?, ?, 0)",

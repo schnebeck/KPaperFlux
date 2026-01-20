@@ -24,6 +24,9 @@ def test_semantic_data_persistence():
             sender="Test Sender",
             semantic_data=mock_semantic
         )
+        # Fix: pipeline calls consolidate_semantics, which returns a Mock by default.
+        # We must configure it to return the input data (pass-through) or the same dict.
+        mock_instance.consolidate_semantics.side_effect = lambda x: x
         
         # 4. Run Analysis (Simulation of _run_ai_analysis or reprocess)
         # We call _run_ai_analysis directly to test the mapping logic

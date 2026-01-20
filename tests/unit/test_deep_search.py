@@ -58,7 +58,10 @@ def test_deep_search():
     results = db.search_documents_advanced(query_item)
     print(f"Query 'Item A' found: {len(results)} docs.")
     assert len(results) == 1
-    assert results[0].uuid == doc.uuid
+    assert len(results) == 1
+    # Check source_uuid instead of primary UUID (which is Entity UUID)
+    # search_documents_advanced returns Entity-View Objects
+    assert results[0].extra_data['source_uuid'] == doc.uuid
     
     # Query 2: Find "Deep Corp" in summary.sender_name
     query_sender = {

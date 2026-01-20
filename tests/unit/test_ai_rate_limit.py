@@ -34,7 +34,7 @@ def test_backoff_on_429(mock_genai):
     
     # Mock Response
     success_response = MagicMock()
-    success_response.text = '{"doc_type": "Success"}'
+    success_response.text = '{"summary": {"doc_type": ["Success"]}}'
     
     # Mock Client
     mock_model = MagicMock()

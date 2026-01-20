@@ -55,10 +55,10 @@ def test_get_available_extra_keys(db_manager):
     # stamps.approved (4) - Deep discovery
     
     expected = sorted([
-        "cost_center", "approved", 
-        "stamps", "stamps.type", "stamps.date", "stamps.user", 
-        "flags", 
-        "stamps.cost_center", "stamps.approved"
+        "json:cost_center", "json:approved", 
+        "json:stamps", "json:stamps.type", "json:stamps.date", "json:stamps.user", 
+        "json:flags", 
+        "json:stamps.cost_center", "json:stamps.approved"
     ])
     
     assert keys == expected

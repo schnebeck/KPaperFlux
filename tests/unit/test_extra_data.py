@@ -85,9 +85,21 @@ def test_ai_analyzer_stamp_parsing():
     
     # Mock Response
     mock_json_response = json.dumps({
-        "sender": "Test Sender",
-        "doc_date": "2023-01-01",
-        "amount": 100.0,
+        "summary": {
+             "doc_type": ["Invoice"],
+             "main_date": "2023-01-01"
+        },
+        "pages": [
+            {
+                "regions": [
+                    {
+                        "type": "address",
+                        "role": "sender",
+                        "structured": {"name": "Test Sender"}
+                    }
+                ]
+            }
+        ],
         "extra_data": {
             "stamps": [
                 {"type": "entry", "date": "2023-01-02", "user": "admin"}
@@ -106,7 +118,11 @@ def test_ai_analyzer_stamp_parsing():
     
     # Assert
     assert result.sender == "Test Sender"
-    assert result.extra_data is not None
-    assert "stamps" in result.extra_data
-    assert result.extra_data["stamps"][0]["type"] == "entry"
-    assert result.extra_data["stamps"][0]["user"] == "admin"
+    
+    # Phase 90: AIAnalyzer puts everything into 'semantic_data'
+    # extra_data property on result might be None, so check semantic_data
+    assert result.semantic_data is not None
+    assert "extra_data" in result.semantic_data
+    assert "stamps" in result.semantic_data["extra_data"]
+    assert result.semantic_data["extra_data"]["stamps"][0]["type"] == "entry"
+    assert result.semantic_data["extra_data"]["stamps"][0]["user"] == "admin"

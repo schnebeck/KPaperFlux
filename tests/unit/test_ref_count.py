@@ -17,6 +17,12 @@ class TestRefCount(unittest.TestCase):
         doc = Document(uuid="doc1", file_path="/tmp/doc1.pdf", original_filename="doc1.pdf", file_hash="abc", file_size=1024)
         self.db.insert_document(doc)
         
+        # FIX: insert_document creates a default semantic entity.
+        # This interferes with the manual ref counting test.
+        # Remove the auto-created entity to start with 0 refs.
+        self.db.connection.execute("DELETE FROM semantic_entities WHERE source_doc_uuid = 'doc1'")
+        self.db.connection.execute("UPDATE documents SET ref_count = 0 WHERE uuid = 'doc1'")
+        
         # Verify initial refs (0)
         cursor = self.db.connection.cursor()
         cursor.execute("SELECT ref_count FROM documents WHERE uuid = 'doc1'")
