@@ -11,8 +11,11 @@ from google.genai.errors import ClientError
 from core.models.canonical_entity import (
     DocType, InvoiceData, LogisticsData, BankStatementData, 
     TaxAssessmentData, ExpenseData, UtilityData, ContractData, 
+    DocType, InvoiceData, LogisticsData, BankStatementData, 
+    TaxAssessmentData, ExpenseData, UtilityData, ContractData, 
     InsuranceData, VehicleData, MedicalData, LegalMetaData
 )
+from core.models.identity import IdentityProfile
 
 @dataclass
 class AIAnalysisResult:
@@ -352,10 +355,83 @@ class AIAnalyzer:
             return AIAnalysisResult()
     def identify_entities(self, text: str, semantic_data: dict = None) -> List[dict]:
         """
-        Phase 1 of Canonization: Identify distinct documents in the text.
-        Uses semantic_data (if available) to guide the split.
-        Returns: [{"type": "INVOICE", "pages": [1,2], "confidence": 0.9}, ...]
+        Phase 1 of Canonization: Identify distinct documents.
+        Uses semantic_data if available (Phase 98 Refinement), otherwise fallback to text.
         """
+        if semantic_data and isinstance(semantic_data, dict) and "pages" in semantic_data:
+            # Phase 98: Use Semantic JSON Refinement
+            print("[AIAnalyzer] Using Semantic JSON for Entity Identification (Refinement Mode)")
+            return self.refine_semantic_entities(semantic_data)
+        
+        # Legacy / Fallback Mode (Raw Text)
+        return self._identify_entities_legacy(text, semantic_data)
+
+    def refine_semantic_entities(self, semantic_data: dict) -> List[dict]:
+        """
+        Phase 98: Analyzes the Semantic JSON structure to identify Logical Entities.
+        Goals:
+        - Detect Logical Boundaries (Start/End Page).
+        - Merge content spanning pages (e.g. Tables).
+        - Detach content from physical page numbers.
+        """
+        # 1. Extract Existing Type Hints
+        existing_types_str = "OTHER"
+        summary = semantic_data.get("summary", {})
+        if "doc_type" in summary:
+            # Can be list or string
+            dt = summary["doc_type"]
+            if isinstance(dt, list):
+                existing_types_str = ", ".join(dt)
+            else:
+                existing_types_str = str(dt)
+
+        # 2. Serialize semantic_data (Truncate if huge, but JSON usually fits)
+        json_str = json.dumps(semantic_data, ensure_ascii=False)
+        
+        prompt = f"""
+        You are a Semantic Document Architect.
+        Your input is a "Physical Page Structure" (JSON) of a file.
+        Your goal is to transform this into a "Logical Document Structure".
+        
+        ### EXISTING ANALYSIS
+        The system has already detected the following Document Types: {existing_types_str}.
+        You MUST respect these types. Do NOT invent new types.
+        
+        ### INPUT (Physical Structure)
+        {json_str}
+        
+        ### TASK
+        1. Analyze the JSON structure (Regions, Blocks).
+        2. Identify Logical Document Boundaries (Start/End Pages).
+           - MERGE content that spans multiple pages (e.g. a Table starting on Page 1 and ending on Page 2 is ONE logical unit).
+        3. Return the start/end pages for each logical entity.
+        
+        ### OUTPUT
+        Return a JSON LIST of Logical Entities:
+        [
+          {{
+            "type": "INVOICE", // Use the type from EXISTING ANALYSIS
+            "pages": [1, 2, 3], // The physical pages belonging to this entity
+            "confidence": 0.99,
+            "hints": "Table spans pages 1-3. Total amount found on page 3."
+          }}
+        ]
+        """
+        
+        try:
+             result = self._generate_json(prompt)
+             # Explicit logging for User Visibility
+             print(f"\n[Refinement Result] AI Output: {json.dumps(result, indent=2)}\n")
+             
+             if isinstance(result, list): return result
+             if isinstance(result, dict) and "entities" in result: return result["entities"]
+             return []
+        except Exception as e:
+             print(f"[Refinement] Failed: {e}")
+             return []
+
+    def _identify_entities_legacy(self, text: str, semantic_data: dict = None) -> List[dict]:
+        # ... (Original identify_entities logic mooved here) ...
         if not text: return []
         
         # Build hints from semantic data
@@ -368,13 +444,9 @@ class AIAnalyzer:
 
         # Strict List allowed by system (Hybrid DMS)
         allowed_types = [
-            # Trade
             "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT", "DUNNING",
-            # Finance
             "BANK_STATEMENT", "TAX_ASSESSMENT", "EXPENSE_REPORT", "UTILITY_BILL",
-            # Legal & HR
             "CONTRACT", "INSURANCE_POLICY", "PAYSLIP", "LEGAL_CORRESPONDENCE", "OFFICIAL_LETTER",
-            # Misc
             "CERTIFICATE", "MEDICAL_DOCUMENT", "VEHICLE_REGISTRATION", "APPLICATION", "NOTE", "OTHER"
         ]
 
@@ -512,18 +584,241 @@ class AIAnalyzer:
         }}
         
         ### RULES
-        - Use ISO Dates (YYYY-MM-DD).
-        - Use Floats for money/numbers.
+        - Use ISO Dates (YYYY-MM-DD). Format: "2023-12-31".
+        - Use Floats for money (e.g. 10.50), NOT strings.
+        - Null handling: Use null for missing fields, do NOT use "n/a" or "unknown".
         - Extract ALL line items if possible.
+        - Strict JSON: Do not include comments or "..." placeholders in the final output.
         
         ### TEXT CONTENT
         {text[:100000]}
         """
         
+        print("\n=== [DEBUG] STAGE 2 EXTRACTION PROMPT ===")
+        print(prompt)
+        print("=========================================\n")
+        
         try:
-            return self._generate_json(prompt) or {}
+            raw_data = self._generate_json(prompt) or {}
+            
+            # Phase 94 Validation Logic
+            if target_model and "specific_data" in raw_data:
+                # Merge top-level fields into specific_data if model implies flat structure?
+                # Actually CanonicalEntity separates `specific_data`. 
+                # Let's try to validate the SPECIFIC part using target_model
+                try:
+                    # target_model expects the full structure? 
+                    # No, target_model (e.g. InvoiceData) is the Specific Data block or the Full Entity?
+                    # Looking at canonical_entity.py: `class InvoiceData(BaseModel)`
+                    # `class CanonicalEntity(BaseModel): ... specific_data: Optional[Union[InvoiceData...]]`
+                    
+                    # So we should validate the inner part?
+                    spec_data = raw_data.get("specific_data", {})
+                    if spec_data:
+                         validated_spec = target_model(**spec_data)
+                         raw_data["specific_data"] = validated_spec.model_dump()
+                except Exception as e:
+                    print(f"Validation Warning (Specific): {e}")
+                    # Fallback: keep raw or clear? Keep raw for now.
+            
+            # TODO: Validate the outer `CanonicalEntity` too?
+            # Creating a transient CanonicalEntity to coerce top-level fields (doc_date, etc.)
+            try:
+                # We need to handle 'doc_type' conversion string -> Enum
+                if "doc_type" in raw_data and isinstance(raw_data["doc_type"], str):
+                     # If it matches enum
+                     try:
+                         # Ensure it's uppercase
+                         raw_data["doc_type"] = raw_data["doc_type"].upper()
+                     except: pass
+
+                # Attempt full validation if possible, or just coercion of known fields
+                # For now, let's minimally coerce 'total_amount' if it sits in specific_data or root?
+                # The prompt asks for `specific_data`.
+                pass
+            except:
+                pass
+                
+            return raw_data
         except Exception as e:
             print(f"CDM Extraction Failed: {e}")
+            return {}
+
+    def parse_identity_signature(self, text: str) -> Optional[IdentityProfile]:
+        """
+        Phase 101: Analyze signature text to extract structured IdentityProfile.
+        """
+        prompt = f"""
+        You are a Settings Assistant. 
+        Extract user identity data from the provided signature/imprint text.
+
+        ### TARGET JSON SCHEMA
+        {{
+          "name": "String (Official Person Name or Main Entity Name)",
+          "aliases": ["String", "String"], // Variations of the name
+          
+          "company_name": "String (Official Company Name, e.g. 'ACME GmbH')",
+          "company_aliases": ["String"], // e.g. 'ACME', 'ACME Germany'
+          
+          "address_keywords": ["String", "String"], // City, Street, Zip (atomic parts)
+          "vat_id": "String (or null)",
+          "iban": ["String"] // List of IBANs found
+        }}
+
+        ### RULES
+        - **Company:** If a company is mentioned (e.g. 'GmbH', 'Inc'), extract it specifically into `company_name`.
+        - **Aliases:** Generate plausible variations if not explicitly stated (e.g. if Name is "Thomas Müller", Alias could be "T. Müller").
+        - **Address Keywords:** Do NOT return the full address string. Return the unique parts (Streetname, Zip, City) as a list for fuzzy matching later.
+        - **VAT/IBAN:** Extract strictly.
+
+        ### INPUT TEXT
+        {text}
+        """
+        
+        try:
+            result = self._generate_json(prompt)
+            if not result:
+                return None
+                
+            # Convert to Pydantic Model
+            return IdentityProfile(
+                name=result.get("name"),
+                aliases=result.get("aliases", []),
+                company_name=result.get("company_name"),
+                company_aliases=result.get("company_aliases", []),
+                address_keywords=result.get("address_keywords", []),
+                vat_id=result.get("vat_id"),
+                iban=result.get("iban", [])
+            )
+        except Exception as e:
+            print(f"Identity Parsing Failed: {e}")
+            return None
+
+    def classify_structure(self, pages_text: List[str], 
+                         private_id: Optional[IdentityProfile], 
+                         business_id: Optional[IdentityProfile]) -> Dict[str, Any]:
+        """
+        Phase 102: Master Classification Step.
+        Uses 'Sandwich' input (First/Last Page) and User Identities to determine:
+        1. DocType
+        2. Direction (INBOUND/OUTBOUND)
+        3. Tenant Context (PRIVATE/BUSINESS)
+        """
+        if not pages_text:
+            print("[DEBUG] classify_structure called with empty pages_text!")
+            return {}
+            
+        print(f"[DEBUG] classify_structure scanning {len(pages_text)} pages...")
+            
+        # 1. Build Sandwich Text
+        # Plaintext construction with markers
+        sandwich_parts = []
+        
+        # First Page
+        sandwich_parts.append("--- PAGE 1 (START) ---")
+        sandwich_parts.append(pages_text[0])
+        
+        # Second Page (if available) - Requested by User
+        if len(pages_text) > 1:
+            sandwich_parts.append("--- PAGE 2 (START CONTINUED) ---")
+            sandwich_parts.append(pages_text[1])
+            
+        # Last Page (if distinct from first two)
+        # If len > 2, we have at least 3 pages (1, 2, 3...N)
+        # So we add the Last Page.
+        # If len == 2, we already added 1 and 2.
+        
+        if len(pages_text) > 2:
+            last_idx = len(pages_text)
+            if len(pages_text) > 3:
+                 sandwich_parts.append(f"\n... (SKIPPED {last_idx - 3} PAGES) ...\n")
+                 
+            sandwich_parts.append(f"--- PAGE {last_idx} (END) ---")
+            sandwich_parts.append(pages_text[-1])
+            
+        sandwich_text = "\n".join(sandwich_parts)
+        
+        # 2. Build Prompt Context
+        def fmt_id(p: Optional[IdentityProfile]):
+            if not p: return "None"
+            return f"Name: {p.name}, Aliases: {p.aliases}, Company: {p.company_name}, VAT: {p.vat_id}, Address: {p.address_keywords}"
+
+        # 3. Construct System Prompt
+        # 3. Construct System Prompt
+        # Phase 102 Update: Multi-Doc Classification Prompt
+        
+        # Serialize IDs for prompt
+        priv_json_str = private_id.model_dump_json() if private_id else "{}"
+        bus_json_str = business_id.model_dump_json() if business_id else "{}"
+        
+        prompt = f"""
+        You are a Document Analyzer & Splitter for a hybrid DMS.
+        Your task is to analyze the input text and identify ALL distinct logical document types contained within it.
+
+        ### 1. USER IDENTITIES (CONTEXT)
+        Use these to determine `direction` and `tenant_context` for EACH detected document separately.
+
+        A. PRIVATE_IDENTITY: {priv_json_str}
+        B. BUSINESS_IDENTITY: {bus_json_str}
+
+        ### 2. ALLOWED DOCTYPES
+        [
+          "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT", "DUNNING",
+          "PAYSLIP", "SICK_NOTE", "TRAVEL_REQUEST", "EXPENSE_REPORT", "CASH_EXPENSE",
+          "BANK_STATEMENT", "TAX_ASSESSMENT", "UTILITY_BILL",
+          "CONTRACT", "INSURANCE_POLICY", "LEGAL_CORRESPONDENCE", "OFFICIAL_LETTER",
+          "DATASHEET", "MANUAL", "TECHNICAL_DOC",
+          "CERTIFICATE", "MEDICAL_DOCUMENT", "VEHICLE_REGISTRATION", "APPLICATION", "NOTE", 
+          "OTHER"
+        ]
+
+        ### 3. ANALYSIS RULES
+        1. **Multi-Detection:** A single file can contain multiple logical types (e.g., a document titled "Invoice & Order Confirmation").
+           - In this case, output TWO entries: one for INVOICE, one for ORDER_CONFIRMATION.
+        2. **Attachments:** If a main document (e.g., Invoice) has clearly attached appendices (e.g., Timesheets, Manuals) that are significant, detect them as separate entities (e.g., TECHNICAL_DOC).
+        3. **Direction:** Determine direction for each entity independently (though they are usually the same).
+
+        ### 4. OUTPUT SCHEMA (JSON)
+        Return a JSON object containing a list of detected entities.
+
+        {{
+          "source_file_summary": {{
+            "is_hybrid_document": Boolean, // True if >1 distinct types found
+            "primary_language": "de | en | ..."
+          }},
+          "detected_entities": [
+            {{
+              "doc_type": "Enum Value",
+              "direction": "INBOUND | OUTBOUND | INTERNAL | UNKNOWN",
+              "tenant_context": "PRIVATE | BUSINESS | UNKNOWN",
+              "confidence": Float,
+              "reasoning": "Found keyword 'Rechnung' and explicit mention of 'Auftragsbestätigung'"
+            }}
+            // ... add more objects if multiple types found
+          ]
+        }}
+        
+        ### INPUT DOCUMENT CONTENT
+        The following text represents selected pages from the document based on sandwich logic:
+
+        {sandwich_text}
+        """
+        
+        print("\n=== [DEBUG] STAGE 1 CLASSIFICATION PROMPT ===")
+        print(prompt)
+        print("=============================================\n")
+        
+        try:
+            result = self._generate_json(prompt)
+            if result:
+                # Debug Output as requested
+                print("\n=== [DEBUG] STAGE 1 CLASSIFICATION RESULT ===")
+                print(json.dumps(result, indent=2))
+                print("=============================================\n")
+                return result
+            return {}
+        except Exception as e:
+            print(f"Classification Failed: {e}")
             return {}
 
     def _generate_json(self, prompt: str, image=None) -> Any:
@@ -531,7 +826,7 @@ class AIAnalyzer:
         contents = [prompt]
         if image: contents.append(image)
         
-        print(f"\n--- [DEBUG AI PROMPT START] ---\n{prompt}\n--- [DEBUG AI PROMPT END] ---\n")
+        # print(f"\n--- [DEBUG AI PROMPT START] ---\n{prompt}\n--- [DEBUG AI PROMPT END] ---\n")
         
         self._wait_for_cooldown()
         

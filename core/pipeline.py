@@ -297,90 +297,31 @@ class PipelineProcessor:
         Updates the doc object with extracted metadata.
         """
         api_key = os.environ.get("GEMINI_API_KEY") # Or config
-        # Fallback to Config
+        # Phase 95/102: SWITCH TO CANONIZER SERVICE
+        # Replaced Legacy AI Analysis with new Semantic Canonizer logic
+        # This fixes the issue where Re-Analyze used the old 'Generic Prompt'
+        from core.canonizer import CanonizerService
         from core.config import AppConfig
-        if not api_key:
-            config = AppConfig()
-            api_key = config.get_api_key()
-            
-        if not api_key:
-            print("Skipping AI Analysis: No API Key")
-            return
-
-        model_name = "gemini-2.0-flash" # or pro
-        analyzer = AIAnalyzer(api_key, model_name=model_name)
         
-        # Generate Image for Vision
-        image = None
-        if file_path:
-            try:
-                # Render first page as image
-                # poppler_path=None assumes it's in PATH (checked with which pdftoppm)
-                images = convert_from_path(str(file_path), first_page=1, last_page=1)
-                if images:
-                    image = images[0]
-                    print("Generated page image for AI Vision analysis.")
-            except Exception as e:
-                print(f"Vision Generation Failed (pdf2image): {e}")
-                # Continue with text only
+        # Instantiate Canonizer (lightweight)
+        # Note: Canonizer initializes its own AIAnalyzer if none is passed.
+        canonizer = CanonizerService(self.db)
         
-        result = analyzer.analyze_text(doc.text_content, image=image)
+        print(f"[{doc.uuid}] Starting Intelligent Analysis (Stage 1 & 2)...")
+        # Process Document (Split, Classify, Extract) -> Semantic Entities
+        # This handles the cleanup, prompt strategies, and multi-doc support.
+        # Phase 103: Pass file_path for Visual Audit (Stage 1.5)
+        canonizer.process_document(doc.uuid, doc.text_content, file_path=file_path)
         
-        # Phase 72: Semantic Merging (Round 2)
-        if result.semantic_data:
-            print(f"[{doc.uuid}] Running Round 2: Semantic Merging...")
-            merged = analyzer.consolidate_semantics(result.semantic_data)
-            result.semantic_data = merged
+        # We save the document state to ensure last_modified is updated
+        self.db.update_document(doc)
         
-        # Map result to doc
-        if result.sender: doc.sender = result.sender
-        if result.doc_date: doc.doc_date = result.doc_date
-        if result.amount: doc.amount = result.amount
+        # Note: The mapping of semantic data to 'doc' columns is deferred 
+        # or handled by the 'CompositeDocument' logic in the UI.
         
-        # Phase 45 Financials
-        if result.gross_amount: doc.gross_amount = result.gross_amount
-        if result.postage: doc.postage = result.postage
-        if result.packaging: doc.packaging = result.packaging
-        if result.tax_rate: doc.tax_rate = result.tax_rate
-        if result.currency: doc.currency = result.currency
         
-        if result.doc_type: 
-            doc.doc_type = self.vocabulary.normalize_type(result.doc_type)
-
-        if result.tags: 
-            raw_tags = result.tags
-            # Split comma separated tags if any
-            normalized_tags = []
-            for t in raw_tags.split(','):
-                normalized = self.vocabulary.normalize_tag(t.strip())
-                if normalized: normalized_tags.append(normalized)
-            doc.tags = ", ".join(normalized_tags)
-        
-        if result.sender_address: doc.sender_address = result.sender_address
-        if result.iban: doc.iban = result.iban
-        if result.phone: doc.phone = result.phone
-        
-        # Extended fields (Phase 8)
-        if result.recipient_company: doc.recipient_company = result.recipient_company
-        if result.recipient_name: doc.recipient_name = result.recipient_name
-        if result.recipient_street: doc.recipient_street = result.recipient_street
-        if result.recipient_zip: doc.recipient_zip = result.recipient_zip
-        if result.recipient_city: doc.recipient_city = result.recipient_city
-        if result.recipient_country: doc.recipient_country = result.recipient_country
-        
-        if result.sender_company: doc.sender_company = result.sender_company
-        if result.sender_name: doc.sender_name = result.sender_name
-        if result.sender_street: doc.sender_street = result.sender_street
-        if result.sender_zip: doc.sender_zip = result.sender_zip
-        if result.sender_city: doc.sender_city = result.sender_city
-        if result.sender_country: doc.sender_country = result.sender_country
-        
-        # Map Dynamic Data (Stamps, etc.)
-        if result.extra_data: doc.extra_data = result.extra_data
-        
-        # Phase 70: Map Semantic Data
-        if result.semantic_data: 
-            doc.semantic_data = result.semantic_data
+        # Legacy mapping removed (Phase 102).
+        # Semantic data now lives in 'semantic_entities' table.
             
     def _generate_export_filename(self, doc: Document) -> str:
         """

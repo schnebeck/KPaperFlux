@@ -195,3 +195,9 @@ class CanonicalEntity(BaseModel):
     # Source Link
     source_doc_uuid: str 
     page_range: List[int] = [] # [0, 1]
+    
+    # Phase 98: Stamp Integration
+    stamps: List[Dict[str, Any]] = [] # [{"type": "paid", "page": 1, "rect": [...], "text": "Paid"}]
+
+    # Phase 100: Identity & Role
+    direction: Optional[str] = None # "INCOMING" (Kreditor) or "OUTGOING" (Debitor)

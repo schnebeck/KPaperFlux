@@ -156,40 +156,35 @@ def test_reprocess_document_not_found(pipeline):
     result = pipeline.reprocess_document("fake-uuid")
     assert result is None
 
-def test_pipeline_integration_ai(pipeline):
-    """Test that AI analysis is triggered if key is present."""
+@patch("core.canonizer.CanonizerService")
+def test_pipeline_integration_ai(MockCanonizer, pipeline):
+    """Test that AI analysis delegates to Canonizer."""
     # Mock OS environ
     with patch.dict(os.environ, {"GEMINI_API_KEY": "fake_key"}):
-        # Mock AIAnalyzer
-        with patch("core.pipeline.AIAnalyzer") as MockAI:
-            mock_analyzer = MockAI.return_value
-            mock_result = MagicMock()
-            mock_result.sender = "AI Sender"
-            mock_result.amount = 100.00
-            mock_analyzer.analyze_text.return_value = mock_result
-            
-            # Reprocess trigger (or normal flow) - reprocess checks for AI
-            doc = Document(original_filename="ai_test.pdf")
-            doc.text_content = "Some text to analyze"
-            pipeline.db.get_document_by_uuid.return_value = doc
-            pipeline.vault.get_file_path.return_value = "/path/to/file.pdf"
-            
-            # Mock OCR to avoid errors
-            with patch.object(pipeline, '_run_ocr', return_value="Some text to analyze"), \
-                 patch("core.pipeline.Path") as MP, \
-                 patch("core.pipeline.convert_from_path") as MockConvert:
-                    
-                    MP.return_value.exists.return_value = True
-                    mock_image = MagicMock()
-                    MockConvert.return_value = [mock_image]
-                    
-                    pipeline.reprocess_document(doc.uuid)
-            
-            # Verify AI called
-            # Verify AI called (now includes image object)
-            mock_analyzer.analyze_text.assert_called_with("Some text to analyze", image=mock_image)
-            
-            # Verify doc fields updated
-            assert doc.sender == "AI Sender"
-            # Amount handling: mock result is object, doc fields
-            assert doc.amount == 100.00
+        
+        # Setup Canonizer Mock
+        mock_canonizer_instance = MockCanonizer.return_value
+        
+        # Reprocess trigger
+        doc = Document(original_filename="ai_test.pdf")
+        doc.text_content = "Some text to analyze"
+        pipeline.db.get_document_by_uuid.return_value = doc
+        pipeline.vault.get_file_path.return_value = "/path/to/file.pdf"
+        
+        # Mock OCR and Path to avoid errors
+        with patch.object(pipeline, '_run_ocr', return_value="Some text to analyze"), \
+             patch("core.pipeline.Path") as MP:
+                
+                MP.return_value.exists.return_value = True
+                
+                pipeline.reprocess_document(doc.uuid)
+        
+        # Verify Canonizer Initialized with DB
+        MockCanonizer.assert_called_with(pipeline.db)
+        
+        # Verify process_document called
+        mock_canonizer_instance.process_document.assert_called_once()
+        args = mock_canonizer_instance.process_document.call_args[0]
+        # args: (uuid, text_content, file_path=...)
+        assert args[0] == doc.uuid
+        assert args[1] == "Some text to analyze"

@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Any
 from decimal import Decimal
 from datetime import datetime
 from core.document import Document
@@ -158,6 +158,50 @@ class DatabaseManager:
                     self.connection.execute(f"ALTER TABLE documents DROP COLUMN {leg_col}")
                 except sqlite3.OperationalError:
                         pass # Old SQLite or other error. Ignore.
+
+        # Phase 103: Visual Audit Column
+        try:
+             self.connection.execute("ALTER TABLE documents ADD COLUMN visual_audit_json TEXT")
+        except sqlite3.OperationalError: pass
+
+        # Phase 103b: Expanded Audit Columns
+        try:
+             self.connection.execute("ALTER TABLE documents ADD COLUMN ai_ocr_text_page_1 TEXT")
+             self.connection.execute("ALTER TABLE documents ADD COLUMN preferred_ocr_source VARCHAR(20)")
+             self.connection.execute("ALTER TABLE documents ADD COLUMN audit_meta_json TEXT") # Replaces/Aligns with visual_audit_json
+             print("[Database] Added expanded audit columns.")
+        except sqlite3.OperationalError:
+             pass
+             
+        self.connection.commit()
+
+    def save_audit_result(self, doc_uuid: str, clean_text: Optional[str], preferred_source: Optional[str], full_json: str):
+        """
+        Updates the 3 audit columns transactionally.
+        """
+        query = """
+            UPDATE documents 
+            SET ai_ocr_text_page_1 = ?, 
+                preferred_ocr_source = ?, 
+                audit_meta_json = ? 
+            WHERE uuid = ?
+        """
+        with self.connection:
+            self.connection.execute(query, (clean_text, preferred_source, full_json, doc_uuid))
+
+    def update_document_column(self, doc_uuid: str, column: str, value: Any):
+        """
+        Generic helper to update a single column for a document.
+        """
+        # Whitelist allowed columns to prevent injection
+        allowed_columns = ["visual_audit_json", "extra_data", "semantic_data", "locked", "deleted"]
+        if column not in allowed_columns:
+            print(f"[Database] Column '{column}' not allowed for generic update.")
+            return
+
+        query = f"UPDATE documents SET {column} = ? WHERE uuid = ?"
+        with self.connection:
+            self.connection.execute(query, (value, doc_uuid))
 
 
     def insert_document(self, doc: Document) -> int:

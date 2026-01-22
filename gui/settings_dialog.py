@@ -1,10 +1,13 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, 
-    QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget
+    QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit
 )
 from PyQt6.QtCore import pyqtSignal
 from core.config import AppConfig
 from gui.vocabulary_settings import VocabularySettingsWidget
+from core.ai_analyzer import AIAnalyzer
+import json
+from PyQt6.QtCore import Qt
 
 class SettingsDialog(QDialog):
     """
@@ -78,6 +81,38 @@ class SettingsDialog(QDialog):
         self.vocab_widget = VocabularySettingsWidget()
         self.tabs.addTab(self.vocab_widget, self.tr("Vocabulary"))
         
+        # --- Identity Tab (Phase 100) ---
+        identity_tab = QWidget()
+        form_ident = QFormLayout(identity_tab)
+        
+        # Private
+        self.edit_sig_private = QTextEdit()
+        self.edit_sig_private.setPlaceholderText("Max Mustermann\nMusterstraße 1...")
+        self.edit_sig_private.setMaximumHeight(80)
+        
+        btn_analyze_priv = QPushButton(self.tr("Analyze Private Signature with AI"))
+        btn_analyze_priv.setToolTip(self.tr("Extract structured data (Aliases, Address Parts) for better recognition."))
+        btn_analyze_priv.clicked.connect(lambda: self._analyze_signature("PRIVATE"))
+        
+        form_ident.addRow(self.tr("Private Signature:\n(For Output/Debitor detection)"), self.edit_sig_private)
+        form_ident.addRow("", btn_analyze_priv)
+        
+        # Business
+        self.edit_sig_business = QTextEdit()
+        self.edit_sig_business.setPlaceholderText("My Company GmbH\nGeschäftsführer: ...")
+        self.edit_sig_business.setMaximumHeight(80)
+        
+        btn_analyze_bus = QPushButton(self.tr("Analyze Business Signature with AI"))
+        btn_analyze_bus.setToolTip(self.tr("Extract structured data (Aliases, Address Parts) for better recognition."))
+        btn_analyze_bus.clicked.connect(lambda: self._analyze_signature("BUSINESS"))
+        
+        form_ident.addRow(self.tr("Business Signature:\n(For Output/Debitor detection)"), self.edit_sig_business)
+        form_ident.addRow("", btn_analyze_bus)
+        
+        form_ident.addRow(QLabel(self.tr("Note: If these signatures appear in 'Sender', the document is OUTGOING.")))
+        
+        self.tabs.addTab(identity_tab, self.tr("Identity"))
+        
         # Buttons
         btn_box = QHBoxLayout()
         self.btn_save = QPushButton(self.tr("Save"))
@@ -97,6 +132,9 @@ class SettingsDialog(QDialog):
         self.combo_model.setCurrentText(self.config.get_gemini_model())
         self.edit_api_key.setText(self.config.get_api_key())
         
+        self.edit_sig_private.setPlainText(self.config.get_private_signature())
+        self.edit_sig_business.setPlainText(self.config.get_business_signature())
+        
     def _browse_vault(self):
         path = QFileDialog.getExistingDirectory(self, self.tr("Select Vault Directory"), self.edit_vault.text())
         if path:
@@ -114,6 +152,61 @@ class SettingsDialog(QDialog):
         self.config.set_gemini_model(self.combo_model.currentText())
         self.config.set_api_key(self.edit_api_key.text())
         
+        self.config.set_private_signature(self.edit_sig_private.toPlainText())
+        self.config.set_business_signature(self.edit_sig_business.toPlainText())
+        
         # Trigger signal
         self.settings_changed.emit()
         self.accept()
+
+    def _analyze_signature(self, id_type: str):
+        """
+        Phase 101: Analyze user signature with AI.
+        id_type: 'PRIVATE' or 'BUSINESS'
+        """
+        if id_type == "PRIVATE":
+            text = self.edit_sig_private.toPlainText()
+        else:
+            text = self.edit_sig_business.toPlainText()
+            
+        if not text.strip():
+            QMessageBox.warning(self, self.tr("Missing Input"), self.tr("Please enter a signature text first."))
+            return
+            
+        # Instantiate AI (Blocking for MVP)
+        api_key = self.config.get_api_key()
+        if not api_key:
+             QMessageBox.critical(self, self.tr("Error"), self.tr("No API Key configured."))
+             return
+             
+        # Show busy cursor
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        try:
+            # We assume gemini-2.0-flash or configure model
+            analyzer = AIAnalyzer(api_key, model_name=self.config.get_gemini_model())
+            profile = analyzer.parse_identity_signature(text)
+            
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            
+            if profile:
+                # Save JSON
+                json_str = profile.model_dump_json(indent=2)
+                if id_type == "PRIVATE":
+                    self.config.set_private_profile_json(json_str)
+                    target_name = "Private"
+                else:
+                    self.config.set_business_profile_json(json_str)
+                    target_name = "Business"
+                    
+                # Show Result
+                QMessageBox.information(
+                    self, 
+                    self.tr("Analysis Successful"), 
+                    f"Extracted {target_name} Profile:\n\n{json_str}\n\n(Saved to Config)"
+                )
+            else:
+                QMessageBox.warning(self, self.tr("Analysis Failed"), self.tr("AI returned no valid profile."))
+                
+        except Exception as e:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            QMessageBox.critical(self, self.tr("Error"), f"AI Error: {e}")

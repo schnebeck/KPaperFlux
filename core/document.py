@@ -46,6 +46,27 @@ class Document(BaseModel):
             return [v]
         return v
     
+    @field_validator('amount', 'gross_amount', 'postage', 'packaging', 'tax_rate', mode='before')
+    @classmethod
+    def normalize_decimals(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, (int, float, Decimal)):
+            return v
+        if isinstance(v, str):
+            # Handle localized strings "68,50" -> "68.50"
+            v = v.replace(",", ".")
+            # Handle currency symbols if mistakenly included
+            v = v.replace("€", "").replace("$", "").strip()
+            # Handle empty string
+            if not v:
+                return None
+            try:
+                return Decimal(v)
+            except:
+                return None
+        return v
+    
     # Extended Metadata (Phase 3)
     # sender_address might be used as "raw" address or specific fields below
     sender_address: Optional[str] = None 

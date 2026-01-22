@@ -575,28 +575,60 @@ class MainWindow(QMainWindow):
                 
         QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nAI Analysis queued.")
 
-    def import_document_slot(self):
-        """Handle import button click."""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, self.tr("Select Document"), "", self.tr("PDF Files (*.pdf);;All Files (*)")
+    def start_import_process(self, files: list[str], move_source: bool = False):
+        """
+        Unified entry point for importing documents (Menu or Drop).
+        Starts the ImportWorker with a modal ProgressDialog.
+        """
+        if not files or not self.pipeline:
+            return
+
+        count = len(files)
+        
+        # Progress Dialog
+        from PyQt6.QtWidgets import QProgressDialog
+        from PyQt6.QtCore import QCoreApplication
+        
+        progress = QProgressDialog(self.tr("Initializing Import..."), self.tr("Cancel"), 0, count, self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        
+        # Force Render
+        progress.show()
+        QCoreApplication.processEvents()
+        
+        # Worker Setup
+        self.import_worker = ImportWorker(self.pipeline, files, move_source=move_source)
+        
+        # Signals
+        self.import_worker.progress.connect(
+            lambda i, fname: (
+                progress.setLabelText(self.tr(f"Importing {i+1}/{count}: {os.path.basename(fname)}...")),
+                progress.setValue(i)
+            )
         )
         
-        if file_path and self.pipeline:
-            try:
-                doc = self.pipeline.process_document(file_path)
-                QMessageBox.information(
-                    self, self.tr("Success"), self.tr("Document imported successfully!") + f"\nUUID: {doc.uuid}"
-                )
-                if self.list_widget:
-                    self.list_widget.refresh_list()
-            except Exception as e:
-                QMessageBox.critical(
-                    self, self.tr("Error"), self.tr("Failed to process document: {}").format(e)
-                )
-        elif not self.pipeline:
-            # Fallback/Debug if pipeline is missing
-            print(f"Selected: {file_path}, but no pipeline connected.")
+        self.import_worker.finished.connect(
+            lambda s, t, uuids, err: self._on_import_finished(s, t, uuids, err, progress)
+        )
+        
+        progress.canceled.connect(self.import_worker.cancel)
+        
+        self.import_worker.start()
 
+    def import_document_slot(self):
+        """Handle import button click (File Menu)."""
+        # Supports multiple files now
+        files, _ = QFileDialog.getOpenFileNames(
+            self, self.tr("Select Documents"), "", self.tr("PDF Files (*.pdf);;All Files (*)")
+        )
+        
+        if files:
+            # Default to Copy (move_source=False) for menu import, 
+            # or we could ask via dialog, but simple behavior is best for standard 'Open'.
+            self.start_import_process(files, move_source=False)
+        
     def open_scanner_slot(self):
         """Open scanner dialog and process result."""
         from gui.scanner_dialog import ScannerDialog
@@ -778,40 +810,16 @@ class MainWindow(QMainWindow):
         
         if dialog.exec() == QDialog.DialogCode.Accepted:
             move_source = chk_move.isChecked()
-            success_count = 0
-            count = len(files)
-            
-            # Progress Dialog
-            from PyQt6.QtWidgets import QProgressDialog
-            from PyQt6.QtCore import QCoreApplication
-            
-            progress = QProgressDialog(self.tr("Extracting & Indexing..."), self.tr("Cancel"), 0, count, self)
-            progress.setWindowModality(Qt.WindowModality.WindowModal)
-            progress.setMinimumDuration(0)
-            progress.forceShow()
-            QCoreApplication.processEvents()
-            
-            # Worker Setup
-            self.import_worker = ImportWorker(self.pipeline, files, move_source=move_source)
-            
-            # Signals
-            self.import_worker.progress.connect(
-                lambda i, fname: (
-                    progress.setLabelText(self.tr(f"Importing {os.path.basename(fname)}...")),
-                    progress.setValue(i)
-                )
-            )
-            
-            self.import_worker.finished.connect(
-                lambda s, t, uuids, err: self._on_import_finished(s, t, uuids, err, progress)
-            )
-            
-            progress.canceled.connect(self.import_worker.cancel)
-            
-            self.import_worker.start()
+            self.start_import_process(files, move_source=move_source)
 
     def _on_import_finished(self, success_count, total, imported_uuids, error_msg, progress_dialog):
         progress_dialog.close()
+        
+        # Safe Thread Cleanup
+        if self.import_worker:
+            self.import_worker.wait() # Ensure finished
+            self.import_worker.deleteLater()
+            self.import_worker = None
         
         if error_msg:
              QMessageBox.critical(self, self.tr("Import Error"), error_msg)

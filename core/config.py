@@ -86,3 +86,28 @@ class AppConfig:
         
     def set_api_key(self, key: str):
         self._set_setting("AI", self.KEY_API_KEY, key)
+
+    # --- Phase 100: Identity ---
+    def get_private_signature(self) -> str:
+        return str(self._get_setting("Identity", "private_signature", ""))
+        
+    def set_private_signature(self, sig: str):
+        self._set_setting("Identity", "private_signature", sig)
+        
+    def get_business_signature(self) -> str:
+        return str(self._get_setting("Identity", "business_signature", ""))
+        
+    def set_business_signature(self, sig: str):
+        self._set_setting("Identity", "business_signature", sig)
+
+    def get_private_profile_json(self) -> str:
+        return str(self._get_setting("Identity", "private_profile", "{}"))
+
+    def set_private_profile_json(self, json_str: str):
+        self._set_setting("Identity", "private_profile", json_str)
+
+    def get_business_profile_json(self) -> str:
+        return str(self._get_setting("Identity", "business_profile", "{}"))
+
+    def set_business_profile_json(self, json_str: str):
+        self._set_setting("Identity", "business_profile", json_str)
