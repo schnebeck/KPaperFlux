@@ -15,6 +15,7 @@ class SplitDividerWidget(QWidget):
         super().__init__(parent)
         self.page_index_before = page_index_before
         self.is_active = False # State: Is this a cut point?
+        self.is_boundary = False # If True, cannot be disabled
         
         self.setFixedWidth(40) # Wider to fit 28px icon comfortably
         
@@ -51,8 +52,12 @@ class SplitDividerWidget(QWidget):
     def set_active(self, active: bool):
         self.is_active = active
         if active:
-             self.line.setStyleSheet("background-color: transparent; border-left: 2px solid #d32f2f;")
-             self.icon_label.setStyleSheet("color: white; font-size: 20px; background: #d32f2f; border: 1px solid #d32f2f; border-radius: 12px;")
+             if self.is_boundary:
+                  self.line.setStyleSheet("background-color: transparent; border-left: 2px solid #555;")
+                  self.icon_label.setStyleSheet("color: white; font-size: 20px; background: #555; border: 1px solid #555; border-radius: 12px;")
+             else:
+                  self.line.setStyleSheet("background-color: transparent; border-left: 2px solid #d32f2f;")
+                  self.icon_label.setStyleSheet("color: white; font-size: 20px; background: #d32f2f; border: 1px solid #d32f2f; border-radius: 12px;")
              self.icon_label.setVisible(True)
         else:
              self.line.setStyleSheet("background-color: transparent; border-left: 2px dashed #ccc;")
@@ -81,6 +86,8 @@ class SplitDividerWidget(QWidget):
         
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            if self.is_boundary:
+                 return # Fixed split at file boundary
             # Toggle State
             self.set_active(not self.is_active)
             self.split_requested.emit()
@@ -172,7 +179,8 @@ class PageThumbnailWidget(QWidget):
     """
     Displays a single page thumbnail with Overlay UI. Supports Lazy Loading.
     """
-    remove_requested = pyqtSignal()
+    rotated = pyqtSignal()
+    delete_toggled = pyqtSignal()
 
     def __init__(self, page_info: dict, pipeline, parent=None):
         super().__init__(parent)
@@ -306,6 +314,7 @@ class PageThumbnailWidget(QWidget):
         
         self.last_drawn_height = 0 
         self.resizeEvent(None)
+        self.rotated.emit()
         
     def toggle_delete(self):
         self.is_deleted = not self.is_deleted
@@ -321,6 +330,7 @@ class PageThumbnailWidget(QWidget):
             self.lbl_img.setStyleSheet("border: 1px solid #ccc; background: white;")
             
         self.resizeEvent(None)
+        self.delete_toggled.emit()
         
     def resizeEvent(self, event):
         # Enforce Aspect Ratio Geometry on the WIDGET itself
@@ -375,6 +385,7 @@ class SplitterStripWidget(QWidget):
         super().__init__(parent)
         self.current_uuid = None
         self.pipeline = None
+        self.undo_stack = [] # List of (type, widget)
         self.init_ui()
         
     def init_ui(self):
@@ -478,12 +489,15 @@ class SplitterStripWidget(QWidget):
             # 1. Automatic Split before boundary files
             if pg_info.get("is_boundary"):
                 div = SplitDividerWidget(page_index_before=i-1)
+                div.is_boundary = True # Locked
                 div.set_active(True) # Default split at file boundaries
-                div.split_requested.connect(lambda idx=i-1: self.on_split_clicked(idx))
+                div.split_requested.connect(lambda idx=i-1, d=div: self.on_split_clicked(idx, d))
                 self.content_layout.addWidget(div)
 
             # 2. Thumbnail
             thumb = PageThumbnailWidget(pg_info, self.pipeline)
+            thumb.rotated.connect(lambda t=thumb: self.record_action("ROTATE", t))
+            thumb.delete_toggled.connect(lambda t=thumb: self.record_action("DELETE", t))
             thumb.remove_requested.connect(lambda t=thumb: self.remove_thumbnail(t))
             self.content_layout.addWidget(thumb)
             
@@ -493,7 +507,7 @@ class SplitterStripWidget(QWidget):
                 # Check if next page is a boundary
                 if not flat_pages[i+1].get("is_boundary"):
                     div = SplitDividerWidget(page_index_before=i)
-                    div.split_requested.connect(lambda idx=i: self.on_split_clicked(idx))
+                    div.split_requested.connect(lambda idx=i, d=div: self.on_split_clicked(idx, d))
                     self.content_layout.addWidget(div)
         
         # Trigger initial load
@@ -541,22 +555,43 @@ class SplitterStripWidget(QWidget):
              if child.widget(): child.widget().deleteLater()
 
     def remove_thumbnail(self, widget):
-        # ... (Same Logic as before, copy exact remove logic)
-        idx = self.content_layout.indexOf(widget)
-        if idx == -1: return
-        self.content_layout.takeAt(idx).widget().deleteLater()
-        if idx < self.content_layout.count():
-             child = self.content_layout.itemAt(idx)
-             if child and isinstance(child.widget(), SplitDividerWidget):
-                 child.widget().deleteLater()
-                 return
-        if self.content_layout.count() > 0:
-             last_item = self.content_layout.itemAt(self.content_layout.count() - 1)
-             if last_item and isinstance(last_item.widget(), SplitDividerWidget):
-                 last_item.widget().deleteLater()
+        # NOT EASILY UNDOABLE in current architecture if we physically remove.
+        # But Phase 1 uses soft-delete, so we just toggle it.
+        # User said "Revert commands" skip/delete commands.
+        pass
 
-    def on_split_clicked(self, index):
+    def on_split_clicked(self, index, widget=None):
+        if widget:
+            self.record_action("SPLIT", widget)
         self.split_action_triggered.emit(index)
+
+    def record_action(self, action_type: str, widget: QWidget):
+        self.undo_stack.append((action_type, widget))
+        # Signal carries -1 to indicate "Internal Action/Metadata refresh needed"
+        self.split_action_triggered.emit(-1)
+
+    def revert_last_edit(self):
+        if not self.undo_stack:
+            return
+            
+        action_type, widget = self.undo_stack.pop()
+        
+        # Disconnect signals temporarily to avoid re-recording
+        from PyQt6.QtCore import QSignalBlocker
+        blocker = QSignalBlocker(widget)
+        
+        if action_type == "SPLIT":
+            widget.set_active(not widget.is_active)
+        elif action_type == "ROTATE":
+            # 90 deg right -> 90 deg left = 270 deg right
+            widget.rotate_right()
+            widget.rotate_right()
+            widget.rotate_right()
+        elif action_type == "DELETE":
+            widget.toggle_delete()
+            
+        blocker.unblock()
+        self.split_action_triggered.emit(-1)
     
     def get_active_splits(self) -> list[int]:
         splits = []

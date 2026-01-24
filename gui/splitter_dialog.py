@@ -47,16 +47,16 @@ class SplitterDialog(QDialog):
         btn_box.addWidget(self.btn_cancel)
         btn_box.addStretch()
         
-        self.btn_skip = QPushButton(self.tr("Import as Single Document"))
-        self.btn_skip.setToolTip(self.tr("Import all pages as one document. Rotations and deletions are applied."))
-        self.btn_skip.clicked.connect(self.on_skip_clicked) 
+        self.btn_revert = QPushButton(self.tr("Revert Edits"))
+        self.btn_revert.setToolTip(self.tr("Step-by-step undo of splits, rotations and deletions."))
+        self.btn_revert.clicked.connect(self.strip.revert_last_edit)
+        self.btn_revert.setEnabled(False)
         
         self.btn_confirm = QPushButton(self.tr("Split Document"))
-        # Removed hardcoded Red style to respect KDE/System Theme (user request)
-        self.btn_confirm.setEnabled(False) # Default disabled until a split is set
+        self.btn_confirm.setEnabled(True) # Always allowed to confirm current state
         self.btn_confirm.clicked.connect(self.on_confirm_split)
         
-        btn_box.addWidget(self.btn_skip)
+        btn_box.addWidget(self.btn_revert)
         btn_box.addWidget(self.btn_confirm)
         self.layout.addLayout(btn_box)
         
@@ -86,25 +86,24 @@ class SplitterDialog(QDialog):
         self.update_ui_state()
 
     def update_ui_state(self, ignored_arg=None):
-        """Update button states based on active splits."""
+        """Update button states based on active splits and undo stack."""
         splits = self.strip.get_active_splits()
         has_splits = len(splits) > 0
-        self.btn_confirm.setEnabled(has_splits)
+        
+        # Enable undo only if stack is not empty
+        if hasattr(self.strip, 'undo_stack'):
+            self.btn_revert.setEnabled(len(self.strip.undo_stack) > 0)
+        
+        # Confirm is always allowed (imports as single doc if no splits)
+        self.btn_confirm.setEnabled(True)
         
         # Dynamic Text to be helpful
         if has_splits:
             verb = self.tr("Import & Split") if self.mode == "IMPORT" else self.tr("Split")
             self.btn_confirm.setText(f"{verb} into {len(splits) + 1} Parts")
-            self.btn_skip.setEnabled(True)
         else:
-            base = self.tr("Import All") if self.mode == "IMPORT" else self.tr("Split Document")
+            base = self.tr("Import Document") if self.mode == "IMPORT" else self.tr("Confirm Document")
             self.btn_confirm.setText(base)
-            # If Import, we might want enabled even if no splits?
-            # Actually, "Import All" is what "Skip/Single" does?
-            # No, Confirm means "Apply Cuts". If no cuts, Confirm is disabled.
-            # User must use "Keep as Single" (Skip) to import without cuts.
-            # Or we enable Confirm and treat as Single?
-            # Let's keep Confirm disabled if no cuts (Force user to choose 'Split' vs 'Single')
             
     def on_cancel_import(self):
         """Abort import: Delete the entity and close."""
@@ -313,19 +312,5 @@ class SplitterDialog(QDialog):
         return instructions
 
     def on_skip_clicked(self):
-         if self.mode == "IMPORT":
-             # "Keep as Single Document" -> 1 Entity but respecting Deletions/Rotations
-             instructions = self._scrape_instructions(ignore_splits=True)
-             self.import_instructions = instructions
-             print(f"[DEBUG] Import Instructions (Single/Scraped): {instructions}")
-         
-         import json
-         debug_result = {
-             "action": "SKIP",
-             "mode": self.mode,
-             "source_entity": self.strip.current_uuid,
-             "reason": "User chose to keep as single document",
-             "next_steps": ["QUEUE_FOR_ANALYSIS"]
-         }
-         print(f"[DEBUG] Splitter Result: {json.dumps(debug_result, indent=2)}")
-         self.accept()
+        # Deprecated: Redirect to confirm
+        self.on_confirm_split()
