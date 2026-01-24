@@ -95,8 +95,72 @@ class AIAnalyzer:
         """
         if (not text or not text.strip()) and not image:
             return AIAnalysisResult()
+            
+        return self._analyze_text_internal(text, image)
 
-        # Load Schema
+    def _generate_with_retry(self, contents):
+        """
+        Execute generation with robust 429 handling and adaptive delay.
+        """
+        # 0. Adaptive Delay (Swing In)
+        if AIAnalyzer._adaptive_delay > 0:
+            print(f"AI Adaptive Delay: Sleeping {AIAnalyzer._adaptive_delay:.2f}s...")
+            time.sleep(AIAnalyzer._adaptive_delay)
+
+        response = None
+        
+        # Retry Loop
+        for attempt in range(self.MAX_RETRIES):
+            self._wait_for_cooldown()
+            
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=contents
+                )
+                # Success: Decrease Adaptive Delay (Multiplicative Decrease)
+                if AIAnalyzer._adaptive_delay > 0:
+                     old_delay = AIAnalyzer._adaptive_delay
+                     AIAnalyzer._adaptive_delay = max(0.0, AIAnalyzer._adaptive_delay * 0.5)
+                     if AIAnalyzer._adaptive_delay < 0.1: AIAnalyzer._adaptive_delay = 0.0
+                     print(f"AI Success. Decreasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+                return response
+                
+            except Exception as e:
+                # Check for 429 Resource Exhausted
+                is_429 = False
+                
+                # ClientError usually wraps, but depending on library version:
+                if hasattr(e, "code") and e.code == 429: is_429 = True
+                if hasattr(e, "status") and "RESOURCE_EXHAUSTED" in str(e.status): is_429 = True
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e): is_429 = True
+                
+                if is_429:
+                    # 1. Increase Adaptive Delay
+                    old_delay = AIAnalyzer._adaptive_delay
+                    new_delay = max(2.0, AIAnalyzer._adaptive_delay * 2.0)
+                    AIAnalyzer._adaptive_delay = min(256.0, new_delay)
+                    
+                    if AIAnalyzer._adaptive_delay != old_delay:
+                        print(f"AI Rate Limit Hit! Increasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+
+                    # 2. Exponential Backoff for *this* retry
+                    delay = 2 * (2 ** attempt) + random.uniform(0, 1)
+                    print(f"AI 429 Error. Backing off for {delay:.1f}s (Attempt {attempt+1}/{self.MAX_RETRIES})")
+                    
+                    # Set Cooldown
+                    AIAnalyzer._cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=delay)
+                    continue
+                else:
+                    # Other errors -> Trace/Log and Stop? Or Retry?
+                    # Usually fail fast for Client/Auth errors.
+                    print(f"GenAI Error (Non-Retriable): {e}")
+                    return None
+        
+        print("AI Analysis Failed after retries.")
+        return None
+
+    def analyze_text(self, text: str, image=None) -> AIAnalysisResult:
         schema_path = "/home/schnebeck/.gemini/antigravity/brain/0c4bc2e7-3c24-4140-a725-c6afcc6fb483/document_schema.json" # Hardcoded for now or loaded relative?
         # Let's read it here or pass it in. For robustness, I'll inline a minimal version if file read fails, or better read it.
         try:
@@ -159,85 +223,28 @@ class AIAnalyzer:
         ### 6. YOUR JSON OUTPUT
         """
         
-        print(f"DEBUG AI PROMPT:\n{prompt}")
+        print(f"\n=== [STAGE 2 AI REQUEST] ===\n{prompt}\n==========================\n")
         
+        contents = [prompt]
+        if image:
+            contents.append(image)
+            
+        response = self._generate_with_retry(contents)
+            
+        if not response:
+            return AIAnalysisResult()
+
+        response_text = response.text
+        
+        # Clean up markdown code blocks if present
+        if "```json" in response_text:
+            response_text = response_text.replace("```json", "").replace("```", "")
+        elif "```" in response_text:
+            response_text = response_text.replace("```", "")
+            
         try:
-            contents = [prompt]
-            if image:
-                contents.append(image)
-                
-            response = None
-            
-            # 0. Adaptive Delay (Swing In)
-            if AIAnalyzer._adaptive_delay > 0:
-                print(f"AI Adaptive Delay: Sleeping {AIAnalyzer._adaptive_delay:.2f}s...")
-                time.sleep(AIAnalyzer._adaptive_delay)
-
-            # Retry Loop
-            for attempt in range(self.MAX_RETRIES):
-                self._wait_for_cooldown()
-                
-                try:
-                    response = self.client.models.generate_content(
-                        model=self.model_name,
-                        contents=contents
-                    )
-                    break # Success
-                except ClientError as e:
-                    # Check for 429 Resource Exhausted
-                    # e.code or e.status might be present
-                    is_429 = False
-                    if hasattr(e, "code") and e.code == 429: is_429 = True
-                    if hasattr(e, "status") and "RESOURCE_EXHAUSTED" in str(e.status): is_429 = True
-                    # Check message text as fallback
-                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e): is_429 = True
-                    
-                    if is_429:
-                        # 1. Increase Adaptive Delay (Multiplicative Increase with CAP)
-                        # Limit max delay to 256s (approx 4 mins) as per user request.
-                        old_delay = AIAnalyzer._adaptive_delay
-                        new_delay = max(2.0, AIAnalyzer._adaptive_delay * 2.0)
-                        AIAnalyzer._adaptive_delay = min(256.0, new_delay)
-                        
-                        if AIAnalyzer._adaptive_delay != old_delay:
-                            print(f"AI Rate Limit Hit! Increasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
-
-                        # 2. Exponential Backoff for *this* retry
-                        # We still wait exponentially for the current request to clear the immediate congestion.
-                        delay = 2 * (2 ** attempt) + random.uniform(0, 1)
-                        print(f"AI 429 Error. Backing off for {delay:.1f}s (Attempt {attempt+1}/{self.MAX_RETRIES})")
-                        
-                        # Set Cooldown
-                        AIAnalyzer._cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=delay)
-                        
-                        # Loop will check cooldown next iteration
-                        continue
-                    else:
-                        raise e # Other error
-            
-            if not response:
-                print("AI Analysis Failed after retries.")
-                return AIAnalysisResult()
-
-            # Success: Decrease Adaptive Delay (Multiplicative Decrease)
-            # "Swing in" towards 0 if stable.
-            if AIAnalyzer._adaptive_delay > 0:
-                 old_delay = AIAnalyzer._adaptive_delay
-                 AIAnalyzer._adaptive_delay = max(0.0, AIAnalyzer._adaptive_delay * 0.5)
-                 # If very small, snap to 0
-                 if AIAnalyzer._adaptive_delay < 0.1: AIAnalyzer._adaptive_delay = 0.0
-                 print(f"AI Success. Decreasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
-                 
-            response_text = response.text
-            
-            # Clean up markdown code blocks if present
-            if "```json" in response_text:
-                response_text = response_text.replace("```json", "").replace("```", "")
-            elif "```" in response_text:
-                response_text = response_text.replace("```", "")
-                
             semantic_data = json.loads(response_text)
-            print(f"DEBUG Semantic Structure:\n{json.dumps(semantic_data, indent=2)}")
+            print(f"\n=== [STAGE 2 AI RESPONSE] ===\n{json.dumps(semantic_data, indent=2)}\n===========================\n")
             
             # Hybrid Extraction: Flatten Semantic Data to SQL Columns
             # We need to traverse the tree to find best candidates for:
@@ -823,24 +830,14 @@ class AIAnalyzer:
 
     def _generate_json(self, prompt: str, image=None) -> Any:
         """Helper to call Gemini with Retry and parse JSON."""
+        print(f"\n=== [STAGE 1/GENERIC AI REQUEST] ===\n{prompt}\n==================================\n")
+        
         contents = [prompt]
         if image: contents.append(image)
         
         # print(f"\n--- [DEBUG AI PROMPT START] ---\n{prompt}\n--- [DEBUG AI PROMPT END] ---\n")
         
-        self._wait_for_cooldown()
-        
-        # Simple Retry Loop (can reuse the complex one from analyze_text later)
-        # For now, simplistic
-        response = None
-        try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=contents
-            )
-        except Exception as e:
-            print(f"GenAI Error: {e}")
-            return None
+        response = self._generate_with_retry(contents)
             
         if not response or not response.text:
             return None
@@ -852,7 +849,9 @@ class AIAnalyzer:
             txt = txt.replace("```", "")
             
         try:
-            return json.loads(txt)
+            res_json = json.loads(txt)
+            print(f"\n=== [STAGE 1/GENERIC AI RESPONSE] ===\n{json.dumps(res_json, indent=2)}\n===================================\n")
+            return res_json
         except:
             print("Failed to parse JSON")
             return None

@@ -11,9 +11,10 @@ class Document(BaseModel):
     Uses Pydantic for validation and serialization.
     """
     uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    original_filename: str
+    original_filename: Union[str, None] = None
     
     # Metadata extracted by AI or user
+
     doc_date: Optional[date] = None
     sender: Optional[str] = None
     amount: Optional[Decimal] = None

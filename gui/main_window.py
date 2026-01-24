@@ -23,8 +23,10 @@ from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
 from gui.filter_widget import FilterWidget
 from gui.advanced_filter import AdvancedFilterWidget
+from gui.filter_widget import FilterWidget
+from gui.advanced_filter import AdvancedFilterWidget
 from gui.settings_dialog import SettingsDialog
-
+from gui.settings_dialog import SettingsDialog
 class MainWindow(QMainWindow):
     """
     Main application window for KPaperFlux.
@@ -134,13 +136,15 @@ class MainWindow(QMainWindow):
         # Add Left Pane to Main Splitter
         self.main_splitter.addWidget(self.left_pane_splitter)
         
+        
         # --- Right Pane (PDF Viewer) ---
-        self.pdf_viewer = PdfViewerWidget()
+        self.pdf_viewer = PdfViewerWidget(self.pipeline)
         self.pdf_viewer.stamp_requested.connect(self.stamp_document_slot)
         self.pdf_viewer.tags_update_requested.connect(self.manage_tags_slot)
         self.pdf_viewer.export_requested.connect(self.export_documents_slot)
         self.pdf_viewer.reprocess_requested.connect(self.reprocess_document_slot)
         self.pdf_viewer.delete_requested.connect(self.delete_document_slot)
+        self.pdf_viewer.split_requested.connect(self.open_splitter_dialog_slot)
         self.main_splitter.addWidget(self.pdf_viewer)
         
         # Set Initial Sizes
@@ -309,6 +313,13 @@ class MainWindow(QMainWindow):
         tags_action.triggered.connect(self.open_tag_manager_slot)
         maintenance_menu.addAction(tags_action)
 
+        # -- Tools Menu --
+        tools_menu = menubar.addMenu(self.tr("&Tools"))
+        
+        purge_all_action = QAction(self.tr("Purge All Data (Reset)"), self)
+        purge_all_action.triggered.connect(self.purge_data_slot)
+        tools_menu.addAction(purge_all_action)
+
         # -- Config Menu --
         config_menu = menubar.addMenu(self.tr("&Config"))
         
@@ -373,12 +384,27 @@ class MainWindow(QMainWindow):
         # Viewer usually only supports one file.
         if len(docs) == 1:
             if self.pipeline and self.pipeline.vault:
+                # Resolve Path: Check if it's a Shadow Document (Virtual)
+                # Shadow Docs have path="/dev/null" or similar placeholders.
                 path = self.pipeline.vault.get_file_path(docs[0].uuid)
+                
+                # Phase 3: GUI Adaptation for Split/Shadow Documents
+                if not path or not os.path.exists(path) or path == "/dev/null":
+                    mapping = self.db_manager.get_source_mapping_from_entity(docs[0].uuid)
+                    if mapping and isinstance(mapping, list) and len(mapping) > 0:
+                        # Take the first physical file (primary source)
+                        # Structure: [{"file_uuid": "...", "pages": [...]}]
+                        first_src = mapping[0]
+                        phys_uuid = first_src.get("file_uuid")
+                        if phys_uuid:
+                            path = self.pipeline.vault.get_file_path(phys_uuid)
+
                 if path:
                     self.pdf_viewer.load_document(path, uuid=docs[0].uuid)
                 else:
                      self.pdf_viewer.clear()
         else:
+            # Batch selection
             # Maybe clear viewer or show placeholder?
             # self.pdf_viewer.clear() 
             # Or just keep showing the last one (confusing).
@@ -388,8 +414,17 @@ class MainWindow(QMainWindow):
             # If viewer shows Doc A, and user edits "Sender" -> applies to A, B, C.
             # It's fine to show Doc A as reference.
             if self.pipeline and self.pipeline.vault:
-                path = self.pipeline.vault.get_file_path(docs[0].uuid)
-                if path: self.pdf_viewer.load_document(path, uuid=docs[0].uuid)
+                # Same resolution logic for batch (showing first doc)
+                first_doc = docs[0]
+                path = self.pipeline.vault.get_file_path(first_doc.uuid)
+                
+                if not path or not os.path.exists(path) or path == "/dev/null":
+                    mapping = self.db_manager.get_source_mapping_from_entity(first_doc.uuid)
+                    if mapping and len(mapping) > 0:
+                         phys_uuid = mapping[0].get("file_uuid")
+                         if phys_uuid: path = self.pipeline.vault.get_file_path(phys_uuid)
+                
+                if path: self.pdf_viewer.load_document(path, uuid=first_doc.uuid)
 
     def delete_selected_slot(self):
         """Handle deletion via Menu Hack."""
@@ -450,6 +485,12 @@ class MainWindow(QMainWindow):
                 self.list_widget.refresh_list()
                 self.editor_widget.clear()
                 self.pdf_viewer.clear()
+                
+                # Refresh Stats
+                if hasattr(self, "dashboard_widget"):
+                     self.dashboard_widget.refresh_stats()
+                if hasattr(self, "filter_tree_widget"):
+                     self.filter_tree_widget.load_tree()
                 
                 if count > 1:
                     QMessageBox.information(self, self.tr("Deleted"), self.tr(f"Deleted {deleted_count} items."))
@@ -579,17 +620,53 @@ class MainWindow(QMainWindow):
         """
         Unified entry point for importing documents (Menu or Drop).
         Starts the ImportWorker with a modal ProgressDialog.
+        Intercepts with Splitter Dialog for Pre-Flight Check.
         """
         if not files or not self.pipeline:
             return
 
-        count = len(files)
+        # Phase 9: Pre-Flight Check
+        # We process files one by one via Dialog to get Instructions
+        import_items = []
+        
+        from gui.splitter_dialog import SplitterDialog
+        
+        pdf_files = [f for f in files if f.lower().endswith(".pdf")]
+        other_files = [f for f in files if not f.lower().endswith(".pdf")]
+        
+        # 1. Handle PDFs via Batch Assistant
+        if pdf_files:
+            dialog = SplitterDialog(self.pipeline, self)
+            dialog.load_for_batch_import(pdf_files)
+            
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                instrs = dialog.import_instructions
+                # instructions is a LIST of doc definitions.
+                # But ImportWorker currently expects LIST of (path, instructions_for_that_path)
+                # We need to change how ImportWorker (or MainWindow) handles this.
+                # New Logic: If instructions is a LIST of DOCS, we need a "Batch Mode" in ImportWorker.
+                
+                # For now, let's pass a special item to ImportWorker if it's a batch.
+                import_items.append(("BATCH", instrs))
+            else:
+                print("PDF Import cancelled by user.")
+                
+        # 2. Handle non-PDFs (Direct)
+        for fpath in other_files:
+            import_items.append((fpath, None))
+                 
+        if not import_items:
+             print("No files to import (User cancelled all).")
+             return
+
+        count = len(import_items)
         
         # Progress Dialog
         from PyQt6.QtWidgets import QProgressDialog
         from PyQt6.QtCore import QCoreApplication
         
         progress = QProgressDialog(self.tr("Initializing Import..."), self.tr("Cancel"), 0, count, self)
+        progress.setWindowTitle(self.tr("Importing..."))
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.setValue(0)
@@ -599,7 +676,7 @@ class MainWindow(QMainWindow):
         QCoreApplication.processEvents()
         
         # Worker Setup
-        self.import_worker = ImportWorker(self.pipeline, files, move_source=move_source)
+        self.import_worker = ImportWorker(self.pipeline, import_items, move_source=move_source)
         
         # Signals
         self.import_worker.progress.connect(
@@ -637,8 +714,13 @@ class MainWindow(QMainWindow):
             path = dialog.get_scanned_file()
             if path and self.pipeline:
                 try:
-                    # Treat scanned file as a normal import
-                    doc = self.pipeline.process_document(path)
+                    # Treat scanned file as a normal import (Async AI)
+                    doc = self.pipeline.process_document(path, skip_ai=True)
+                    
+                    # Queue for background analysis
+                    if doc:
+                         self.ai_worker.add_task(doc.uuid)
+                         
                     QMessageBox.information(
                         self, self.tr("Success"), self.tr("Scanned document imported successfully!") + f"\nUUID: {doc.uuid}"
                     )
@@ -824,18 +906,58 @@ class MainWindow(QMainWindow):
         if error_msg:
              QMessageBox.critical(self, self.tr("Import Error"), error_msg)
         else:
-             QMessageBox.information(self, self.tr("Import Finished"), 
-                                   self.tr(f"Imported {success_count}/{total} documents.\n"
-                                           f"AI Analysis queued in background."))
-                                           
+             # Only show generic "Import Finished" if we DON'T open the splitter immediately?
+             # Or show a toast? 
+             # For now, let's keep it but make it less "AI Queued" specific if we open splitter.
+             # We determine logic below.
+             pass
+             
         # Refresh List
         if self.list_widget:
             self.list_widget.refresh_list()
             
-        # Queue for AI
+        # Queue for AI (Conditional)
         if self.pipeline and imported_uuids:
+             # Logic: Iterate input. If doc > 1 page, OPEN SPLITTER and DO NOT QUEUE.
+             splitter_opened = False
+             queued_count = 0
+             
              for uid in imported_uuids:
-                 self.ai_worker.add_task(uid)
+                 should_queue = True
+                 
+                 # Check page count
+                 d = self.db_manager.get_document_by_uuid(uid)
+                 
+                 # DEBUG: Trace Page Count Logic
+                 if d:
+                     print(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
+                 else:
+                     print(f"[DEBUG] Import Finished: UUID={uid} NOT FOUND in DB!")
+
+                 if d and d.page_count and d.page_count > 1:
+                     # This is a candidate for splitting.
+                     if not splitter_opened:
+                         self.open_splitter_dialog_slot(uid)
+                         splitter_opened = True
+                         should_queue = False 
+                     else:
+                         pass
+                 
+                 if should_queue:
+                      self.db_manager.update_document_status(uid, "READY_FOR_PIPELINE")
+                      self.ai_worker.add_task(uid)
+                      queued_count += 1
+             
+             if not error_msg and not splitter_opened:
+                  QMessageBox.information(self, self.tr("Import Finished"), 
+                                        self.tr(f"Imported {success_count} documents.\n{queued_count} queued for AI."))
+                 
+        # 4. Refresh Dashboard & Filters
+        if hasattr(self, "dashboard_widget"):
+             self.dashboard_widget.refresh_stats()
+             
+        if hasattr(self, "filter_tree_widget"):
+             self.filter_tree_widget.load_tree()
 
     def _on_ai_doc_updated(self, uuid, doc):
         """Called when AI finishes a doc in background."""
@@ -912,7 +1034,18 @@ class MainWindow(QMainWindow):
         target_uuid = uuids[0]
         src_path = self.pipeline.vault.get_file_path(target_uuid)
         
+        # Fallback for Virtual Entities (Shadow Docs)
+        if not src_path or not os.path.exists(src_path) or src_path == "/dev/null":
+             if self.db_manager:
+                 # Try to find source mapping
+                 mapping = self.db_manager.get_source_mapping_from_entity(target_uuid)
+                 if mapping and len(mapping) > 0:
+                      phys_uuid = mapping[0].get("file_uuid")
+                      if phys_uuid:
+                          src_path = self.pipeline.vault.get_file_path(phys_uuid)
+        
         if not src_path or not os.path.exists(src_path):
+            QMessageBox.warning(self, self.tr("Error"), self.tr(f"Could not locate physical file for UUID: {target_uuid}"))
             return
 
         from gui.stamper_dialog import StamperDialog
@@ -941,7 +1074,18 @@ class MainWindow(QMainWindow):
                     # APPLY BATCH
                     for uid in uuids:
                         fpath = self.pipeline.vault.get_file_path(uid)
+                        
+                        # Fallback for Virtual
+                        if not fpath or not os.path.exists(fpath) or fpath == "/dev/null":
+                             if self.db_manager:
+                                 mapping = self.db_manager.get_source_mapping_from_entity(uid)
+                                 if mapping and len(mapping) > 0:
+                                      phys_uuid = mapping[0].get("file_uuid")
+                                      if phys_uuid:
+                                          fpath = self.pipeline.vault.get_file_path(phys_uuid)
+                                          
                         if not fpath or not os.path.exists(fpath):
+                            print(f"[Stamper] Failed to resolve path for {uid}")
                             continue
                             
                         base, ext = os.path.splitext(fpath)
@@ -1041,7 +1185,7 @@ class MainWindow(QMainWindow):
         # Phase 58: Clear viewer if list is empty
         if visible_count == 0:
             if self.pdf_viewer:
-                self.pdf_viewer.unload()
+                self.pdf_viewer.clear()
             # Clear pending selection since nothing can be selected
             self.pending_selection = []
         
@@ -1178,6 +1322,48 @@ class MainWindow(QMainWindow):
             self.list_widget.refresh_list()
             QMessageBox.information(self, self.tr("Restored"), self.tr(f"Restored {count} document(s)."))
             
+    def purge_data_slot(self):
+        """
+        Handle 'Purge All Data' request.
+        """
+        reply = QMessageBox.critical(
+            self,
+            self.tr("Confirm Global Purge"),
+            self.tr("DANGER: This will delete ALL documents, files, and database entries.\n\n"
+                    "This action cannot be undone.\n\n"
+                    "Are you completely sure you want to reset the system?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Get Vault Path
+            from core.config import AppConfig
+            config = AppConfig()
+            vault_path = config.get_vault_path()
+            
+            success = self.db_manager.purge_all_data(vault_path)
+            
+            if success:
+                # Clear UI
+                self.list_widget.refresh_list() # Should indicate empty
+                self.editor_widget.clear()
+                self.pdf_viewer.clear()
+                
+                if hasattr(self, "dashboard_widget"):
+                    self.dashboard_widget.refresh_stats()
+                
+                if hasattr(self, "filter_tree_widget"):
+                    self.filter_tree_widget.load_tree() # Reload counts (0)
+
+                # Reset Filter Text/State
+                if hasattr(self, "filter_input"):
+                    self.filter_input.clear()
+                
+                QMessageBox.information(self, self.tr("Success"), self.tr("System has been reset."))
+            else:
+                QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to purge data. Check logs."))
+
     def purge_documents_slot(self, uuids: list[str]):
         # Confirmation already handled in DocumentListWidget
         count = 0
@@ -1204,6 +1390,49 @@ class MainWindow(QMainWindow):
                  self.advanced_filter.load_from_object(filter_query)
                  self.advanced_filter.apply_advanced_filter()
 
+
+    def open_splitter_dialog_slot(self, uuid: str):
+        """Open Splitter Dialog for specific UUID."""
+        print(f"[DEBUG] open_splitter_dialog_slot called for UUID: {uuid}")
+        if not uuid or not self.pipeline: return
+        
+        from gui.splitter_dialog import SplitterDialog
+        dialog = SplitterDialog(self.pipeline, self)
+        dialog.load_document(uuid)
+        
+        # We need to know if splitting happened to refresh UI and queue AI
+        # Hook into internal signal or just refresh blindly?
+        # Let's refresh blindly on close for now, but queueing AI is important.
+        # Dialog handles the *Action*.
+        # Let's inspect Dialog's handling.
+        # It calls pipeline.split_entity.
+        # It does NOT queue AI.
+        # We need to pass AI Worker or handle return.
+        
+        # Better: Dialog emits 'document_split(uuid_a, uuid_b)' signal.
+        # But Dialog is modal `exec()`.
+        # I'll modify SplitterDialog to store result.
+        
+        if dialog.exec():
+             # Check if split happened?
+             # For now, simplest is to assume if user split, they want refresh.
+             self.list_widget.refresh_list()
+             self.editor_widget.clear()
+             self.pdf_viewer.clear()
+             
+             # Re-queue? We don't have the new UUIDs easily unless we stored them.
+             # But the user will see NEW documents in the list.
+             # The Pipeline/Canonizer sets their status to NEW.
+             # The `AIQueueWorker` (if running) might pick them up if it polls DB?
+             # `AIQueueWorker` usually takes explicit `add_task`.
+             # Does it poll? `process_next` pulls from queue.
+             # We need to add them.
+             
+             # I'll fix this properly: SplitterDialog should return the new UUIDs.
+             if hasattr(dialog, 'new_uuids') and dialog.new_uuids:
+                 if self.ai_worker:
+                     for uid in dialog.new_uuids:
+                         self.ai_worker.add_task(uid)
     def go_home_slot(self):
         """Switch to Dashboard."""
         self.central_stack.setCurrentIndex(0)

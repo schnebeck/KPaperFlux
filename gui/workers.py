@@ -13,31 +13,68 @@ class ImportWorker(QThread):
     progress = pyqtSignal(int, str) # current_index, current_filename
     finished = pyqtSignal(int, int, list, str) # success_count, total_count, imported_uuids, error_msg
     
-    def __init__(self, pipeline: PipelineProcessor, files: list[str], move_source: bool = False):
+    def __init__(self, pipeline: PipelineProcessor, items: list, move_source: bool = False):
         super().__init__()
         self.pipeline = pipeline
-        self.files = files
+        self.items = items # List of (path, instructions) tuples
         self.move_source = move_source
         self.is_cancelled = False
         
     def run(self):
         success_count = 0
-        total = len(self.files)
+        total = len(self.items)
         imported_uuids = []
         
         try:
-            for i, fpath in enumerate(self.files):
+            for i, item in enumerate(self.items):
                 if self.is_cancelled:
                     break
-                    
+                
+                # Unpack tuple or handle raw string (backward compat)
+                if isinstance(item, tuple):
+                    fpath, instructions = item
+                else:
+                    fpath = item
+                    instructions = None
+                
+                # SPECIAL BATCH MODE
+                if fpath == "BATCH" and isinstance(instructions, list):
+                    # instructions is a LIST of doc definitions
+                    self.progress.emit(i, "Batch Processing...")
+                    try:
+                        # Extract all possible file paths from instructions
+                        all_paths = set()
+                        for doc_instr in instructions:
+                            for pg in doc_instr.get("pages", []):
+                                if "file_path" in pg:
+                                    all_paths.add(pg["file_path"])
+                        
+                        uuids = self.pipeline.process_batch_with_instructions(list(all_paths), instructions, move_source=self.move_source)
+                        if uuids:
+                            success_count += 1 # We count the BATCH as 1 successful "import task"? Or by doc count?
+                            # Usually 1 item in 'items' = 1 progress step. 
+                            imported_uuids.extend(uuids)
+                    except Exception as e:
+                        print(f"Batch Import Error: {e}")
+                    continue
+
                 self.progress.emit(i, fpath)
                 
                 try:
                     # Async Import: Skip AI initially
-                    doc = self.pipeline.process_document(fpath, move_source=self.move_source, skip_ai=True)
-                    if doc:
-                        success_count += 1
-                        imported_uuids.append(doc.uuid)
+                    if instructions:
+                        # Pre-Flight Instruction Mode
+                        uuids = self.pipeline.process_document_with_instructions(fpath, instructions, move_source=self.move_source)
+                        if uuids:
+                            success_count += 1
+                            imported_uuids.extend(uuids)
+                    else:
+                        # Legacy Default Mode
+                        doc = self.pipeline.process_document(fpath, move_source=self.move_source, skip_ai=True)
+                        if doc:
+                            success_count += 1
+                            imported_uuids.append(doc.uuid)
+                            
                 except Exception as e:
                     print(f"Error importing {fpath}: {e}")
                     traceback.print_exc()
@@ -182,9 +219,13 @@ class AIQueueWorker(QThread):
                 # Run AI
                 try:
                     self.pipeline._run_ai_analysis(doc, path)
-                    # We use insert_document for full update/upsert of the modified doc object
-                    self.pipeline.db.insert_document(doc)
-                    self.doc_updated.emit(uuid, doc)
+                    
+                    # Relaod updated Doc from DB (V2 Entity -> V1 DTO)
+                    # Do NOT save the stale 'doc' back!
+                    updated_doc = self.pipeline.db.get_document_by_uuid(uuid)
+                    if updated_doc:
+                        self.doc_updated.emit(uuid, updated_doc)
+                        
                 except Exception as e:
                     print(f"AI Queue Error {uuid}: {e}")
                 

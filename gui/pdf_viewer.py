@@ -1,290 +1,255 @@
-
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QSpinBox, QFrame, QMenu
-from PyQt6.QtPdf import QPdfDocument
-from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import QUrl, Qt, QPoint, QPointF, pyqtSignal, QSettings
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QScrollArea, QFrame, QMessageBox
+from PyQt6.QtCore import Qt, pyqtSignal
 from pathlib import Path
+from gui.widgets.canvas_page import CanvasPageWidget
 
 class PdfViewerWidget(QWidget):
     """
-    Modern PDF Viewer using QtPdf (Qt6).
+    Modern PDF Viewer / Editor.
+    Uses custom CanvasStack for high-fidelity "Live Edit" (Rotation/Deletion).
     """
+    # Signals
     stamp_requested = pyqtSignal(str)
     tags_update_requested = pyqtSignal(list)
     reprocess_requested = pyqtSignal(list)
     export_requested = pyqtSignal(list)
     delete_requested = pyqtSignal(str)
-
-    def __init__(self, parent=None):
+    split_requested = pyqtSignal(str)
+    
+    def __init__(self, pipeline=None, parent=None):
         super().__init__(parent)
-        
+        self.pipeline = pipeline
         self.current_uuid = None
-        self.document = QPdfDocument(self)
-        self.view = QPdfView(self)
-        self.view.setDocument(self.document)
-        self.view.setPageMode(QPdfView.PageMode.MultiPage)
+        self.page_widgets = []
         
         self._init_ui()
         
     def _init_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         
         # Toolbar
-        toolbar = QHBoxLayout()
-        toolbar.setContentsMargins(5, 5, 5, 5)
+        self.toolbar_layout = QHBoxLayout()
+        self.toolbar_layout.setContentsMargins(5, 5, 5, 5)
         
-        self.btn_zoom_in = QPushButton("+")
-        self.btn_zoom_in.setFixedWidth(30)
-        self.btn_zoom_in.clicked.connect(self.zoom_in)
+        self.lbl_title = QLabel("Document Viewer")
+        self.lbl_title.setStyleSheet("font-weight: bold; font-size: 14px;")
         
-        self.btn_zoom_out = QPushButton("-")
-        self.btn_zoom_out.setFixedWidth(30)
-        self.btn_zoom_out.clicked.connect(self.zoom_out)
+        self.btn_save = QPushButton("💾 Save Changes")
+        self.btn_save.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self.btn_save.clicked.connect(self.save_changes)
+        self.btn_save.setVisible(False) # Hidden until changes made
         
-        self.lbl_zoom = QLabel("100%")
+        self.btn_split = QPushButton("✂️ Split")
+        self.btn_split.setToolTip("Open Splitter Assistant for multi-page documents.")
+        self.btn_split.clicked.connect(self.on_split_clicked)
+        self.btn_split.setVisible(False) # Conditional
         
-        self.btn_fit = QPushButton(self.tr("Fit"))
-        self.btn_fit.setCheckable(True)
-        self.btn_fit.clicked.connect(self.toggle_fit)
+        self.toolbar_layout.addWidget(self.lbl_title)
+        self.toolbar_layout.addStretch()
+        self.toolbar_layout.addWidget(self.btn_split)
+        self.toolbar_layout.addWidget(self.btn_save)
         
-        # Navigation
-        self.btn_prev = QPushButton("<")
-        self.btn_prev.setFixedWidth(30)
-        self.btn_prev.clicked.connect(self.prev_page)
+        self.layout.addLayout(self.toolbar_layout)
         
-        self.spin_page = QSpinBox()
-        self.spin_page.setKeyboardTracking(False) # Jump only on Enter/FocusOut
-        self.spin_page.valueChanged.connect(self.jump_to_page)
+        # Scroll Area for Canvas Stack
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setStyleSheet("background: #505050;") # Dark background for canvas
         
-        self.lbl_total = QLabel("/ 0")
+        self.canvas_container = QWidget()
+        self.canvas_container.setStyleSheet("background: transparent;")
+        self.canvas_layout = QVBoxLayout(self.canvas_container)
+        self.canvas_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        self.canvas_layout.setSpacing(20) # Gap between pages
         
-        self.btn_next = QPushButton(">")
-        self.btn_next.setFixedWidth(30)
-        self.btn_next.clicked.connect(self.next_page)
+        self.scroll.setWidget(self.canvas_container)
+        self.layout.addWidget(self.scroll)
         
-        toolbar.addStretch()
-        toolbar.addWidget(QLabel(self.tr("Page:")))
-        toolbar.addWidget(self.btn_prev)
-        toolbar.addWidget(self.spin_page)
-        toolbar.addWidget(self.lbl_total)
-        toolbar.addWidget(self.btn_next)
-        
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.VLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        toolbar.addWidget(line)
-        
-        toolbar.addWidget(QLabel(self.tr("Zoom:")))
-        toolbar.addWidget(self.btn_zoom_out)
-        toolbar.addWidget(self.lbl_zoom)
-        toolbar.addWidget(self.btn_zoom_in)
-        toolbar.addWidget(self.btn_fit)
-        toolbar.addStretch()
-        
-        layout.addLayout(toolbar)
-        layout.addWidget(self.view)
-        
-        # Connect signals
-        self.view.zoomFactorChanged.connect(self.update_zoom_label)
-        
-        # Restore State
-        self.restore_state()
-        
-        # Context Menu
-        self.view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.view.customContextMenuRequested.connect(self.show_context_menu)
-        
-        # Navigator
-        self.nav = self.view.pageNavigator()
-        self.nav.currentPageChanged.connect(self.on_page_changed)
-        
-        self.document.statusChanged.connect(self.on_document_status)
-        
-    def load_document(self, file_path: str, uuid: str = None):
-        if not file_path:
-            self.clear()
-            return
-            
-        self.current_uuid = uuid
-            
-        path = Path(file_path).resolve()
-        if not path.exists():
-            self.clear()
-            return
-            
-        try:
-            # Re-create document
-            if self.document:
-                self.view.setDocument(None) # Detach first
-                self.document.deleteLater()
-                self.document = None
-                
-            self.document = QPdfDocument(self)
-            self.document.statusChanged.connect(self.on_document_status)
-            
-            self.view.setDocument(self.document)
-            self.view.setPageMode(QPdfView.PageMode.MultiPage)
-            
-            # Re-acquire navigator
-            self.nav = self.view.pageNavigator()
-            try:
-                self.nav.currentPageChanged.disconnect(self.on_page_changed)
-            except Exception:
-                pass
-            self.nav.currentPageChanged.connect(self.on_page_changed)
-            
-            self.document.load(str(path))
-        except Exception as e:
-            print(f"Error loading PDF: {e}")
-            self.clear()
-
-    def unload(self):
-        """Release the document file lock."""
+    def load_document(self, file_path_or_uuid, uuid: str = None, initial_page: int = 1):
+        """
+        Load document into the Canvas Stack.
+        Supports both File Path (Legacy / Preview) and Entity UUID (Edit Mode).
+        """
+        # Clear existing
         self.clear()
-            
-    def on_document_status(self, status):
-        # Ignore signals from old/deleted documents
-        if self.sender() != self.document:
-             return
+        
+        if uuid:
+            self.current_uuid = uuid
+        else:
+            # Maybe file_path_or_uuid IS the uuid?
+            # Or this is legacy call with just path.
+            # We try to deduce.
+            if self.pipeline and not Path(file_path_or_uuid).exists(): 
+                # Assume UUID
+                self.current_uuid = file_path_or_uuid
+            pass
+
+        self.lbl_title.setText(f"Viewing: {self.current_uuid}")
+        
+        # 1. Resolve State
+        if self.pipeline and self.current_uuid:
+             self._load_from_entity(self.current_uuid)
+        elif isinstance(file_path_or_uuid, str) and Path(file_path_or_uuid).exists():
+             self._load_from_file(file_path_or_uuid)
              
-        if status == QPdfDocument.Status.Ready:
-            count = self.document.pageCount()
-            self.lbl_total.setText(f"/ {count}")
-            self.spin_page.blockSignals(True)
-            self.spin_page.setRange(1, count)
-            self.spin_page.setValue(1)
-            self.spin_page.blockSignals(False)
-            self.enable_controls(True)
-            
-            # Restore persistent zoom
-            self.restore_state()
-        elif status == QPdfDocument.Status.Error:
-            self.enable_controls(False)
-        else:
-            self.enable_controls(False)
-            
-    def enable_controls(self, enabled: bool):
-        self.btn_zoom_in.setEnabled(enabled)
-        self.btn_zoom_out.setEnabled(enabled)
-        self.btn_fit.setEnabled(enabled)
-        self.btn_prev.setEnabled(enabled)
-        self.btn_next.setEnabled(enabled)
-        self.spin_page.setEnabled(enabled)
-            
-    def clear(self):
-        """Release the document file lock."""
-        print(f"[DEBUG] PdfViewer: Unload called - Clearing document")
-        
-        if self.document:
-            self.view.setDocument(None)
-            self.document.deleteLater()
-            self.document = None
-            
-        # Re-initialize empty document for safety if View needs one? 
-        # Or leave None. QPdfView can handle None.
-        
-        self.current_uuid = None
-        self.lbl_total.setText("/ 0")
-        self.spin_page.setRange(0, 0)
-        self.spin_page.clear()
-        self.enable_controls(False)
-        self.lbl_zoom.setText("-")
+    def _load_from_entity(self, entity_uuid):
+        """
+        Builds the view from the Virtual Entity's source mapping.
+        """
+        v_doc = self.pipeline.logical_repo.get_by_uuid(entity_uuid)
+        if not v_doc:
+             self.lbl_title.setText("Error: Entity not found.")
+             return
 
-    def save_state(self):
-        settings = QSettings("KPaperFlux", "PdfViewer")
-        settings.setValue("zoomFactor", self.view.zoomFactor())
-        settings.setValue("zoomMode", self.view.zoomMode().value)
-
-    def restore_state(self):
-        settings = QSettings("KPaperFlux", "PdfViewer")
-        try:
-            factor = float(settings.value("zoomFactor", 1.0))
-            mode_val = int(settings.value("zoomMode", QPdfView.ZoomMode.Custom.value))
-            mode = QPdfView.ZoomMode(mode_val)
-        except:
-            factor = 1.0
-            mode = QPdfView.ZoomMode.Custom
-            
-        self.view.blockSignals(True)
-        try:
-            self.view.setZoomMode(mode)
-            if mode == QPdfView.ZoomMode.Custom:
-                 self.view.setZoomFactor(factor)
-        finally:
-            self.view.blockSignals(False)
-            
-        self.btn_fit.setChecked(mode == QPdfView.ZoomMode.FitInView)
-        self.lbl_zoom.setText(f"{int(self.view.zoomFactor() * 100)}%")
-
-    def zoom_in(self):
-        self.view.setZoomMode(QPdfView.ZoomMode.Custom)
-        self.btn_fit.setChecked(False)
-        current = self.view.zoomFactor()
-        self.view.setZoomFactor(current * 1.2)
-        
-    def zoom_out(self):
-        self.view.setZoomMode(QPdfView.ZoomMode.Custom)
-        self.btn_fit.setChecked(False)
-        current = self.view.zoomFactor()
-        self.view.setZoomFactor(current / 1.2)
-        
-    def toggle_fit(self, checked):
-        if checked:
-            self.view.setZoomMode(QPdfView.ZoomMode.FitInView)
-        else:
-            self.view.setZoomMode(QPdfView.ZoomMode.Custom)
-            # Restore current factor? Or keep what Fit set?
-            # Usually keep factor.
-        self.save_state()
-        
-    def update_zoom_label(self, factor):
-        self.lbl_zoom.setText(f"{int(factor * 100)}%")
-        self.save_state()
-        
-    def prev_page(self):
-        curr = self.nav.currentPage()
-        if curr > 0:
-            self.nav.jump(curr - 1, QPointF(), self.nav.currentZoom())
-        
-    def next_page(self):
-        curr = self.nav.currentPage()
-        if curr < self.document.pageCount() - 1:
-            self.nav.jump(curr + 1, QPointF(), self.nav.currentZoom())
-        
-    def jump_to_page(self, page_num):
-        # 0-indexed internally
-        if 1 <= page_num <= self.document.pageCount():
-            self.nav.jump(page_num - 1, QPointF(), self.nav.currentZoom())
-            
-    def on_page_changed(self, page):
-        self.spin_page.blockSignals(True)
-        self.spin_page.setValue(page + 1)
-        self.spin_page.blockSignals(False)
-
-    def show_context_menu(self, pos: QPoint):
-        if not self.current_uuid:
+        # Iterate Source Mapping
+        # Mapping: [{"file_uuid": "...", "pages": [1, 2], "rotation": 90}]
+        if not v_doc.source_mapping:
+            self.lbl_title.setText("Empty Document (No Source).")
             return
             
-        menu = QMenu(self)
+        print(f"[Viewer] Loading Entity {entity_uuid} with {len(v_doc.source_mapping)} segments.")
         
-        reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
-        tags_action = menu.addAction(self.tr("Manage Tags..."))
-        stamp_action = menu.addAction(self.tr("Stamp..."))
-        menu.addSeparator()
-        export_action = menu.addAction(self.tr("Export Document..."))
-        menu.addSeparator()
-        delete_action = menu.addAction(self.tr("Delete Document"))
+        page_global_idx = 0
         
-        action = menu.exec(self.view.mapToGlobal(pos))
+        for ref in v_doc.source_mapping:
+             file_uuid = ref.file_uuid
+             # Resolve Physical Path
+             phys_path = self.pipeline.vault.get_file_path(file_uuid)
+             if not phys_path: continue
+             
+             # Create Page Widgets
+             for p_num in ref.pages:
+                 page_data = {
+                     "file_path": phys_path,
+                     "file_uuid": file_uuid, # Added ID 
+                     "page_index": p_num - 1,
+                     "rotation": getattr(ref, 'rotation', 0),
+                     "is_deleted": False
+                 }
+                 self._add_page_widget(page_data)
+                 page_global_idx += 1
+                 
+        self.btn_save.setVisible(False)
+
+    def _load_from_file(self, path):
+         """Legacy Preview Mode."""
+         import fitz
+         try:
+             doc = fitz.open(path)
+             pages = doc.pageCount
+             doc.close()
+             
+             for i in range(pages):
+                 page_data = {
+                     "file_path": path,
+                     "file_uuid": None, # No UUID for raw files
+                     "page_index": i,
+                     "rotation": 0,
+                     "is_deleted": False
+                 }
+                 self._add_page_widget(page_data)
+         except Exception as e:
+             print(f"Error loading file: {e}")
+
+    def _add_page_widget(self, page_data):
+        widget = CanvasPageWidget(page_data)
+        widget.state_changed.connect(self.on_page_updated)
+        self.canvas_layout.addWidget(widget)
+        self.page_widgets.append(widget)
+        self._update_toolbar_state()
         
-        if action == reprocess_action:
-            self.reprocess_requested.emit([self.current_uuid])
-        elif action == tags_action:
-            self.tags_update_requested.emit([self.current_uuid])
-        elif action == stamp_action:
-            self.stamp_requested.emit(self.current_uuid)
-        elif action == export_action:
-            self.export_requested.emit([self.current_uuid])
-        elif action == delete_action:
-            self.delete_requested.emit(self.current_uuid)
+    def _update_toolbar_state(self):
+        """Toggle button visibility based on document state."""
+        page_count = len(self.page_widgets)
+        can_split = page_count > 1
+        self.btn_split.setVisible(can_split)
+        print(f"[Viewer] Update UI: Pages={page_count}, CanSplit={can_split}")
+
+    def on_split_clicked(self):
+        if self.current_uuid:
+            print(f"[Viewer] Triggering split for: {self.current_uuid}")
+            self.split_requested.emit(self.current_uuid)
+            
+    def on_page_updated(self):
+        """Called when any page rotates or deletes."""
+        self.btn_save.setVisible(True)
+        self.btn_save.setText(self.tr("💾 Save *"))
+        
+    def save_changes(self):
+        """
+        Commit changes to Backend (Edit Mode).
+        Reconstructs new SourceMapping.
+        """
+        if not self.pipeline or not self.current_uuid:
+            return
+            
+        print("[Viewer] Saving changes...")
+        new_mapping = []
+        
+        # Grouping Logic (Re-used from Splitter concept)
+        from core.models.virtual import SourceReference
+        
+        current_file_uuid = None
+        current_rot = -1
+        current_pages = []
+        
+        for widget in self.page_widgets:
+            data = widget.page_data
+            if data["is_deleted"]:
+                continue # Skip deleted pages
+                
+            f_uuid = data.get("file_uuid")
+            if not f_uuid:
+                print("Error: Cannot save raw file changes (No UUID).")
+                return
+                
+            p_idx = data["page_index"] + 1 # 1-based
+            rot = data["rotation"]
+            
+            # Check continuity
+            if f_uuid != current_file_uuid or rot != current_rot:
+                # Flush
+                if current_pages:
+                    new_mapping.append(SourceReference(
+                        file_uuid=current_file_uuid,
+                        pages=current_pages,
+                        rotation=current_rot
+                    ))
+                # Start new
+                current_file_uuid = f_uuid
+                current_rot = rot
+                current_pages = [p_idx]
+            else:
+                # Continue
+                current_pages.append(p_idx)
+                
+        # Flush last
+        if current_pages and current_file_uuid:
+             new_mapping.append(SourceReference(
+                file_uuid=current_file_uuid,
+                pages=current_pages,
+                rotation=current_rot
+            ))
+            
+        # Send to Pipeline
+        try:
+            self.pipeline.update_entity_structure(self.current_uuid, new_mapping)
+            self.btn_save.setVisible(False)
+            QMessageBox.information(self, "Saved", "Document structure updated.")
+            
+            # Optional: Reload to verify
+            self.load_document(self.current_uuid, uuid=self.current_uuid)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+
+    def clear(self):
+        while self.canvas_layout.count():
+             child = self.canvas_layout.takeAt(0)
+             if child.widget():
+                 child.widget().deleteLater()
+        self.page_widgets = []
+        self.current_uuid = None
+        self.btn_save.setVisible(False)
+        self.btn_split.setVisible(False)

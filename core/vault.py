@@ -45,6 +45,24 @@ class DocumentVault:
         
         return str(target_path)
 
+    def store_file_by_uuid(self, source_path: str, file_uuid: str, move: bool = False) -> str:
+        """
+        Store a physical file by UUID. Preserves extension.
+        """
+        src = Path(source_path)
+        if not src.exists():
+            raise FileNotFoundError(f"Source file not found: {source_path}")
+            
+        target_filename = f"{file_uuid}{src.suffix}"
+        target_path = self.base_path / target_filename
+        
+        if move:
+            shutil.move(src, target_path)
+        else:
+            shutil.copy2(src, target_path)
+        
+        return str(target_path)
+
     def get_file_path(self, uuid: str) -> str:
         """Return the absolute path for a given document UUID."""
         # The original get_file_path logic

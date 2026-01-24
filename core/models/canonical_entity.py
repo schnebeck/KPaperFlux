@@ -1,6 +1,6 @@
 
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 from enum import Enum
 
@@ -103,6 +103,62 @@ class InvoiceData(BaseModel):
     net_amount: Optional[float] = None
     gross_amount: Optional[float] = None
     currency: str = "EUR"
+
+    @field_validator('net_amount', 'gross_amount', mode='before')
+    @classmethod
+    def parse_flexible_float(cls, v):
+        if v is None: return None
+        if isinstance(v, (int, float)): return v
+        if isinstance(v, str):
+            # Clean "1.234,56" -> "1234.56"
+            # Remove dots if they are thousand seps? Heuristic:
+            # If comma is present, and dot is present before comma, likely thousands.
+            # "1.000,00" -> remove dot, replace comma.
+            # "1,000.00" -> remove comma.
+            clean = v.replace("€", "").replace("$", "").strip()
+            if "," in clean and "." in clean:
+                if clean.rfind(",") > clean.rfind("."):
+                    # German format: 1.000,00
+                    clean = clean.replace(".", "").replace(",", ".")
+                else:
+                    # US format: 1,000.00
+                    clean = clean.replace(",", "")
+            elif "," in clean:
+                # German: 123,45
+                clean = clean.replace(",", ".")
+            try:
+                return float(clean)
+            except:
+                return None
+        return v
+        
+    @field_validator('tax_amounts', mode='before')
+    @classmethod
+    def parse_tax_list(cls, v):
+        # AI returned ["24,90"] instead of [{"rate": 19, "amount": 24.90}]
+        # Or sometimes [{"amount": "24,90"}]
+        if v is None: return []
+        if not isinstance(v, list): return []
+        
+        cleaned = []
+        for x in v:
+            if isinstance(x, dict):
+                # Try to clean inner values?
+                # For now assume dict is structurally usually ok, maybe values need float parsing
+                # But List[Dict[str, float]] will validate values next. 
+                # Ideally we recursively apply flexible_float helper but Pydantic handles inner types if we pass compatible strings?
+                # No, we better pre-process.
+                # Let's simple pass x.
+                cleaned.append(x)
+            elif isinstance(x, str):
+                # Detected ["24,90"] -> treat as simple amount list?
+                # Map to {"amount": x}
+                # And try to parse x
+                val = cls.parse_flexible_float(x)
+                if val is not None:
+                     cleaned.append({"amount": val, "rate": 0.0}) # Dummy rate
+        return cleaned
+
 
 # --- List Items ---
 

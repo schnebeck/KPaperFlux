@@ -467,6 +467,14 @@ class DocumentListWidget(QWidget):
              merge_action = None
     
         reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
+        
+        # Split Action (Only for single multi-page doc)
+        split_action = None
+        if len(selected_items) == 1:
+            doc = self.documents_cache.get(uuid)
+            if doc and getattr(doc, 'page_count', 0) > 1:
+                split_action = menu.addAction(self.tr("Split Document..."))
+                
         tags_action = menu.addAction(self.tr("Manage Tags..."))
         stamp_action = menu.addAction(self.tr("Stamp..."))
         menu.addSeparator()
@@ -499,6 +507,8 @@ class DocumentListWidget(QWidget):
             
         if action == reprocess_action:
             self.reprocess_requested.emit(uuids)
+        elif split_action and action == split_action:
+            self.split_requested.emit(uuids[0])
         elif action == delete_action:
             self.delete_selected_documents(uuids)
         elif merge_action and action == merge_action:
@@ -664,7 +674,6 @@ class DocumentListWidget(QWidget):
             if show:
                 visible_count += 1
                 
-        print(f"[DEBUG] DocumentList: Emitting count visible={visible_count}, total={total_count} (Filter Logic)")
         self.document_count_changed.emit(visible_count, total_count)
 
     def rowCount(self) -> int:
@@ -895,7 +904,6 @@ class DocumentListWidget(QWidget):
         if self.current_filter:
              self.apply_filter(self.current_filter)
         else:
-             print(f"[DEBUG] DocumentList: Emitting count visible={len(docs)}, total={len(docs)} (Populate Logic)")
              self.document_count_changed.emit(len(docs), len(docs))
     def open_export_dialog(self, documents: list):
         if not documents:

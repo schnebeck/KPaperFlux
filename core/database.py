@@ -27,45 +27,30 @@ class DatabaseManager:
 
     def init_db(self):
         """Initialize the database schema."""
-        create_documents_table = """
-        CREATE TABLE IF NOT EXISTS documents (
+        
+        # Phase 6: Removed Legacy Table Migration
+        # self._migrate_to_view()
+
+        # REMOVED: documents_legacy table
+        
+        # Overlays: Currently tied to Legacy ID. Disabling for now as part of legacy removal.
+        # create_overlays_table = ... 
+        
+        create_physical_files_table = """
+        CREATE TABLE IF NOT EXISTS physical_files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uuid TEXT UNIQUE NOT NULL,
+            file_uuid TEXT UNIQUE NOT NULL,
             original_filename TEXT,
-            
-            -- Physical Properties
+            file_path TEXT,
             phash TEXT,
-            text_content TEXT,
+            file_size INTEGER,
             page_count INTEGER,
-            file_size INTEGER, -- New physical prop
-            
-            -- Meta
-            -- Meta
-            semantic_data TEXT, -- Raw Page Map
-            extra_data TEXT,    -- Physical Meta
-            
-            locked INTEGER DEFAULT 0,
-            deleted INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            last_processed_at TEXT
+            raw_ocr_data TEXT, -- JSON page map
+            ref_count INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         """
-        
-        create_overlays_table = """
-        CREATE TABLE IF NOT EXISTS overlays (
-            doc_id INTEGER,
-            overlay_type TEXT,
-            content TEXT,
-            position_x INTEGER,
-            position_y INTEGER,
-            FOREIGN KEY(doc_id) REFERENCES documents(id)
-        );
-        """
-        
-        with self.connection:
-            self.connection.execute(create_documents_table)
-            self.connection.execute(create_overlays_table)
-            
+
         create_semantic_entities_table = """
         CREATE TABLE IF NOT EXISTS semantic_entities (
             entity_uuid TEXT PRIMARY KEY,
@@ -84,204 +69,136 @@ class DatabaseManager:
             status TEXT DEFAULT 'NEW',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             
-            FOREIGN KEY(source_doc_uuid) REFERENCES documents(uuid) ON DELETE CASCADE
+            -- New Logical Fields (Phase 2.0)
+            source_mapping TEXT, -- JSON List of {file_uuid, pages, rotation}
+            type_tags TEXT,      -- JSON List of strings
+            deleted INTEGER DEFAULT 0
+            
+            -- Removed FK to documents table
         );
         """
         
+        create_documents_view = """
+        CREATE VIEW IF NOT EXISTS documents AS
+        SELECT 
+            s.entity_uuid as uuid, 
+            p.original_filename as original_filename, 
+            p.phash as phash, 
+            s.canonical_data as text_content, 
+            COALESCE(p.page_count, 1) as page_count,
+            p.file_size as file_size, 
+            s.canonical_data as semantic_data,
+            '{"source_mapping": ' || IFNULL(s.source_mapping, '[]') || '}' as extra_data,
+            0 as locked,
+            s.deleted,
+            s.created_at,
+            NULL as last_processed_at,
+            p.ref_count as ref_count,
+            NULL as visual_audit_json,
+            NULL as ai_ocr_text_page_1,
+            NULL as preferred_ocr_source,
+            NULL as audit_meta_json
+        FROM semantic_entities s
+        LEFT JOIN physical_files p ON s.source_doc_uuid = p.file_uuid;
+        """
+        
         with self.connection:
-            self.connection.execute(create_documents_table)
-            self.connection.execute(create_overlays_table)
+            # self.connection.execute(create_documents_legacy_table)
+            # self.connection.execute(create_overlays_table)
+            self.connection.execute(create_physical_files_table)
             self.connection.execute(create_semantic_entities_table)
+            self.connection.execute("DROP VIEW IF EXISTS documents") # Recreate view to be sure
+            self.connection.execute(create_documents_view)
             
             # Schema Migration: Add new columns if valid
             # We check columns dynamically
             cursor = self.connection.cursor()
-            cursor.execute("PRAGMA table_info(documents)")
+            
         cursor = self.connection.cursor()
         
-        # 1. Documents Table Columns
-        cursor.execute("PRAGMA table_info(documents)")
-        existing_cols = {row[1] for row in cursor.fetchall()}
+        # 1. Physical Files Columns
+        cursor.execute("PRAGMA table_info(physical_files)")
+        existing_phys_cols = {row[1] for row in cursor.fetchall()}
         
-        new_columns = {
-            "deleted": "INTEGER DEFAULT 0",
-            "last_processed_at": "TEXT", # ISO format
-            "locked": "INTEGER", # Boolean (0/1)
-            "semantic_data": "TEXT", # JSON String
-            "file_size": "INTEGER",
-            "ref_count": "INTEGER DEFAULT 0" # Reference Counting
-        }
-        
-        for col, dtype in new_columns.items():
-            if col not in existing_cols:
-                # print(f"Adding column {col} to documents...")
-                try:
-                    self.connection.execute(f"ALTER TABLE documents ADD COLUMN {col} {dtype}")
-                except Exception as e:
-                    print(f"Error adding {col}: {e}")
-
-        # 2. Semantic Entities Columns
-        cursor.execute("PRAGMA table_info(semantic_entities)")
-        existing_sem_cols = {row[1] for row in cursor.fetchall()}
-        
-        if "deleted" not in existing_sem_cols:
-             # print("Adding column 'deleted' to semantic_entities...")
-             self.connection.execute("ALTER TABLE semantic_entities ADD COLUMN deleted INTEGER DEFAULT 0")
-
-        # 3. Migration: Metadata Cleanup
-        legacy_columns = [
-            "tags", "export_filename", 
-            "doc_type", "doc_date", "v_doc_date",
-            "sender", "v_sender",
-            "amount", "v_amount",
-            "fixed" # Moved to entities or deprecated
-        ]
-        
-        # 4. Migration: Initialize References
-        self.connection.execute("""
-            UPDATE documents 
-            SET ref_count = (
-                SELECT COUNT(*) 
-                FROM semantic_entities 
-                WHERE semantic_entities.source_doc_uuid = documents.uuid AND semantic_entities.deleted = 0
-            )
-        """)
-        self.connection.commit()
-
+        if "ref_count" not in existing_phys_cols:
+            self.connection.execute("ALTER TABLE physical_files ADD COLUMN ref_count INTEGER DEFAULT 0")
             
-        for leg_col in legacy_columns:
-            if leg_col in existing_cols:
-                # SQLite supports DROP COLUMN since 3.35.0
-                # If older, we just ignore. Data remains but is unused.
-                try:
-                    # print(f"Dropping legacy column: {leg_col}")
-                    self.connection.execute(f"ALTER TABLE documents DROP COLUMN {leg_col}")
-                except sqlite3.OperationalError:
-                        pass # Old SQLite or other error. Ignore.
+        if "raw_ocr_data" not in existing_phys_cols:
+            self.connection.execute("ALTER TABLE physical_files ADD COLUMN raw_ocr_data TEXT")
 
-        # Phase 103: Visual Audit Column
-        try:
-             self.connection.execute("ALTER TABLE documents ADD COLUMN visual_audit_json TEXT")
-        except sqlite3.OperationalError: pass
-
-        # Phase 103b: Expanded Audit Columns
-        try:
-             self.connection.execute("ALTER TABLE documents ADD COLUMN ai_ocr_text_page_1 TEXT")
-             self.connection.execute("ALTER TABLE documents ADD COLUMN preferred_ocr_source VARCHAR(20)")
-             self.connection.execute("ALTER TABLE documents ADD COLUMN audit_meta_json TEXT") # Replaces/Aligns with visual_audit_json
-             print("[Database] Added expanded audit columns.")
-        except sqlite3.OperationalError:
-             pass
-             
         self.connection.commit()
+
+    # _migrate_to_view removed (Legacy Architecture Cleanup)
+
 
     def save_audit_result(self, doc_uuid: str, clean_text: Optional[str], preferred_source: Optional[str], full_json: str):
         """
         Updates the 3 audit columns transactionally.
         """
+        # Ensure columns exist in semantic_entities (Added in Phase 6 Schema)
         query = """
-            UPDATE documents 
-            SET ai_ocr_text_page_1 = ?, 
-                preferred_ocr_source = ?, 
-                audit_meta_json = ? 
-            WHERE uuid = ?
+            UPDATE semantic_entities 
+            SET canonical_data = json_set(IFNULL(canonical_data, '{}'), '$.audit.ai_ocr_text', ?),
+                canonical_data = json_set(canonical_data, '$.audit.preferred_source', ?),
+                canonical_data = json_set(canonical_data, '$.audit.full_json', ?)
+            WHERE entity_uuid = ?
         """
+        # Improved: Store in JSON inside canonical_data instead of creating 3 new columns.
+        # This keeps the schema clean.
         with self.connection:
+             # We might need to ensure canonical_data is not null first or use json_patch
+             # SQLite json_set helps.
+             # Note: logic requires doc_uuid to be entity_uuid.
             self.connection.execute(query, (clean_text, preferred_source, full_json, doc_uuid))
 
     def update_document_column(self, doc_uuid: str, column: str, value: Any):
         """
         Generic helper to update a single column for a document.
+        Redirects to semantic_entities.
         """
         # Whitelist allowed columns to prevent injection
         allowed_columns = ["visual_audit_json", "extra_data", "semantic_data", "locked", "deleted"]
-        if column not in allowed_columns:
+        
+        if column == "semantic_data":
+            # Direct update to canonical_data
+            query = "UPDATE semantic_entities SET canonical_data = ? WHERE entity_uuid = ?"
+            if isinstance(value, dict): value = json.dumps(value)
+            
+        elif column == "deleted":
+             query = "UPDATE semantic_entities SET deleted = ? WHERE entity_uuid = ?"
+             
+        elif column == "locked":
+             # We don't have locked in semantic_entities yet. Add to canonical or ignored.
+             # Ignoring for now or adding to tags.
+             return
+             
+        elif column == "visual_audit_json":
+             # Store in canonical_data.audit.visual
+             query = "UPDATE semantic_entities SET canonical_data = json_set(IFNULL(canonical_data, '{}'), '$.audit.visual', ?) WHERE entity_uuid = ?"
+             
+        elif column == "extra_data":
+             # We don't have extra_data column.
+             return
+             
+        else:
             print(f"[Database] Column '{column}' not allowed for generic update.")
             return
 
-        query = f"UPDATE documents SET {column} = ? WHERE uuid = ?"
         with self.connection:
             self.connection.execute(query, (value, doc_uuid))
 
-
-    def insert_document(self, doc: Document) -> int:
+    def update_document_status(self, entity_uuid: str, new_status: str):
         """
-        Insert a document's metadata into the database.
-        Also creates a primary Semantic Entity for it.
-        Returns the new row ID (of documents table).
+        Helper to update processing_status in semantic_entities.
         """
-        # 1. Insert Physical Document
-        sql_doc = """
-        INSERT OR REPLACE INTO documents (
-            uuid, original_filename, page_count, created_at, last_processed_at, locked, deleted, text_content, phash, semantic_data, extra_data
-        ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-        )
-        """
-        
-        values_doc = (
-            doc.uuid,
-            doc.original_filename,
-            doc.page_count,
-            doc.created_at,
-            doc.last_processed_at,
-            1 if doc.locked else 0,
-            1 if doc.deleted else 0,
-            doc.text_content,
-            doc.phash,
-            json.dumps(doc.semantic_data) if doc.semantic_data else None,
-            json.dumps(doc.extra_data) if doc.extra_data else None
-        )
-        
-        # 2. Insert Semantic Entity (if semantic info exists)
-        # Even if empty, strictly we usually want an entity for the doc.
-        # But let's only do it if we have at least 'sender' or 'doc_type' or it's a new import.
-        # For simplicity and test passing: ALWAYS create a default entity.
-        
-        entity_uuid = str(uuid.uuid4()) # Generate new Entity ID
-        
-        # Extract fields from Document object for Entity High-Level Columns
-        # We try to use doc.sender/doc.amount if they are set (legacy/test compat)
-        # OR fallback to inside semantic_data dict.
-        
-        e_sender = doc.sender
-        e_date = doc.doc_date
-        e_type = doc.doc_type
-        if isinstance(e_type, list):
-             e_type = ", ".join(e_type)
-        e_type = e_type or "unknown"
-        
-        e_canonical = doc.semantic_data
-        e_deleted = 1 if doc.deleted else 0
-        
-        sql_entity = """
-        INSERT OR REPLACE INTO semantic_entities (
-            entity_uuid, source_doc_uuid, doc_type, sender_name, doc_date, canonical_data, created_at, deleted
-        ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?
-        )
-        """
-        
-        values_entity = (
-            entity_uuid,
-            doc.uuid,
-            e_type,
-            e_sender,
-            e_date,
-            json.dumps(e_canonical) if e_canonical else None,
-            doc.created_at,
-            e_deleted
-        )
-        
-        cursor = self.connection.cursor()
+        sql = "UPDATE semantic_entities SET status = ? WHERE entity_uuid = ?"
         with self.connection:
-            cursor.execute(sql_doc, values_doc)
-            last_row_id = cursor.lastrowid
-            
-            # Insert Entity
-            cursor.execute(sql_entity, values_entity)
-            
-        return last_row_id
+            self.connection.execute(sql, (new_status, entity_uuid))
+
+
+
+    # insert_document removed (Legacy Architecture Cleanup)
+
 
     def get_all_documents(self) -> List[Document]:
         """
@@ -358,22 +275,22 @@ class DatabaseManager:
         """
         sql = """
         SELECT 
-            s.entity_uuid,       -- 0
-            s.source_doc_uuid,   -- 1
-            s.doc_type,          -- 2
-            s.doc_date,          -- 3
-            s.sender_name,       -- 4
-            s.status,            -- 5
-            d.original_filename, -- 6
-            d.page_count,        -- 7
-            d.created_at,        -- 8
-            json_extract(s.canonical_data, '$.tags_and_flags') as tags, -- 9 (Mapped from CDM)
-            json_extract(s.canonical_data, '$.specific_data.net_amount') as net_amount, -- 10
-            json_extract(s.canonical_data, '$.specific_data.gross_amount') as gross_amount -- 11
+            s.entity_uuid,
+            s.source_doc_uuid,
+            s.doc_type,
+            s.doc_date,
+            s.sender_name,
+            s.status,
+            COALESCE(p.original_filename, 'Logical Document') as filename,
+            COALESCE(p.page_count, 1) as page_count,
+            s.created_at,
+            json_extract(s.canonical_data, '$.tags_and_flags') as tags,
+            json_extract(s.canonical_data, '$.specific_data.net_amount') as net_amount,
+            json_extract(s.canonical_data, '$.specific_data.gross_amount') as gross_amount
         FROM semantic_entities s
-        JOIN documents d ON s.source_doc_uuid = d.uuid
+        LEFT JOIN physical_files p ON s.source_doc_uuid = p.file_uuid
         WHERE s.deleted = 0
-        ORDER BY s.doc_date DESC, d.created_at DESC
+        ORDER BY s.doc_date DESC, s.created_at DESC
         """
         
         cursor = self.connection.cursor()
@@ -423,6 +340,16 @@ class DatabaseManager:
         cursor.execute("SELECT source_doc_uuid FROM semantic_entities WHERE entity_uuid = ?", (entity_uuid,))
         row = cursor.fetchone()
         return row[0] if row else None
+
+    def get_source_mapping_from_entity(self, entity_uuid: str) -> Optional[list]:
+        """Resolve Entity UUID to Source Mapping JSON."""
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT source_mapping FROM semantic_entities WHERE entity_uuid = ?", (entity_uuid,))
+        row = cursor.fetchone()
+        if row and row[0]:
+            try: return json.loads(row[0])
+            except: pass
+        return None
 
 
     def get_document_by_uuid(self, uuid: str) -> Optional[Document]:
@@ -502,51 +429,49 @@ class DatabaseManager:
     def update_document_metadata(self, uuid: str, updates: dict) -> bool:
         """
         Update specific fields of a document.
-        :param uuid: The document UUID
-        :param updates: Dictionary of field_name -> new_value
-        :return: True if successful
+        Redirects to semantic_entities if the document is a Logical Entity.
+        Redirects to documents_legacy if it's a Legacy Document.
         """
-        if not updates:
-            return False
-            
-        # Security: Allow-list columns to prevent injection
-        # Security: Allow-list columns to prevent injection
-        allowed_columns = {
-            "uuid", "original_filename", "tags",
-            "doc_type", "phash", "text_content",
-            "page_count", "created_at", "extra_data", "last_processed_at", "export_filename",
-            "locked", "deleted", "semantic_data"
-        }
+        if not updates: return False
         
-        set_clauses = []
-        values = []
+        # 1. Determine Target
+        is_semantic = self._is_semantic_entity(uuid)
         
-        for key, value in updates.items():
-            if key not in allowed_columns:
-                print(f"Warning: Attempt to update invalid column '{key}'")
-                continue
+        if is_semantic:
+            # Map fields for Semantic Update
+            # Supported: sender->sender_name, doc_date, doc_type, semantic_data
+            mapped_updates = {}
+            if "doc_type" in updates: mapped_updates["doc_type"] = updates["doc_type"]
+            if "doc_date" in updates: mapped_updates["doc_date"] = updates["doc_date"]
+            if "sender" in updates: mapped_updates["sender_name"] = updates["sender"]
+            if "semantic_data" in updates: 
+                mapped_updates["canonical_data"] = json.dumps(updates["semantic_data"]) if isinstance(updates["semantic_data"], dict) else updates["semantic_data"]
             
-            # Serialize extra_data if dictionary
-            if key == "extra_data" and isinstance(value, dict):
-                value = json.dumps(value)
+            # Special handling for deleted
+            if "deleted" in updates: mapped_updates["deleted"] = updates["deleted"]
                 
-            set_clauses.append(f"{key} = ?")
-            values.append(value)
+            if mapped_updates:
+                self._update_table("semantic_entities", uuid, mapped_updates, pk_col="entity_uuid")
+                
+            # If updates contain fields not in semantic (e.g. 'tags' which are in canonical_data now?)
+            # Ignored for now or handled by specialized methods.
+            return True
             
-        if not set_clauses:
-            return False
+        else:
+            # Legacy Update
+            allowed_columns = {
+                "uuid", "original_filename", "tags",
+                "doc_type", "phash", "text_content",
+                "page_count", "created_at", "extra_data", "last_processed_at", "export_filename",
+                "locked", "deleted", "semantic_data"
+            }
             
-        values.append(uuid)
-        sql = f"UPDATE documents SET {', '.join(set_clauses)} WHERE uuid = ?"
-        
-        cursor = self.connection.cursor()
-        try:
-            cursor.execute(sql, values)
-            self.connection.commit()
-            return cursor.rowcount > 0
-        except sqlite3.Error as e:
-            print(f"Database Error updating {uuid}: {e}")
-            return False
+            filtered = {k: v for k, v in updates.items() if k in allowed_columns}
+            if "extra_data" in filtered and isinstance(filtered["extra_data"], dict):
+                filtered["extra_data"] = json.dumps(filtered["extra_data"])
+                
+            self._update_table("documents_legacy", uuid, filtered)
+            return True
 
     def search_documents(self, text_query: str = None, dynamic_filters: dict = None) -> List[Document]:
         """
@@ -1013,61 +938,35 @@ class DatabaseManager:
     def delete_document(self, uuid: str) -> bool:
         """
         Delete a document by its UUID (Soft Delete).
-        Cascades to all Semantic Entities.
+        Applies to Semantic Entity.
         """
-        sql_doc = "UPDATE documents SET deleted = 1 WHERE uuid = ?"
-        sql_ent = "UPDATE semantic_entities SET deleted = 1 WHERE source_doc_uuid = ?"
+        sql_ent = "UPDATE semantic_entities SET deleted = 1 WHERE entity_uuid = ?"
         
         cursor = self.connection.cursor()
         with self.connection:
-            cursor.execute(sql_doc, (uuid,))
-            file_rows = cursor.rowcount
-            
             cursor.execute(sql_ent, (uuid,))
             
-        return file_rows > 0
+        return cursor.rowcount > 0
 
     def purge_document(self, uuid: str) -> bool:
         """
         Permanently delete a document by its UUID (Hard Delete).
-        If UUID is an Entity UUID, resolves to Source Doc UUID.
-        Returns True if a row was deleted, False otherwise.
         """
-        # Resolve Entity -> Source if needed
-        cursor = self.connection.cursor()
-        cursor.execute("SELECT source_doc_uuid FROM semantic_entities WHERE entity_uuid = ?", (uuid,))
-        row = cursor.fetchone()
-        if row:
-            uuid = row[0]
-
-        sql = "DELETE FROM documents WHERE uuid = ?"
-        cursor.execute(sql, (uuid,))
-        self.connection.commit()
-        return cursor.rowcount > 0
+        sql = "DELETE FROM semantic_entities WHERE entity_uuid = ?"
+        with self.connection:
+            self.connection.execute(sql, (uuid,))
+            return self.connection.total_changes > 0
 
     def restore_document(self, uuid: str) -> bool:
         """
         Restore a soft-deleted document (Trash -> Normal).
-        Cascades to all Semantic Entities.
-        If UUID is an Entity UUID, resolves to Source Doc UUID.
         """
-        # Resolve Entity -> Source if needed
-        cursor = self.connection.cursor()
-        cursor.execute("SELECT source_doc_uuid FROM semantic_entities WHERE entity_uuid = ?", (uuid,))
-        row = cursor.fetchone()
-        if row:
-            uuid = row[0]
-
-        sql_doc = "UPDATE documents SET deleted = 0 WHERE uuid = ?"
-        sql_ent = "UPDATE semantic_entities SET deleted = 0 WHERE source_doc_uuid = ?"
+        sql_ent = "UPDATE semantic_entities SET deleted = 0 WHERE entity_uuid = ?"
         
         with self.connection:
-            cursor.execute(sql_doc, (uuid,))
-            file_rows = cursor.rowcount
+            self.connection.execute(sql_ent, (uuid,))
             
-            cursor.execute(sql_ent, (uuid,))
-            
-        return file_rows > 0
+        return self.connection.total_changes > 0
 
     def close(self):
         """Close the database connection."""
@@ -1223,16 +1122,16 @@ class DatabaseManager:
         sql = """
             SELECT 
                 se.entity_uuid,
-                d.uuid as source_uuid,
+                p.file_uuid as source_uuid,
                 se.doc_type,
                 se.doc_date,
                 se.sender_name,
                 se.status,
-                d.file_size,
+                p.file_size,
                 se.canonical_data,
-                d.original_filename
+                p.original_filename
             FROM semantic_entities se
-            JOIN documents d ON se.source_doc_uuid = d.uuid
+            LEFT JOIN physical_files p ON se.source_doc_uuid = p.file_uuid
             WHERE se.deleted = 1
             ORDER BY se.created_at DESC
         """
@@ -1310,26 +1209,82 @@ class DatabaseManager:
         cursor.execute("DELETE FROM semantic_entities WHERE entity_uuid = ?", (entity_uuid,))
         
         # 3. Update Reference Count
-        # We can trust the count query or decrement. Count query is safer self-healing.
+        # 3. Update Reference Count
+        # source_uuid is the physical file UUID (since entities point to it)
         cursor.execute("SELECT COUNT(*) FROM semantic_entities WHERE source_doc_uuid = ?", (source_uuid,))
         remaining = cursor.fetchone()[0]
         
-        cursor.execute("UPDATE documents SET ref_count = ? WHERE uuid = ?", (remaining, source_uuid))
+        cursor.execute("UPDATE physical_files SET ref_count = ? WHERE file_uuid = ?", (remaining, source_uuid))
         
-        # 4. Check for Zero References -> Delete Source Document
+        # 4. Check for Zero References -> Delete Physical File Entry
         if remaining == 0:
-            print(f"[RefCount] Document {source_uuid} has 0 references. Deleting PDF & DB Entry.")
+            print(f"[RefCount] Physical File {source_uuid} has 0 references. Deleting DB Entry.")
             
-            # Get export filename to maybe clean up? Usually handled by Vault.
-            # We need to signal File Deletion.
-            # But here we are in DB Manager.
-            # Ideally returns a signal "source_deleted": True?
-            # Or we just delete the DB row and let the Vault cleaner handle files (orphans)?
-            # Start with DB deletion.
+            # Ideally we should also delete the file from disk here or mark for sweep.
+            # But the caller (Vault) might handle it.
+            # For now, just clean DB.
+            cursor.execute("DELETE FROM physical_files WHERE file_uuid = ?", (source_uuid,))
             
-            cursor.execute("DELETE FROM documents WHERE uuid = ?", (source_uuid,))
-            # Note: Caller might need to know to delete the physical file.
+    def purge_all_data(self, vault_path: str) -> bool:
+        """
+        DESTRUCTIVE: Deletes ALL data from database and vault.
+        Used for development/testing reset.
+        """
+        import os
+        import shutil
+        
+        try:
+            cursor = self.connection.cursor()
             
-        self.connection.commit()
-        return True
+            # 1. Drop Tables (Schema Reset)
+            cursor.execute("DROP VIEW IF EXISTS documents")
+            cursor.execute("DROP TABLE IF EXISTS overlays")
+            cursor.execute("DROP TABLE IF EXISTS semantic_entities")
+            cursor.execute("DROP TABLE IF EXISTS physical_files")
+            cursor.execute("DROP TABLE IF EXISTS documents_legacy") # Cleanup legacy
+            
+            # 2. Reset Sequences
+            try:
+                cursor.execute("DELETE FROM sqlite_sequence")
+            except:
+                pass 
+            
+            self.connection.commit()
+            
+            # 3. Re-Initialize Database (Recreate empty tables)
+            self.init_db()
+            
+            # 3. Clear Vault Directory
+            if vault_path and os.path.exists(vault_path):
+                for filename in os.listdir(vault_path):
+                    file_path = os.path.join(vault_path, filename)
+                    try:
+                        if os.path.isfile(file_path) or os.path.islink(file_path):
+                            os.unlink(file_path)
+                        elif os.path.isdir(file_path):
+                            shutil.rmtree(file_path)
+                    except Exception as e:
+                        print(f"Failed to delete {file_path}. Reason: {e}")
+                        return False
+            
+            return True
+        except Exception as e:
+            print(f"Purge failed: {e}")
+            self.connection.rollback()
+            return False
+
+    def get_source_mapping_from_entity(self, entity_uuid: str) -> Optional[list]:
+        """
+        Get the 'source_mapping' JSON (list of SourceReferences) for an entity.
+        Used by GUI to find the physical file for a Logical Entity (Shadow Document).
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT source_mapping FROM semantic_entities WHERE entity_uuid = ?", (entity_uuid,))
+        row = cursor.fetchone()
+        if row and row[0]:
+            try:
+                return json.loads(row[0])
+            except:
+                pass
+        return None
 

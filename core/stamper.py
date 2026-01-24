@@ -26,30 +26,80 @@ class DocumentStamper:
                 return
 
             first_page = target_pdf.pages[0]
-            mediabox = first_page.MediaBox
+            mediabox = list(first_page.MediaBox) # [0, 0, w, h] usually
             page_w = float(mediabox[2])
             page_h = float(mediabox[3])
             
-            # Coordinates
-            x, y = 100, 100 
+            # Check Page Rotation
+            page_rot = 0
+            if "/Rotate" in first_page:
+                try: page_rot = int(first_page.Rotate)
+                except: pass
+            
+            # Normalize to 0-360 positive
+            page_rot = page_rot % 360
+            
+            # Dimensions in Visual Space
+            if page_rot in [90, 270]:
+                vis_w, vis_h = page_h, page_w
+            else:
+                vis_w, vis_h = page_w, page_h
+            
+            # 1. Calc Visual Coordinates (Where we want it to APPEAR relative to visual page)
+            vx, vy = 100, 100 
             margin = 50
             if position == "top-left":
-                x = margin; y = page_h - margin - 100
+                vx = margin; vy = vis_h - margin - 100
             elif position == "top-right":
-                x = page_w - margin - 150; y = page_h - margin - 100
+                vx = vis_w - margin - 150; vy = vis_h - margin - 100
             elif position == "top-center":
-                x = page_w / 2 - 75; y = page_h - margin - 100
+                vx = vis_w / 2 - 75; vy = vis_h - margin - 100
             elif position == "center":
-                x = page_w / 2 - 50; y = page_h / 2
+                vx = vis_w / 2 - 50; vy = vis_h / 2
             elif position == "bottom-left":
-                x = margin; y = margin
+                vx = margin; vy = margin
             elif position == "bottom-right":
-                x = page_w - margin - 150; y = margin
+                vx = vis_w - margin - 150; vy = margin
             elif position == "bottom-center":
-                x = page_w / 2 - 75; y = margin
+                vx = vis_w / 2 - 75; vy = margin
+                
+            # 2. Map Visual(vx,vy) -> Geometric(gx, gy) based on Rotation
+            # ReportLab Canvas assumes Geometric Space (0..PageW, 0..PageH)
+            gx, gy = vx, vy # Default 0
+            
+            if page_rot == 90:
+                # 90 CW: Top=Left, Right=Top, Bottom=Right, Left=Bottom
+                # Visual X axis maps to Geometric Y axis
+                # Visual Y axis maps to Geometric -X axis ??
+                # Map derived:
+                # gx = page_w - vy? (Wait, page_w is VisH) -> gx = VisH - vy
+                # gy = vx
+                gx = page_w - vy # using page_w (geo width)
+                gy = vx
+                
+                # Check: Vis Top-Right (vx=W, vy=H) -> gx=W-H? No.
+                # Vis Top-Right (vx=VisW, vy=VisH) -> (GeoH, GeoW) 
+                # (Remember VisW=GeoH, VisH=GeoW)
+                # vx=GeoH, vy=GeoW
+                # gx = GeoW - GeoW = 0.
+                # gy = GeoH. 
+                # -> (0, GeoH). This is Geo Top-Left.
+                # 90CW: Geo Top-Left becomes Vis Top-Right. CORRECT. 
+                
+            elif page_rot == 180:
+                gx = page_w - vx
+                gy = page_h - vy
+                
+            elif page_rot == 270:
+                # 270 CW (90 CCW)
+                # gx = vy
+                # gy = page_h - vx
+                gx = vy
+                gy = page_h - vx
             
             # ReportLab
             packet = io.BytesIO()
+            # Canvas size must match Geometric Page Size
             can = canvas.Canvas(packet, pagesize=(page_w, page_h))
             r, g, b = [c/255.0 for c in color]
             can.setFillColorRGB(r, g, b, 1.0) # Alpha 1.0
@@ -58,8 +108,13 @@ class DocumentStamper:
             can.setFont("Helvetica-Bold", font_size)
             
             can.saveState()
-            can.translate(x, y)
-            can.rotate(rotation)
+            can.translate(gx, gy)
+            
+            # Compensate Rotation + Apply User Rotation
+            # If Page is 90, we must rotate -90 to be upright.
+            # Then add user rotation.
+            final_rot = rotation - page_rot
+            can.rotate(final_rot)
             
             if text == "DEBUG_RECT":
                 can.rect(-50, -25, 100, 50, fill=1, stroke=0)

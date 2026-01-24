@@ -225,11 +225,10 @@ class VisualAuditor:
                 final_mode = req_mode
         return final_mode
 
-    def generate_audit_images_and_text(self, pdf_path: str, mode: str, text_content: Optional[str] = None) -> Dict[str, Any]:
+    def generate_audit_images_and_text(self, pdf_path: str, mode: str, text_content: Optional[str] = None, target_pages: List[int] = None) -> Dict[str, Any]:
         """
         Generates Base64 images based on mode and text search.
-        Also extracts Page 1 text for the prompt.
-        Prioritizes text_content (DB OCR) for keyword search if provided.
+        Restricted to target_pages (1-based) if provided.
         """
         if not os.path.exists(pdf_path):
              print(f"[VisualAuditor] File not found: {pdf_path}")
@@ -242,57 +241,72 @@ class VisualAuditor:
             return {"images": [], "page1_text": ""}
             
         total_pages = doc.page_count
+        
+        # Determine 0-based indices to scan
+        if target_pages:
+            # Filter out out-of-bounds
+            scan_indices = [p-1 for p in target_pages if 1 <= p <= total_pages]
+        else:
+            scan_indices = list(range(total_pages))
+            
+        if not scan_indices:
+             doc.close()
+             return {"images": [], "page1_text": ""}
+        
         images_payload = []
         page1_text = ""
         
         # Helper: Get text for a page (DB or Fitz)
+        # Note: text_content usually matches the VIRTUAL document (already split?)
+        # If text_content is passed, it is the content of the RANGE.
+        # So index 0 in text_content corresponds to scan_indices[0].
         db_pages = text_content.split('\f') if text_content else []
         
-        def get_page_text(idx):
-            if idx < len(db_pages):
-                return db_pages[idx]
+        def get_page_text(phys_idx):
+            # Map physical index to relative index in db_pages?
+            if phys_idx in scan_indices:
+                rel_idx = scan_indices.index(phys_idx)
+                if rel_idx < len(db_pages):
+                    return db_pages[rel_idx]
             try:
-                return doc.load_page(idx).get_text()
+                return doc.load_page(phys_idx).get_text()
             except:
                 return ""
 
-        # --- 1. ALWAYS PAGE 1 (For Stamps) ---
-        indices_with_labels = {0: "FIRST_PAGE"}
+        # --- 1. ALWAYS FIRST PAGE (of the range) ---
+        first_page_idx = scan_indices[0]
+        indices_with_labels = {first_page_idx: "FIRST_PAGE"}
         
-        # Extract Text from Page 1 (for Prompt)
-        if total_pages > 0:
-            page1_text = get_page_text(0)
-            if not page1_text: page1_text = "(OCR Extract Failed)"
+        # Extract Text from First Page (for Prompt)
+        page1_text = get_page_text(first_page_idx)
+        if not page1_text: page1_text = "(OCR Extract Failed)"
         
         # --- 2. LOGIC FOR SIGNATURES (FULL_AUDIT) ---
-        if mode == AUDIT_MODE_FULL and total_pages > 0:
+        if mode == AUDIT_MODE_FULL:
             signature_page_index = -1 # Not found yet
             
-            # Smart Search: Search for keywords in text
-            # Now robust for Hybrid PDFs using DB OCR text
-            for i in range(total_pages):
+            # Smart Search within range
+            for i in scan_indices:
                 try:
                     text = get_page_text(i).lower()
                     if any(kw in text for kw in SIGNATURE_KEYWORDS):
                         signature_page_index = i
-                        # Keep searching to find the LAST page with signatures?
-                        # Or break? Usually signature is at end.
-                        # We continue loop to find the LAST occurrence.
+                        # Continue to find LAST occurrence
                 except:
                     pass
             
             # Decision:
             if signature_page_index != -1:
                 indices_with_labels[signature_page_index] = "SIGNATURE_PAGE"
-                print(f"[Smart Audit] Signature keywords found on page {signature_page_index + 1}")
+                print(f"[Smart Audit] Signature keywords found on physical page {signature_page_index + 1}")
             else:
-                last_idx = total_pages - 1
+                last_idx = scan_indices[-1]
                 indices_with_labels[last_idx] = "SIGNATURE_PAGE"
-                print("[Smart Audit] No keywords. Using last page as fallback.")
+                print("[Smart Audit] No keywords. Using last page of range as fallback.")
 
-            # Special Case: If Page 1 is also the Signature Page
-            if 0 in indices_with_labels and indices_with_labels[0] == "FIRST_PAGE" and signature_page_index == 0:
-                 indices_with_labels[0] = "FIRST_PAGE_AND_SIGNATURE_PAGE"
+            # Special Case: Single Page Doc or First=Last
+            if first_page_idx in indices_with_labels and indices_with_labels[first_page_idx] == "SIGNATURE_PAGE":
+                 indices_with_labels[first_page_idx] = "FIRST_PAGE_AND_SIGNATURE_PAGE"
 
         # --- 3. RENDERING ---
         for idx, label in indices_with_labels.items():
@@ -319,7 +333,7 @@ class VisualAuditor:
             "page1_text": page1_text
         }
 
-    def run_stage_1_5(self, pdf_path: str, doc_uuid: str, stage_1_result: Dict, text_content: Optional[str] = None) -> Dict:
+    def run_stage_1_5(self, pdf_path: str, doc_uuid: str, stage_1_result: Dict, text_content: Optional[str] = None, target_pages: List[int] = None) -> Dict:
         """
         Executes audit and returns result dict.
         """
@@ -334,16 +348,13 @@ class VisualAuditor:
             return {}
             
         # 2. Generate Images & Text
-        data = self.generate_audit_images_and_text(str(pdf_path), audit_mode, text_content=text_content)
+        data = self.generate_audit_images_and_text(str(pdf_path), audit_mode, text_content=text_content, target_pages=target_pages)
         audit_images_data = data["images"]
         
         # Prefer validation text from DB (text_content) if available, else fitz
         if text_content:
-            # Simple assumption: Page 1 is until first form feed or just first 2k chars?
-            # Better to use split like Canonizer did
             pages = text_content.split('\f')
             raw_ocr_page1 = pages[0] if pages else text_content
-            pass
         else:
              raw_ocr_page1 = data["page1_text"]
         
@@ -366,31 +377,24 @@ class VisualAuditor:
             contents.append(img)
             
         # 5. Call AI
-        print(f"\n=== [DEBUG] STAGE 1.5 AUDIT PROMPT ({audit_mode}) ===\n")
-        print(system_prompt) 
+        # print(f"\n=== [DEBUG] STAGE 1.5 AUDIT PROMPT ({audit_mode}) ===\n")
+        # print(system_prompt) 
         
-        try:
-            self.ai._wait_for_cooldown()
-            response = self.ai.client.models.generate_content(
-                model=self.ai.model_name,
-                contents=contents
-            )
+        # Upgrade: Use robust retry handler
+        response = self.ai._generate_with_retry(contents)
+        
+        if response and response.text:
+            txt = response.text
+            if "```json" in txt:
+                txt = txt.replace("```json", "").replace("```", "")
             
-            if response and response.text:
-                txt = response.text
-                if "```json" in txt:
-                    txt = txt.replace("```json", "").replace("```", "")
-                
-                try:
-                    res_json = json.loads(txt)
-                    res_json["meta_mode"] = audit_mode
-                    print("\n=== [DEBUG] STAGE 1.5 RESULT ===")
-                    print(json.dumps(res_json, indent=2))
-                    return res_json
-                except json.JSONDecodeError:
-                    print(f"Stage 1.5 Invalid JSON: {txt[:200]}...")
-            
-        except Exception as e:
-            print(f"Stage 1.5 Audit Error: {e}")
+            try:
+                res_json = json.loads(txt)
+                res_json["meta_mode"] = audit_mode
+                print("\n=== [STAGE 1.5 AUDIT RESULT] ===")
+                print(json.dumps(res_json, indent=2))
+                return res_json
+            except json.JSONDecodeError:
+                print(f"Stage 1.5 Invalid JSON: {txt[:200]}...")
             
         return {}

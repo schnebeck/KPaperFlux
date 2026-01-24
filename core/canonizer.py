@@ -1,153 +1,416 @@
 
-import json
 from typing import List, Optional
 from core.database import DatabaseManager
 from core.document import Document
 from core.models.canonical_entity import CanonicalEntity, DocType
+from core.models.virtual import VirtualDocument, SourceReference
 from core.ai_analyzer import AIAnalyzer
+from core.visual_auditor import VisualAuditor
 from core.config import AppConfig
 from core.models.identity import IdentityProfile
+from core.repositories.physical_repo import PhysicalRepository
+from core.repositories.logical_repo import LogicalRepository
+import uuid
 import json
 
 class CanonizerService:
     """
-    Scans 'documents' table for processed files that lack 'semantic_entities'.
-    Uses AI to identify and extract Canonical Entities.
+    Phase 2 Canonizer:
+    Scans 'semantic_entities' (Logical Entities) with status='NEW'.
+    Resolves text via VirtualDocument -> PhysicalFile.
+    Handles Splitting (1 Logical -> N Logical).
     """
     
-    def __init__(self, db: DatabaseManager, analyzer: Optional[AIAnalyzer] = None):
+    def __init__(self, db: DatabaseManager, analyzer: Optional[AIAnalyzer] = None, 
+                 physical_repo: Optional[PhysicalRepository] = None,
+                 logical_repo: Optional[LogicalRepository] = None):
         self.db = db
         self.config = AppConfig()
-        if analyzer:
-            self.analyzer = analyzer
-        else:
-            # Initialize Analyzer if not provided (key from config/env)
-            api_key = self.config.get_api_key() 
-            self.analyzer = AIAnalyzer(api_key, model_name="gemini-2.0-flash") if api_key else None
+        
+        # Repositories (Lazy init or passed)
+        self.physical_repo = physical_repo if physical_repo else PhysicalRepository(db)
+        self.logical_repo = logical_repo if logical_repo else LogicalRepository(db)
+        
+        # Core Components
+        # The provided `analyzer` parameter is ignored in favor of direct initialization using config.
+        # This might be an intentional change to always use the config-driven analyzer.
+        self.analyzer = AIAnalyzer(self.config.get_api_key(), self.config.get_gemini_model())
+        self.visual_auditor = VisualAuditor(self.analyzer)
 
     def process_pending_documents(self, limit: int = 10):
         """
-        Main loop: Find documents without entities, process them.
+        Scan for Logical Entities with status='NEW'.
         """
         if not self.analyzer:
             print("[Canonizer] No AI Analyzer available.")
             return
 
-        # 1. Find candidates (Naive check: Docs exists but no entities linked?)
-        
         cursor = self.db.connection.cursor()
+        # Fetch NEW entities
         query = """
-            SELECT d.uuid, d.text_content, d.semantic_data, d.extra_data
-            FROM documents d
-            WHERE d.uuid NOT IN (SELECT source_doc_uuid FROM semantic_entities)
+            SELECT entity_uuid 
+            FROM semantic_entities 
+            WHERE status = 'NEW' AND deleted = 0
             LIMIT ?
         """
         cursor.execute(query, (limit,))
         rows = cursor.fetchall()
         
         for row in rows:
-            uuid, text_content, semantic_data_json, extra_data_json = row
-            # Load Raw Semantics (if any)
-            semantic_data = {}
-            if semantic_data_json:
-                try:
-                    semantic_data = json.loads(semantic_data_json)
-                except:
-                    pass
+            entity_uuid = row[0]
+            v_doc = self.logical_repo.get_by_uuid(entity_uuid)
+            if v_doc:
+                self.process_virtual_document(v_doc)
             
-            # Load Extra Data (Stamps)
-            extra_data = {}
-            if extra_data_json:
-                try:
-                    extra_data = json.loads(extra_data_json)
-                except:
-                    pass
-            
-            self.process_document(uuid, text_content, semantic_data, extra_data)
-            
-    def process_document(self, uuid: str, text_content: str, semantic_data: dict = None, extra_data: dict = None, file_path: Optional[str] = None):
+    def process_virtual_document(self, v_doc: VirtualDocument):
         """
-        Process a single document: Identify Entities and Persist.
-        :param file_path: Required for Stage 1.5 (Visual Audit)
+        Process a specific VirtualDocument.
         """
-        if not self.analyzer:
+        if not self.analyzer: return
+        print(f"[STAGE 1] Processing Logical Entity {v_doc.entity_uuid}...")
+        
+        # 1. Resolve Text Content (Lazy Load)
+        # Helper callback to fetch physical data
+        def loader(fid):
+            return self.physical_repo.get_by_uuid(fid)
+            
+        full_text = v_doc.resolve_content(loader)
+        if not full_text:
+            print(f"[Canonizer] No text content resolved for {v_doc.entity_uuid}. Skipping.")
             return
 
-        print(f"[Canonizer] Processing {uuid}...")
+        print(f"[STAGE 1] Resolved Full Text: {len(full_text)} chars")
+
+        # 2. AI Analysis (Stage 1: Structure/Split)
         
-        # Load Identity Profiles
+        # Load Profiles
         priv_json = self.config.get_private_profile_json()
         bus_json = self.config.get_business_profile_json()
-        
         priv_id = IdentityProfile.model_validate_json(priv_json) if priv_json else None
         bus_id = IdentityProfile.model_validate_json(bus_json) if bus_json else None
-
-        # Split Pages (Assumption: Form Feed or just treat as list if unknown)
-        # Using Form Feed \f is standard for pdftotext. If not present, check logic.
-        # Fallback: Treat entire text as 1 page if no split found.
-        pages = text_content.split('\f')
-        if not pages: pages = [text_content]
-        # Remove empty last page often caused by split
-        if pages and not pages[-1].strip():
-            pages.pop()
-            
-        # Phase 102: Master Classification (Multi-Doc)
-        struct_res = self.analyzer.classify_structure(pages, priv_id, bus_id)
+        
+        # Split Pages logic (Naive \f check or rely on page markers from resolve_content?)
+        # v_doc.resolve_content returns joined text. 
+        # Ideally we want pages separate for classify_structure.
+        # Let's reconstruct page list from source_mapping + physical repo directly?
+        # Or better: v_doc gives us a way to get text per page? 
+        # resolve_content is flat.
+        # Let's rebuild pages list here manually for accurate classification.
+        
+        pages_text = []
+        for src in v_doc.source_mapping:
+            pf = self.physical_repo.get_by_uuid(src.file_uuid)
+            if pf and pf.raw_ocr_data:
+                # Determine how raw_ocr_data is stored (String/JSON or Dict)
+                # PhysicalRepo returns object. 
+                raw = pf.raw_ocr_data
+                if isinstance(raw, str):
+                    try: raw = json.loads(raw)
+                    except: raw = {}
+                
+                if isinstance(raw, dict):
+                    for p in src.pages:
+                        pages_text.append(raw.get(str(p), ""))
+        
+        if not pages_text:
+             # Fallback
+             pages_text = [full_text]
+             
+        # AI Classification
+        struct_res = self.analyzer.classify_structure(pages_text, priv_id, bus_id)
+        # print(f"[STAGE 1] Classification Raw Result:\n{json.dumps(struct_res, indent=2)}")
         
         detected_entities = struct_res.get("detected_entities", [])
         
         if not detected_entities:
-            # Check if it returned the old single-object format (fallback)
-            if "doc_type" in struct_res:
-                 detected_entities = [struct_res]
+            print(f"[Canonizer] No entities detected for {v_doc.entity_uuid}.")
+            return
+
+        # ... (Comments) ...
+        
+        split_candidates = self.analyzer.identify_entities(full_text, semantic_data=None)
+        print(f"[STAGE 1.2] Split Candidates:\n{json.dumps(split_candidates, indent=2)}")
+        # split_candidates list of {type, pages: [1,2], ...}
+        
+        if not split_candidates:
+             # Fallback: Assume 1 entity covering all pages
+             split_candidates = [{
+                 "type": detected_entities[0].get("doc_type", "OTHER") if detected_entities else "OTHER",
+                 "pages": list(range(1, len(pages_text) + 1))
+             }]
+             
+        # 4. Apply Splits to VirtualDocuments
+        # We iterate the candidates.
+        # 1st candidate -> Updates current v_doc.
+        # 2nd+ -> Creates NEW v_doc.
+        
+        original_source_map = v_doc.source_mapping # Keep reference
+        # We need to check if source_mapping maps to ONE physical file for simplicity of splitting logic?
+        # source_mapping is List[SourceReference]. 
+        # If we have multiple sources, splitting by "page index 1..N" is tricky across files.
+        # Assumption: Phase 2.0 Ingest creates 1 v_doc per 1 physical file (1 SourceRef).
+        # So "Page 1" of v_doc corresponds to "Page 1" of that SourceRef.
+        
+        if not original_source_map: return
+        
+        base_ref = original_source_map[0] # Assuming single source for now
+        
+        for idx, candidate in enumerate(split_candidates):
+            c_type = candidate.get("type", "OTHER")
+            c_pages = candidate.get("pages", []) # 1-based indices relative to logic doc
+            
+            # Map Logical Pages -> Physical Pages
+            # base_ref.pages is [1, 2, 3...] usually.
+            # If logic page is 1, it maps to base_ref.pages[0].
+            
+            new_source_pages = []
+            for lp in c_pages:
+                if 0 <= lp-1 < len(base_ref.pages):
+                    new_source_pages.append(base_ref.pages[lp-1])
+            
+            if not new_source_pages: continue
+            
+            # Target Document
+            target_doc = None
+            is_new_entity = False
+            
+            if idx == 0:
+                target_doc = v_doc # Reuse existing
             else:
-                 # AI Failed or Returned Empty -> ABORT processing to preserve old data
-                 print(f"[Canonizer] AI Analysis failed or empty for {uuid}. Preserving existing data.")
-                 return
+                # Create NEW Split Entity
+                target_doc = VirtualDocument(
+                    entity_uuid=str(uuid.uuid4()),
+                    status="NEW",
+                    created_at=v_doc.created_at
+                )
+                is_new_entity = True
+            
+            # Update Document Properties
+            target_doc.doc_type = c_type
+            target_doc.status = "PROCESSED" # Mark processed so we don't loop forever
+            
+            # Update Source Mapping
+            target_doc.source_mapping = [SourceReference(
+                file_uuid=base_ref.file_uuid,
+                pages=new_source_pages,
+                rotation=base_ref.rotation
+            )]
+            
+            # Stage 2: Extraction (Metadata)
+            # Extract text for specific pages
+            entity_text = self._extract_range_text(pages_text, c_pages) 
+            
+            # Extract CDM
+            cdm_data = self.analyzer.extract_canonical_data(c_type, entity_text)
+            target_doc.semantic_data = cdm_data
+            
+            # Extract Core Fields
+            if "doc_date" in cdm_data: target_doc.doc_date = cdm_data["doc_date"]
+            if "parties" in cdm_data:
+                 sender = cdm_data["parties"].get("sender", {})
+                 target_doc.sender_name = sender.get("name") or sender.get("company")
+            
+            # Save
+            self.logical_repo.save(target_doc)
+            print(f"[Canonizer] Saved Split Entity {target_doc.entity_uuid} ({c_type})")
 
-        # Phase 103: Visual Audit (Stage 1.5)
-        # Check for Stamps and Signatures, save to DB
-        if file_path:
-            try:
-                from core.visual_auditor import VisualAuditor
-                auditor = VisualAuditor(self.analyzer)
+    def _extract_range_text(self, pages_text: List[str], target_indices: List[int]) -> str:
+        """Helper to join specific pages (simple join)."""
+        out = []
+        for i in target_indices:
+            if 0 <= i-1 < len(pages_text):
+                out.append(pages_text[i-1])
+        return "\n\n".join(out)
+
+    def split_entity(self, entity_uuid: str, split_after_page_index: int) -> tuple[str, str]:
+        """
+        Splits a Logical Entity into two parts at the specified logical page index.
+        :param split_after_page_index: 0-based index of the page AFTER which to split.
+                                     (e.g. 0 means split after Page 1).
+        :return: (uuid_part_a, uuid_part_b)
+        """
+        # 1. Fetch Original
+        doc = self.logical_repo.get_by_uuid(entity_uuid)
+        if not doc:
+             raise ValueError(f"Entity {entity_uuid} not found")
+             
+        # 2. Flatten Pages logic
+        # List of (file_uuid, page_num, rotation)
+        flat_pages = []
+        if doc.source_mapping:
+            for src in doc.source_mapping:
+                for p in src.pages:
+                    flat_pages.append({
+                        "file_uuid": src.file_uuid, 
+                        "page": p, 
+                        "rotation": src.rotation
+                    })
+                    
+        total_pages = len(flat_pages)
+        if split_after_page_index < 0 or split_after_page_index >= total_pages - 1:
+            raise ValueError(f"Invalid split index {split_after_page_index}. Total pages: {total_pages}")
+            
+        # 3. Slice
+        # Part A: index 0 to split_after_page_index (inclusive)
+        # Part B: split_after_page_index + 1 to end
+        pages_a = flat_pages[:split_after_page_index+1]
+        pages_b = flat_pages[split_after_page_index+1:]
+        
+        # 4. Helper to reconstruct SourceMappings from flat pages
+        def regroup(pages_list) -> List[SourceReference]:
+            mappings = []
+            if not pages_list: return mappings
+            
+            current_uuid = pages_list[0]["file_uuid"]
+            current_rot = pages_list[0]["rotation"]
+            current_batch = [pages_list[0]["page"]]
+            
+            for item in pages_list[1:]:
+                # If same file and rotation, merge?? 
+                # Ideally yes. Even if pages are non-contiguous (e.g. 1,3) logic works.
+                # But simple continuity check is safer for "page ranges" if UI expects ranges.
+                # SourceReference.pages is `List[int]`, so [1,3] is valid.
+                if item["file_uuid"] == current_uuid and item["rotation"] == current_rot:
+                    current_batch.append(item["page"])
+                else:
+                    # Flush
+                    mappings.append(SourceReference(
+                        file_uuid=current_uuid,
+                        pages=current_batch,
+                        rotation=current_rot
+                    ))
+                    # Reset
+                    current_uuid = item["file_uuid"]
+                    current_rot = item["rotation"]
+                    current_batch = [item["page"]]
+            
+            # Flush last
+            if current_batch:
+                mappings.append(SourceReference(
+                    file_uuid=current_uuid,
+                    pages=current_batch,
+                    rotation=current_rot
+                ))
+            return mappings
+
+        # 5. Update Entity A (The Original) -> Represents Top part
+        doc.source_mapping = regroup(pages_a)
+        doc.doc_type = json.dumps(["UNKNOWN"]) # Reset Type (Strict)
+        doc.semantic_data = {}   # Reset Semantics
+        doc.status = "NEW"       # Queue for Re-analysis
+        self.logical_repo.save(doc)
+        
+        # 6. Create Entity B (The New Part) -> Represents Bottom part
+        new_doc = VirtualDocument(
+            entity_uuid=str(uuid.uuid4()),
+            created_at=doc.created_at, # Inherit creation time
+            status="NEW",
+            doc_type=json.dumps(["UNKNOWN"]), # Reset Type (Strict)
+            type_tags=["SPLIT_RESULT"]
+        )
+        new_doc.source_mapping = regroup(pages_b)
+        self.logical_repo.save(new_doc)
+        
+        print(f"[Canonizer] Split {entity_uuid} at idx {split_after_page_index}. New parts: {doc.entity_uuid}, {new_doc.entity_uuid}")
+        return (doc.entity_uuid, new_doc.entity_uuid)
+        
+    # Legacy wrapper if needed, or remove old methods...
+    # Keeping old save_entity/process_document removed/replaced.
+
+    def restructure_file_entities(self, file_uuid: str, new_mappings: List[List[dict]]) -> List[str]:
+        """
+        Phase 8.2: Atomic Restructure / Manual Transaction.
+        Deletes ALL existing logical entities for this file.
+        Creates NEW logical entities based on the provided page groupings.
+        
+        :param file_uuid: The physical file UUID (Source).
+        :param new_mappings: List of List of dicts. 
+                             Outer list = New Entities.
+                             Inner List = Pages for that entity.
+                             Example: [ [{"page": 1, "rotation":0}, {"page": 2}], [{"page": 3}] ]
+        :return: List of new Entity UUIDs.
+        """
+        # 1. Fetch current entities (The "Old" Context)
+        existing_docs = self.logical_repo.get_by_source_file(file_uuid)
+        
+        if not existing_docs:
+            print(f"[Canonizer] Warning: No existing entities found for file {file_uuid}. Treating as fresh split.")
+            # This is acceptable (maybe freshly imported and not yet canonized?)
+        
+        # 2. Transaction Scope
+        # We simulate a transaction by deleting then creating.
+        # Ideally using db.transaction if exposed, but for now we assume repo operations are safe enough.
+        # If we crash between delete and create, we have data loss (but file remains in Vault).
+        # Risk accepted for Phase 8.
+        
+        print(f"[Canonizer] RESTRUCTURE TRANSACTION: Deleting {len(existing_docs)} old entities for {file_uuid}...")
+        
+        # DELETE OLD
+        for old_doc in existing_docs:
+            self.logical_repo.delete_by_uuid(old_doc.entity_uuid)
+            
+        # CREATE NEW
+        new_uuids = []
+        created_at_ts = None
+        if existing_docs:
+            created_at_ts = existing_docs[0].created_at # Inherit timestamp
+            
+        for group in new_mappings:
+            # Construct SourceMapping
+            # group is list of dicts: {'page': 1, 'rotation': 0}
+            # We need to form a SourceReference(file_uuid, [pages], rotation)
+            # Assuming homogeneous rotation for simplicity or splitting references.
+            
+            # Simple Grouper by rotation
+            current_rot = 0
+            current_pages = []
+            refs = []
+            
+            # Sort by page to be safe?
+            # group.sort(key=lambda x: x['page'])
+            
+            for item in group:
+                p = item['page']
+                r = item.get('rotation', 0)
                 
-                # Pass full structure so it can decide mode based on DocTypes
-                # Also pass text_content so auditor doesn't need to re-extract (and fail on image-only PDFs)
-                audit_res = auditor.run_stage_1_5(file_path, uuid, struct_res, text_content)
+                # If rotation changes, we MUST split the reference? 
+                # (SourceReference has one rotation).
+                # Simpler: Just make one SourceReference per page if they differ, 
+                # or group properly.
+                # For Phase 8 MVP: We assume one SourceReference per contiguous block or just list of pages.
                 
-                if audit_res:
-                    # Extract Expanded Columns
-                    # 1. Clean Text
-                    clean_text = audit_res.get("layer_document", {}).get("clean_text")
-                    
-                    # 2. Recommended Source
-                    arbiter = audit_res.get("arbiter_decision", {})
-                    pref_source = arbiter.get("primary_source_recommendation", "RAW_OCR")
-                    
-                    # 3. Full JSON
-                    audit_json_str = json.dumps(audit_res)
-                    
-                    # Save to DB (Expanded)
-                    self.db.save_audit_result(uuid, clean_text, pref_source, audit_json_str)
-                    print(f"[Canonizer] Saved Expanded Visual Audit for {uuid} (Pref: {pref_source})")
-            except Exception as e:
-                print(f"[Canonizer] Stage 1.5 Failed: {e}")
-
-        # Success! Now we can safely clean up the old data
-        try:
-            with self.db.connection:
-                self.db.connection.execute("DELETE FROM semantic_entities WHERE source_doc_uuid = ?", (uuid,))
-                # Reset ref_count?
-                self.db.connection.execute("UPDATE documents SET ref_count = 0 WHERE uuid = ?", (uuid,))
-            print(f"[Canonizer] Cleaned up existing analysis for {uuid} (Overwriting with new results)")
-        except Exception as e:
-            print(f"[Canonizer] Cleanup failed: {e}")
-            # If cleanup fails, do we continue? Yes, but might duplicate. 
-            # Ideally we should stop, but let's try to proceed.
-
-        # Construct meta list for processing loop
-        # Each detects logical entity shares the full page range (since split is not supported in this prompt)
+                if not current_pages:
+                    current_rot = r
+                    current_pages = [p]
+                else:
+                    if r == current_rot:
+                        current_pages.append(p)
+                    else:
+                        # Flush
+                        refs.append(SourceReference(file_uuid, current_pages, current_rot))
+                        current_rot = r
+                        current_pages = [p]
+                        
+            if current_pages:
+                 refs.append(SourceReference(file_uuid, current_pages, current_rot))
+                 
+            # Create Entity
+            new_id = str(uuid.uuid4())
+            new_doc = VirtualDocument(
+                entity_uuid=new_id,
+                source_mapping=refs,
+                # STRICT RESET
+                doc_type=json.dumps(["UNKNOWN"]),
+                semantic_data={}, 
+                status="READY_FOR_PIPELINE", # Commit -> Ready for Stage 1
+                created_at=created_at_ts,
+                type_tags=["MANUAL_STRUCTURE"]
+            )
+            self.logical_repo.save(new_doc)
+            new_uuids.append(new_id)
+            
+        print(f"[Canonizer] RESTRUCTURE COMMIT: Created {len(new_uuids)} new entities.")
+        return new_uuids
         all_page_indices = list(range(1, len(pages) + 1)) 
         
         entities_meta = []
