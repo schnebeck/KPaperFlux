@@ -498,7 +498,6 @@ class SplitterStripWidget(QWidget):
             thumb = PageThumbnailWidget(pg_info, self.pipeline)
             thumb.rotated.connect(lambda t=thumb: self.record_action("ROTATE", t))
             thumb.delete_toggled.connect(lambda t=thumb: self.record_action("DELETE", t))
-            thumb.remove_requested.connect(lambda t=thumb: self.remove_thumbnail(t))
             self.content_layout.addWidget(thumb)
             
             # 3. Intermediate Dividers (Manual Splits)
