@@ -239,7 +239,7 @@ class PageThumbnailWidget(QWidget):
         
         self.last_drawn_height = 0
         
-    def load_content(self):
+    def load_content(self) -> None:
         """Lazy load the actual image content."""
         if self.loaded: return
         
@@ -445,7 +445,7 @@ class SplitterStripWidget(QWidget):
         except Exception as e:
             print(f"Error loading raw file: {e}")
 
-    def load_from_paths(self, file_paths: list[str]):
+    def load_from_paths(self, file_paths: list[str]) -> None:
         """Load multiple raw files into a single continuous stream."""
         self.current_uuid = "BATCH_IMPORT"
         self.pipeline = None
@@ -472,7 +472,7 @@ class SplitterStripWidget(QWidget):
                 
         self._populate_strip(all_pages)
 
-    def _populate_strip(self, flat_pages):
+    def _populate_strip(self, flat_pages: list[dict]) -> None:
         """Create placeholders."""
         for i, pg_info in enumerate(flat_pages):
             # 1. Automatic Split before boundary files

@@ -74,7 +74,7 @@ class SplitterDialog(QDialog):
         self.btn_cancel.setText(self.tr("Abort Import"))
         self.update_ui_state()
 
-    def load_for_batch_import(self, file_paths: list[str]):
+    def load_for_batch_import(self, file_paths: list[str]) -> None:
         """Mode: IMPORT (Batch). Load multiple files as one stream."""
         self.mode = "IMPORT"
         self.import_paths = file_paths
