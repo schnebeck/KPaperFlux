@@ -159,6 +159,8 @@ class MainWindow(QMainWindow):
         # Main Splitter: Left 40%, Right 60%
         # Width 1000. Left 400, Right 600.
         self.main_splitter.setSizes([400, 600])
+        self.main_splitter.setCollapsible(1, True) # Allow shrinking viewer
+        self.main_splitter.setHandleWidth(4) # Slightly wider for easier grabbing
 
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage(self.tr("Ready"))
@@ -377,54 +379,15 @@ class MainWindow(QMainWindow):
             self.left_pane_splitter.setSizes(new_sizes)
 
         # Update PDF Viewer
-        print(f"[DEBUG] Ensuring Viewer Visible. Current: {self.pdf_viewer.isVisible()}")
-        self.pdf_viewer.setVisible(True)
+        if not self.pdf_viewer.isVisible():
+            print(f"[DEBUG] Ensuring Viewer Visible.")
+            self.pdf_viewer.setVisible(True)
         
-        # If single, show it. If multiple, show first? Or show simple "Multiple Selected" message?
-        # Viewer usually only supports one file.
-        if len(docs) == 1:
-            if self.pipeline and self.pipeline.vault:
-                # Resolve Path: Check if it's a Shadow Document (Virtual)
-                # Shadow Docs have path="/dev/null" or similar placeholders.
-                path = self.pipeline.vault.get_file_path(docs[0].uuid)
-                
-                # Phase 3: GUI Adaptation for Split/Shadow Documents
-                if not path or not os.path.exists(path) or path == "/dev/null":
-                    mapping = self.db_manager.get_source_mapping_from_entity(docs[0].uuid)
-                    if mapping and isinstance(mapping, list) and len(mapping) > 0:
-                        # Take the first physical file (primary source)
-                        # Structure: [{"file_uuid": "...", "pages": [...]}]
-                        first_src = mapping[0]
-                        phys_uuid = first_src.get("file_uuid")
-                        if phys_uuid:
-                            path = self.pipeline.vault.get_file_path(phys_uuid)
-
-                if path:
-                    self.pdf_viewer.load_document(path, uuid=docs[0].uuid)
-                else:
-                     self.pdf_viewer.clear()
+        if docs:
+            # Show first doc as reference (works for single and batch)
+            self.pdf_viewer.load_document(docs[0].uuid, uuid=docs[0].uuid)
         else:
-            # Batch selection
-            # Maybe clear viewer or show placeholder?
-            # self.pdf_viewer.clear() 
-            # Or just keep showing the last one (confusing).
-            # Best: Show first one but indicate multiple?
-            # Let's clear for clarity or show the first one to allow "comparison"?
-            # User wants to batch edit metadata. 
-            # If viewer shows Doc A, and user edits "Sender" -> applies to A, B, C.
-            # It's fine to show Doc A as reference.
-            if self.pipeline and self.pipeline.vault:
-                # Same resolution logic for batch (showing first doc)
-                first_doc = docs[0]
-                path = self.pipeline.vault.get_file_path(first_doc.uuid)
-                
-                if not path or not os.path.exists(path) or path == "/dev/null":
-                    mapping = self.db_manager.get_source_mapping_from_entity(first_doc.uuid)
-                    if mapping and len(mapping) > 0:
-                         phys_uuid = mapping[0].get("file_uuid")
-                         if phys_uuid: path = self.pipeline.vault.get_file_path(phys_uuid)
-                
-                if path: self.pdf_viewer.load_document(path, uuid=first_doc.uuid)
+            self.pdf_viewer.clear()
 
     def delete_selected_slot(self):
         """Handle deletion via Menu Hack."""
