@@ -31,27 +31,23 @@ class VirtualPage:
 class VirtualDocument:
     """
     Represents the logical business document (Mutable Entity).
-    Maps to 'semantic_entities' table.
+    Maps to 'virtual_documents' table.
     """
-    entity_uuid: str
+    uuid: str
     source_mapping: List[SourceReference] = field(default_factory=list)
-    type_tags: List[str] = field(default_factory=list)
-    
-    # Semantic Data
-    semantic_data: Dict[str, Any] = field(default_factory=dict)
-    
-    # Core CDM Fields (Fast Access)
-    doc_date: Optional[date] = None
-    sender_name: Optional[str] = None
-    doc_type: str = "unknown"
-    
-    # Meta
     status: str = "NEW"
+    export_filename: Optional[str] = None
+    last_used: Optional[str] = None
+    is_immutable: bool = False
+    thumbnail_path: Optional[str] = None
+    cached_full_text: str = ""
+    semantic_data: Optional[Dict[str, Any]] = None
     created_at: Optional[str] = None
+    last_processed_at: Optional[str] = None
     deleted: bool = False
     
-    # Runtime only (not stored directly in entity table, but assembled)
-    # text_content: str = "" 
+    # Runtime properties (SQLite Generated)
+    page_count_virt: int = 0
     
     def add_source(self, file_uuid: str, pages: List[int], rotation: int = 0):
         self.source_mapping.append(SourceReference(file_uuid, pages, rotation))
@@ -86,15 +82,39 @@ class VirtualDocument:
     def get_mapping_json(self) -> str:
         return self.to_source_mapping()
     
-    def get_tags_json(self) -> str:
-        return json.dumps(self.type_tags)
-        
     @classmethod
     def from_row(cls, row: tuple) -> 'VirtualDocument':
         """
-        Parse from semantic_entities row.
-        Row expected: entity_uuid, source_mapping, type_tags, semantic_data, doc_date, sender_name, doc_type, status, created_at
+        Parse from virtual_documents row.
+        Indices: 0:uuid, 1:source_mapping, 2:status, 3:export_filename, 4:last_used, 
+                 5:last_processed_at, 6:is_immutable, 7:thumbnail_path, 8:cached_full_text,
+                 9:semantic_data, 10:created_at, 11:deleted, 12:page_count_virt
         """
-        # We need to know the schema index exactly.
-        # This is a helper, usually caller extracts columns.
-        pass
+        source_mapping = []
+        if row[1]:
+            try:
+                data = json.loads(row[1])
+                source_mapping = [SourceReference(**r) for r in data]
+            except:
+                pass
+                
+        semantic_data = None
+        if row[9]:
+             try: semantic_data = json.loads(row[9])
+             except: pass
+             
+        return cls(
+            uuid=row[0],
+            source_mapping=source_mapping,
+            status=row[2],
+            export_filename=row[3],
+            last_used=row[4],
+            last_processed_at=row[5],
+            is_immutable=bool(row[6]),
+            thumbnail_path=row[7],
+            cached_full_text=row[8] or "",
+            semantic_data=semantic_data,
+            created_at=row[10],
+            deleted=bool(row[11]),
+            page_count_virt=row[12] or 0
+        )

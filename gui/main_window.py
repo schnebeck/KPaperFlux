@@ -659,6 +659,7 @@ class MainWindow(QMainWindow):
              print("No files to import (User cancelled all).")
              return
 
+        is_batch = any(item[0] == "BATCH" for item in import_items if isinstance(item, tuple))
         count = len(import_items)
         
         # Progress Dialog
@@ -687,7 +688,7 @@ class MainWindow(QMainWindow):
         )
         
         self.import_worker.finished.connect(
-            lambda s, t, uuids, err: self._on_import_finished(s, t, uuids, err, progress)
+            lambda s, t, uuids, err: self._on_import_finished(s, t, uuids, err, progress, skip_splitter=is_batch)
         )
         
         progress.canceled.connect(self.import_worker.cancel)
@@ -894,7 +895,7 @@ class MainWindow(QMainWindow):
             move_source = chk_move.isChecked()
             self.start_import_process(files, move_source=move_source)
 
-    def _on_import_finished(self, success_count, total, imported_uuids, error_msg, progress_dialog):
+    def _on_import_finished(self, success_count, total, imported_uuids, error_msg, progress_dialog, skip_splitter=False):
         progress_dialog.close()
         
         # Safe Thread Cleanup
@@ -916,37 +917,30 @@ class MainWindow(QMainWindow):
         if self.list_widget:
             self.list_widget.refresh_list()
             
-        # Queue for AI (Conditional)
+        # Queue for AI (DISABLED per User Request: Stage 1 capping)
         if self.pipeline and imported_uuids:
-             # Logic: Iterate input. If doc > 1 page, OPEN SPLITTER and DO NOT QUEUE.
              splitter_opened = False
              queued_count = 0
              
              for uid in imported_uuids:
-                 should_queue = True
-                 
-                 # Check page count
-                 d = self.db_manager.get_document_by_uuid(uid)
-                 
-                 # DEBUG: Trace Page Count Logic
-                 if d:
-                     print(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
-                 else:
-                     print(f"[DEBUG] Import Finished: UUID={uid} NOT FOUND in DB!")
+                  # Check page count
+                  d = self.db_manager.get_document_by_uuid(uid)
+                  
+                  if d:
+                      print(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
+                  else:
+                      print(f"[DEBUG] Import Finished: UUID={uid} NOT FOUND in DB!")
 
-                 if d and d.page_count and d.page_count > 1:
-                     # This is a candidate for splitting.
-                     if not splitter_opened:
-                         self.open_splitter_dialog_slot(uid)
-                         splitter_opened = True
-                         should_queue = False 
-                     else:
-                         pass
-                 
-                 if should_queue:
-                      self.db_manager.update_document_status(uid, "READY_FOR_PIPELINE")
-                      self.ai_worker.add_task(uid)
-                      queued_count += 1
+                  if d and d.page_count and d.page_count > 1 and not skip_splitter:
+                      # Candidate for splitting, but only open ONE dialog per batch
+                      if not splitter_opened:
+                          self.open_splitter_dialog_slot(uid)
+                          splitter_opened = True
+                  
+                  # [CAP] Do not queue for AI worker. Status remains 'NEW'.
+                  # self.db_manager.update_document_status(uid, "READY_FOR_PIPELINE")
+                  # self.ai_worker.add_task(uid)
+
              
              if not error_msg and not splitter_opened:
                   QMessageBox.information(self, self.tr("Import Finished"), 
@@ -1428,11 +1422,12 @@ class MainWindow(QMainWindow):
              # Does it poll? `process_next` pulls from queue.
              # We need to add them.
              
-             # I'll fix this properly: SplitterDialog should return the new UUIDs.
-             if hasattr(dialog, 'new_uuids') and dialog.new_uuids:
-                 if self.ai_worker:
-                     for uid in dialog.new_uuids:
-                         self.ai_worker.add_task(uid)
+              # [CAP] Do not automatically queue split parts for AI.
+              # if hasattr(dialog, 'new_uuids') and dialog.new_uuids:
+              #     if self.ai_worker:
+              #         for uid in dialog.new_uuids:
+              #             self.ai_worker.add_task(uid)
+
     def go_home_slot(self):
         """Switch to Dashboard."""
         self.central_stack.setCurrentIndex(0)

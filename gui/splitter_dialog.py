@@ -166,8 +166,8 @@ class SplitterDialog(QDialog):
                  if not v_doc or not v_doc.source_mapping: return
                  file_uuid = v_doc.source_mapping[0].file_uuid
                  # Get Physical Page Count
-                 phys_file = self.pipeline.physical_repo.get_file(file_uuid)
-                 total_pages = phys_file.page_count
+                 phys_file = self.pipeline.physical_repo.get_by_uuid(file_uuid)
+                 total_pages = phys_file.page_count_phys
              
              # Build Ranges
              

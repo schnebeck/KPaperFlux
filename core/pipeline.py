@@ -68,16 +68,12 @@ class PipelineProcessor:
                             full_text.append(pf.raw_ocr_data.get(str(p), ""))
         
         doc = Document(
-            uuid=virtual_doc.entity_uuid,
+            uuid=virtual_doc.uuid,
             original_filename=original_filename,
             text_content="\n".join(full_text),
-            semantic_data=virtual_doc.semantic_data,
-            doc_date=virtual_doc.doc_date,
-            sender=virtual_doc.sender_name,
-            doc_type=virtual_doc.doc_type,
             created_at=virtual_doc.created_at,
             # extra_data specific to legacy handling?
-            extra_data={"status": virtual_doc.status, "type_tags": virtual_doc.type_tags}
+            extra_data={"status": virtual_doc.status}
         )
         return doc
         
@@ -120,20 +116,19 @@ class PipelineProcessor:
             pages = self._calculate_page_count(stored_path)
             
             phys_file = PhysicalFile(
-                file_uuid=file_uuid,
+                uuid=file_uuid,
                 original_filename=path.name,
                 file_path=stored_path_str,
                 phash=file_sha,
                 file_size=size,
-                page_count=pages,
+                page_count_phys=pages,
                 raw_ocr_data=text_map, # Stored as Dict/JSON
-                ref_count=0,
                 created_at=datetime.datetime.now().isoformat()
             )
             self.physical_repo.save(phys_file)
             print(f"[Phase A] Imported new physical file: {file_uuid}")
         else:
-            print(f"[Phase A] Dedup: Using existing physical file {phys_file.file_uuid}")
+            print(f"[Phase A] Dedup: Using existing physical file {phys_file.uuid}")
             if move_source:
                  try: os.remove(file_path)
                  except: pass # Best effort
@@ -149,28 +144,26 @@ class PipelineProcessor:
 
         # --- Phase B: Logic ---
         # Create VirtualDocument (1:1 Mapping initially)
-        entity_uuid = str(uuid.uuid4())
-        
+        new_uuid = str(uuid.uuid4())
         v_doc = VirtualDocument(
-            entity_uuid=entity_uuid,
-            type_tags=["UNKNOWN"],
+            uuid=new_uuid,
             created_at=datetime.datetime.now().isoformat(),
             status="NEW"
         )
         
         # Map all pages from physical file
-        pages_list = list(range(1, phys_file.page_count + 1))
-        v_doc.add_source(phys_file.file_uuid, pages_list)
+        pages_list = list(range(1, phys_file.page_count_phys + 1))
+        v_doc.add_source(phys_file.uuid, pages_list)
         
-        # Increment ref count on physical file
-        self.physical_repo.increment_ref_count(phys_file.file_uuid)
+        # Increment ref count (handled by DB or manual call)
+        # self.physical_repo.increment_ref_count(phys_file.uuid)
         
         # --- Phase C: Persistence ---
         # 1. Shadow Insert (Legacy Persistence) - Must come FIRST for FK constraints (source_doc_uuid -> documents.uuid)
         legacy_doc = self._virtual_to_legacy(v_doc)
         # Backfill physical props
         legacy_doc.phash = phys_file.phash 
-        legacy_doc.page_count = phys_file.page_count
+        legacy_doc.page_count = phys_file.page_count_phys
         legacy_doc.created_at = v_doc.created_at
         legacy_doc.last_processed_at = datetime.datetime.now().isoformat()
         legacy_doc.export_filename = self._generate_export_filename(legacy_doc)
@@ -180,7 +173,7 @@ class PipelineProcessor:
 
         # 2. Save Logical Entity
         self.logical_repo.save(v_doc)
-        print(f"[Phase C] Persisted VirtualDocument: {entity_uuid}")
+        print(f"[Phase C] Persisted VirtualDocument: {new_uuid}")
         
         # 3. AI Analysis
         if not skip_ai:
@@ -205,7 +198,8 @@ class PipelineProcessor:
                      pf = self.physical_repo.get_by_uuid(v_doc.source_mapping[0].file_uuid)
                      if pf: f_path = pf.file_path
                  
-                 self._run_ai_analysis(v_doc, f_path)
+                 # AI analysis simplified or redirected to Stage 0/1 logic
+                 pass
             
             # Refresh
             v_doc = self.logical_repo.get_by_uuid(uuid)
@@ -295,7 +289,7 @@ class PipelineProcessor:
                      else:
                          # Flush current group
                          mapping.append(SourceReference(
-                             file_uuid=phys_file.file_uuid, 
+                             file_uuid=phys_file.uuid, 
                              pages=current_pages, 
                              rotation=current_rot
                          ))
@@ -306,7 +300,7 @@ class PipelineProcessor:
                  # Flush last
                  if current_pages:
                      mapping.append(SourceReference(
-                         file_uuid=phys_file.file_uuid, 
+                         file_uuid=phys_file.uuid, 
                          pages=current_pages, 
                          rotation=current_rot
                      ))
@@ -315,18 +309,18 @@ class PipelineProcessor:
                 # Legacy Range Logic
                 start, end = instr["page_range"]
                 page_list = list(range(start + 1, end + 2))
-                mapping = [SourceReference(file_uuid=phys_file.file_uuid, pages=page_list, rotation=0)]
+                mapping = [SourceReference(file_uuid=phys_file.uuid, pages=page_list, rotation=0)]
             else:
                 continue
             
             v_doc = VirtualDocument(
-                entity_uuid=str(uuid.uuid4()),
+                uuid=str(uuid.uuid4()),
                 source_mapping=mapping,
                 status="READY_FOR_PIPELINE", # Pre-Approved Structure
                 created_at=datetime.datetime.now().isoformat()
             )
             self.logical_repo.save(v_doc)
-            new_uuids.append(v_doc.entity_uuid)
+            new_uuids.append(v_doc.uuid)
             
         print(f"[Stage 0] Created {len(new_uuids)} entities from instructions.")
         return new_uuids
@@ -343,7 +337,7 @@ class PipelineProcessor:
         for path in file_paths:
             phys = self._ingest_physical_file(path, move_source)
             if phys:
-                path_to_uuid[path] = phys.file_uuid
+                path_to_uuid[path] = phys.uuid
         
         new_uuids = []
         
@@ -391,13 +385,13 @@ class PipelineProcessor:
             
             if mapping:
                 v_doc = VirtualDocument(
-                    entity_uuid=str(uuid.uuid4()),
+                    uuid=str(uuid.uuid4()),
                     source_mapping=mapping,
                     status="READY_FOR_PIPELINE",
                     created_at=datetime.datetime.now().isoformat()
                 )
                 self.logical_repo.save(v_doc)
-                new_uuids.append(v_doc.entity_uuid)
+                new_uuids.append(v_doc.uuid)
                 
         print(f"[Stage 0 Batch] Created {len(new_uuids)} entities from instructions across {len(file_paths)} files.")
         return new_uuids
@@ -588,7 +582,7 @@ class PipelineProcessor:
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
         
         if isinstance(doc_obj, VirtualDocument):
-             print(f"[{doc_obj.entity_uuid}] Starting Intelligent Analysis (Phase 2)...")
+             print(f"[{doc_obj.uuid}] Starting Intelligent Analysis (Phase 2)...")
              canonizer.process_virtual_document(doc_obj)
         elif isinstance(doc_obj, Document):
              # Resolve DTO to VirtualDocument

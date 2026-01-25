@@ -12,6 +12,7 @@ class Document(BaseModel):
     """
     uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
     original_filename: Union[str, None] = None
+    status: str = "NEW"
     
     # Metadata extracted by AI or user
 

@@ -12,6 +12,7 @@ from core.repositories.physical_repo import PhysicalRepository
 from core.repositories.logical_repo import LogicalRepository
 import uuid
 import json
+from datetime import datetime
 
 class CanonizerService:
     """
@@ -48,8 +49,8 @@ class CanonizerService:
         cursor = self.db.connection.cursor()
         # Fetch NEW entities
         query = """
-            SELECT entity_uuid 
-            FROM semantic_entities 
+            SELECT uuid 
+            FROM virtual_documents 
             WHERE status = 'NEW' AND deleted = 0
             LIMIT ?
         """
@@ -57,8 +58,8 @@ class CanonizerService:
         rows = cursor.fetchall()
         
         for row in rows:
-            entity_uuid = row[0]
-            v_doc = self.logical_repo.get_by_uuid(entity_uuid)
+            uuid = row[0]
+            v_doc = self.logical_repo.get_by_uuid(uuid)
             if v_doc:
                 self.process_virtual_document(v_doc)
             
@@ -67,7 +68,7 @@ class CanonizerService:
         Process a specific VirtualDocument.
         """
         if not self.analyzer: return
-        print(f"[STAGE 1] Processing Logical Entity {v_doc.entity_uuid}...")
+        print(f"[STAGE 1] Processing Logical Entity {v_doc.uuid}...")
         
         # 1. Resolve Text Content (Lazy Load)
         # Helper callback to fetch physical data
@@ -76,7 +77,7 @@ class CanonizerService:
             
         full_text = v_doc.resolve_content(loader)
         if not full_text:
-            print(f"[Canonizer] No text content resolved for {v_doc.entity_uuid}. Skipping.")
+            print(f"[Canonizer] No text content resolved for {v_doc.uuid}. Skipping.")
             return
 
         print(f"[STAGE 1] Resolved Full Text: {len(full_text)} chars")
@@ -123,7 +124,7 @@ class CanonizerService:
         detected_entities = struct_res.get("detected_entities", [])
         
         if not detected_entities:
-            print(f"[Canonizer] No entities detected for {v_doc.entity_uuid}.")
+            print(f"[Canonizer] No entities detected for {v_doc.uuid}.")
             return
 
         # ... (Comments) ...
@@ -179,15 +180,15 @@ class CanonizerService:
             else:
                 # Create NEW Split Entity
                 target_doc = VirtualDocument(
-                    entity_uuid=str(uuid.uuid4()),
+                    uuid=str(uuid.uuid4()),
                     status="NEW",
                     created_at=v_doc.created_at
                 )
                 is_new_entity = True
             
             # Update Document Properties
-            target_doc.doc_type = c_type
             target_doc.status = "PROCESSED" # Mark processed so we don't loop forever
+            target_doc.last_processed_at = datetime.now().isoformat()
             
             # Update Source Mapping
             target_doc.source_mapping = [SourceReference(
@@ -203,16 +204,15 @@ class CanonizerService:
             # Extract CDM
             cdm_data = self.analyzer.extract_canonical_data(c_type, entity_text)
             target_doc.semantic_data = cdm_data
+            target_doc.cached_full_text = entity_text
             
-            # Extract Core Fields
-            if "doc_date" in cdm_data: target_doc.doc_date = cdm_data["doc_date"]
-            if "parties" in cdm_data:
-                 sender = cdm_data["parties"].get("sender", {})
-                 target_doc.sender_name = sender.get("name") or sender.get("company")
+            # Determine export filename hint
+            if c_type != "OTHER":
+                 target_doc.export_filename = f"{c_type}_{target_doc.uuid[:8]}"
             
             # Save
             self.logical_repo.save(target_doc)
-            print(f"[Canonizer] Saved Split Entity {target_doc.entity_uuid} ({c_type})")
+            print(f"[Canonizer] Saved Split Entity {target_doc.uuid} ({c_type})")
 
     def _extract_range_text(self, pages_text: List[str], target_indices: List[int]) -> str:
         """Helper to join specific pages (simple join)."""
@@ -547,46 +547,38 @@ class CanonizerService:
         # Convert Pydantic to JSON/Dict
         data = entity.model_dump()
         
-        # Extract core columns
-        doc_date = entity.doc_date
-        sender = None
-        if entity.parties and entity.parties.sender:
-            sender = entity.parties.sender.name
-        
-        # Specific & List Data kept as JSON
-        cdata_json = entity.model_dump_json() # Store everything as blob for reconstruction
-        
-        # Generate ID if missing?
-        import uuid
-        entity_uuid = str(uuid.uuid4())
-        
-        insert_sql = """
-            INSERT INTO semantic_entities (
-                entity_uuid, source_doc_uuid, doc_type, doc_date, sender_name, canonical_data, page_ranges, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW')
+    def _save_entity(self, entity: CanonicalEntity):
         """
+        Phase 102: Save Canonical Result to Stage 0/1.
+        """
+        import uuid
+        from core.models.virtual import VirtualDocument, SourceReference
         
-        vals = (
-            entity_uuid,
-            entity.source_doc_uuid,
-            entity.doc_type.value,
-            doc_date,
-            sender,
-            cdata_json,
-            json.dumps(entity.page_range)
+        new_uuid = str(uuid.uuid4())
+        
+        # Build source mapping
+        # Assumption: entity.source_doc_uuid is the physical file UUID
+        source_mapping = [SourceReference(
+            file_uuid=entity.source_doc_uuid,
+            pages=entity.page_range or []
+        )]
+        
+        v_doc = VirtualDocument(
+            uuid=new_uuid,
+            status="NEW",
+            source_mapping=source_mapping,
+            semantic_data=entity.model_dump(),
+            created_at=datetime.now().isoformat()
         )
         
+        # Export filename hint
+        v_doc.export_filename = f"{entity.doc_type.value}_{new_uuid[:8]}"
+        
         try:
-            with self.db.connection:
-                self.db.connection.execute(insert_sql, vals)
-                # Increment Reference Count
-                self.db.connection.execute(
-                    "UPDATE documents SET ref_count = ref_count + 1 WHERE uuid = ?", 
-                    (entity.source_doc_uuid,)
-                )
-            print(f"[Canonizer] Saved Entity {entity.doc_type.value} for {entity.source_doc_uuid}")
+            self.logical_repo.save(v_doc)
+            print(f"[Canonizer] Saved Stage 0 Entity {new_uuid} from AI result ({entity.doc_type.value})")
         except Exception as e:
-            print(f"[Canonizer] DB Error: {e}")
+            print(f"[Canonizer] Error saving AI entity: {e}")
 
     def _classify_direction(self, entity: CanonicalEntity):
         """

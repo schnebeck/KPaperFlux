@@ -71,24 +71,10 @@ class DocumentListWidget(QWidget):
     FIXED_COLUMNS = {
         0: "#",
         1: "Entity ID",
-        2: "Doc Date",
-        3: "Sender",
-        4: "Type",
-        5: "Tags",
-        6: "Netto",
-        7: "Filename",
-        8: "Pages",
-        9: "Created",
-        10: "Updated",
-        11: "Brutto",
-        12: "Tax %",
-        13: "Postage",
-        14: "Packaging",
-        15: "IBAN",
-        16: "Recipient",
-        17: "[v] Sender",
-        18: "Status", # Was [v] Date
-        19: "[v] Amount"
+        2: "Filename",
+        3: "Pages",
+        4: "Created",
+        5: "Status"
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
 
@@ -383,12 +369,8 @@ class DocumentListWidget(QWidget):
             # FORCE Enable DnD because restoreState might reset it to False (legacy state)
             self.tree.header().setSectionsMovable(True)
         else:
-            # Default Hiding: Hide Metadata & Finance extras to keep clean
-            # Visible: #, UUID, Date, Sender, Type, Tags, Netto, Filename (0-7)
-            # Hide: 8 (Pages) ...
-            to_hide = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19] 
-            for i in to_hide:
-                self.tree.header().hideSection(i)
+            # Default Hiding: Everything visible in Stage 0/1
+            pass
 
     def get_view_state(self):
         """Capture current filter and layout state for Saved Views."""
@@ -572,7 +554,7 @@ class DocumentListWidget(QWidget):
         try:
              # Phase 92: Trash Mode
              if self.is_trash_mode:
-                 docs = self.db_manager.get_deleted_documents()
+                 docs = self.db_manager.get_deleted_entities_view()
                  # TODO: Apply basic text filter on trash? For now, show all.
                  
              # Prioritize Advanced Query if active
@@ -581,7 +563,6 @@ class DocumentListWidget(QWidget):
              else:
                  query = getattr(self, "current_filter_text", None)
                  if query:
-                     docs = self.db_manager.search_documents(query)
                      docs = self.db_manager.search_documents(query)
                  else:
                      # Phase 98: Switch to Entity View
@@ -772,139 +753,36 @@ class DocumentListWidget(QWidget):
         self.documents_cache = {doc.uuid: doc for doc in docs}
         
         for i, doc in enumerate(docs):
-            # --- Field Formatting ---
-            doc_date_str = format_date(doc.doc_date)
-            date_sort = str(doc.doc_date) if doc.doc_date else "" 
-            
             created_str = format_datetime(doc.created_at)
             created_sort = str(doc.created_at) if doc.created_at else ""
-
-            updated_str = format_datetime(doc.last_processed_at)
-            updated_sort = str(doc.last_processed_at) if doc.last_processed_at else ""
             
-            sender = doc.sender or ""
-            doc_type = doc.doc_type
-            if isinstance(doc_type, list):
-                doc_type = ", ".join(doc_type)
-            doc_type = doc_type or ""
-            tags = doc.tags or ""
-            filename = doc.original_filename or ""
-            
-            # Helper for formatting monetary values
-            def format_money(val, curr):
-                s_sort = 0.0
-                s_str = ""
-                if val is not None:
-                    try:
-                        s_sort = float(val)
-                        s_str = f"{s_sort:.2f}"
-                        if curr: s_str += f" {curr}"
-                    except:
-                        s_str = str(val)
-                return s_str, s_sort
-
-            amount_str, amount_sort = format_money(doc.amount, doc.currency)
-            gross_str, gross_sort = format_money(doc.gross_amount, doc.currency)
-            postage_str, postage_sort = format_money(doc.postage, doc.currency)
-            packaging_str, packaging_sort = format_money(doc.packaging, doc.currency)
-            
-            # Tax
-            tax_sort = 0.0
-            tax_str = ""
-            if doc.tax_rate is not None:
-                try:
-                    tax_sort = float(doc.tax_rate)
-                    tax_str = f"{tax_sort:.1f}%"
-                except:
-                    tax_str = str(doc.tax_rate)
-            
-            iban = doc.iban or ""
-            recipient = doc.recipient_company or doc.recipient_name or ""
-            
+            filename = doc.original_filename or f"Entity {doc.uuid[:8]}"
             pages_sort = doc.page_count if doc.page_count is not None else 0
-            pages_str = str(pages_sort) if doc.page_count is not None else ""
-
-            # Columns 0-16
+            pages_str = str(pages_sort)
+            status = getattr(doc, "status", "NEW")
+            
             col_data = [
                 "",                 # 0: # (Handled by Delegate)
-                doc.uuid,           # 1
-                doc_date_str,       # 2
-                sender,             # 3
-                doc_type,           # 4
-                tags,               # 5
-                amount_str,         # 6
-                filename,           # 7
-                pages_str,          # 8
-                created_str,        # 9
-                updated_str,        # 10
-                gross_str,          # 11
-                tax_str,            # 12
-                postage_str,        # 13
-                packaging_str,      # 14
-                iban,               # 15
-                recipient,          # 16
-                doc.v_sender or "", # 17
-                doc.extra_data.get("entity_status", "") if doc.extra_data else "",# 18 (Status)
-                str(doc.v_amount) if doc.v_amount is not None else "" # 19
+                doc.uuid,           # 1: Entity ID
+                filename,           # 2: Filename
+                pages_str,          # 3: Pages
+                created_str,        # 4: Created
+                status              # 5: Status
             ]
-            
-            if doc.extra_data:
-                 for key in self.dynamic_columns:
-                     val = ""
-                     parts = key.split('.')
-                     data = doc.extra_data
-                     for p in parts:
-                         if isinstance(data, dict):
-                             data = data.get(p)
-                         elif isinstance(data, list):
-                             if data and isinstance(data[0], dict):
-                                 data = data[0].get(p)
-                             else:
-                                 data = None
-                         else:
-                             data = None
-                         if data is None: break
-                     
-                     if data is not None:
-                         val = str(data)
-                     col_data.append(val)
-            else:
-                 col_data.extend([""] * len(self.dynamic_columns))
             
             item = SortableTreeWidgetItem(col_data)
             
-            if getattr(doc, 'locked', False):
-                 for c in range(item.columnCount()):
-                     item.setForeground(c, Qt.GlobalColor.gray)
-            
-            item.setData(0, Qt.ItemDataRole.UserRole, i + 1)
+            # Set sort keys
             item.setData(1, Qt.ItemDataRole.UserRole, doc.uuid)
-            item.setData(2, Qt.ItemDataRole.UserRole, date_sort)
-            item.setData(6, Qt.ItemDataRole.UserRole, amount_sort)
-            item.setData(8, Qt.ItemDataRole.UserRole, pages_sort)
-            item.setData(9, Qt.ItemDataRole.UserRole, created_sort)
-            item.setData(10, Qt.ItemDataRole.UserRole, updated_sort)
-            item.setData(11, Qt.ItemDataRole.UserRole, gross_sort)
-            item.setData(12, Qt.ItemDataRole.UserRole, tax_sort)
-            item.setData(13, Qt.ItemDataRole.UserRole, postage_sort)
-            item.setData(14, Qt.ItemDataRole.UserRole, packaging_sort)
-            
-            # Tooltips for truncated content (DocType=4, Tags=5)
-            if doc_type:
-                item.setData(4, Qt.ItemDataRole.ToolTipRole, doc_type)
-            if tags:
-                item.setData(5, Qt.ItemDataRole.ToolTipRole, tags)
-            item.setData(13, Qt.ItemDataRole.UserRole, postage_sort)
-            item.setData(14, Qt.ItemDataRole.UserRole, packaging_sort)
+            item.setData(3, Qt.ItemDataRole.UserRole, pages_sort)
+            item.setData(4, Qt.ItemDataRole.UserRole, created_sort)
             
             self.tree.addTopLevelItem(item)
-
+            
         self.tree.setSortingEnabled(True)
-        
-        if self.current_filter:
-             self.apply_filter(self.current_filter)
-        else:
-             self.document_count_changed.emit(len(docs), len(docs))
+        # Default sort by Created Descending
+        self.tree.sortByColumn(4, Qt.SortOrder.DescendingOrder)
+        self.document_count_changed.emit(len(docs), len(docs)) # visible, total
     def open_export_dialog(self, documents: list):
         if not documents:
              QMessageBox.warning(self, self.tr("Export"), self.tr("No documents to export."))

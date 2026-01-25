@@ -15,38 +15,34 @@ class PhysicalRepository(BaseRepository):
         """
         sql = """
         INSERT OR REPLACE INTO physical_files (
-            file_uuid, original_filename, file_path, phash, 
-            file_size, page_count, raw_ocr_data, ref_count, created_at
+            uuid, phash, file_path, original_filename, 
+            file_size, page_count_phys, raw_ocr_data, created_at
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
         
         ocr_json = json.dumps(file.raw_ocr_data) if file.raw_ocr_data else None
         
         values = (
-            file.file_uuid,
-            file.original_filename,
-            file.file_path,
+            file.uuid,
             file.phash,
+            file.file_path,
+            file.original_filename,
             file.file_size,
-            file.page_count,
+            file.page_count_phys,
             ocr_json,
-            file.ref_count,
             file.created_at
         )
         
         with self.conn:
-            cursor = self.conn.execute(sql, values)
-            if file.id is None:
-                file.id = cursor.lastrowid
-            return cursor.lastrowid
+            self.conn.execute(sql, values)
+            return 1 # Simplified return
 
-    def get_by_uuid(self, params: str) -> Optional[PhysicalFile]:
+    def get_by_uuid(self, uuid: str) -> Optional[PhysicalFile]:
         """Fetch by UUID."""
-        # Using string params directly since method signature usually implies it
-        uuid = params
-        sql = "SELECT id, file_uuid, original_filename, file_path, phash, file_size, page_count, raw_ocr_data, ref_count, created_at FROM physical_files WHERE file_uuid = ?"
+        # Order: uuid, phash, file_path, original_filename, file_size, raw_ocr_data, created_at, page_count_phys
+        sql = "SELECT uuid, phash, file_path, original_filename, file_size, raw_ocr_data, created_at, page_count_phys FROM physical_files WHERE uuid = ?"
         cursor = self.conn.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
@@ -56,7 +52,7 @@ class PhysicalRepository(BaseRepository):
 
     def get_by_phash(self, phash: str) -> Optional[PhysicalFile]:
         """Fetch by perceptual hash (deduplication)."""
-        sql = "SELECT id, file_uuid, original_filename, file_path, phash, file_size, page_count, raw_ocr_data, ref_count, created_at FROM physical_files WHERE phash = ?"
+        sql = "SELECT uuid, phash, file_path, original_filename, file_size, raw_ocr_data, created_at, page_count_phys FROM physical_files WHERE phash = ?"
         cursor = self.conn.cursor()
         cursor.execute(sql, (phash,))
         row = cursor.fetchone()
@@ -64,8 +60,6 @@ class PhysicalRepository(BaseRepository):
             return PhysicalFile.from_row(row)
         return None
         
-    def increment_ref_count(self, file_uuid: str):
-        """Atomic increment."""
-        sql = "UPDATE physical_files SET ref_count = ref_count + 1 WHERE file_uuid = ?"
-        with self.conn:
-            self.conn.execute(sql, (file_uuid,))
+    def increment_ref_count(self, uuid: str):
+        """Atomic increment? (No longer in schema, for reference only)"""
+        pass
