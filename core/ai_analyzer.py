@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import datetime
 import json
 from decimal import Decimal
@@ -64,6 +64,7 @@ class AIAnalyzer:
     MAX_RETRIES = 5
     _cooldown_until: Optional[datetime.datetime] = None # Shared cooldown state
     _adaptive_delay: float = 0.0 # Adaptive delay in seconds (Harmonic Oscillation)
+    _printed_prompts = set() # Phase 102: Debug Once
 
     @classmethod
     def get_adaptive_delay(cls) -> float:
@@ -223,7 +224,9 @@ class AIAnalyzer:
         ### 6. YOUR JSON OUTPUT
         """
         
-        print(f"\n=== [STAGE 2 AI REQUEST] ===\n{prompt}\n==========================\n")
+        if prompt not in self._printed_prompts:
+            print(f"\n=== [STAGE 2 AI REQUEST] ===\n{prompt}\n==========================\n")
+            self._printed_prompts.add(prompt)
         
         contents = [prompt]
         if image:
@@ -427,8 +430,9 @@ class AIAnalyzer:
         
         try:
              result = self._generate_json(prompt)
-             # Explicit logging for User Visibility
-             print(f"\n[Refinement Result] AI Output: {json.dumps(result, indent=2)}\n")
+             if prompt not in self._printed_prompts:
+                 print(f"\n[Refinement Result] AI Output: {json.dumps(result, indent=2)}\n")
+                 self._printed_prompts.add(prompt)
              
              if isinstance(result, list): return result
              if isinstance(result, dict) and "entities" in result: return result["entities"]
@@ -601,9 +605,11 @@ class AIAnalyzer:
         {text[:100000]}
         """
         
-        print("\n=== [DEBUG] STAGE 2 EXTRACTION PROMPT ===")
-        print(prompt)
-        print("=========================================\n")
+        if prompt not in self._printed_prompts:
+            print("\n=== [DEBUG] STAGE 2 EXTRACTION PROMPT ===")
+            print(prompt)
+            print("=========================================\n")
+            self._printed_prompts.add(prompt)
         
         try:
             raw_data = self._generate_json(prompt) or {}

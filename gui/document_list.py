@@ -75,7 +75,9 @@ class DocumentListWidget(QWidget):
         2: "Filename",
         3: "Pages",
         4: "Created",
-        5: "Status"
+        5: "Status",
+        6: "Type Tags",
+        7: "Locked"
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
 
@@ -104,8 +106,8 @@ class DocumentListWidget(QWidget):
         # Row Counter Delegate (Column 0)
         self.tree.setItemDelegateForColumn(0, RowNumberDelegate(self.tree))
         
-        # Tag Delegate (Column 5)
-        self.tree.setItemDelegateForColumn(5, TagDelegate(self.tree))
+        # Tag Delegate (Column 6: Type Tags)
+        self.tree.setItemDelegateForColumn(6, TagDelegate(self.tree))
         
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.tree.setSortingEnabled(True)
@@ -760,13 +762,18 @@ class DocumentListWidget(QWidget):
             pages_str = str(pages_sort)
             status = getattr(doc, "status", "NEW")
             
+            type_tags = getattr(doc, "type_tags", [])
+            locked_str = "Yes" if getattr(doc, "locked", False) else "No"
+            
             col_data = [
                 "",                 # 0: # (Handled by Delegate)
                 doc.uuid,           # 1: Entity ID
                 filename,           # 2: Filename
                 pages_str,          # 3: Pages
                 created_str,        # 4: Created
-                status              # 5: Status
+                status,             # 5: Status
+                ", ".join(type_tags), # 6: Type Tags
+                locked_str          # 7: Locked
             ]
             
             item = SortableTreeWidgetItem(col_data)

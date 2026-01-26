@@ -13,6 +13,7 @@ class Document(BaseModel):
     uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
     original_filename: Union[str, None] = None
     status: str = "NEW"
+    cached_full_text: Optional[str] = None # Phase 102
     
     # Metadata extracted by AI or user
 

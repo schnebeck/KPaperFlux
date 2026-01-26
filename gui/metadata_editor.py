@@ -62,6 +62,10 @@ class MetadataEditorWidget(QWidget):
         self.export_filename_edit = QLineEdit()
         general_layout.addRow(self.tr("Export Filename:"), self.export_filename_edit)
         
+        self.tags_edit = QLineEdit()
+        self.tags_edit.setPlaceholderText("e.g. INVOICE, URGENT")
+        general_layout.addRow(self.tr("Type Tags:"), self.tags_edit)
+        
         self.tab_widget.addTab(self.general_scroll, self.tr("General"))
         
         # --- Tab 2: Source Mapping (Component List) ---
@@ -91,6 +95,12 @@ class MetadataEditorWidget(QWidget):
         
         semantic_layout.addWidget(QLabel(self.tr("Raw Virtual Document Storage:")))
         semantic_layout.addWidget(self.semantic_viewer)
+        
+        semantic_layout.addWidget(QLabel(self.tr("Cached Full Text:")))
+        self.full_text_viewer = QTextEdit()
+        self.full_text_viewer.setReadOnly(True)
+        self.full_text_viewer.setFont(font)
+        semantic_layout.addWidget(self.full_text_viewer)
         self.tab_widget.addTab(self.semantic_tab, self.tr("Debug Data"))
 
         # Buttons
@@ -169,6 +179,9 @@ class MetadataEditorWidget(QWidget):
         self.status_edit.setText(doc.status or "NEW")
         self.export_filename_edit.setText(doc.original_filename or "")
         
+        tags = getattr(doc, "type_tags", [])
+        self.tags_edit.setText(", ".join(tags) if tags else "")
+        
         # Source Mapping
         mapping = doc.extra_data.get("source_mapping")
         if mapping:
@@ -179,6 +192,14 @@ class MetadataEditorWidget(QWidget):
             except: self.source_viewer.setPlainText(str(mapping))
         else:
              self.source_viewer.setPlainText("No source mapping available.")
+
+        # Full Text & Semantic Data
+        self.full_text_viewer.setPlainText(getattr(doc, "text_content", "")) # Document object uses 'text_content'
+        
+        # Resolve semantic_data for debug
+        # We need to fetch it from DB if not in Document object?
+        # DatabaseManager.get_document_by_uuid returns Document.
+        # Let's check Document definition.
 
     def clear(self):
         self.current_uuids = []
@@ -195,9 +216,13 @@ class MetadataEditorWidget(QWidget):
     def save_changes(self):
         if not self.current_uuids or not self.db_manager:
             return
+        tags_raw = self.tags_edit.text().strip()
+        tags_list = [t.strip() for t in tags_raw.split(",") if t.strip()]
+        
         updates = {
             "status": self.status_edit.text().strip(),
-            "export_filename": self.export_filename_edit.text().strip()
+            "export_filename": self.export_filename_edit.text().strip(),
+            "type_tags": tags_list
         }
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)

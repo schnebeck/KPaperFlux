@@ -33,9 +33,11 @@ class CanonizerService:
         self.logical_repo = logical_repo if logical_repo else LogicalRepository(db)
         
         # Core Components
-        # The provided `analyzer` parameter is ignored in favor of direct initialization using config.
-        # This might be an intentional change to always use the config-driven analyzer.
-        self.analyzer = AIAnalyzer(self.config.get_api_key(), self.config.get_gemini_model())
+        if analyzer:
+            self.analyzer = analyzer
+        else:
+            self.analyzer = AIAnalyzer(self.config.get_api_key(), self.config.get_gemini_model())
+            
         self.visual_auditor = VisualAuditor(self.analyzer)
 
     def process_pending_documents(self, limit: int = 10):
@@ -51,7 +53,7 @@ class CanonizerService:
         query = """
             SELECT uuid 
             FROM virtual_documents 
-            WHERE status = 'NEW' AND deleted = 0
+            WHERE status IN ('NEW', 'READY_FOR_PIPELINE') AND deleted = 0
             LIMIT ?
         """
         cursor.execute(query, (limit,))
@@ -75,10 +77,16 @@ class CanonizerService:
         def loader(fid):
             return self.physical_repo.get_by_uuid(fid)
             
+        # 1. Phase A: physical OCR (The Seeing)
+        # resolve_content handles extraction from source_mapping
         full_text = v_doc.resolve_content(loader)
         if not full_text:
             print(f"[Canonizer] No text content resolved for {v_doc.uuid}. Skipping.")
             return
+
+        # Save to cached_full_text for FTS and Phase B
+        v_doc.cached_full_text = full_text
+        print(f"[STAGE 1] Phase A: Resolved Full Text ({len(full_text)} chars)")
 
         print(f"[STAGE 1] Resolved Full Text: {len(full_text)} chars")
 
@@ -119,15 +127,35 @@ class CanonizerService:
              
         # AI Classification
         struct_res = self.analyzer.classify_structure(pages_text, priv_id, bus_id)
-        # print(f"[STAGE 1] Classification Raw Result:\n{json.dumps(struct_res, indent=2)}")
-        
         detected_entities = struct_res.get("detected_entities", [])
         
         if not detected_entities:
             print(f"[Canonizer] No entities detected for {v_doc.uuid}.")
+            # Fallback for Stage 1 if AI fails: mark processed anyway to avoid loops
+            v_doc.status = "PROCESSED"
+            v_doc.last_processed_at = datetime.now().isoformat()
+            self.logical_repo.save(v_doc)
             return
 
-        # ... (Comments) ...
+        # 3. Phase B: Stage 1 - Classification (The Ordering)
+        # We use the detected entities from structural analysis to populate type_tags
+        dt_list = []
+        for ent in detected_entities:
+            dt = ent.get("doc_type")
+            if dt and dt not in dt_list:
+                dt_list.append(dt)
+        
+        v_doc.type_tags = dt_list
+        v_doc.status = "PROCESSED" # Mark finished
+        v_doc.last_processed_at = datetime.now().isoformat()
+        
+        # Save updated entity
+        self.logical_repo.save(v_doc)
+        print(f"[Canonizer] Stage 1 Complete for {v_doc.uuid}. Tags: {dt_list}")
+
+        # --- Sub-entity Splitting (Original Stage 0.5 logic) ---
+        # Only proceed if we actually want to split the document.
+        # For pure Stage 1, we might just stay as one entity.
         
         split_candidates = self.analyzer.identify_entities(full_text, semantic_data=None)
         print(f"[STAGE 1.2] Split Candidates:\n{json.dumps(split_candidates, indent=2)}")
@@ -189,6 +217,7 @@ class CanonizerService:
             # Update Document Properties
             target_doc.status = "PROCESSED" # Mark processed so we don't loop forever
             target_doc.last_processed_at = datetime.now().isoformat()
+            target_doc.type_tags = [c_type] if c_type else []
             
             # Update Source Mapping
             target_doc.source_mapping = [SourceReference(

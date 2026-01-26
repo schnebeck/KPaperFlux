@@ -100,8 +100,14 @@ class DatabaseManager:
         if not updates: return False
         
         # Whitelist for Stage 0/1
-        allowed = ["status", "export_filename", "deleted", "is_immutable"]
+        allowed = ["status", "export_filename", "deleted", "is_immutable", "locked", "type_tags", "cached_full_text"]
         filtered = {k: v for k, v in updates.items() if k in allowed}
+        
+        if "locked" in filtered:
+             filtered["is_immutable"] = int(filtered.pop("locked"))
+             
+        if "type_tags" in filtered and isinstance(filtered["type_tags"], list):
+             filtered["type_tags"] = json.dumps(filtered["type_tags"])
         
         if filtered:
             self._update_table("virtual_documents", uuid, filtered, pk_col="uuid")
@@ -120,7 +126,8 @@ class DatabaseManager:
         sql = """
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable, type_tags
+                   page_count_virt, created_at, is_immutable, type_tags, 
+                   cached_full_text
             FROM virtual_documents
             WHERE uuid = ?
         """
@@ -143,7 +150,9 @@ class DatabaseManager:
                 locked=bool(row[6]),
                 deleted=False,
                 doc_type="entity",
-                type_tags=type_tags
+                type_tags=type_tags,
+                cached_full_text=row[8] if len(row) > 8 else None,
+                text_content=row[8] if len(row) > 8 else None # keep for compatibility
             )
         return None
 
