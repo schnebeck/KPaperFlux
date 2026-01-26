@@ -11,20 +11,22 @@ class SplitterDialog(QDialog):
     """
     def __init__(self, pipeline, parent=None):
         super().__init__(parent)
-        print("[DEBUG] SplitterDialog Initializing...")
         self.pipeline = pipeline
         self.mode = "RESTRUCTURE" # Options: "RESTRUCTURE" (Default), "IMPORT"
         self.import_instructions = None # Result payload for IMPORT mode
         self.import_paths = [] # List of paths for batch mode
         
         self.setWindowTitle(self.tr("Split Document"))
-        self.setWindowTitle(self.tr("Split Document"))
-        self.resize(1000, 400) # Increased height + width for better view
-        self.init_ui()
-        print("[DEBUG] SplitterDialog Shown/Ready.")
         
+        # Increase vertical size by 20% (from 400 to 480)
+        self.target_height = 480
+        self.setMinimumHeight(200)
+        self.resize(1000, self.target_height) 
+        self.init_ui()
+
     def init_ui(self):
         self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(10, 10, 10, 10) # Safe zone for OS resize handles
         
         # Info
         lbl_info = QLabel(self.tr("Hover between pages to find split points. Click the scissors to toggle cuts."))
@@ -62,15 +64,35 @@ class SplitterDialog(QDialog):
         
     def load_document(self, entity_uuid: str):
         self.mode = "RESTRUCTURE"
+        self.strip.import_mode = False
         self.strip.load_document(self.pipeline, entity_uuid)
+        
+        # Estimate page count for resizing
+        v_doc = self.pipeline.logical_repo.get_by_uuid(entity_uuid)
+        if v_doc and v_doc.source_mapping:
+            file_uuid = v_doc.source_mapping[0].file_uuid
+            path = self.pipeline.vault.get_file_path(file_uuid)
+            if path:
+                doc = fitz.open(path)
+                self.adjust_size_to_content(doc.page_count)
+                doc.close()
+                
         self.update_ui_state() # Initial check
 
     def load_for_import(self, file_path: str):
         """Mode: IMPORT. Load raw file Pre-Flight."""
         self.mode = "IMPORT"
         self.import_path = file_path
+        self.strip.import_mode = True
         self.setWindowTitle(self.tr("Import Assistant: ") + os.path.basename(file_path))
         self.strip.load_from_path(file_path)
+        
+        try:
+             doc = fitz.open(file_path)
+             self.adjust_size_to_content(doc.page_count)
+             doc.close()
+        except: pass
+        
         self.btn_cancel.setText(self.tr("Abort Import"))
         self.update_ui_state()
 
@@ -78,12 +100,47 @@ class SplitterDialog(QDialog):
         """Mode: IMPORT (Batch). Load multiple files as one stream."""
         self.mode = "IMPORT"
         self.import_paths = file_paths
+        self.strip.import_mode = True
         
+        total_pages = 0
+        for p in file_paths:
+            try:
+                doc = fitz.open(p)
+                total_pages += doc.page_count
+                doc.close()
+            except: pass
+            
         count = len(file_paths)
         self.setWindowTitle(self.tr(f"Import Assistant: Batch ({count} files)"))
         self.strip.load_from_paths(file_paths)
+        self.adjust_size_to_content(total_pages)
         self.btn_cancel.setText(self.tr("Abort Import"))
         self.update_ui_state()
+
+    def adjust_size_to_content(self, page_count: int):
+        """Dynamically resize and center the window based on page count."""
+        from PyQt6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen().availableGeometry()
+        
+        # Constants for estimation
+        # Thumb height is target_height minus margins/buttons (approx 120px)
+        thumb_h = self.target_height - 120
+        # Thumb width (A4 ratio approx 0.707, but with margins let's use 0.75)
+        thumb_w = int(thumb_h * 0.72)
+        
+        # Content width: thumbs + dividers (small) + dialog margins
+        ideal_width = (page_count * thumb_w) + (page_count * 10) + 100
+        
+        # Constraints: Min 800, Max screen width
+        final_w = max(800, min(ideal_width, screen.width() - 40))
+        final_h = self.target_height
+        
+        self.resize(final_w, final_h)
+        
+        # Center on screen
+        geo = self.frameGeometry()
+        geo.moveCenter(screen.center())
+        self.move(geo.topLeft())
 
     def update_ui_state(self, ignored_arg=None):
         """Update button states based on active splits and undo stack."""
@@ -125,7 +182,7 @@ class SplitterDialog(QDialog):
                     elif hasattr(self.pipeline, 'logical_repo'):
                          self.pipeline.logical_repo.update(target_uuid, deletes=True) # Soft delete
                     
-                    import json
+                    
                     debug_result = {
                          "action": "CANCEL",
                          "source_entity": target_uuid,
@@ -311,6 +368,3 @@ class SplitterDialog(QDialog):
             
         return instructions
 
-    def on_skip_clicked(self):
-        # Deprecated: Redirect to confirm
-        self.on_confirm_split()
