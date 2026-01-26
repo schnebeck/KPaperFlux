@@ -17,7 +17,7 @@ from core.stamper import DocumentStamper
 from core.filter_tree import FilterTree, NodeType
 import json
 from pathlib import Path
-from gui.workers import AIQueueWorker, ImportWorker
+from gui.workers import AIQueueWorker, ImportWorker, MainLoopWorker
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
@@ -200,6 +200,12 @@ class MainWindow(QMainWindow):
              self.ai_worker.doc_updated.connect(self._on_ai_doc_updated)
              self.ai_worker.status_changed.connect(self._on_ai_status_changed)
              self.ai_worker.start()
+             
+             # Start Main Loop Worker (Stage 1)
+             self.main_loop_worker = MainLoopWorker(self.pipeline)
+             # Connect to refresh list when documents are processed
+             self.main_loop_worker.documents_processed.connect(self.list_widget.refresh_list)
+             self.main_loop_worker.start()
 
     def load_filter_tree(self):
         """Load Filter Tree from JSON file."""
@@ -1208,6 +1214,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """Handle window close."""
+        if hasattr(self, 'ai_worker'): self.ai_worker.stop()
+        if hasattr(self, 'main_loop_worker'): self.main_loop_worker.stop()
+        
         self.write_settings()
         self.save_filter_tree()
         super().closeEvent(event)

@@ -99,6 +99,7 @@ def test_stage1_background_flow(test_stage1_env):
     # Phase B: Classification
     assert updated_doc.status == "PROCESSED"
     assert "INVOICE" in updated_doc.type_tags
+    assert updated_doc.last_processed_at is not None
     
     # Verify AI call was made with correct number of pages
     mock_analyzer = test_stage1_env["mock_analyzer"]

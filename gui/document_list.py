@@ -77,7 +77,9 @@ class DocumentListWidget(QWidget):
         4: "Created",
         5: "Status",
         6: "Type Tags",
-        7: "Locked"
+        7: "AI Processed",
+        8: "Last Used",
+        9: "Locked"
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
 
@@ -546,6 +548,13 @@ class DocumentListWidget(QWidget):
             if u: uuids.append(u)
         
         self.document_selected.emit(uuids)
+        
+        # Phase 102: Update last_used for selected documents
+        if self.db_manager and uuids:
+            # For performance, maybe only touch the first one or a small batch?
+            # Let's touch the primary (last clicked) one, or all if small selection.
+            for u in uuids[:5]: # Cap at 5 to avoid thrashing
+                self.db_manager.touch_last_used(u)
 
     def refresh_list(self):
         """Fetch docs from DB and populate tree."""
@@ -761,9 +770,12 @@ class DocumentListWidget(QWidget):
             pages_sort = doc.page_count if doc.page_count is not None else 0
             pages_str = str(pages_sort)
             status = getattr(doc, "status", "NEW")
-            
             type_tags = getattr(doc, "type_tags", [])
             locked_str = "Yes" if getattr(doc, "locked", False) else "No"
+            
+            # Format timestamps
+            processed_str = format_datetime(doc.last_processed_at) if hasattr(doc, "last_processed_at") else "-"
+            used_str = format_datetime(doc.last_used) if hasattr(doc, "last_used") else "-"
             
             col_data = [
                 "",                 # 0: # (Handled by Delegate)
@@ -773,7 +785,9 @@ class DocumentListWidget(QWidget):
                 created_str,        # 4: Created
                 status,             # 5: Status
                 ", ".join(type_tags), # 6: Type Tags
-                locked_str          # 7: Locked
+                processed_str,      # 7: AI Processed
+                used_str,           # 8: Last Used
+                locked_str          # 9: Locked
             ]
             
             item = SortableTreeWidgetItem(col_data)
@@ -782,6 +796,12 @@ class DocumentListWidget(QWidget):
             item.setData(1, Qt.ItemDataRole.UserRole, doc.uuid)
             item.setData(3, Qt.ItemDataRole.UserRole, pages_sort)
             item.setData(4, Qt.ItemDataRole.UserRole, created_sort)
+            
+            # Sort keys for timestamps
+            if hasattr(doc, "last_processed_at") and doc.last_processed_at:
+                item.setData(7, Qt.ItemDataRole.UserRole, str(doc.last_processed_at))
+            if hasattr(doc, "last_used") and doc.last_used:
+                item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_used))
             
             self.tree.addTopLevelItem(item)
             

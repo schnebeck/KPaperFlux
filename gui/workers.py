@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer
 from core.pipeline import PipelineProcessor
 import traceback
 import queue
@@ -235,6 +235,55 @@ class AIQueueWorker(QThread):
             except Exception as e:
                 print(f"AI Worker Loop Error: {e}")
                 time.sleep(1)
+
+    def stop(self):
+        self.is_running = False
+
+class MainLoopWorker(QThread):
+    """
+    Intelligent Main Loop (Stage 1+).
+    Periodically checks for READY_FOR_PIPELINE documents and processes them.
+    Also manages Stage 2 Queue if needed.
+    """
+    status_changed = pyqtSignal(str)
+    documents_processed = pyqtSignal() # Notify UI to refresh list
+    
+    def __init__(self, pipeline: PipelineProcessor):
+        super().__init__()
+        self.pipeline = pipeline
+        self.is_running = True
+        from core.canonizer import CanonizerService
+        self.canonizer = CanonizerService(pipeline.db, 
+                                        physical_repo=pipeline.physical_repo, 
+                                        logical_repo=pipeline.logical_repo)
+
+    def run(self):
+        while self.is_running:
+            try:
+                # 1. Background Canonizing (Stage 1)
+                # Check if any documents are READY_FOR_PIPELINE
+                # limit 1 to avoid hogging the loop, or higher if batching
+                processed_any = False
+                
+                # We use a shortcut to check counts first to avoid overhead?
+                # For now just call and let it handle emptiness.
+                
+                self.canonizer.process_pending_documents(limit=5)
+                # Note: process_pending_documents in canonizer.py returns nothing currently.
+                # We should probably check if something changed.
+                
+                # Signal UI
+                self.documents_processed.emit()
+                
+            except Exception as e:
+                print(f"[MainLoop] Error: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # Sleep until next check (e.g. 5 seconds)
+            for _ in range(50): # 5 seconds split for faster stop
+                if not self.is_running: break
+                time.sleep(0.1)
 
     def stop(self):
         self.is_running = False

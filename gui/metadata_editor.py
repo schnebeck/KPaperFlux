@@ -226,5 +226,6 @@ class MetadataEditorWidget(QWidget):
         }
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)
+             self.db_manager.touch_last_used(uuid)
         self.metadata_saved.emit()
         QMessageBox.information(self, self.tr("Saved"), self.tr("Changes saved to Database."))

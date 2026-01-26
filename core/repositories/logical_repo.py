@@ -1,8 +1,15 @@
 from typing import Optional, List
 import json
 import sqlite3
+from datetime import datetime, date
 from .base import BaseRepository
 from core.models.virtual import VirtualDocument, SourceReference
+
+class EnhancedJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        return super().default(obj)
 
 class LogicalRepository(BaseRepository):
     """
@@ -15,7 +22,7 @@ class LogicalRepository(BaseRepository):
         """
         # 1. Prepare JSON mapping
         mapping_json = doc.get_mapping_json()
-        semantic_json = json.dumps(doc.semantic_data) if doc.semantic_data else None
+        semantic_json = json.dumps(doc.semantic_data, cls=EnhancedJSONEncoder) if doc.semantic_data else None
         
         # 2. Calculate Total Pages
         total_pages = sum(len(ref.pages) for ref in doc.source_mapping)

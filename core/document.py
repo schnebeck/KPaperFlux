@@ -100,6 +100,7 @@ class Document(BaseModel):
     page_count: Optional[int] = None
     created_at: Optional[str] = None # ISO format
     last_processed_at: Optional[str] = None # ISO format
+    last_used: Optional[str] = None # ISO format
     
     # Duplicate detection fingerprints
     phash: Optional[str] = None

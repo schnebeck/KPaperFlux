@@ -100,7 +100,7 @@ class DatabaseManager:
         if not updates: return False
         
         # Whitelist for Stage 0/1
-        allowed = ["status", "export_filename", "deleted", "is_immutable", "locked", "type_tags", "cached_full_text"]
+        allowed = ["status", "export_filename", "deleted", "is_immutable", "locked", "type_tags", "cached_full_text", "last_used", "last_processed_at"]
         filtered = {k: v for k, v in updates.items() if k in allowed}
         
         if "locked" in filtered:
@@ -113,6 +113,12 @@ class DatabaseManager:
             self._update_table("virtual_documents", uuid, filtered, pk_col="uuid")
             return True
         return False
+
+    def touch_last_used(self, uuid: str):
+        """Update last_used timestamp to current local time."""
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        self.update_document_metadata(uuid, {"last_used": now})
 
     def update_document_status(self, uuid: str, new_status: str):
         """Helper to update status in virtual_documents."""
@@ -127,7 +133,7 @@ class DatabaseManager:
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
                    page_count_virt, created_at, is_immutable, type_tags, 
-                   cached_full_text
+                   cached_full_text, last_used, last_processed_at
             FROM virtual_documents
             WHERE uuid = ?
         """
@@ -152,7 +158,9 @@ class DatabaseManager:
                 doc_type="entity",
                 type_tags=type_tags,
                 cached_full_text=row[8] if len(row) > 8 else None,
-                text_content=row[8] if len(row) > 8 else None # keep for compatibility
+                text_content=row[8] if len(row) > 8 else None, # keep for compatibility
+                last_used=row[9] if len(row) > 9 else None,
+                last_processed_at=row[10] if len(row) > 10 else None
             )
         return None
 

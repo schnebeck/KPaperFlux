@@ -72,6 +72,10 @@ class CanonizerService:
         if not self.analyzer: return
         print(f"[STAGE 1] Processing Logical Entity {v_doc.uuid}...")
         
+        # Capture original tags to detect manual intervention
+        original_tags = getattr(v_doc, "type_tags", [])
+        is_manual = "MANUAL_EDIT" in original_tags
+        
         # 1. Resolve Text Content (Lazy Load)
         # Helper callback to fetch physical data
         def loader(fid):
@@ -154,9 +158,11 @@ class CanonizerService:
         print(f"[Canonizer] Stage 1 Complete for {v_doc.uuid}. Tags: {dt_list}")
 
         # --- Sub-entity Splitting (Original Stage 0.5 logic) ---
-        # Only proceed if we actually want to split the document.
-        # For pure Stage 1, we might just stay as one entity.
-        
+        # Skip if MANUAL_EDIT is present (User already structured it)
+        if is_manual:
+             print(f"[Canonizer] Manually edited doc {v_doc.uuid} detected. Skipping auto-split.")
+             return
+
         split_candidates = self.analyzer.identify_entities(full_text, semantic_data=None)
         print(f"[STAGE 1.2] Split Candidates:\n{json.dumps(split_candidates, indent=2)}")
         # split_candidates list of {type, pages: [1,2], ...}

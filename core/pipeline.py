@@ -254,6 +254,7 @@ class PipelineProcessor:
             
         v_doc.source_mapping = new_mapping
         v_doc.status = "MODIFIED" 
+        v_doc.last_processed_at = datetime.datetime.now().isoformat()
         
         self.logical_repo.save(v_doc)
         print(f"[Pipeline] Updated structure for {entity_uuid}")
@@ -325,6 +326,7 @@ class PipelineProcessor:
                     source_mapping=mapping,
                     status="READY_FOR_PIPELINE",
                     created_at=created_at,
+                    last_processed_at=datetime.datetime.now().isoformat(),
                     type_tags=["MANUAL_EDIT"]
                 )
                 self.logical_repo.save(new_doc)
@@ -512,7 +514,8 @@ class PipelineProcessor:
                     uuid=str(uuid.uuid4()),
                     source_mapping=mapping,
                     status="READY_FOR_PIPELINE",
-                    created_at=datetime.datetime.now().isoformat()
+                    created_at=datetime.datetime.now().isoformat(),
+                    last_processed_at=datetime.datetime.now().isoformat()
                 )
                 self.logical_repo.save(v_doc)
                 new_uuids.append(v_doc.uuid)
@@ -545,6 +548,7 @@ class PipelineProcessor:
             source_mapping=new_mapping,
             status="READY_FOR_PIPELINE",
             created_at=created_at or datetime.datetime.now().isoformat(),
+            last_processed_at=datetime.datetime.now().isoformat(),
             type_tags=["LOGICAL_MERGE"]
         )
         self.logical_repo.save(merged_doc)
