@@ -30,6 +30,7 @@ class Document(BaseModel):
     doc_type: Optional[Union[List[str], str]] = Field(default_factory=list)
     locked: bool = False
     deleted: bool = False # Phase 90: Trash Bin
+    type_tags: Optional[List[str]] = Field(default_factory=list) # Phase 102
     
     @field_validator('doc_type')
     @classmethod

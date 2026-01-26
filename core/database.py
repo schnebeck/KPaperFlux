@@ -120,7 +120,7 @@ class DatabaseManager:
         sql = """
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable
+                   page_count_virt, created_at, is_immutable, type_tags
             FROM virtual_documents
             WHERE uuid = ?
         """
@@ -128,6 +128,11 @@ class DatabaseManager:
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
         if row:
+            type_tags = []
+            if row[7]:
+                try: type_tags = json.loads(row[7])
+                except: pass
+                
             return Document(
                 uuid=row[0],
                 extra_data={"source_mapping": row[1]},
@@ -137,7 +142,8 @@ class DatabaseManager:
                 created_at=row[5],
                 locked=bool(row[6]),
                 deleted=False,
-                doc_type="entity"
+                doc_type="entity",
+                type_tags=type_tags
             )
         return None
 
@@ -215,7 +221,7 @@ class DatabaseManager:
         sql = """
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable
+                   page_count_virt, created_at, is_immutable, type_tags
             FROM virtual_documents
             WHERE deleted = 0
             ORDER BY created_at DESC
@@ -226,6 +232,11 @@ class DatabaseManager:
         
         docs = []
         for row in rows:
+            type_tags = []
+            if len(row) > 7 and row[7]:
+                 try: type_tags = json.loads(row[7])
+                 except: pass
+
             docs.append(Document(
                 uuid=row[0],
                 extra_data={"source_mapping": row[1]},
@@ -235,7 +246,8 @@ class DatabaseManager:
                 created_at=row[5],
                 locked=bool(row[6]),
                 deleted=False,
-                doc_type="entity"
+                doc_type="entity",
+                type_tags=type_tags
             ))
         return docs
 
@@ -265,7 +277,7 @@ class DatabaseManager:
         sql = """
             SELECT v.uuid, v.source_mapping, v.status, 
                    COALESCE(v.export_filename, 'Entity ' || substr(v.uuid, 1, 8)),
-                   v.page_count_virt, v.created_at, v.is_immutable
+                   v.page_count_virt, v.created_at, v.is_immutable, v.type_tags
             FROM virtual_documents v
             JOIN virtual_documents_fts f ON v.uuid = f.uuid
             WHERE f.content MATCH ? AND v.deleted = 0
@@ -277,6 +289,11 @@ class DatabaseManager:
         
         docs = []
         for row in rows:
+            type_tags = []
+            if len(row) > 7 and row[7]:
+                 try: type_tags = json.loads(row[7])
+                 except: pass
+
             docs.append(Document(
                 uuid=row[0],
                 extra_data={"source_mapping": row[1]},
@@ -286,7 +303,8 @@ class DatabaseManager:
                 created_at=row[5],
                 locked=bool(row[6]),
                 deleted=False,
-                doc_type="entity"
+                doc_type="entity",
+                type_tags=type_tags
             ))
         return docs
 
