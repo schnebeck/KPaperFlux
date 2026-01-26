@@ -238,11 +238,19 @@ class PipelineProcessor:
     def update_entity_structure(self, entity_uuid: str, new_mapping: list) -> bool:
         """
         Update the structure (pages/rotation) of an existing entity.
-        Used by the Viewer 'Live Edit' mode.
+        If mapping is empty, deletes the entity.
         """
         v_doc = self.logical_repo.get_by_uuid(entity_uuid)
         if not v_doc:
             raise ValueError(f"Entity {entity_uuid} not found")
+            
+        file_uuids_to_check = [ref.file_uuid for ref in v_doc.source_mapping]
+        
+        if not new_mapping:
+            print(f"[Pipeline] Empty mapping! Deleting entity {entity_uuid}")
+            self.delete_entity(entity_uuid)
+            self.physical_cleanup(file_uuids_to_check)
+            return True
             
         v_doc.source_mapping = new_mapping
         v_doc.status = "MODIFIED" 
@@ -250,6 +258,122 @@ class PipelineProcessor:
         self.logical_repo.save(v_doc)
         print(f"[Pipeline] Updated structure for {entity_uuid}")
         return True
+
+    def apply_restructure_instructions(self, original_entity_uuid: str, instructions: list) -> list[str]:
+        """
+        Atomically replace an existing entity (or entities) with new ones.
+        1. Capture physical sources of old doc.
+        2. Delete old doc.
+        3. Create new docs from instructions.
+        4. Cleanup orphaned files.
+        """
+        old_doc = self.logical_repo.get_by_uuid(original_entity_uuid)
+        if not old_doc:
+            # Fallback: maybe it's already deleted or a new import.
+            # Handle as batch if no original.
+            return []
+
+        file_uuids_to_check = [ref.file_uuid for ref in old_doc.source_mapping]
+        created_at = old_doc.created_at
+        
+        # 1. Delete Original
+        self.logical_repo.delete_by_uuid(original_entity_uuid)
+        
+        # 2. Create New
+        new_uuids = []
+        for instr in instructions:
+            pages_data = instr.get("pages", [])
+            if not pages_data: continue
+            
+            mapping = []
+            current_file_uuid = None
+            current_rot = -1
+            current_pages = []
+            
+            for p in pages_data:
+                f_uuid = p.get("file_uuid")
+                # Fallback if uuid missing but path exists
+                if not f_uuid and p.get("file_path"):
+                     # Try finding by path (expensive but safe fallback)
+                     f_path = p.get("file_path")
+                     for check_uid in file_uuids_to_check:
+                         pf = self.physical_repo.get_by_uuid(check_uid)
+                         if pf and pf.file_path == f_path:
+                             f_uuid = check_uid
+                             break
+                
+                if not f_uuid: continue
+                
+                p_idx = p["file_page_index"] + 1
+                rot = p.get("rotation", 0)
+                
+                if f_uuid == current_file_uuid and rot == current_rot:
+                    current_pages.append(p_idx)
+                else:
+                    if current_pages:
+                        mapping.append(SourceReference(current_file_uuid, current_pages, current_rot))
+                    current_file_uuid = f_uuid
+                    current_rot = rot
+                    current_pages = [p_idx]
+            
+            if current_pages:
+                mapping.append(SourceReference(current_file_uuid, current_pages, current_rot))
+                
+            if mapping:
+                new_doc = VirtualDocument(
+                    uuid=str(uuid.uuid4()),
+                    source_mapping=mapping,
+                    status="READY_FOR_PIPELINE",
+                    created_at=created_at,
+                    type_tags=["MANUAL_EDIT"]
+                )
+                self.logical_repo.save(new_doc)
+                new_uuids.append(new_doc.uuid)
+        
+        # 3. Cleanup
+        self.physical_cleanup(file_uuids_to_check)
+        return new_uuids
+
+    def delete_entity(self, entity_uuid: str) -> bool:
+        """
+        Hard delete an entity and cleanup orphaned physical files.
+        """
+        v_doc = self.logical_repo.get_by_uuid(entity_uuid)
+        if not v_doc: return False
+        
+        file_uuids_to_check = [ref.file_uuid for ref in v_doc.source_mapping]
+        
+        # 1. Delete Entity
+        self.logical_repo.delete_by_uuid(entity_uuid)
+        print(f"[Pipeline] Deleted Entity {entity_uuid}")
+        
+        # 2. Cleanup orphaned files
+        self.physical_cleanup(file_uuids_to_check)
+        return True
+
+    def physical_cleanup(self, file_uuids: list[str]):
+        """
+        Check if physical files are still referenced by any logical entities.
+        If not, delete the file from Vault and Database.
+        """
+        for f_uuid in set(file_uuids):
+            referencing_entities = self.logical_repo.get_by_source_file(f_uuid)
+            if not referencing_entities:
+                print(f"[Pipeline] Physical file {f_uuid} is orphaned. Purging...")
+                pf = self.physical_repo.get_by_uuid(f_uuid)
+                if pf:
+                    # Remove from Vault
+                    if pf.file_path and os.path.exists(pf.file_path):
+                        try:
+                            os.remove(pf.file_path)
+                            print(f"[Pipeline] Removed file from vault: {pf.file_path}")
+                        except Exception as e:
+                            print(f"[Pipeline] Error removing vault file: {e}")
+                    
+                    # Remove from Database
+                    with self.db.connection:
+                         self.db.connection.execute("DELETE FROM physical_files WHERE uuid = ?", (f_uuid,))
+                         print(f"[Pipeline] Removed record from physical_files: {f_uuid}")
 
     def process_document_with_instructions(self, file_path: str, instructions: list, move_source: bool = False) -> list[str]:
         """
@@ -396,74 +520,41 @@ class PipelineProcessor:
         print(f"[Stage 0 Batch] Created {len(new_uuids)} entities from instructions across {len(file_paths)} files.")
         return new_uuids
 
-    def merge_documents(self, uuids: List[str]) -> Optional[Document]:
+    def merge_documents(self, uuids: list[str]) -> bool:
         """
-        Merge multiple documents into a new one.
-        Returns the new merged Document.
-        Originals are NOT deleted automatically here (User decision).
+        Merge multiple documents LOGICALLY into a new entity.
+        Originals are kept.
         """
         if not uuids:
-            return None
+            return False
             
-        input_paths = []
-        for uuid in uuids:
-            path = self.vault.get_file_path(uuid)
-            if path and os.path.exists(path):
-                input_paths.append(Path(path))
-            else:
-                print(f"Warning: merge skipping missing uuid {uuid}")
+        new_mapping = []
+        created_at = None
         
-        if not input_paths:
-            return None
-            
-        # Create new merged PDF
-        new_doc = Document(original_filename="merged_document.pdf")
+        for uid in uuids:
+            v_doc = self.logical_repo.get_by_uuid(uid)
+            if v_doc:
+                if not created_at: created_at = v_doc.created_at
+                new_mapping.extend(v_doc.source_mapping)
         
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
+        if not new_mapping:
+            return False
             
-        try:
-            with pikepdf.Pdf.new() as pdf:
-                for path in input_paths:
-                    src = pikepdf.Pdf.open(path)
-                    pdf.pages.extend(src.pages)
-                pdf.save(tmp_path)
-                
-            # Store new file
-            stored_path = self.vault.store_document(new_doc, tmp_path)
-            
-            # Process it (Extract text from new file)
-            # Since it's composed of others, it might be native or mixed.
-            # We process it like a fresh import.
-            if stored_path:
-                # We can call process_document recursively but we already stored it.
-                # Just finish steps.
-                full_stored_path = Path(stored_path)
-                
-                # Calculate Page Count
-                new_doc.page_count = self._calculate_page_count(full_stored_path)
-                new_doc.created_at = datetime.datetime.now().isoformat()
-                
-                # Copy properties? Nah, new analysis.
-                if self._is_native_pdf(full_stored_path):
-                        new_doc.text_content = self._extract_text_native(full_stored_path)
-                else:
-                        new_doc.text_content = self._run_ocr(full_stored_path)
-                        
-                self._run_ai_analysis(new_doc, stored_path)
-                new_doc.export_filename = self._generate_export_filename(new_doc)
-                self.db.insert_document(new_doc)
-                
-                return new_doc
-                
-        except Exception as e:
-            print(f"Merge Error: {e}")
-            return None
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-                
-        return None
+        merged_doc = VirtualDocument(
+            uuid=str(uuid.uuid4()),
+            source_mapping=new_mapping,
+            status="READY_FOR_PIPELINE",
+            created_at=created_at or datetime.datetime.now().isoformat(),
+            type_tags=["LOGICAL_MERGE"]
+        )
+        self.logical_repo.save(merged_doc)
+        print(f"[Pipeline] Logically merged {len(uuids)} documents into {merged_doc.uuid}")
+        return True
+
+    def merge_documents_physical(self, uuids: List[str]) -> Optional[Document]:
+        """
+        Old physical merge implementation. (Keep for reference/export tools)
+        """
 
     def _detect_and_extract_text(self, doc: Document, path: Path) -> str:
         """

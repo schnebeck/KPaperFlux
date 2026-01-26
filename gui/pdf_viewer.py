@@ -23,6 +23,7 @@ class PdfViewerWidget(QWidget):
     export_requested = pyqtSignal(list)
     delete_requested = pyqtSignal(str)
     split_requested = pyqtSignal(str)
+    document_changed = pyqtSignal()
     
     def __init__(self, pipeline=None, parent=None):
         super().__init__(parent)
@@ -37,7 +38,7 @@ class PdfViewerWidget(QWidget):
         self.document = QPdfDocument(self)
         self.view = QPdfView(self)
         self.view.setDocument(self.document)
-        self.view.setPageMode(QPdfView.PageMode.MultiPage)
+        self.view.setPageMode(QPdfView.PageMode.SinglePage)
         
         # Style: White Background for document area
         self.view.setStyleSheet("background-color: white; border: none;")
@@ -57,7 +58,7 @@ class PdfViewerWidget(QWidget):
         self.toolbar_layout.setContentsMargins(10, 5, 10, 5)
         
         # --- Group 1: Navigation ---
-        self.btn_prev = QPushButton("<")
+        self.btn_prev = QPushButton("⟵")
         self.btn_prev.setFixedSize(30,30)
         self.btn_prev.clicked.connect(self.prev_page)
         
@@ -68,7 +69,7 @@ class PdfViewerWidget(QWidget):
         
         self.lbl_total = QLabel("/ 0")
         
-        self.btn_next = QPushButton(">")
+        self.btn_next = QPushButton("⟶")
         self.btn_next.setFixedSize(30,30)
         self.btn_next.clicked.connect(self.next_page)
         
@@ -96,7 +97,7 @@ class PdfViewerWidget(QWidget):
         self.btn_rotate.setToolTip("Rotate Page")
         self.btn_rotate.clicked.connect(self.rotate_current_page)
         
-        self.btn_delete = QPushButton("🗑")
+        self.btn_delete = QPushButton("✕")
         self.btn_delete.setFixedSize(35, 30)
         self.btn_delete.setToolTip("Delete Page")
         self.btn_delete.clicked.connect(self.delete_current_page)
@@ -104,7 +105,7 @@ class PdfViewerWidget(QWidget):
         
         self.btn_split = QPushButton("✂")
         self.btn_split.setFixedSize(35, 30)
-        self.btn_split.setToolTip("Split Document")
+        self.btn_split.setToolTip(self.tr("Edit Document"))
         self.btn_split.clicked.connect(self.on_split_clicked)
         
         self.btn_save = QPushButton("💾 Save *")
@@ -305,11 +306,17 @@ class PdfViewerWidget(QWidget):
         idx = self.nav.currentPage()
         if 0 <= idx < len(self.current_pages_data):
             if len(self.current_pages_data) <= 1:
-                QMessageBox.warning(self, "Warning", "Cannot delete the last page. Delete the entire document from the list instead.")
+                QMessageBox.warning(self, self.tr("Warning"), self.tr("Cannot delete the last page. Delete the entire document from the list instead."))
                 return
-            self.current_pages_data.pop(idx)
-            self.btn_save.setVisible(True)
-            self._refresh_preview()
+            
+            res = QMessageBox.question(self, self.tr("Confirm Deletion"), 
+                                     self.tr("Are you sure you want to remove this page from the document?"),
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            
+            if res == QMessageBox.StandardButton.Yes:
+                self.current_pages_data.pop(idx)
+                self.btn_save.setVisible(True)
+                self._refresh_preview()
 
     def on_split_clicked(self):
         if self.current_uuid:
@@ -346,7 +353,8 @@ class PdfViewerWidget(QWidget):
         try:
             self.pipeline.update_entity_structure(self.current_uuid, new_mapping)
             self.btn_save.setVisible(False)
-            QMessageBox.information(self, "Saved", "Document changes saved successfully.")
+            self.document_changed.emit() # Notify parent to refresh list
+            self.statusBar_msg(self.tr("Document changes saved successfully."))
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save: {e}")
 
@@ -425,6 +433,20 @@ class PdfViewerWidget(QWidget):
              try: os.remove(self.temp_pdf_path)
              except: pass
              self.temp_pdf_path = None
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Left:
+            self.prev_page()
+        elif event.key() == Qt.Key.Key_Right:
+            self.next_page()
+        else:
+            super().keyPressEvent(event)
+
+    def statusBar_msg(self, msg: str):
+        """Helper to show message in parent status bar if possible."""
+        parent = self.window()
+        if hasattr(parent, 'statusBar'):
+            parent.statusBar().showMessage(msg, 3000)
 
     def __del__(self):
         """Force cleanup of temp files."""

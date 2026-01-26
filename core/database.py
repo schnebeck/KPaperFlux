@@ -59,7 +59,8 @@ class DatabaseManager:
             
             -- Stage 0/1 Powerhouse: Generated Count
             -- Using a simplified version: Number of source segments (files)
-            page_count_virt INTEGER DEFAULT 0
+            page_count_virt INTEGER DEFAULT 0,
+            type_tags TEXT -- JSON List of strings
         );
         """
         
@@ -77,6 +78,13 @@ class DatabaseManager:
             self.connection.execute(create_physical_files_table)
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_virtual_documents_fts)
+            
+            # Migration: Ensure type_tags exists if table was created earlier
+            try:
+                self.connection.execute("ALTER TABLE virtual_documents ADD COLUMN type_tags TEXT")
+            except sqlite3.OperationalError:
+                pass # Already exists
+                
             self.connection.execute("DROP VIEW IF EXISTS documents")
         
         self._create_fts_triggers()

@@ -583,16 +583,20 @@ class SplitterStripWidget(QWidget):
         try:
              v_doc = pipeline.logical_repo.get_by_uuid(entity_uuid)
              if not v_doc or not v_doc.source_mapping: return
-             file_uuid = v_doc.source_mapping[0].file_uuid
              
-             path = pipeline.vault.get_file_path(file_uuid)
-             if not path: return
-             
-             doc = fitz.open(path)
-             page_count = doc.page_count
-             doc.close()
-             
-             flat_pages = [{"file_uuid": file_uuid, "page": p+1, "rotation": 0} for p in range(page_count)]
+             flat_pages = []
+             for ref in v_doc.source_mapping:
+                 file_uuid = ref.file_uuid
+                 path = pipeline.vault.get_file_path(file_uuid)
+                 if not path: continue
+                 
+                 for p_num in ref.pages:
+                     flat_pages.append({
+                         "file_uuid": file_uuid,
+                         "file_path": path,
+                         "page": p_num,
+                         "rotation": getattr(ref, 'rotation', 0)
+                     })
              
              self._populate_strip(flat_pages)
              

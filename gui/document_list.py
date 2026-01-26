@@ -61,6 +61,7 @@ class DocumentListWidget(QWidget):
     active_filter_changed = pyqtSignal(dict) # Emitted when a view loads a filter
     reprocess_requested = pyqtSignal(list)
     merge_requested = pyqtSignal(list)
+    edit_requested = pyqtSignal(str) # v28.6
     # export_requested = pyqtSignal(list) # Handled locally via open_export_dialog
     stamp_requested = pyqtSignal(list)
     tags_update_requested = pyqtSignal(list)
@@ -444,19 +445,17 @@ class DocumentListWidget(QWidget):
         selected_items = self.tree.selectedItems()
         
         if len(selected_items) > 1:
-             merge_action = menu.addAction(self.tr("Merge Selected"))
+             merge_action = menu.addAction(self.tr("Merge Selected Documents"))
         else:
              merge_action = None
     
+        # Edit Action (v28.6)
+        edit_action = None
+        if len(selected_items) == 1:
+            edit_action = menu.addAction(self.tr("Edit Document..."))
+
         reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
         
-        # Split Action (Only for single multi-page doc)
-        split_action = None
-        if len(selected_items) == 1:
-            doc = self.documents_cache.get(uuid)
-            if doc and getattr(doc, 'page_count', 0) > 1:
-                split_action = menu.addAction(self.tr("Split Document..."))
-                
         tags_action = menu.addAction(self.tr("Manage Tags..."))
         stamp_action = menu.addAction(self.tr("Stamp..."))
         menu.addSeparator()
@@ -489,8 +488,8 @@ class DocumentListWidget(QWidget):
             
         if action == reprocess_action:
             self.reprocess_requested.emit(uuids)
-        elif split_action and action == split_action:
-            self.split_requested.emit(uuids[0])
+        elif edit_action and action == edit_action:
+            self.edit_requested.emit(uuids[0])
         elif action == delete_action:
             self.delete_selected_documents(uuids)
         elif merge_action and action == merge_action:

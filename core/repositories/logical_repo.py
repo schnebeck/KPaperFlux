@@ -25,12 +25,15 @@ class LogicalRepository(BaseRepository):
         INSERT OR REPLACE INTO virtual_documents (
             uuid, source_mapping, status, export_filename, 
             last_used, last_processed_at, is_immutable, thumbnail_path, 
-            cached_full_text, semantic_data, created_at, deleted, page_count_virt
+            cached_full_text, semantic_data, created_at, deleted, page_count_virt,
+            type_tags
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
         
+        type_tags_json = json.dumps(doc.type_tags) if doc.type_tags else None
+
         values = (
             doc.uuid,
             mapping_json,
@@ -44,7 +47,8 @@ class LogicalRepository(BaseRepository):
             semantic_json,
             doc.created_at,
             int(doc.deleted),
-            total_pages
+            total_pages,
+            type_tags_json
         )
         
         with self.conn:
@@ -56,7 +60,7 @@ class LogicalRepository(BaseRepository):
         SELECT 
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
-            semantic_data, created_at, deleted, page_count_virt
+            semantic_data, created_at, deleted, page_count_virt, type_tags
         FROM virtual_documents
         WHERE uuid = ?
         """
@@ -77,7 +81,7 @@ class LogicalRepository(BaseRepository):
         SELECT 
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
-            semantic_data, created_at, deleted, page_count_virt
+            semantic_data, created_at, deleted, page_count_virt, type_tags
         FROM virtual_documents
         WHERE source_mapping LIKE ?
         """

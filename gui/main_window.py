@@ -27,6 +27,27 @@ from gui.filter_widget import FilterWidget
 from gui.advanced_filter import AdvancedFilterWidget
 from gui.settings_dialog import SettingsDialog
 from gui.settings_dialog import SettingsDialog
+class MergeConfirmDialog(QDialog):
+    def __init__(self, count, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Confirm Merge"))
+        layout = QVBoxLayout(self)
+        
+        label = QLabel(self.tr(f"Merge {count} documents into a new combined entry?"))
+        layout.addWidget(label)
+        
+        self.check_keep = QCheckBox(self.tr("Keep original documents"))
+        self.check_keep.setChecked(True)
+        layout.addWidget(self.check_keep)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        
+    def keep_originals(self):
+        return self.check_keep.isChecked()
+
 class MainWindow(QMainWindow):
     """
     Main application window for KPaperFlux.
@@ -105,11 +126,10 @@ class MainWindow(QMainWindow):
             self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
             self.list_widget.merge_requested.connect(self.merge_documents_slot)
-            self.list_widget.merge_requested.connect(self.merge_documents_slot)
             # self.list_widget.export_requested.connect(self.export_documents_slot) # Handled internally
             self.list_widget.stamp_requested.connect(self.stamp_document_slot)
-            self.list_widget.stamp_requested.connect(self.stamp_document_slot)
             self.list_widget.tags_update_requested.connect(self.manage_tags_slot)
+            self.list_widget.edit_requested.connect(self.open_splitter_dialog_slot)
             self.list_widget.document_count_changed.connect(self.update_status_bar)
             self.list_widget.save_list_requested.connect(self.save_static_list)
             
@@ -144,6 +164,7 @@ class MainWindow(QMainWindow):
         self.pdf_viewer.export_requested.connect(self.export_documents_slot)
         self.pdf_viewer.reprocess_requested.connect(self.reprocess_document_slot)
         self.pdf_viewer.delete_requested.connect(self.delete_document_slot)
+        self.pdf_viewer.document_changed.connect(self.list_widget.refresh_list)
         self.pdf_viewer.split_requested.connect(self.open_splitter_dialog_slot)
         self.main_splitter.addWidget(self.pdf_viewer)
         
@@ -728,20 +749,27 @@ class MainWindow(QMainWindow):
         if not self.pipeline:
             return
             
-        reply = QMessageBox.question(self, self.tr("Confirm Merge"),
-                                   self.tr(f"Merge {len(uuids)} documents into a new file? Originals will be kept."),
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                                   
-        if reply == QMessageBox.StandardButton.Yes:
+        dlg = MergeConfirmDialog(len(uuids), self)
+        
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             try:
+                keep_originals = dlg.keep_originals()
                 # Merge
-                merged_doc = self.pipeline.merge_documents(uuids)
-                if merged_doc:
-                    QMessageBox.information(self, self.tr("Success"), self.tr("Documents merged successfully."))
+                success = self.pipeline.merge_documents(uuids)
+                if success:
+                    if not keep_originals:
+                         # Delete originals (Stage 0/1)
+                         for uid in uuids:
+                             self.pipeline.delete_entity(uid)
+                    
+                    self.statusBar().showMessage(self.tr("Documents merged successfully."))
                     self.list_widget.refresh_list()
                 else:
                     QMessageBox.warning(self, self.tr("Error"), self.tr("Merge failed."))
             except Exception as e:
+                import traceback
+                print(f"[ERROR] Merge error: {e}")
+                traceback.print_exc()
                 QMessageBox.critical(self, self.tr("Error"), self.tr(f"Merge error: {e}"))
 
     def show_about_dialog(self):
@@ -868,6 +896,7 @@ class MainWindow(QMainWindow):
             self.import_worker = None
         
         if error_msg:
+             print(f"[ERROR] Import Finished with error: {error_msg}")
              QMessageBox.critical(self, self.tr("Import Error"), error_msg)
         else:
              # Only show generic "Import Finished" if we DON'T open the splitter immediately?
@@ -1373,9 +1402,32 @@ class MainWindow(QMainWindow):
         if dialog.exec():
              # Check if split happened?
              # For now, simplest is to assume if user split, they want refresh.
-             self.list_widget.refresh_list()
-             self.editor_widget.clear()
-             self.pdf_viewer.clear()
+             # Phase 98: Apply Structural Changes
+             instructions = dialog.import_instructions
+             if instructions is not None:
+                  try:
+                      # If 0 instructions -> Delete
+                      if not instructions:
+                          self.pipeline.delete_entity(uuid)
+                          self.statusBar().showMessage(self.tr("Document deleted (empty structure)."))
+                      else:
+                          new_uuids = self.pipeline.apply_restructure_instructions(uuid, instructions)
+                          self.statusBar().showMessage(self.tr(f"Document updated ({len(new_uuids)} parts)."))
+                          
+                      # Refresh everything
+                      self.list_widget.refresh_list()
+                      self.pdf_viewer.clear()
+                      self.editor_widget.clear()
+                      
+                      # Phase 92: Dashboard update
+                      if hasattr(self, "dashboard_widget"):
+                          self.dashboard_widget.refresh_stats()
+                          
+                  except Exception as e:
+                       import traceback
+                       print(f"[ERROR] Failed to apply structural changes: {e}")
+                       traceback.print_exc()
+                       QMessageBox.critical(self, self.tr("Error"), f"Failed to apply structural changes: {e}")
              
              # Re-queue? We don't have the new UUIDs easily unless we stored them.
              # But the user will see NEW documents in the list.
