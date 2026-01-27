@@ -68,6 +68,7 @@ class FilterGroupWidget(QWidget):
         self.children_layout = QVBoxLayout(self.children_container)
         self.children_layout.setContentsMargins(10, 0, 0, 0) # Indent children
         self.layout.addWidget(self.children_container)
+        self.layout.addStretch()
         
         self.main_layout.addWidget(self.frame)
         

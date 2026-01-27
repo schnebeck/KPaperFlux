@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QComboBox, QLineEdit, QScrollArea, QFrame, 
-                             QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox)
+                             QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox,
+                             QSizePolicy)
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings
@@ -57,6 +58,7 @@ class FilterConditionWidget(QWidget):
         self.available_tags = available_tags or []
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         self.combo_field = QComboBox()
         self._populate_fields(extra_keys)
@@ -239,7 +241,8 @@ class FilterConditionWidget(QWidget):
         elif idx == 2: # Date
             val = self.input_date.get_value()
              
-        return {"field": field_key, "op": op, "value": val, "negate": self.chk_negate.isChecked()}
+        res = {"field": field_key, "op": op, "value": val, "negate": self.chk_negate.isChecked()}
+        return res
 
     def set_condition(self, mode: dict):
         key = mode.get("field")

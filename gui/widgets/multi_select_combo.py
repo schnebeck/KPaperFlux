@@ -23,12 +23,20 @@ class MultiSelectComboBox(QComboBox):
         # Connect model item changed signal
         self.model.itemChanged.connect(self.on_item_changed)
         
+        # Connect activated to toggle (allows clicking the text instead of just the checkbox)
+        self.activated.connect(self._on_activated)
+        
         # Connect line edit click to show popup (optional UX improvement)
         self.lineEdit().selectionChanged.connect(self.showPopup)
 
     def addItems(self, texts):
         for text in texts:
             self.addItem(text)
+
+    def clear(self):
+        super().clear()
+        self.update_line_edit()
+        self.setCurrentIndex(-1)
 
     def addItem(self, text, data=None):
         item = QStandardItem(text)
@@ -37,17 +45,30 @@ class MultiSelectComboBox(QComboBox):
         if data is not None:
             item.setData(data, Qt.ItemDataRole.UserRole)
         self.model.appendRow(item)
+        self.update_line_edit()
 
     def on_item_changed(self, item):
         self.update_line_edit()
         self.selectionChanged.emit(self.getCheckedItems())
+        # If any item is checked, we don't really care about currentIndex, 
+        # but if we want to avoid the 'first item ghost' we can keep it -1
+        self.setCurrentIndex(-1)
+
+    def _on_activated(self, index):
+        item = self.model.item(index)
+        if item:
+            new_state = Qt.CheckState.Checked if item.checkState() == Qt.CheckState.Unchecked else Qt.CheckState.Unchecked
+            item.setCheckState(new_state)
+        
+        # Hack to keep popup open for multi-selection
+        # Standard QComboBox closes on activation.
+        self.showPopup()
 
     def update_line_edit(self):
         checked = self.getCheckedItems()
         text = ", ".join(checked)
         self.lineEdit().setText(text)
-        # Manually reset cursor to start? 
-    
+        self.setCurrentIndex(-1)    
     def getCheckedItems(self) -> list[str]:
         items = []
         for i in range(self.model.rowCount()):
@@ -55,6 +76,15 @@ class MultiSelectComboBox(QComboBox):
             if item.checkState() == Qt.CheckState.Checked:
                 items.append(item.text())
         return items
+
+    def showPopup(self):
+        super().showPopup()
+        # Optionally adjust width to content
+        
+    def hidePopup(self):
+        # Optional: check if we should stay open (e.g. if Shift is held?)
+        # For now, let's keep standard behavior but maybe log.
+        super().hidePopup()
 
     def setCheckedItems(self, items: list[str]):
         """

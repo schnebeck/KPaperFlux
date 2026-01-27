@@ -228,6 +228,11 @@ class DatabaseManager:
 
         where_clause, params = self._build_where_clause(query)
         
+        # Phase 105 Fix: Ensure we don't return deleted documents by default in Advanced Search
+        # unless specifically filtered for 'deleted' (Trash Mode).
+        if "deleted" not in where_clause.lower():
+            where_clause = f"({where_clause}) AND deleted = 0"
+            
         sql = f"""
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
@@ -327,10 +332,26 @@ class DatabaseManager:
     def _map_op_to_sql(self, expr: str, op: str, val: Any) -> tuple:
         """Translates operator and value into SQL clause and params."""
         if op == "equals":
+            if isinstance(val, list):
+                if not val: return "1=1", []
+                placeholders = ", ".join(["?" for _ in val])
+                return f"{expr} IN ({placeholders})", val
             return f"{expr} = ?", [val]
         if op == "contains":
-            # For type_tags (JSON array), we use LIKE since SQLite is flexible
-            # Or json_each if we wanted perfect precision.
+            if expr == "type_tags":
+                # Precise JSON array element match
+                if isinstance(val, list):
+                    if not val: return "1=1", []
+                    # Check if any of the provided tags exist in the array
+                    clauses = [f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ?)" for _ in val]
+                    return "(" + " OR ".join(clauses) + ")", val
+                return f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ?)", [val]
+
+            if isinstance(val, list):
+                if not val: return "1=1", []
+                clauses = [f"{expr} LIKE ?" for _ in val]
+                params = [f"%{v}%" for v in val]
+                return "(" + " OR ".join(clauses) + ")", params
             return f"{expr} LIKE ?", [f"%{val}%"]
         if op == "starts_with":
             return f"{expr} LIKE ?", [f"{val}%"]

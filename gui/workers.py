@@ -268,12 +268,11 @@ class MainLoopWorker(QThread):
                 # We use a shortcut to check counts first to avoid overhead?
                 # For now just call and let it handle emptiness.
                 
-                self.canonizer.process_pending_documents(limit=5)
-                # Note: process_pending_documents in canonizer.py returns nothing currently.
-                # We should probably check if something changed.
+                processed_count = self.canonizer.process_pending_documents(limit=5)
                 
-                # Signal UI
-                self.documents_processed.emit()
+                # Signal UI only if changes occurred
+                if processed_count > 0:
+                    self.documents_processed.emit()
                 
             except Exception as e:
                 print(f"[MainLoop] Error: {e}")

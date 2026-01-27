@@ -332,7 +332,7 @@ class DocumentListWidget(QWidget):
         self.update_headers()
         self.refresh_list()
 
-    def show_trash_bin(self, enable: bool):
+    def show_trash_bin(self, enable: bool, refresh: bool = True):
         """Switch between Normal View and Trash View."""
         self.is_trash_mode = enable
         
@@ -342,7 +342,8 @@ class DocumentListWidget(QWidget):
             self.current_filter_text = ""
             self.current_advanced_query = None
             
-        self.refresh_list()
+        if refresh:
+            self.refresh_list()
         self.save_state()
         
     def remove_dynamic_column(self, key: str):
@@ -575,13 +576,16 @@ class DocumentListWidget(QWidget):
              if self.is_trash_mode:
                  docs = self.db_manager.get_deleted_entities_view()
              elif self.current_advanced_query:
+                 print(f"[DEBUG] refresh_list executing Advanced Query: {self.current_advanced_query}")
                  docs = self.db_manager.search_documents_advanced(self.current_advanced_query)
+                 print(f"[DEBUG] Advanced Query returned {len(docs)} documents.")
              else:
                  query = getattr(self, "current_filter_text", None)
                  if query:
                      docs = self.db_manager.search_documents(query)
                  else:
                      docs = self.db_manager.get_all_entities_view()
+                 print(f"[DEBUG] Standard View returned {len(docs)} documents.")
 
              # v28.2: Change Detection / Redraw Prevention
              # We create a footprint of the data to see if a redraw is actually needed.
@@ -852,11 +856,11 @@ class DocumentListWidget(QWidget):
         print(f"[DEBUG] check_trash result: {is_mode_trash} for query: {query}")
         
         if is_mode_trash:
-            self.show_trash_bin(True)
-            self.current_advanced_query = None # Trash Mode takes precedence/is the mode
+            self.current_advanced_query = None 
+            self.show_trash_bin(True, refresh=False)
         else:
-            self.show_trash_bin(False) # Ensure we leave trash mode
             self.current_advanced_query = query # Persist
+            self.show_trash_bin(False, refresh=False) # Ensure we leave trash mode
             self.current_filter_text = None # Clear simple text search
             
         # Consolidate via refresh_list to benefit from signature checks

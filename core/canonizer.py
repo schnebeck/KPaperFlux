@@ -59,11 +59,14 @@ class CanonizerService:
         cursor.execute(query, (limit,))
         rows = cursor.fetchall()
         
+        processed_count = 0
         for row in rows:
             uuid = row[0]
             v_doc = self.logical_repo.get_by_uuid(uuid)
             if v_doc:
                 self.process_virtual_document(v_doc)
+                processed_count += 1
+        return processed_count
             
     def process_virtual_document(self, v_doc: VirtualDocument):
         """
