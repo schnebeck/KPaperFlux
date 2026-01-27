@@ -68,6 +68,7 @@ class DatabaseManager:
         CREATE VIRTUAL TABLE IF NOT EXISTS virtual_documents_fts USING fts5(
             uuid UNINDEXED,
             filename,
+            type_tags,
             content,
             content='virtual_documents',
             content_rowid='rowid'
@@ -133,7 +134,8 @@ class DatabaseManager:
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
                    page_count_virt, created_at, is_immutable, type_tags, 
-                   cached_full_text, last_used, last_processed_at
+                   cached_full_text, last_used, last_processed_at,
+                   semantic_data
             FROM virtual_documents
             WHERE uuid = ?
         """
@@ -141,28 +143,21 @@ class DatabaseManager:
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
         if row:
-            type_tags = []
-            if row[7]:
-                try: type_tags = json.loads(row[7])
-                except: pass
-                
-            return Document(
-                uuid=row[0],
-                extra_data={"source_mapping": row[1]},
-                status=row[2],
-                original_filename=row[3],
-                page_count=row[4],
-                created_at=row[5],
-                locked=bool(row[6]),
-                deleted=False,
-                doc_type="entity",
-                type_tags=type_tags,
-                cached_full_text=row[8] if len(row) > 8 else None,
-                text_content=row[8] if len(row) > 8 else None, # keep for compatibility
-                last_used=row[9] if len(row) > 9 else None,
-                last_processed_at=row[10] if len(row) > 10 else None
-            )
+             return self._row_to_doc(row)
         return None
+
+    def reset_document_for_reanalysis(self, uuid: str):
+        """Phase 102: Reset logical entity status for fresh AI processing without deleting the row."""
+        sql = """
+            UPDATE virtual_documents 
+            SET status = 'NEW', 
+                type_tags = '[]', 
+                semantic_data = NULL,
+                last_processed_at = NULL
+            WHERE uuid = ?
+        """
+        with self.connection:
+            self.connection.execute(sql, (uuid,))
 
     def get_deleted_documents(self) -> List[Document]:
         """
@@ -170,38 +165,40 @@ class DatabaseManager:
         The physical document is just a container.
         """
         return self.get_deleted_entities_view()
-
     def get_available_extra_keys(self) -> list[str]:
         """
         Scan all documents for unique keys in JSON data.
         """
-        # In Stage 0/1, we only have source_mapping as JSON in virtual_documents.
-        # Legacy extra_data/semantic_data are gone.
-        sql = "SELECT source_mapping FROM virtual_documents WHERE source_mapping IS NOT NULL"
-        cursor = self.connection.cursor()
         keys = set()
+        cursor = self.connection.cursor()
         
+        # 1. Source Mapping Keys
         try:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            for row in rows:
+            cursor.execute("SELECT source_mapping FROM virtual_documents WHERE source_mapping IS NOT NULL")
+            for row in cursor.fetchall():
                 if row[0]:
                     try:
                         data = json.loads(row[0])
                         if isinstance(data, list):
-                             # source_mapping is a list. Extract keys from elements?
                              for item in data:
                                  if isinstance(item, dict):
                                      self._extract_keys_recursive(item, keys, prefix="source:")
-                    except:
-                        pass
+                    except: pass
+        except: pass
+
+        # 2. Semantic Data Keys (AI Results)
+        try:
+            cursor.execute("SELECT semantic_data FROM virtual_documents WHERE semantic_data IS NOT NULL")
+            for row in cursor.fetchall():
+                if row[0]:
+                    try:
+                        data = json.loads(row[0])
+                        if isinstance(data, dict):
+                             self._extract_keys_recursive(data, keys, prefix="semantic:")
+                    except: pass
+        except: pass
                         
-            return sorted(list(keys))
-            
-        except sqlite3.Error as e:
-            print(f"Key Discovery Error: {e}")
-            return []
+        return sorted(list(keys))
 
     def _extract_keys_recursive(self, obj, keys_set, prefix=""):
         """Helper to flatten JSON keys."""
@@ -224,11 +221,136 @@ class DatabaseManager:
 
     def search_documents_advanced(self, query: dict) -> List[Document]:
         """
-        Search Virtual Documents using a structured query.
-        Simplified for Stage 0/1.
+        Search Virtual Documents using a structured nested query object.
         """
-        # For now, we return all as we transition to the new structured query builder.
-        return self.get_all_entities_view()
+        if not query or not query.get("conditions") and not query.get("field"):
+             return self.get_all_entities_view()
+
+        where_clause, params = self._build_where_clause(query)
+        
+        sql = f"""
+            SELECT uuid, source_mapping, status, 
+                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
+                   page_count_virt, created_at, is_immutable, type_tags,
+                   cached_full_text, last_used, last_processed_at,
+                   semantic_data
+            FROM virtual_documents
+            WHERE {where_clause}
+            ORDER BY created_at DESC
+        """
+        
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            return [self._row_to_doc(row) for row in rows]
+        except sqlite3.Error as e:
+            print(f"[Database] Advanced Search Error: {e}\nSQL: {sql}\nParams: {params}")
+            return []
+
+    def _build_where_clause(self, node: dict):
+        """Recursively builds SQL WHERE clause from query node."""
+        if "field" in node:
+            # It's a single condition
+            field = node["field"]
+            op = node["op"]
+            val = node.get("value")
+            negate = node.get("negate", False)
+            
+            # 1. Map Field to SQL Expression
+            expr = self._map_field_to_sql(field)
+            
+            # 2. Map Operator to SQL
+            clause, params = self._map_op_to_sql(expr, op, val)
+            
+            if negate:
+                return f"NOT ({clause})", params
+            return clause, params
+            
+        elif "conditions" in node:
+            # It's a group (AND/OR)
+            logic_op = node.get("operator", "AND").upper()
+            sub_clauses = []
+            all_params = []
+            
+            for cond in node["conditions"]:
+                clause, params = self._build_where_clause(cond)
+                if clause:
+                    sub_clauses.append(f"({clause})")
+                    all_params.extend(params)
+            
+            if not sub_clauses:
+                return "1=1", [] # No-op
+                
+            return f" {logic_op} ".join(sub_clauses), all_params
+            
+        return "1=1", []
+
+    def _map_field_to_sql(self, field: str) -> str:
+        """Maps virtual field keys to SQL column expressions or JSON extractions."""
+        # Simple Mappings
+        mapping = {
+            "uuid": "uuid",
+            "status": "status",
+            "page_count_virt": "page_count_virt",
+            "created_at": "created_at",
+            "last_processed_at": "last_processed_at",
+            "last_used": "last_used",
+            "cached_full_text": "cached_full_text",
+            "original_filename": "export_filename",
+            "deleted": "deleted",
+            
+            # Stage 1 Direct fields
+            "type_tags": "type_tags", # JSON array
+            
+            # Stage 1 Semantic fields (nested in semantic_data)
+            "direction": "json_extract(semantic_data, '$.direction')",
+            "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
+            "confidence": "json_extract(semantic_data, '$.confidence')",
+            "reasoning": "json_extract(semantic_data, '$.reasoning')",
+            "doc_type": "json_extract(semantic_data, '$.doc_types[0]')" # First one as primary for simple search
+        }
+        
+        if field in mapping:
+            return mapping[field]
+            
+        # JSON Path Fallback
+        if field.startswith("json:"):
+            path = field[5:]
+            return f"json_extract(semantic_data, '$.{path}')"
+        if field.startswith("semantic:"):
+            path = field[9:]
+            return f"json_extract(semantic_data, '$.{path}')"
+            
+        return field # fallback
+
+    def _map_op_to_sql(self, expr: str, op: str, val: Any) -> tuple:
+        """Translates operator and value into SQL clause and params."""
+        if op == "equals":
+            return f"{expr} = ?", [val]
+        if op == "contains":
+            # For type_tags (JSON array), we use LIKE since SQLite is flexible
+            # Or json_each if we wanted perfect precision.
+            return f"{expr} LIKE ?", [f"%{val}%"]
+        if op == "starts_with":
+            return f"{expr} LIKE ?", [f"{val}%"]
+        if op == "gt":
+            return f"{expr} > ?", [val]
+        if op == "lt":
+            return f"{expr} < ?", [val]
+        if op == "is_empty":
+            return f"{expr} IS NULL OR {expr} = ''", []
+        if op == "is_not_empty":
+            return f"{expr} IS NOT NULL AND {expr} != ''", []
+        if op == "in":
+            if not isinstance(val, list): val = [val]
+            placeholders = ", ".join(["?" for _ in val])
+            return f"{expr} IN ({placeholders})", val
+        if op == "between":
+            if isinstance(val, list) and len(val) == 2:
+                return f"{expr} BETWEEN ? AND ?", [val[0], val[1]]
+                
+        return "1=1", [] # Fallback
 
     def get_all_entities_view(self) -> List[Document]:
         """
@@ -238,7 +360,9 @@ class DatabaseManager:
         sql = """
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable, type_tags
+                   page_count_virt, created_at, is_immutable, type_tags,
+                   cached_full_text, last_used, last_processed_at,
+                   semantic_data
             FROM virtual_documents
             WHERE deleted = 0
             ORDER BY created_at DESC
@@ -247,26 +371,48 @@ class DatabaseManager:
         cursor.execute(sql)
         rows = cursor.fetchall()
         
-        docs = []
-        for row in rows:
-            type_tags = []
-            if len(row) > 7 and row[7]:
-                 try: type_tags = json.loads(row[7])
-                 except: pass
+        return [self._row_to_doc(row) for row in rows]
 
-            docs.append(Document(
-                uuid=row[0],
-                extra_data={"source_mapping": row[1]},
-                status=row[2],
-                original_filename=row[3],
-                page_count=row[4],
-                created_at=row[5],
-                locked=bool(row[6]),
-                deleted=False,
-                doc_type="entity",
-                type_tags=type_tags
-            ))
-        return docs
+    def _row_to_doc(self, row) -> Document:
+        """Helper to convert a DB row to a Document object with semantic metadata."""
+        # Index Map: 
+        # 0:uuid, 1:source_mapping, 2:status, 3:filename, 4:page_count, 5:created_at, 
+        # 6:locked, 7:type_tags, 8:cached_full_text, 9:last_used, 10:last_processed_at, 11:semantic_data
+        
+        type_tags = []
+        if len(row) > 7 and row[7]:
+            try: type_tags = json.loads(row[7])
+            except: pass
+            
+        semantic_data = None
+        if len(row) > 11 and row[11]:
+            try: semantic_data = json.loads(row[11])
+            except: pass
+
+        doc_data = {
+            "uuid": row[0],
+            "extra_data": {"source_mapping": row[1]},
+            "status": row[2],
+            "original_filename": row[3],
+            "page_count": row[4],
+            "created_at": row[5],
+            "locked": bool(row[6]),
+            "deleted": False,
+            "doc_type": "entity",
+            "type_tags": type_tags,
+            "cached_full_text": row[8] if len(row) > 8 else None,
+            "text_content": row[8] if len(row) > 8 else None,
+            "last_used": row[9] if len(row) > 9 else None,
+            "last_processed_at": row[10] if len(row) > 10 else None,
+            "semantic_data": semantic_data
+        }
+
+        # If semantic_data exists, Pydantic Document model has many attributes 
+        # that match standard semantic keys (invoice_number -> invoice_number etc).
+        if semantic_data:
+             doc_data.update(semantic_data)
+             
+        return Document(**doc_data)
 
 
     def _parse_amount_safe(self, val):
@@ -294,7 +440,9 @@ class DatabaseManager:
         sql = """
             SELECT v.uuid, v.source_mapping, v.status, 
                    COALESCE(v.export_filename, 'Entity ' || substr(v.uuid, 1, 8)),
-                   v.page_count_virt, v.created_at, v.is_immutable, v.type_tags
+                   v.page_count_virt, v.created_at, v.is_immutable, v.type_tags,
+                   v.cached_full_text, v.last_used, v.last_processed_at,
+                   v.semantic_data
             FROM virtual_documents v
             JOIN virtual_documents_fts f ON v.uuid = f.uuid
             WHERE f.content MATCH ? AND v.deleted = 0
@@ -304,26 +452,7 @@ class DatabaseManager:
         cursor.execute(sql, (search_text,))
         rows = cursor.fetchall()
         
-        docs = []
-        for row in rows:
-            type_tags = []
-            if len(row) > 7 and row[7]:
-                 try: type_tags = json.loads(row[7])
-                 except: pass
-
-            docs.append(Document(
-                uuid=row[0],
-                extra_data={"source_mapping": row[1]},
-                status=row[2],
-                original_filename=row[3],
-                page_count=row[4],
-                created_at=row[5],
-                locked=bool(row[6]),
-                deleted=False,
-                doc_type="entity",
-                type_tags=type_tags
-            ))
-        return docs
+        return [self._row_to_doc(row) for row in rows]
 
 
     def delete_document(self, uuid: str) -> bool:
@@ -347,6 +476,12 @@ class DatabaseManager:
         with self.connection:
             self.connection.execute(sql, (uuid,))
             return self.connection.total_changes > 0
+
+    def purge_entities_for_source(self, source_uuid: str):
+        """Hard delete all virtual documents linked to this physical source."""
+        sql = "DELETE FROM virtual_documents WHERE source_mapping LIKE ?"
+        with self.connection:
+            self.connection.execute(sql, (f'%{source_uuid}%',))
 
     def restore_document(self, uuid: str) -> bool:
         """
@@ -458,7 +593,12 @@ class DatabaseManager:
                 v.status,
                 COALESCE(v.export_filename, 'Entity ' || substr(v.uuid, 1, 8)) as filename,
                 v.page_count_virt,
-                v.created_at
+                v.created_at,
+                v.is_immutable,
+                v.type_tags,
+                v.cached_full_text,
+                v.last_used,
+                v.last_processed_at
             FROM virtual_documents v
             WHERE v.deleted = 1
             ORDER BY v.created_at DESC
@@ -468,6 +608,11 @@ class DatabaseManager:
         
         results = []
         for row in rows:
+            type_tags = []
+            if len(row) > 7 and row[7]:
+                 try: type_tags = json.loads(row[7])
+                 except: pass
+
             doc = Document(
                 uuid=row[0],
                 extra_data={"source_mapping": row[1]},
@@ -475,8 +620,14 @@ class DatabaseManager:
                 original_filename=row[3],
                 page_count=row[4],
                 created_at=row[5],
+                locked=bool(row[6]) if len(row) > 6 else False,
                 deleted=True,
-                doc_type="entity"
+                doc_type="entity",
+                type_tags=type_tags,
+                cached_full_text=row[8] if len(row) > 8 else None,
+                text_content=row[8] if len(row) > 8 else None,
+                last_used=row[9] if len(row) > 9 else None,
+                last_processed_at=row[10] if len(row) > 10 else None
             )
             results.append(doc)
             
@@ -567,30 +718,37 @@ class DatabaseManager:
                 pass
         return None
 
+    def get_source_uuid_from_entity(self, entity_uuid: str) -> Optional[str]:
+        """Phase 98: Resolve an entity UUID to its primary source physical UUID."""
+        mapping = self.get_source_mapping_from_entity(entity_uuid)
+        if mapping and len(mapping) > 0:
+            return mapping[0].get("file_uuid")
+        return None
+
     def _create_fts_triggers(self):
         """Create triggers to sync FTS table with virtual_documents."""
         triggers = [
             # INSERT
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_ai AFTER INSERT ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(rowid, uuid, filename, content)
-                VALUES (new.rowid, new.uuid, new.export_filename, new.cached_full_text);
+                INSERT INTO virtual_documents_fts(rowid, uuid, filename, type_tags, content)
+                VALUES (new.rowid, new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
             END;
             """,
             # DELETE
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_ad AFTER DELETE ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, filename, content)
-                VALUES('delete', old.rowid, old.uuid, old.export_filename, old.cached_full_text);
+                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, filename, type_tags, content)
+                VALUES('delete', old.rowid, old.uuid, old.export_filename, old.type_tags, old.cached_full_text);
             END;
             """,
             # UPDATE
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_au AFTER UPDATE ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, filename, content)
-                VALUES('delete', old.rowid, old.uuid, old.export_filename, old.cached_full_text);
-                INSERT INTO virtual_documents_fts(rowid, uuid, filename, content)
-                VALUES (new.rowid, new.uuid, new.export_filename, new.cached_full_text);
+                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, filename, type_tags, content)
+                VALUES('delete', old.rowid, old.uuid, old.export_filename, old.type_tags, old.cached_full_text);
+                INSERT INTO virtual_documents_fts(rowid, uuid, filename, type_tags, content)
+                VALUES (new.rowid, new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
             END;
             """
         ]

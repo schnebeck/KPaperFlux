@@ -137,6 +137,6 @@ class FilterWidget(QWidget):
             
         tags = self.txt_tags.text().strip()
         if tags:
-            criteria['tags'] = tags
+            criteria['type_tags'] = tags
             
         self.filter_changed.emit(criteria)

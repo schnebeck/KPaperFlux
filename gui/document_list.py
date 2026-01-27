@@ -135,12 +135,14 @@ class DocumentListWidget(QWidget):
         # Enforce Resize Modes and sane defaults
         header = self.tree.header()
         
-        # If columns are squashed (e.g. valid restoration of 0-width or first run), fix them
-        # We check a key column (e.g. Date at index 1)
-        if header.sectionSize(1) < 50:
+        settings = QSettings("KPaperFlux", "DocumentList")
+        header_state = settings.value("headerState")
+        
+        # If columns are squashed (first run), fix them
+        # Avoid squashing if we already have a saved state
+        if not header_state and header.sectionSize(1) < 50:
              for i in range(self.tree.columnCount()):
                  self.tree.resizeColumnToContents(i)
-                 # Ensure strict minimum
                  if header.sectionSize(i) < 50:
                      header.resizeSection(i, 100)
                      
@@ -356,6 +358,7 @@ class DocumentListWidget(QWidget):
         settings = QSettings("KPaperFlux", "DocumentList")
         settings.setValue("headerState", self.tree.header().saveState())
         settings.setValue("dynamicColumns", self.dynamic_columns)
+        settings.sync()
         
     def restore_state(self):
         settings = QSettings("KPaperFlux", "DocumentList")
@@ -556,18 +559,21 @@ class DocumentListWidget(QWidget):
             for u in uuids[:5]: # Cap at 5 to avoid thrashing
                 self.db_manager.touch_last_used(u)
 
-    def refresh_list(self):
+    def refresh_list(self, force_select_first=False):
         """Fetch docs from DB and populate tree."""
         if not self.db_manager:
             return
             
         try:
+             # Store current selection AND current item (keyboard focus)
+             selected_uuids = self.get_selected_uuids()
+             current_uuid = None
+             if self.tree.currentItem():
+                 current_uuid = self.tree.currentItem().data(1, Qt.ItemDataRole.UserRole)
+             
              # Phase 92: Trash Mode
              if self.is_trash_mode:
                  docs = self.db_manager.get_deleted_entities_view()
-                 # TODO: Apply basic text filter on trash? For now, show all.
-                 
-             # Prioritize Advanced Query if active
              elif self.current_advanced_query:
                  docs = self.db_manager.search_documents_advanced(self.current_advanced_query)
              else:
@@ -575,13 +581,45 @@ class DocumentListWidget(QWidget):
                  if query:
                      docs = self.db_manager.search_documents(query)
                  else:
-                     # Phase 98: Switch to Entity View
                      docs = self.db_manager.get_all_entities_view()
 
-        except:
+             # v28.2: Change Detection / Redraw Prevention
+             # We create a footprint of the data to see if a redraw is actually needed.
+             current_sig = tuple((d.uuid, d.status, str(d.last_processed_at)) for d in docs)
+             
+             if not force_select_first and hasattr(self, '_last_refresh_sig') and self._last_refresh_sig == current_sig:
+                  # [SILENT] Data is identical to what is currently shown.
+                  return
+             
+             if hasattr(self, '_last_refresh_sig'):
+                  print(f"[DEBUG] refresh_list: Change detected in {len(docs)} documents (or forced). Redrawing view.")
+             else:
+                  print(f"[DEBUG] refresh_list: Initial population ({len(docs)} documents).")
+                  
+             self._last_refresh_sig = current_sig
+
+        except Exception as e:
+             print(f"[ERROR] refresh_list error: {e}")
              docs = []
              
         self.populate_tree(docs)
+        
+        # Restore selection
+        if selected_uuids:
+             self.tree.blockSignals(True)
+             for uuid in selected_uuids:
+                  self.select_document(uuid)
+                  if uuid == current_uuid:
+                       for i in range(self.tree.topLevelItemCount()):
+                           item = self.tree.topLevelItem(i)
+                           if item.data(1, Qt.ItemDataRole.UserRole) == uuid:
+                               self.tree.setCurrentItem(item)
+                               break
+             self.tree.blockSignals(False)
+        elif force_select_first and docs:
+             self.selectRow(0)
+             
+        self.document_count_changed.emit(len(docs), len(docs)) 
         return
 
 
@@ -594,8 +632,79 @@ class DocumentListWidget(QWidget):
             item = self.tree.topLevelItem(i)
             if item.data(1, Qt.ItemDataRole.UserRole) == uuid:
                 item.setSelected(True)
-                self.tree.scrollToItem(item)
                 break
+
+    def update_document_item(self, doc):
+        """
+        Targeted update of a single row in the tree view.
+        Prevents flickering and resource waste during AI processing.
+        """
+        if not doc: return
+        
+        # 1. Check if update is actually needed (FOOTPRINT CHANGE)
+        old_doc = self.documents_cache.get(doc.uuid)
+        if old_doc:
+             # Compare fields displayed in the list
+             if (old_doc.status == doc.status and 
+                 old_doc.last_processed_at == doc.last_processed_at and 
+                 old_doc.type_tags == doc.type_tags and
+                 old_doc.original_filename == doc.original_filename and
+                 old_doc.semantic_data == doc.semantic_data):
+                  return # Change is irrelevant for view
+             
+             print(f"[DEBUG] update_document_item: Updating row for {doc.uuid} ({old_doc.status} -> {doc.status})")
+
+        # 1.5 Find matching item
+        target_item = None
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item.data(1, Qt.ItemDataRole.UserRole) == doc.uuid:
+                target_item = item
+                break
+        
+        if not target_item:
+            # If not found, maybe it's a new document? Fallback to refresh.
+            self.refresh_list()
+            return
+
+        # 2. Update Cache
+        self.documents_cache[doc.uuid] = doc
+        
+        # 3. Format Data
+        created_str = format_datetime(doc.created_at)
+        filename = doc.original_filename or f"Entity {doc.uuid[:8]}"
+        pages_str = str(doc.page_count if doc.page_count is not None else 0)
+        status = getattr(doc, "status", "NEW")
+        type_tags = getattr(doc, "type_tags", [])
+        locked_str = "Yes" if getattr(doc, "locked", False) else "No"
+        processed_str = format_datetime(doc.last_processed_at) or "-"
+        used_str = format_datetime(doc.last_used) or "-"
+        
+        # 4. Apply to Columns
+        target_item.setText(2, filename)
+        target_item.setText(3, pages_str)
+        target_item.setText(4, created_str)
+        target_item.setText(5, status)
+        target_item.setText(6, ", ".join(type_tags))
+        target_item.setText(7, processed_str)
+        target_item.setText(8, used_str)
+        target_item.setText(9, locked_str)
+
+        # 5. Dynamic Columns
+        num_fixed = len(self.FIXED_COLUMNS)
+        for d_idx, key in enumerate(self.dynamic_columns):
+            col_idx = num_fixed + d_idx
+            val = getattr(doc, key, None)
+            if val is None and doc.semantic_data:
+                val = doc.semantic_data.get(key)
+            
+            if val is None: txt = "-"
+            elif isinstance(val, (list, dict)): txt = json.dumps(val)
+            else: txt = str(val)
+            
+            target_item.setText(col_idx, txt)
+            if val is not None:
+                target_item.setData(col_idx, Qt.ItemDataRole.UserRole, val)
 
     def apply_filter(self, criteria: dict):
         """
@@ -631,12 +740,13 @@ class DocumentListWidget(QWidget):
                         show = False
             
             if show and target_type:
-                type_val = doc.doc_type if doc and doc.doc_type else ""
-                if target_type != type_val:
+                type_tags = getattr(doc, "type_tags", [])
+                if target_type not in type_tags:
                     show = False
                     
             if show and target_tags:
-                tag_val = doc.tags.lower() if doc and doc.tags else ""
+                type_tags = getattr(doc, "type_tags", [])
+                tag_val = ", ".join(type_tags).lower()
                 if target_tags.lower() not in tag_val:
                     show = False
 
@@ -744,23 +854,26 @@ class DocumentListWidget(QWidget):
         if is_mode_trash:
             self.show_trash_bin(True)
             self.current_advanced_query = None # Trash Mode takes precedence/is the mode
-            # But wait, what if they want "Deleted AND Type=Invoice"?
-            # For now, Trash Mode is a global toggle. Filters inside Trash are TODO.
-            # We just show All Trash.
         else:
             self.show_trash_bin(False) # Ensure we leave trash mode
             self.current_advanced_query = query # Persist
             self.current_filter_text = None # Clear simple text search
             
-            docs = self.db_manager.search_documents_advanced(query)
-            self.populate_tree(docs)
-            if docs:
-                self.selectRow(0)
+        # Consolidate via refresh_list to benefit from signature checks
+        self.refresh_list(force_select_first=True)
 
     def populate_tree(self, docs):
+        """Populate the tree with document data, including dynamic columns."""
         self.tree.setSortingEnabled(False)
+        
+        # Stability: Capture scroll position
+        v_bar = self.tree.verticalScrollBar()
+        scroll_val = v_bar.value()
+        
         self.tree.clear()
         self.documents_cache = {doc.uuid: doc for doc in docs}
+        
+        num_fixed = len(self.FIXED_COLUMNS)
         
         for i, doc in enumerate(docs):
             created_str = format_datetime(doc.created_at)
@@ -774,8 +887,8 @@ class DocumentListWidget(QWidget):
             locked_str = "Yes" if getattr(doc, "locked", False) else "No"
             
             # Format timestamps
-            processed_str = format_datetime(doc.last_processed_at) if hasattr(doc, "last_processed_at") else "-"
-            used_str = format_datetime(doc.last_used) if hasattr(doc, "last_used") else "-"
+            processed_str = format_datetime(doc.last_processed_at) or "-"
+            used_str = format_datetime(doc.last_used) or "-"
             
             col_data = [
                 "",                 # 0: # (Handled by Delegate)
@@ -790,10 +903,27 @@ class DocumentListWidget(QWidget):
                 locked_str          # 9: Locked
             ]
             
+            # Phase 102: Support Dynamic Columns
+            for key in self.dynamic_columns:
+                # Try to get from Doc attributes or semantic_data dict
+                val = getattr(doc, key, None)
+                if val is None and doc.semantic_data:
+                    val = doc.semantic_data.get(key)
+                
+                # Format
+                if val is None:
+                    txt = "-"
+                elif isinstance(val, (list, dict)):
+                    txt = json.dumps(val)
+                else:
+                    txt = str(val)
+                
+                col_data.append(txt)
+            
             item = SortableTreeWidgetItem(col_data)
             
-            # Set sort keys
-            item.setData(1, Qt.ItemDataRole.UserRole, doc.uuid)
+            # Set data for identification and sorting
+            item.setData(1, Qt.ItemDataRole.UserRole, doc.uuid) # Logical index 1 is UUID
             item.setData(3, Qt.ItemDataRole.UserRole, pages_sort)
             item.setData(4, Qt.ItemDataRole.UserRole, created_sort)
             
@@ -803,12 +933,29 @@ class DocumentListWidget(QWidget):
             if hasattr(doc, "last_used") and doc.last_used:
                 item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_used))
             
+            # Dynamic Columns Sort Data
+            for d_idx, key in enumerate(self.dynamic_columns):
+                col_idx = num_fixed + d_idx
+                val = getattr(doc, key, None)
+                if val is None and doc.semantic_data:
+                    val = doc.semantic_data.get(key)
+                if val is not None:
+                    item.setData(col_idx, Qt.ItemDataRole.UserRole, val)
+            
             self.tree.addTopLevelItem(item)
             
         self.tree.setSortingEnabled(True)
-        # Default sort by Created Descending
-        self.tree.sortByColumn(4, Qt.SortOrder.DescendingOrder)
-        self.document_count_changed.emit(len(docs), len(docs)) # visible, total
+        # Restore scroll
+        v_bar.setValue(scroll_val)
+        # Default sort by Created Descending - only if not already sorted by user/state
+        # header.sortIndicatorSection() returns the current sort column (-1 if none)
+        # Note: If restored state had a sort, it's already set.
+        if self.tree.header().sortIndicatorSection() < 0:
+             self.tree.sortByColumn(4, Qt.SortOrder.DescendingOrder)
+        
+        # v28.2 REMOVED: self.document_count_changed.emit(...)
+        # Callers (refresh_list, apply_advanced_filter) must emit manually
+        # to ensure selection restoration is complete.
     def open_export_dialog(self, documents: list):
         if not documents:
              QMessageBox.warning(self, self.tr("Export"), self.tr("No documents to export."))

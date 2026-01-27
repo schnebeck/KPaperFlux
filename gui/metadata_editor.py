@@ -196,10 +196,11 @@ class MetadataEditorWidget(QWidget):
         # Full Text & Semantic Data
         self.full_text_viewer.setPlainText(getattr(doc, "text_content", "")) # Document object uses 'text_content'
         
-        # Resolve semantic_data for debug
-        # We need to fetch it from DB if not in Document object?
-        # DatabaseManager.get_document_by_uuid returns Document.
-        # Let's check Document definition.
+        # Display raw semantic data (AI Results) for debugging
+        if hasattr(doc, "semantic_data") and doc.semantic_data:
+            self.semantic_viewer.setPlainText(json.dumps(doc.semantic_data, indent=2, ensure_ascii=False))
+        else:
+            self.semantic_viewer.setPlainText("{}")
 
     def clear(self):
         self.current_uuids = []

@@ -92,8 +92,6 @@ class CanonizerService:
         v_doc.cached_full_text = full_text
         print(f"[STAGE 1] Phase A: Resolved Full Text ({len(full_text)} chars)")
 
-        print(f"[STAGE 1] Resolved Full Text: {len(full_text)} chars")
-
         # 2. AI Analysis (Stage 1: Structure/Split)
         
         # Load Profiles
@@ -129,50 +127,62 @@ class CanonizerService:
              # Fallback
              pages_text = [full_text]
              
-        # AI Classification
-        struct_res = self.analyzer.classify_structure(pages_text, priv_id, bus_id)
+        # [STAGE 1.1] Classification & Context (Adaptive Routing)
+        struct_res = self.analyzer.run_stage_1_adaptive(pages_text, priv_id, bus_id)
         detected_entities = struct_res.get("detected_entities", [])
+        is_hybrid = struct_res.get("source_file_summary", {}).get("is_hybrid_document", False)
         
         if not detected_entities:
-            print(f"[Canonizer] No entities detected for {v_doc.uuid}.")
+            print(f"[Canonizer] Stage 1.1: No entities detected for {v_doc.uuid}.")
             # Fallback for Stage 1 if AI fails: mark processed anyway to avoid loops
             v_doc.status = "PROCESSED"
             v_doc.last_processed_at = datetime.now().isoformat()
             self.logical_repo.save(v_doc)
             return
 
-        # 3. Phase B: Stage 1 - Classification (The Ordering)
-        # We use the detected entities from structural analysis to populate type_tags
-        dt_list = []
+        # [STAGE 1.1] Extract Classification & Type Tags
+        # Use full list of types detected across all entities for high-level tags
+        all_tags = []
         for ent in detected_entities:
-            dt = ent.get("doc_type")
-            if dt and dt not in dt_list:
-                dt_list.append(dt)
+            types = ent.get("doc_types", [])
+            for t in types:
+                if t and t not in all_tags:
+                    all_tags.append(t)
         
-        v_doc.type_tags = dt_list
-        v_doc.status = "PROCESSED" # Mark finished
-        v_doc.last_processed_at = datetime.now().isoformat()
-        
-        # Save updated entity
-        self.logical_repo.save(v_doc)
-        print(f"[Canonizer] Stage 1 Complete for {v_doc.uuid}. Tags: {dt_list}")
+        v_doc.type_tags = all_tags
+        # Note: We don't mark as PROCESSED yet, as splitting might replace this document
 
-        # --- Sub-entity Splitting (Original Stage 0.5 logic) ---
+        # --- Stage 1.2: Structural Splitting & Segmentation ---
         # Skip if MANUAL_EDIT is present (User already structured it)
         if is_manual:
              print(f"[Canonizer] Manually edited doc {v_doc.uuid} detected. Skipping auto-split.")
              return
 
-        split_candidates = self.analyzer.identify_entities(full_text, semantic_data=None)
-        print(f"[STAGE 1.2] Split Candidates:\n{json.dumps(split_candidates, indent=2)}")
-        # split_candidates list of {type, pages: [1,2], ...}
+        # If Stage 1.1 identified clear boundaries (page_indices), we use them.
+        # Otherwise, fall back to Stage 1.2 identify_entities call.
         
-        if not split_candidates:
-             # Fallback: Assume 1 entity covering all pages
-             split_candidates = [{
-                 "type": detected_entities[0].get("doc_type", "OTHER") if detected_entities else "OTHER",
-                 "pages": list(range(1, len(pages_text) + 1))
-             }]
+        has_clear_boundaries = all(ent.get("page_indices") for ent in detected_entities)
+        
+        if is_hybrid and not has_clear_boundaries:
+            # High complexity splitting required
+            print(f"[Canonizer] Stage 1.1 found hybrid but no clear boundaries. Triggering Stage 1.2.")
+            split_candidates = self.analyzer.identify_entities(full_text, detected_entities=detected_entities)
+        else:
+            # Use Stage 1.1 results directly (Single or clearly segmented Hybrid)
+            split_candidates = []
+            for ent in detected_entities:
+                split_candidates.append({
+                    "types": ent.get("doc_types", ["OTHER"]),
+                    "pages": ent.get("page_indices", list(range(1, len(pages_text) + 1))),
+                    "confidence": ent.get("confidence", 1.0),
+                    "direction": ent.get("direction"),
+                    "tenant_context": ent.get("tenant_context")
+                })
+            
+            if not is_hybrid:
+                print(f"[STAGE 1.1] Single document identified. Skipping Stage 1.2 AI call.")
+            else:
+                print(f"[STAGE 1.1] Hybrid document segmented via Stage 1.1. Skipping Stage 1.2.")
              
         # 4. Apply Splits to VirtualDocuments
         # We iterate the candidates.
@@ -220,10 +230,28 @@ class CanonizerService:
                 )
                 is_new_entity = True
             
+            # [STAGE 1.1] Logic Correction & Tag Finalization
+            # Follow user requested production logic: Traue nie der AI, berechne is_hybrid selbst.
+            candidate_types = candidate.get("types", [])
+            is_hybrid_entity = len(candidate_types) > 1
+            
+            # Start with doc_types
+            final_tags = list(candidate_types)
+            
+            # Add direction as searchable tag
+            direction = candidate.get("direction", "UNKNOWN")
+            if direction != "UNKNOWN" and direction not in final_tags:
+                final_tags.append(direction)
+                
+            # Add context as searchable tag (prefixed with CTX_ as requested)
+            context = candidate.get("tenant_context", "UNKNOWN")
+            if context != "UNKNOWN" and f"CTX_{context}" not in final_tags:
+                final_tags.append(f"CTX_{context}")
+
             # Update Document Properties
             target_doc.status = "PROCESSED" # Mark processed so we don't loop forever
             target_doc.last_processed_at = datetime.now().isoformat()
-            target_doc.type_tags = [c_type] if c_type else []
+            target_doc.type_tags = final_tags
             
             # Update Source Mapping
             target_doc.source_mapping = [SourceReference(
@@ -232,13 +260,22 @@ class CanonizerService:
                 rotation=base_ref.rotation
             )]
             
-            # Stage 2: Extraction (Metadata)
+            # [STAGE 1.1] Persist Classification Results to Semantic Data
+            # This ensures direction, context and reasoning are preserved for manual inspection.
+            if idx < len(detected_entities):
+                 # Find matching entity from Stage 1.1 based on doc_types overlap or sequence
+                 # For now, simplest is sequence as Stage 1.2 split_candidates 
+                 # usually follow Stage 1.1 detected_entities order.
+                 target_doc.semantic_data = detected_entities[idx]
+            
+            # Stage 2: Extraction (Metadata) - DISABLED per User Request
             # Extract text for specific pages
             entity_text = self._extract_range_text(pages_text, c_pages) 
             
-            # Extract CDM
-            cdm_data = self.analyzer.extract_canonical_data(c_type, entity_text)
-            target_doc.semantic_data = cdm_data
+            # Skip automated CDM extraction for now
+            # cdm_data = self.analyzer.extract_canonical_data(c_type, entity_text)
+            # target_doc.semantic_data = cdm_data
+            
             target_doc.cached_full_text = entity_text
             
             # Determine export filename hint
@@ -247,7 +284,9 @@ class CanonizerService:
             
             # Save
             self.logical_repo.save(target_doc)
-            print(f"[Canonizer] Saved Split Entity {target_doc.uuid} ({c_type})")
+            print(f"[Canonizer] Saved Stage 1.1/1.2 Entity {target_doc.uuid} ({candidate.get('types')})")
+        
+        print(f"[Canonizer] Stage 1 Analysis Complete for {v_doc.uuid}.")
 
     def _extract_range_text(self, pages_text: List[str], target_indices: List[int]) -> str:
         """Helper to join specific pages (simple join)."""

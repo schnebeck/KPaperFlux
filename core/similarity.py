@@ -19,16 +19,20 @@ class SimilarityManager:
         self.vault = vault # Needed to resolve file paths
         self.thumbnail_cache = {} # Map uuid -> PIL.Image
 
-    def find_duplicates(self, threshold: float = 0.85) -> List[Tuple[Document, Document, float]]:
+    def find_duplicates(self, threshold: float = 0.85, progress_callback=None) -> List[Tuple[Document, Document, float]]:
         """
         Find pairs of documents that are likely duplicates.
         Returns a list of tuples: (doc_a, doc_b, similarity_score).
         """
-        documents = self.db_manager.get_all_documents()
+        # Phase 102: Use Entity View instead of legacy get_all_documents
+        documents = self.db_manager.get_all_entities_view()
         duplicates = []
         self.thumbnail_cache = {} # Clear cache
         
         n = len(documents)
+        total_pairs = (n * (n - 1)) // 2
+        processed = 0
+        
         for i in range(n):
             for j in range(i + 1, n):
                 doc_a = documents[i]
@@ -37,6 +41,11 @@ class SimilarityManager:
                 score = self.calculate_similarity(doc_a, doc_b)
                 if score >= threshold:
                     duplicates.append((doc_a, doc_b, score))
+                
+                processed += 1
+                if progress_callback:
+                    # Emit (current, total)
+                    progress_callback(processed, total_pairs)
                     
         return duplicates
 
@@ -154,7 +163,15 @@ class SimilarityManager:
         if doc.uuid in self.thumbnail_cache:
             return self.thumbnail_cache[doc.uuid]
             
+        # Phase 98: Resolve Physical Path from Entity
         path_str = self.vault.get_file_path(doc.uuid)
+        if not path_str or not os.path.exists(path_str):
+             # Try resolving via entity mapping
+             if hasattr(self.db_manager, "get_source_uuid_from_entity"):
+                 phys_uuid = self.db_manager.get_source_uuid_from_entity(doc.uuid)
+                 if phys_uuid:
+                     path_str = self.vault.get_file_path(phys_uuid)
+
         if not path_str:
             return []
             

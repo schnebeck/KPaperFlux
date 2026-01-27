@@ -66,6 +66,12 @@ class AIAnalyzer:
     _adaptive_delay: float = 0.0 # Adaptive delay in seconds (Harmonic Oscillation)
     _printed_prompts = set() # Phase 102: Debug Once
 
+    def _print_debug_prompt(self, title: str, prompt: str):
+        """Phase 102: Helper to print prompt ONCE in console for debugging."""
+        if prompt not in self._printed_prompts:
+            print(f"\n=== [{title}] ===\n{prompt}\n==============================\n")
+            self._printed_prompts.add(prompt)
+
     @classmethod
     def get_adaptive_delay(cls) -> float:
         return cls._adaptive_delay
@@ -74,6 +80,98 @@ class AIAnalyzer:
         self.api_key = api_key
         self.client = genai.Client(api_key=self.api_key)
         self.model_name = model_name 
+
+    @staticmethod
+    def extract_headers_footers(ocr_pages: List[str], header_ratio=0.15, footer_ratio=0.10) -> List[str]:
+        """
+        Reduces text of each page to top 15% and bottom 10% to save tokens.
+        """
+        optimized_pages = []
+        for text in ocr_pages:
+            lines = text.split('\n')
+            total_lines = len(lines)
+            if total_lines < 10:
+                optimized_pages.append(text)
+                continue
+                
+            cut_top = int(total_lines * header_ratio)
+            cut_bottom = int(total_lines * footer_ratio)
+            
+            if cut_top + cut_bottom >= total_lines:
+                optimized_pages.append(text)
+            else:
+                header = "\n".join(lines[:cut_top])
+                footer = "\n".join(lines[-cut_bottom:])
+                optimized_pages.append(f"[HEADER AREA]\n{header}\n...\n[FOOTER AREA]\n{footer}")
+                
+        return optimized_pages
+
+    def ask_type_check(self, pre_flight_pages: List[str]) -> dict:
+        """
+        Phase A: Pre-Flight. Quick check of first few pages to determine strategy.
+        """
+        content = "\n".join([f"--- PAGE {i+1} ---\n{p}" for i, p in enumerate(pre_flight_pages)])
+        prompt = f"""
+        Analyze the following document start and determine its nature.
+        
+        ### INPUT TEXT
+        {content}
+        
+        ### TASK
+        Return a JSON object:
+        {{
+          "primary_type": "MANUAL | DATASHEET | BOOK | CATALOG | INVOICE | LETTER | OTHER",
+          "looks_like_stack": true | false, // True if multiple different documents seem stuck together
+          "confidence": 0.0-1.0
+        }}
+        """
+        result = self._generate_json(prompt, stage_label="PRE-FLIGHT TYPE CHECK")
+        return result or {}
+
+    def run_stage_1_adaptive(self, pages_text: List[str], private_id: Optional[IdentityProfile], business_id: Optional[IdentityProfile]) -> dict:
+        """
+        Intelligent Controller for Stage 1.
+        Selects optimal scan strategy based on content.
+        """
+        total_pages = len(pages_text)
+        if total_pages == 0: return {}
+
+        # --- PHASE A: PRE-FLIGHT ---
+        pre_flight_pages = pages_text[:3]
+        pre_flight_res = self.ask_type_check(pre_flight_pages)
+        
+        primary_type = pre_flight_res.get("primary_type", "OTHER")
+        is_stack_suspicion = pre_flight_res.get("looks_like_stack", False)
+        
+        print(f"[STAGE 1] Pre-Flight: {total_pages} Pages. Type: {primary_type}. Stack: {is_stack_suspicion}")
+
+        # --- PHASE B: ROUTING ---
+        scan_strategy = "FULL_READ_MODE"
+        final_pages_to_scan = []
+
+        # 1. Manual/Book detection
+        if primary_type in ["MANUAL", "DATASHEET", "BOOK", "CATALOG"]:
+            scan_strategy = "SANDWICH_MODE"
+            indices = [0, 1, 2, total_pages - 1]
+            indices = sorted(list(set(i for i in indices if i < total_pages)))
+            for i in indices:
+                final_pages_to_scan.append(pages_text[i])
+        
+        # 2. Large Stack detection
+        elif total_pages > 10 or is_stack_suspicion:
+            scan_strategy = "HEADER_SCAN_MODE"
+            # Extract headers/footers for ALL pages
+            final_pages_to_scan = self.extract_headers_footers(pages_text)
+            
+        # 3. Default (Short docs)
+        else:
+            scan_strategy = "FULL_READ_MODE"
+            final_pages_to_scan = pages_text
+
+        print(f"[STAGE 1] Selected Strategy: {scan_strategy} ({len(final_pages_to_scan)} pages prepared)")
+
+        # --- PHASE C: EXECUTION ---
+        return self.classify_structure(final_pages_to_scan, private_id, business_id, mode=scan_strategy)
 
     def _wait_for_cooldown(self):
         """Check shared cooldown and sleep if necessary."""
@@ -112,6 +210,9 @@ class AIAnalyzer:
         
         # Retry Loop
         for attempt in range(self.MAX_RETRIES):
+            if attempt > 0:
+                print(f"AI Retrying... (Attempt {attempt+1}/{self.MAX_RETRIES})")
+            
             self._wait_for_cooldown()
             
             try:
@@ -119,12 +220,18 @@ class AIAnalyzer:
                     model=self.model_name,
                     contents=contents
                 )
+                
                 # Success: Decrease Adaptive Delay (Multiplicative Decrease)
                 if AIAnalyzer._adaptive_delay > 0:
                      old_delay = AIAnalyzer._adaptive_delay
                      AIAnalyzer._adaptive_delay = max(0.0, AIAnalyzer._adaptive_delay * 0.5)
                      if AIAnalyzer._adaptive_delay < 0.1: AIAnalyzer._adaptive_delay = 0.0
-                     print(f"AI Success. Decreasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+                     print(f"AI Success (Attempt {attempt+1}/{self.MAX_RETRIES}). Decreasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+                else:
+                     # Just log success if it was first or subsequent attempt
+                     if attempt > 0:
+                         print(f"AI Success after {attempt+1} attempts.")
+                
                 return response
                 
             except Exception as e:
@@ -224,9 +331,7 @@ class AIAnalyzer:
         ### 6. YOUR JSON OUTPUT
         """
         
-        if prompt not in self._printed_prompts:
-            print(f"\n=== [STAGE 2 AI REQUEST] ===\n{prompt}\n==========================\n")
-            self._printed_prompts.add(prompt)
+        self._print_debug_prompt("STAGE 2 AI REQUEST", prompt)
         
         contents = [prompt]
         if image:
@@ -363,9 +468,9 @@ class AIAnalyzer:
         except Exception as e:
             print(f"AI Analysis Error: {e}")
             return AIAnalysisResult()
-    def identify_entities(self, text: str, semantic_data: dict = None) -> List[dict]:
+    def identify_entities(self, text: str, semantic_data: dict = None, detected_entities: List[dict] = None) -> List[dict]:
         """
-        Phase 1 of Canonization: Identify distinct documents.
+        Phase 1.2 of Canonization: Identify distinct documents.
         Uses semantic_data if available (Phase 98 Refinement), otherwise fallback to text.
         """
         if semantic_data and isinstance(semantic_data, dict) and "pages" in semantic_data:
@@ -374,7 +479,7 @@ class AIAnalyzer:
             return self.refine_semantic_entities(semantic_data)
         
         # Legacy / Fallback Mode (Raw Text)
-        return self._identify_entities_legacy(text, semantic_data)
+        return self._identify_entities_legacy(text, semantic_data, detected_entities)
 
     def refine_semantic_entities(self, semantic_data: dict) -> List[dict]:
         """
@@ -429,10 +534,8 @@ class AIAnalyzer:
         """
         
         try:
-             result = self._generate_json(prompt)
-             if prompt not in self._printed_prompts:
-                 print(f"\n[Refinement Result] AI Output: {json.dumps(result, indent=2)}\n")
-                 self._printed_prompts.add(prompt)
+             result = self._generate_json(prompt, stage_label="STAGE 1.2 REFINEMENT REQUEST")
+             self._print_debug_prompt("REFINEMENT REQUEST", prompt)
              
              if isinstance(result, list): return result
              if isinstance(result, dict) and "entities" in result: return result["entities"]
@@ -441,17 +544,21 @@ class AIAnalyzer:
              print(f"[Refinement] Failed: {e}")
              return []
 
-    def _identify_entities_legacy(self, text: str, semantic_data: dict = None) -> List[dict]:
+    def _identify_entities_legacy(self, text: str, semantic_data: dict = None, detected_entities: List[dict] = None) -> List[dict]:
         # ... (Original identify_entities logic mooved here) ...
         if not text: return []
         
-        # Build hints from semantic data
+        # Build hints from semantic data or previous stage
         structural_hints = ""
-        if semantic_data:
+        if detected_entities:
+             doc_types = [ent.get("doc_type") for ent in detected_entities if ent.get("doc_type")]
+             structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe classification stage (Stage 1.1) already identified these types: {', '.join(doc_types)}.\n"
+             structural_hints += "Ensure the output contains boundaries for these documents.\n"
+        elif semantic_data:
              summary = semantic_data.get("summary", {})
              doc_types = summary.get("doc_type", [])
              if isinstance(doc_types, list) and doc_types:
-                 structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe system previously detected the following Semantic Types: {', '.join(doc_types)}.\nUse this to guide your splitting (e.g. look for an Invoice followed by an Order Confirmation)."
+                 structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe system previously detected the following Semantic Types: {', '.join(doc_types)}.\nUse this to guide your splitting."
 
         # Strict List allowed by system (Hybrid DMS)
         allowed_types = [
@@ -493,7 +600,7 @@ class AIAnalyzer:
         prompt += f"\n\n### TEXT CONTENT:\n{text[:100000]}" 
         
         try:
-            result = self._generate_json(prompt)
+            result = self._generate_json(prompt, stage_label="STAGE 1.2 SPLIT REQUEST")
             if isinstance(result, list):
                 return result
             if isinstance(result, dict) and "entities" in result:
@@ -605,11 +712,7 @@ class AIAnalyzer:
         {text[:100000]}
         """
         
-        if prompt not in self._printed_prompts:
-            print("\n=== [DEBUG] STAGE 2 EXTRACTION PROMPT ===")
-            print(prompt)
-            print("=========================================\n")
-            self._printed_prompts.add(prompt)
+        self._print_debug_prompt("STAGE 2 EXTRACTION REQUEST", prompt)
         
         try:
             raw_data = self._generate_json(prompt) or {}
@@ -689,7 +792,7 @@ class AIAnalyzer:
         """
         
         try:
-            result = self._generate_json(prompt)
+            result = self._generate_json(prompt, stage_label="IDENTITY PARSE REQUEST")
             if not result:
                 return None
                 
@@ -708,14 +811,12 @@ class AIAnalyzer:
             return None
 
     def classify_structure(self, pages_text: List[str], 
-                         private_id: Optional[IdentityProfile], 
-                         business_id: Optional[IdentityProfile]) -> Dict[str, Any]:
+                          private_id: Optional[IdentityProfile], 
+                          business_id: Optional[IdentityProfile],
+                          mode: str = "FULL_READ_MODE") -> Dict[str, Any]:
         """
         Phase 102: Master Classification Step.
-        Uses 'Sandwich' input (First/Last Page) and User Identities to determine:
-        1. DocType
-        2. Direction (INBOUND/OUTBOUND)
-        3. Tenant Context (PRIVATE/BUSINESS)
+        Uses 'Sandwich' input (First/Last Page) or full page list based on mode.
         """
         if not pages_text:
             print("[DEBUG] classify_structure called with empty pages_text!")
@@ -723,33 +824,22 @@ class AIAnalyzer:
             
         print(f"[DEBUG] classify_structure scanning {len(pages_text)} pages...")
             
-        # 1. Build Sandwich Text
-        # Plaintext construction with markers
-        sandwich_parts = []
-        
-        # First Page
-        sandwich_parts.append("--- PAGE 1 (START) ---")
-        sandwich_parts.append(pages_text[0])
-        
-        # Second Page (if available) - Requested by User
-        if len(pages_text) > 1:
-            sandwich_parts.append("--- PAGE 2 (START CONTINUED) ---")
-            sandwich_parts.append(pages_text[1])
+        # 1. Build Analysis Text (Based on Mode and available pages)
+        analysis_parts = []
+        for i, text in enumerate(pages_text):
+            # If in SANDWICH_MODE, the input pages_text is already pruned.
+            # But the labels might be wrong if we don't know the original indices.
+            # For simplicity, if mode is SANDWICH_MODE, we assume pages_text[0-2] are start, and pages_text[-1] is end.
             
-        # Last Page (if distinct from first two)
-        # If len > 2, we have at least 3 pages (1, 2, 3...N)
-        # So we add the Last Page.
-        # If len == 2, we already added 1 and 2.
-        
-        if len(pages_text) > 2:
-            last_idx = len(pages_text)
-            if len(pages_text) > 3:
-                 sandwich_parts.append(f"\n... (SKIPPED {last_idx - 3} PAGES) ...\n")
-                 
-            sandwich_parts.append(f"--- PAGE {last_idx} (END) ---")
-            sandwich_parts.append(pages_text[-1])
+            p_num = i + 1
+            if mode == "SANDWICH_MODE" and i == len(pages_text) - 1 and len(pages_text) > 3:
+                 # It's the last page of a large document
+                 analysis_parts.append("\n... (INTERMEDIATE PAGES OMITTED) ...\n")
             
-        sandwich_text = "\n".join(sandwich_parts)
+            analysis_parts.append(f"--- PAGE {p_num} ---")
+            analysis_parts.append(text)
+            
+        analysis_text = "\n".join(analysis_parts)
         
         # 2. Build Prompt Context
         def fmt_id(p: Optional[IdentityProfile]):
@@ -765,78 +855,180 @@ class AIAnalyzer:
         bus_json_str = business_id.model_dump_json() if business_id else "{}"
         
         prompt = f"""
-        You are a Document Analyzer & Splitter for a hybrid DMS.
-        Your task is to analyze the input text and identify ALL distinct logical document types contained within it.
+=== [SYSTEM INSTRUCTION] ===
 
-        ### 1. USER IDENTITIES (CONTEXT)
-        Use these to determine `direction` and `tenant_context` for EACH detected document separately.
+You are an expert Document Structure Analyzer & Splitter for a hybrid DMS.
+Your task is to analyze the input text and identify ALL distinct logical document types contained within it.
 
-        A. PRIVATE_IDENTITY: {priv_json_str}
-        B. BUSINESS_IDENTITY: {bus_json_str}
+  "BUSINESS_IDENTITY": {bus_json_str}
+}}
 
-        ### 2. ALLOWED DOCTYPES
-        [
-          "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT", "DUNNING",
-          "PAYSLIP", "SICK_NOTE", "TRAVEL_REQUEST", "EXPENSE_REPORT", "CASH_EXPENSE",
-          "BANK_STATEMENT", "TAX_ASSESSMENT", "UTILITY_BILL",
-          "CONTRACT", "INSURANCE_POLICY", "LEGAL_CORRESPONDENCE", "OFFICIAL_LETTER",
-          "DATASHEET", "MANUAL", "TECHNICAL_DOC",
-          "CERTIFICATE", "MEDICAL_DOCUMENT", "VEHICLE_REGISTRATION", "APPLICATION", "NOTE", 
-          "OTHER"
-        ]
+### SCAN MODE CONTEXT
+Current Scan Mode: {mode}
 
-        ### 3. ANALYSIS RULES
-        1. **Multi-Detection:** A single file can contain multiple logical types (e.g., a document titled "Invoice & Order Confirmation").
-           - In this case, output TWO entries: one for INVOICE, one for ORDER_CONFIRMATION.
-        2. **Attachments:** If a main document (e.g., Invoice) has clearly attached appendices (e.g., Timesheets, Manuals) that are significant, detect them as separate entities (e.g., TECHNICAL_DOC).
-        3. **Direction:** Determine direction for each entity independently (though they are usually the same).
+1. **IF MODE = 'SANDWICH_MODE':**
+   - You are only seeing the FIRST few and the LAST page of a large document.
+   - Assume all missing pages between the provided pages belong to the SAME logical entity.
+   - Do NOT split the document unless the last page clearly belongs to a completely different document.
 
-        ### 4. OUTPUT SCHEMA (JSON)
-        Return a JSON object containing a list of detected entities.
+2. **IF MODE = 'HEADER_SCAN_MODE':**
+   - You are seeing ALL pages, but ONLY the Header and Footer areas.
+   - Use changes in Document Numbers or Logos to detect splits.
+   - Body content is missing, so rely purely on formal identifiers in the header.
 
-        {{
-          "source_file_summary": {{
-            "is_hybrid_document": Boolean, // True if >1 distinct types found
-            "primary_language": "de | en | ..."
-          }},
-          "detected_entities": [
-            {{
-              "doc_type": "Enum Value",
-              "direction": "INBOUND | OUTBOUND | INTERNAL | UNKNOWN",
-              "tenant_context": "PRIVATE | BUSINESS | UNKNOWN",
-              "confidence": Float,
-              "reasoning": "Found keyword 'Rechnung' and explicit mention of 'Auftragsbestätigung'"
-            }}
-            // ... add more objects if multiple types found
-          ]
-        }}
-        
-        ### INPUT DOCUMENT CONTENT
-        The following text represents selected pages from the document based on sandwich logic:
+3. **IF MODE = 'FULL_READ_MODE':**
+   - You are seeing the full content of all pages.
 
-        {sandwich_text}
-        """
-        
-        print("\n=== [DEBUG] STAGE 1 CLASSIFICATION PROMPT ===")
-        print(prompt)
-        print("=============================================\n")
+### 2. CRITICAL ANALYSIS RULES
+1. **Segmentation (Full Coverage):** - Identify the exact `page_indices` for each logical document based on the `--- PAGE X ---` markers.
+   - **Do NOT orphan pages:** If a document says "Page 1 of 3", you MUST include pages 1, 2, and 3 in the `page_indices` list.
+   - **Trailing Pages:** Terms and Conditions (AGB) attached to an invoice usually belong to the invoice entity.
+
+2. **Identity Disambiguation:**
+   - If the User Name appears in multiple identities (Private vs. Business), you MUST check the **ADDRESS** or **COMPANY NAME** to decide.
+   - Example: Address matches Private address? -> Use PRIVATE_IDENTITY. Address matches Business address? -> Use BUSINESS_IDENTITY.
+   - Do NOT hallucinate a business context if the address is clearly private.
+
+3. **Hybrid Documents (Tagging):**
+   - If a single logical document serves multiple purposes (e.g., "Invoice & Delivery Note" on Page 1), assign **MULTIPLE** tags to the `doc_types` array. 
+   - Do NOT split a single physical page into multiple entities.
+
+4. **Differentiation: INVOICE vs. DELIVERY_NOTE (CRITICAL):**
+   - **Standard Invoice:** Almost every invoice lists goods/services. This does NOT make it a delivery note.
+   - **Rule:** Do NOT apply the tag "DELIVERY_NOTE" merely because items are listed.
+   - **Condition for DELIVERY_NOTE:** Only apply this tag if:
+     A) The document title explicitly contains "Lieferschein" / "Delivery Note" (e.g., "Rechnung / Lieferschein").
+     B) OR the document lists items/quantities WITHOUT prices/totals (a pure packing list).
+
+5. **Keyword Priority:**
+   - Trust the **Document Title** (Header) more than the body content. 
+   - If the header says "Rechnung" and body lists items -> Type is ["INVOICE"].
+   - If the header says "Lieferschein" -> Type is ["DELIVERY_NOTE"].
+   - If the header says "Rechnung / Lieferschein" -> Type is ["INVOICE", "DELIVERY_NOTE"].
+
+6. **Direction Logic:**
+   - **INBOUND:** User Identity is in the **RECIPIENT** area OR sender is a third party.
+   - **OUTBOUND:** User Identity is in the **SENDER/HEADER** area.
+   - **INTERNAL:** User Identity is both Sender and Recipient.
+
+### 3. ALLOWED DOCTYPES (Strict List)
+[
+  "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT",
+  "DUNNING", "PAYSLIP", "SICK_NOTE", "EXPENSE_REPORT", "BANK_STATEMENT", "TAX_ASSESSMENT",
+  "CONTRACT", "INSURANCE_POLICY", "OFFICIAL_LETTER", "TECHNICAL_DOC", "CERTIFICATE",
+  "APPLICATION", "NOTE", "OTHER"
+]
+
+### 4. OUTPUT SCHEMA (JSON)
+Return ONLY a valid JSON object. No markdown.
+
+{{
+  "source_file_summary": {{
+    "primary_language": "en | de | ..."
+  }},
+  "detected_entities": [
+    {{
+      "doc_types": ["INVOICE", "DELIVERY_NOTE"], 
+      "page_indices": [1, 2],       
+      "direction": "INBOUND | OUTBOUND | INTERNAL | UNKNOWN",
+      "tenant_context": "PRIVATE | BUSINESS | UNKNOWN",
+      "confidence": 0.98,
+      "reasoning": "Recipient matches Private Identity. Sender is a third party. Document lists physical goods, so Delivery Note tag is added."
+    }}
+  ]
+}}
+
+=== [USER INPUT] ===
+
+### DOCUMENT CONTENT (with Page Markers):
+{analysis_text}
+"""
         
         try:
-            result = self._generate_json(prompt)
-            if result:
-                # Debug Output as requested
-                print("\n=== [DEBUG] STAGE 1 CLASSIFICATION RESULT ===")
-                print(json.dumps(result, indent=2))
-                print("=============================================\n")
-                return result
-            return {}
+            # --- START VALIDATOR LOOP ---
+            max_retries = 2
+            attempt = 0
+            chat_history = []
+            
+            # Initial Call
+            result = self._generate_json(prompt, stage_label="STAGE 1.1 AI REQUEST")
+            
+            while attempt < max_retries:
+                if not result: break
+                
+                # Validation
+                errors = self.validate_classification(result, pages_text, private_id, business_id)
+                if not errors:
+                    return result
+                
+                # Correction Required
+                print(f"[AIAnalyzer] Stage 1.1 Validation Failed (Attempt {attempt+1}): {errors}")
+                attempt += 1
+                
+                error_msg = "\n".join(f"- {e}" for e in errors)
+                correction_prompt = f"""
+### ⚠️ VALIDATION FAILED ⚠️
+Your previous analysis contained logical errors:
+{error_msg}
+
+TASK:
+1. Review the Input Text again strictly.
+2. Fix the errors mentioned above (ensure all pages are covered and context is correct).
+3. Return the COMPLETE corrected JSON.
+"""
+                # We use chat history for correction if the API supports it, 
+                # or just append the correction to a new prompt if stateless.
+                # Since _generate_json is stateless per call, we append.
+                # Actually, for Gemini we can pass contents.
+                
+                # Simple stateless approach: append correction to original prompt 
+                # (since _generate_json doesn't handle history yet)
+                prompt_with_history = prompt + f"\n\n### PREVIOUS ATTEMPT ###\n{json.dumps(result)}\n\n{correction_prompt}"
+                result = self._generate_json(prompt_with_history, stage_label=f"STAGE 1.1 CORRECTION {attempt}")
+
+            return result or {}
         except Exception as e:
             print(f"Classification Failed: {e}")
             return {}
 
-    def _generate_json(self, prompt: str, image=None) -> Any:
+    def validate_classification(self, result: dict, ocr_pages: List[str], priv_id=None, bus_id=None) -> List[str]:
+        """Validates AI response for logical errors (Orphan pages, Context insanity)."""
+        errors = []
+        entities = result.get("detected_entities", [])
+        total_pages = len(ocr_pages)
+
+        # 1. Orphan Page Check
+        claimed_pages = set()
+        for ent in entities:
+             claimed_pages.update(ent.get("page_indices", []))
+        
+        if len(claimed_pages) < total_pages:
+             missing = set(range(1, total_pages + 1)) - claimed_pages
+             errors.append(f"SEGMENTATION_ERROR: Missing pages {sorted(list(missing))}. Every page must be assigned to an entity.")
+
+        # 2. Context Sanity Check
+        for ent in entities:
+             ctx = ent.get("tenant_context")
+             pages = ent.get("page_indices", [])
+             if not pages: continue
+             
+             # Check first page of entity
+             first_page_idx = pages[0] - 1
+             if first_page_idx < 0 or first_page_idx >= len(ocr_pages):
+                 continue
+                 
+             text = ocr_pages[first_page_idx]
+             if ctx == "BUSINESS" and bus_id:
+                 # Check for business markers
+                 biz_markers = [bus_id.name, bus_id.company_name] + bus_id.address_keywords
+                 if not any(str(m).lower() in text.lower() for m in biz_markers if m):
+                      errors.append(f"CONTEXT_ERROR: Entity starting on page {pages[0]} is marked as BUSINESS but contains no business identity markers. Check if it should be PRIVATE.")
+
+        return errors
+
+    def _generate_json(self, prompt: str, stage_label: str = "AI REQUEST", image=None) -> Any:
         """Helper to call Gemini with Retry and parse JSON."""
-        print(f"\n=== [STAGE 1/GENERIC AI REQUEST] ===\n{prompt}\n==================================\n")
+        self._print_debug_prompt(stage_label, prompt)
         
         contents = [prompt]
         if image: contents.append(image)

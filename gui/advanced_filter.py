@@ -23,46 +23,19 @@ class FilterConditionWidget(QWidget):
     changed = pyqtSignal()
 
     FIELDS = {
-        "Sender": "sender",
-        "Date": "doc_date", 
-        "Amount (Netto)": "amount",
-        "Document Type": "doc_type",
-        "Tags": "tags",
+        # Phase 102: Stage 1 AI Fields
+        "AI Direction": "direction",
+        "AI Tenant Context": "tenant_context",
+        "AI Confidence": "confidence",
+        "AI Reasoning": "reasoning",
+        "Type Tags": "type_tags",
+        
         "Filename": "original_filename",
         "Created At": "created_at",
         "Last Processed": "last_processed_at",
-        
-        "Recipient Name": "recipient_name",
-        "Recipient Company": "recipient_company",
-        "Recipient Street": "recipient_street",
-        "Recipient City": "recipient_city",
-        "Recipient Zip": "recipient_zip",
-        "Recipient Country": "recipient_country",
-        
-        "Sender Name": "sender_name",
-        "Sender Company": "sender_company",
-        "Sender Street": "sender_street",
-        "Sender City": "sender_city",
-        "Sender Zip": "sender_zip",
-        "Sender Country": "sender_country",
-        
-        "Gross (Brutto)": "gross_amount",
-        "Tax %": "tax_rate",
-        "Postage": "postage",
-        "Packaging": "packaging",
-        "Currency": "currency",
-        
-        "IBAN": "iban",
-        "Phone": "phone",
-        "Pages": "page_count",
-        "Export Filename": "export_filename",
-        "Text Content": "text_content",
-        "UUID": "uuid",
-        
-        # Phase 80: Virtual Columns
-        "Virtual Sender (AI)": "v_sender",
-        "Virtual Date (AI)": "v_doc_date",
-        "Virtual Amount (AI)": "v_amount"
+        "Pages": "page_count_virt",
+        "Text Content": "cached_full_text",
+        "UUID": "uuid"
     }
     
     # Operators per type hint (simplified)
@@ -138,20 +111,32 @@ class FilterConditionWidget(QWidget):
              field_key = self.combo_field.itemData(idx)
              
         # Logic to switch inputs
-        if field_key == "doc_date" or field_key == "created_at":
+        # Logic to switch inputs
+        if field_key in ["doc_date", "created_at", "last_processed_at", "last_used"]:
             self.input_stack.setCurrentIndex(2) # Date
-        elif field_key == "tags":
+        elif field_key in ["type_tags", "tags"]:
             self.input_stack.setCurrentIndex(1) # Multi
-            # Populate Tags
-            # Need to clear first? MultiSelect doesn't have clear?
-            # It has model. We can recreate or clear model.
-            self.input_multi.clear() # QComboBox clear
-            self.input_multi.addItems(self.available_tags)
+            self.input_multi.clear()
+            # Standard Stage 1 Tags
+            std_tags = ["INBOUND", "OUTBOUND", "INTERNAL", "CTX_PRIVATE", "CTX_BUSINESS"]
+            self.input_multi.addItems(std_tags + self.available_tags)
+        elif field_key == "direction":
+             self.input_stack.setCurrentIndex(1)
+             self.input_multi.clear()
+             self.input_multi.addItems(["INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"])
+        elif field_key == "tenant_context":
+             self.input_stack.setCurrentIndex(1)
+             self.input_multi.clear()
+             self.input_multi.addItems(["PRIVATE", "BUSINESS", "UNKNOWN"])
         elif field_key == "doc_type":
              self.input_stack.setCurrentIndex(1)
              self.input_multi.clear()
-             # Standard types?
-             self.input_multi.addItems(["invoice", "receipt", "contract", "other"])
+             # Standard allowed doctypes from Stage 1.1 prompt
+             self.input_multi.addItems([
+                 "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT",
+                 "DUNNING", "PAYSLIP", "SICK_NOTE", "EXPENSE_REPORT", "BANK_STATEMENT", "TAX_ASSESSMENT",
+                 "CONTRACT", "INSURANCE_POLICY", "OFFICIAL_LETTER", "TECHNICAL_DOC", "CERTIFICATE", "APPLICATION", "NOTE", "OTHER"
+             ])
         else:
             self.input_stack.setCurrentIndex(0) # Text
             

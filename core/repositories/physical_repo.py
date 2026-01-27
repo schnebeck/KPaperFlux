@@ -63,3 +63,16 @@ class PhysicalRepository(BaseRepository):
     def increment_ref_count(self, uuid: str):
         """Atomic increment? (No longer in schema, for reference only)"""
         pass
+
+    def get_all(self) -> list[PhysicalFile]:
+        """Fetch all physical files."""
+        sql = "SELECT uuid, phash, file_path, original_filename, file_size, raw_ocr_data, created_at, page_count_phys FROM physical_files"
+        cursor = self.conn.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        return [PhysicalFile.from_row(row) for row in rows]
+
+    def delete(self, uuid: str):
+        """Hard delete of a physical file record."""
+        with self.conn:
+             self.conn.execute("DELETE FROM physical_files WHERE uuid = ?", (uuid,))

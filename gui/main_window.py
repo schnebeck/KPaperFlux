@@ -1,8 +1,8 @@
 from typing import Optional
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
+        QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
     QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox, QStatusBar,
-    QStackedWidget, QToolBar, QAbstractItemView
+    QStackedWidget, QToolBar, QAbstractItemView, QProgressDialog
 )
 from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt, QSettings, QSize
@@ -17,7 +17,7 @@ from core.stamper import DocumentStamper
 from core.filter_tree import FilterTree, NodeType
 import json
 from pathlib import Path
-from gui.workers import AIQueueWorker, ImportWorker, MainLoopWorker
+from gui.workers import AIQueueWorker, ImportWorker, MainLoopWorker, SimilarityWorker
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
@@ -349,6 +349,33 @@ class MainWindow(QMainWindow):
         purge_all_action.triggered.connect(self.purge_data_slot)
         tools_menu.addAction(purge_all_action)
 
+        # -- Debug Menu (Phase 102) --
+        debug_menu = menubar.addMenu(self.tr("&Debug"))
+        
+        debug_orphans = QAction(self.tr("Show Orphaned Vault Files"), self)
+        debug_orphans.triggered.connect(self._debug_show_orphans_slot)
+        debug_menu.addAction(debug_orphans)
+        
+        prune_orphans = QAction(self.tr("Prune Orphaned Vault Files (Console)"), self)
+        prune_orphans.triggered.connect(self._debug_prune_orphans_slot)
+        debug_menu.addAction(prune_orphans)
+        
+        debug_menu.addSeparator()
+        
+        debug_broken = QAction(self.tr("Show Broken Entity References"), self)
+        debug_broken.triggered.connect(self._debug_show_broken_slot)
+        debug_menu.addAction(debug_broken)
+        
+        prune_broken = QAction(self.tr("Prune Broken Entity References (Console)"), self)
+        prune_broken.triggered.connect(self._debug_prune_broken_slot)
+        debug_menu.addAction(prune_broken)
+        
+        debug_menu.addSeparator()
+        
+        debug_dedup = QAction(self.tr("Deduplicate Vault (Inhaltsbasiert)"), self)
+        debug_dedup.triggered.connect(self._debug_deduplicate_vault_slot)
+        debug_menu.addAction(debug_dedup)
+
         # -- Config Menu --
         config_menu = menubar.addMenu(self.tr("&Config"))
         
@@ -362,6 +389,48 @@ class MainWindow(QMainWindow):
         action_about = QAction(self.tr("&About"), self)
         action_about.triggered.connect(self.show_about_dialog)
         help_menu.addAction(action_about)
+
+    # --- Debug Handlers ---
+    def _debug_show_orphans_slot(self):
+        from core.integrity import IntegrityManager
+        mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
+        mgr.show_orphaned_vault_files()
+
+    def _debug_show_broken_slot(self):
+        from core.integrity import IntegrityManager
+        mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
+        mgr.show_broken_entity_references()
+
+    def _debug_prune_orphans_slot(self):
+        msg = "Permanently delete ALL files in the vault that are NOT referenced by any entity? Check console for progress."
+        if QMessageBox.warning(self, "Prune Vault", msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+            from core.integrity import IntegrityManager
+            mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
+            mgr.prune_orphaned_vault_files()
+
+    def _debug_prune_broken_slot(self):
+        msg = "Permanently delete ALL database entries (entities) that point to missing files? Check console for progress."
+        if QMessageBox.warning(self, "Prune Database", msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+            from core.integrity import IntegrityManager
+            mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
+            mgr.prune_broken_entity_references()
+            if self.list_widget:
+                self.list_widget.refresh_list()
+
+    def _debug_deduplicate_vault_slot(self):
+        msg = ("This will IDENTIFY duplicates by HASH and SIZE.\n\n"
+               "STEP 1: Delete newer duplicate files from Vault.\n"
+               "STEP 2: Remove ALL entities from the list that pointed to these files.\n\n"
+               "This is DESTRUCTIVE. Continue?")
+        reply = QMessageBox.question(self, "Physical Deduplication", msg,
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            from core.integrity import IntegrityManager
+            mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
+            mgr.deduplicate_vault()
+            if self.list_widget:
+                self.list_widget.refresh_list()
 
     def on_document_selected(self, uuids: list):
         """Handle document selection (single or batch)."""
@@ -494,26 +563,11 @@ class MainWindow(QMainWindow):
         # Pipeline expects physical document UUIDs.
         source_uuids = set()
         for u in uuids:
-            # Check if it's an entity by trying to resolve it
-            src = self.db_manager.get_source_uuid_from_entity(u)
-            if src:
-                 source_uuids.add(src)
-                 # Optional: Delete the entity implementation so re-analysis is fresh?
-                 # User said: "re-analyse behavior... delete semantic-data-row"
-                 # It's safer to delete this specific entity now, so the new analysis 
-                 # replaces it instead of duplicating or confusing things.
-                 # But if we have multiple entities for one doc, deleting ONE and re-running 
-                 # might re-create ALL?
-                 # The Analyzer runs on the *Source Document*. It will find all entities again.
-                 # So we should probably allow the Pipeline/Canonizer to handle "update".
-                 # BUT, the current Canonizer logic typically ADDS.
-                 # Optimization: Delete ALL entities for this Source Doc before re-running?
-                 # Yes, clear slate for this document.
-                 # But wait, what if user only wanted to re-analyze one page? 
-                 # No, Analyzer is per-document.
-                 pass 
-            else:
-                 source_uuids.add(u)
+            # v28.2: Soft Reset instead of Purge.
+            # This preserves the document in the list (no jumpy count) 
+            # while marking it for fresh AI processing.
+            self.db_manager.reset_document_for_reanalysis(u)
+            source_uuids.add(u)
                  
         start_uuids = list(source_uuids)
         if not start_uuids: return
@@ -543,7 +597,7 @@ class MainWindow(QMainWindow):
         uuid_to_restore = None
         if self.pdf_viewer and self.pdf_viewer.current_uuid in start_uuids:
              uuid_to_restore = self.pdf_viewer.current_uuid
-             self.pdf_viewer.unload()
+             self.pdf_viewer.clear()
              
         self.reprocess_worker = ReprocessWorker(self.pipeline, start_uuids)
         
@@ -812,23 +866,51 @@ class MainWindow(QMainWindow):
         )
 
     def find_duplicates_slot(self):
-        """Open Duplicate Finder."""
-        from core.similarity import SimilarityManager
-        from gui.duplicate_dialog import DuplicateFinderDialog
-        
-        sim_manager = SimilarityManager(self.db_manager, self.pipeline.vault)
-        duplicates = sim_manager.find_duplicates()
-        
-        if not duplicates:
-             QMessageBox.information(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."))
-             return
+        """Open Duplicate Finder with Progress Spinner."""
+        if not hasattr(self, "db_manager") or not self.db_manager: return
 
-        dialog = DuplicateFinderDialog(duplicates, self.db_manager, self)
-        dialog.exec()
+        # Create and Show Progress Dialog
+        progress = QProgressDialog(self.tr("Searching for duplicates..."), self.tr("Cancel"), 0, 100, self)
+        progress.setWindowTitle(self.tr("Please Wait"))
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0) # Show immediately
+        progress.setValue(0)
+
+        # Create Worker
+        worker = SimilarityWorker(self.db_manager, self.pipeline.vault)
         
-        # Refresh list as files might have been deleted
-        if self.list_widget:
-            self.list_widget.refresh_list()
+        # Track worker for safety
+        self._current_sim_worker = worker
+
+        def on_progress(current, total):
+            if progress.wasCanceled():
+                worker.terminate()
+                return
+            percent = int((current / total) * 100) if total > 0 else 0
+            progress.setValue(percent)
+            progress.setLabelText(self.tr(f"Comparing documents ({current}/{total})..."))
+
+        def on_finished(duplicates):
+            progress.close()
+            self._current_sim_worker = None
+            
+            if not duplicates:
+                 QMessageBox.information(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."))
+                 return
+
+            from gui.duplicate_dialog import DuplicateFinderDialog
+            dialog = DuplicateFinderDialog(duplicates, self.db_manager, self)
+            dialog.exec()
+            
+            if self.list_widget:
+                self.list_widget.refresh_list()
+
+        worker.progress.connect(on_progress)
+        worker.finished.connect(on_finished)
+        worker.start()
+
+        # Keep a reference to prevent GC
+        self._sim_thread = worker
 
     def open_maintenance_slot(self):
         """Open Maintenance Dialog."""
@@ -838,10 +920,11 @@ class MainWindow(QMainWindow):
         if not self.pipeline or not self.db_manager:
             return
             
+        mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
+        dialog = MaintenanceDialog(self, mgr, self.pipeline)
         dialog.exec()
         
         # Refresh list as documents might have been deleted/imported
-        # regardless of how dialog was closed
         if self.list_widget:
             self.list_widget.refresh_list()
 
@@ -953,30 +1036,10 @@ class MainWindow(QMainWindow):
 
     def _on_ai_doc_updated(self, uuid, doc):
         """Called when AI finishes a doc in background."""
-        # Refresh specific item in list?
-        # Or just refresh list fully? Full refresh is safer but maybe flickering?
-        # Let's try to update specific item if possible?
-        # ListWidget doesn't expose update_item easily.
-        # Just refresh_list() for now.
-        # To avoid scroll jump, maybe store state?
-        # Refreshing is fast enough usually.
-        # But wait, if we process 10 docs, it will refresh 10 times?
-        # Ideally we only update the changed row.
-        # For MVP, full refresh is acceptable.
         if self.list_widget:
-            # Maybe restrict refresh?
-            # self.list_widget.refresh_list() # Full refresh causes UI jump
-            # We can rely on user refreshing OR simple silent refresh?
-            # Let's emit signal to list widget to update specific uuid?
-            # ListWidget logic: it reads from DB.
-            # If DB is updated, we just need to repaint row.
-            # But we don't know the row for UUID easily without search.
-            # Let's assume refresh_list for now.
-            # User experience: "Pop in".
-            # If user is scrolling, random refresh is annoying.
-            # But user wants to see results...
-            # Compromise: Status bar shows progress. List refreshes.
-            self.list_widget.refresh_list()
+             # v28.2: Use targeted update instead of full refresh
+             # This prevents flickering and preserves scroll/focus during background AI tasks.
+             self.list_widget.update_document_item(doc)
 
     def _on_ai_status_changed(self, msg):
         self.statusBar().showMessage(msg)
@@ -1186,31 +1249,9 @@ class MainWindow(QMainWindow):
              self.list_widget.select_rows_by_uuids(self.pending_selection)
              self.pending_selection = []
              
-        # Default Selection if none (and we just loaded)
-        # Note: update_status_bar is called on filter change.
-        # If user clears selection manually, we don't want to re-select 0.
-        # But initially pending_selection handles restore.
-        # How to detect "Initial Load" vs "User cleared"?
-        # For now, simplistic: If nothing selected after refresh, select first.
-        # But this prevents "No Selection" state which might be desired?
-        # User requested: "Wiederherstellen oder als Default das erste Element"
-        # If we enable "Select First if None", it enforces always-selected?
-        # Let's try it. If annoying, we restrict it to startup.
-        # Actually `update_status_bar` called often. 
-        # Checking `self.list_widget.selectedItems()` ensures we only act if empty.
-        # But filtering might clear selection naturally.
-        # Let's only do default selection if we just restored/loaded (pending_selection was checked).
-        # OR: Check if we are in "startup" phase? Hard.
-        # Let's trust user preference: "Nach Programmstart..." 
-        # So we only want this logic if `pending_selection` path was used or failed?
-        # I'll rely on pending_selection check. 
-        # But if pending_selection is empty initially? (First run) -> select row 0.
-        pass
-        
-        # Improved Logic:
-        # If no selection, select row 0.
-        if self.list_widget.rowCount() > 0 and not self.list_widget.selectedItems():
-             self.list_widget.selectRow(0)
+        # v28.2: Removed aggressive selectRow(0) from here.
+        # Periodic background refreshes now restore selection natively in DocumentListWidget.
+        # This prevents the PDF Viewer from jumping back to the first document.
 
     def closeEvent(self, event: QCloseEvent):
         """Handle window close."""

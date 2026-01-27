@@ -287,3 +287,31 @@ class MainLoopWorker(QThread):
 
     def stop(self):
         self.is_running = False
+
+class SimilarityWorker(QThread):
+    """
+    Worker thread to calculate document similarities in the background.
+    """
+    progress = pyqtSignal(int, int) # processed, total
+    finished = pyqtSignal(list)      # list of duplicates
+
+    def __init__(self, db_manager, vault, threshold=0.85):
+        super().__init__()
+        from core.similarity import SimilarityManager
+        self.sim_manager = SimilarityManager(db_manager, vault)
+        self.threshold = threshold
+
+    def run(self):
+        try:
+            duplicates = self.sim_manager.find_duplicates(
+                threshold=self.threshold, 
+                progress_callback=self._on_progress
+            )
+            self.finished.emit(duplicates)
+        except Exception as e:
+            print(f"Similarity Worker Error: {e}")
+            traceback.print_exc()
+            self.finished.emit([])
+
+    def _on_progress(self, current, total):
+        self.progress.emit(current, total)

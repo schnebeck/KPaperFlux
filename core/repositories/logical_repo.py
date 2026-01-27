@@ -105,3 +105,17 @@ class LogicalRepository(BaseRepository):
         """Hard delete of a virtual document."""
         with self.conn:
              self.conn.execute("DELETE FROM virtual_documents WHERE uuid = ?", (uuid,))
+
+    def get_all(self) -> List[VirtualDocument]:
+        """Fetch all logical documents (including deleted)."""
+        sql = """
+        SELECT 
+            uuid, source_mapping, status, export_filename, last_used, 
+            last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
+            semantic_data, created_at, deleted, page_count_virt, type_tags
+        FROM virtual_documents
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        return [VirtualDocument.from_row(row) for row in rows]
