@@ -1,13 +1,15 @@
 
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
-    QPushButton, QScrollArea, QMessageBox, QTabWidget, QCheckBox
+    QPushButton, QScrollArea, QMessageBox, QTabWidget, QCheckBox, QComboBox, QDateEdit,
+    QTableWidget, QTableWidgetItem, QHeaderView
 )
 import json
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate
 from core.document import Document
 from core.database import DatabaseManager
 from gui.utils import format_datetime
+from gui.widgets.multi_select_combo import MultiSelectComboBox
 
 class MetadataEditorWidget(QWidget):
     """
@@ -56,18 +58,90 @@ class MetadataEditorWidget(QWidget):
         self.page_count_lbl = QLabel()
         general_layout.addRow(self.tr("Pages:"), self.page_count_lbl)
         
-        self.status_edit = QLineEdit()
-        general_layout.addRow(self.tr("Status:"), self.status_edit)
+        self.status_combo = QComboBox()
+        self.status_combo.addItems(["NEW", "PROCESSING", "PROCESSED", "ERROR"])
+        general_layout.addRow(self.tr("Status:"), self.status_combo)
         
         self.export_filename_edit = QLineEdit()
         general_layout.addRow(self.tr("Export Filename:"), self.export_filename_edit)
         
         self.tags_edit = QLineEdit()
-        self.tags_edit.setPlaceholderText("e.g. INVOICE, URGENT")
-        general_layout.addRow(self.tr("Type Tags:"), self.tags_edit)
+        self.tags_edit.setPlaceholderText("e.g. URGENT, TAX_RELEVANT")
+        general_layout.addRow(self.tr("Custom Tags:"), self.tags_edit)
         
         self.tab_widget.addTab(self.general_scroll, self.tr("General"))
+
+        # --- Tab 2: Analysis & AI Core ---
+        self.analysis_scroll = QScrollArea()
+        self.analysis_scroll.setWidgetResizable(True)
+        self.analysis_content = QWidget()
+        self.analysis_scroll.setWidget(self.analysis_content)
+        analysis_layout = QFormLayout(self.analysis_content)
+
+        # Core Selectors
+        self.doc_types_combo = MultiSelectComboBox()
+        self.doc_types_combo.addItems([
+            "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT",
+            "DUNNING", "PAYSLIP", "SICK_NOTE", "EXPENSE_REPORT", "BANK_STATEMENT", "TAX_ASSESSMENT",
+            "CONTRACT", "INSURANCE_POLICY", "OFFICIAL_LETTER", "TECHNICAL_DOC", "CERTIFICATE",
+            "APPLICATION", "NOTE", "OTHER"
+        ])
+        analysis_layout.addRow(self.tr("Document Types:"), self.doc_types_combo)
+
+        self.direction_combo = QComboBox()
+        self.direction_combo.addItems(["INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"])
+        analysis_layout.addRow(self.tr("Direction:"), self.direction_combo)
+
+        self.context_combo = QComboBox()
+        self.context_combo.addItems(["PRIVATE", "BUSINESS", "UNKNOWN"])
+        analysis_layout.addRow(self.tr("Tenant Context:"), self.context_combo)
+
+        analysis_layout.addRow(QLabel("--- " + self.tr("Extracted Data") + " ---"))
+
+        self.sender_edit = QLineEdit()
+        analysis_layout.addRow(self.tr("Sender:"), self.sender_edit)
+
+        self.date_edit = QDateEdit()
+        self.date_edit.setCalendarPopup(True)
+        self.date_edit.setSpecialValueText(" ") # Allow 'empty' look
+        analysis_layout.addRow(self.tr("Document Date:"), self.date_edit)
+
+        self.amount_edit = QLineEdit()
+        self.amount_edit.setPlaceholderText("0.00")
+        analysis_layout.addRow(self.tr("Amount:"), self.amount_edit)
+
+        self.reasoning_view = QTextEdit()
+        self.reasoning_view.setMaximumHeight(80)
+        analysis_layout.addRow(self.tr("AI Reasoning:"), self.reasoning_view)
+
+        self.tab_widget.addTab(self.analysis_scroll, self.tr("Analysis"))
         
+        # --- Tab: Stamps (Stage 1.5) - Phase 105 ---
+        self.stamps_tab = QWidget()
+        stamps_layout = QVBoxLayout(self.stamps_tab)
+        
+        self.stamps_table = QTableWidget()
+        self.stamps_table.setColumnCount(4)
+        self.stamps_table.setHorizontalHeaderLabels([
+            self.tr("Type"), self.tr("Text"), self.tr("Page"), self.tr("Confidence")
+        ])
+        self.stamps_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        stamps_layout.addWidget(self.stamps_table)
+        
+        stamps_btn_layout = QHBoxLayout()
+        self.btn_add_stamp = QPushButton(self.tr("Add Stamp"))
+        self.btn_add_stamp.clicked.connect(self._add_stamp_row)
+        self.btn_remove_stamp = QPushButton(self.tr("Remove Selected"))
+        self.btn_remove_stamp.clicked.connect(self._remove_selected_stamps)
+        stamps_btn_layout.addWidget(self.btn_add_stamp)
+        stamps_btn_layout.addWidget(self.btn_remove_stamp)
+        stamps_btn_layout.addStretch()
+        stamps_layout.addLayout(stamps_btn_layout)
+        
+        # Hide by default, shown in display_document
+        self.tab_widget.addTab(self.stamps_tab, self.tr("Stamps"))
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.stamps_tab), False)
+
         # --- Tab 2: Source Mapping (Component List) ---
         self.source_tab = QWidget()
         source_layout = QVBoxLayout(self.source_tab)
@@ -153,11 +227,16 @@ class MetadataEditorWidget(QWidget):
         
         statuses = {getattr(d, "status", "NEW") for d in docs}
         if len(statuses) == 1:
-            self.status_edit.setText(statuses.pop())
-            self.status_edit.setPlaceholderText("")
+            # Use status_combo for batch display as well
+            stat = statuses.pop().upper()
+            idx = self.status_combo.findText(stat, Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchFixedString)
+            if idx >= 0:
+                self.status_combo.setCurrentIndex(idx)
+            else:
+                self.status_combo.setCurrentText(stat) # Fallback if not in list
         else:
-            self.status_edit.clear()
-            self.status_edit.setPlaceholderText("<Multiple Values>")
+            self.status_combo.setCurrentIndex(-1) # No selection
+            self.status_combo.setPlaceholderText("<Multiple Values>")
             
         self.export_filename_edit.clear()
         self.export_filename_edit.setPlaceholderText("<Multiple Values>")
@@ -176,22 +255,121 @@ class MetadataEditorWidget(QWidget):
         self.uuid_lbl.setText(doc.uuid)
         self.created_at_lbl.setText(format_datetime(doc.created_at) or "-")
         self.page_count_lbl.setText(str(doc.page_count) if doc.page_count is not None else "-")
-        self.status_edit.setText(doc.status or "NEW")
+        # Robust Status Sync (Case Insensitive)
+        stat = (doc.status or "NEW").upper()
+        idx = self.status_combo.findText(stat, Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchFixedString)
+        if idx >= 0:
+            self.status_combo.setCurrentIndex(idx)
+        else:
+            self.status_combo.setCurrentText(stat)
+
         self.export_filename_edit.setText(doc.original_filename or "")
         
-        tags = getattr(doc, "type_tags", [])
-        self.tags_edit.setText(", ".join(tags) if tags else "")
+        # Phase 105: Separate System Tags from Custom Tags
+        all_tags = getattr(doc, "type_tags", [])
         
-        # Source Mapping
-        mapping = doc.extra_data.get("source_mapping")
-        if mapping:
-            try:
-                if isinstance(mapping, str): mapping_data = json.loads(mapping)
-                else: mapping_data = mapping
-                self.source_viewer.setPlainText(json.dumps(mapping_data, indent=2, ensure_ascii=False))
-            except: self.source_viewer.setPlainText(str(mapping))
+        # Define system tag sets for filtering
+        system_doc_types = {
+            "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT",
+            "DUNNING", "PAYSLIP", "SICK_NOTE", "EXPENSE_REPORT", "BANK_STATEMENT", "TAX_ASSESSMENT",
+            "CONTRACT", "INSURANCE_POLICY", "OFFICIAL_LETTER", "TECHNICAL_DOC", "CERTIFICATE",
+            "APPLICATION", "NOTE", "OTHER"
+        }
+        system_directions = {"INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"}
+        system_contexts = {"PRIVATE", "BUSINESS", "UNKNOWN", "CTX_PRIVATE", "CTX_BUSINESS", "CTX_UNKNOWN"}
+        
+        custom_tags = []
+        for t in all_tags:
+            t_up = t.upper()
+            if t_up in system_doc_types: continue
+            if t_up in system_directions: continue
+            if t_up in system_contexts: continue
+            custom_tags.append(t)
+            
+        self.tags_edit.setText(", ".join(custom_tags) if custom_tags else "")
+        
+        # AI / Analysis Fields
+        sd = doc.semantic_data or {}
+        
+        # Doc Types
+        dt = sd.get("doc_types", [])
+        if not dt and getattr(doc, 'doc_type', None):
+            # Legacy field compat
+            dt = doc.doc_type if isinstance(doc.doc_type, list) else [doc.doc_type]
+        self.doc_types_combo.setCheckedItems(dt)
+
+        self.direction_combo.setCurrentText(sd.get("direction", "UNKNOWN"))
+        self.context_combo.setCurrentText(sd.get("tenant_context", "UNKNOWN"))
+        self.reasoning_view.setText(sd.get("reasoning", ""))
+        
+        # Stage 1.5 Stamps (Phase 105 Fix)
+        # Check both direct 'layer_stamps' and nested 'visual_audit'
+        audit_data = sd.get("visual_audit") or sd
+        stamps = audit_data.get("layer_stamps") or audit_data.get("stamps") or []
+        
+        self.stamps_table.setRowCount(0)
+        idx_stamps = self.tab_widget.indexOf(self.stamps_tab)
+        
+        if stamps:
+            self.tab_widget.setTabVisible(idx_stamps, True)
+            for s in stamps:
+                # A stamp block can have multiple fields (form_fields) or just raw_content
+                s_type = s.get("type", "STAMP")
+                
+                # Check for nested form fields (Forensic Auditor Output)
+                fields = s.get("form_fields", [])
+                if fields:
+                    for f in fields:
+                        row = self.stamps_table.rowCount()
+                        self.stamps_table.insertRow(row)
+                        label = f.get("label", "")
+                        val = f.get("normalized_value") or f.get("raw_value") or ""
+                        
+                        self.stamps_table.setItem(row, 0, QTableWidgetItem(f"{s_type}: {label}"))
+                        self.stamps_table.setItem(row, 1, QTableWidgetItem(str(val)))
+                        self.stamps_table.setItem(row, 2, QTableWidgetItem(str(s.get("page", 1))))
+                        self.stamps_table.setItem(row, 3, QTableWidgetItem("1.0")) # Heuristic
+                else:
+                    # Simple Stamp entry
+                    row = self.stamps_table.rowCount()
+                    self.stamps_table.insertRow(row)
+                    self.stamps_table.setItem(row, 0, QTableWidgetItem(str(s_type)))
+                    self.stamps_table.setItem(row, 1, QTableWidgetItem(str(s.get("text") or s.get("raw_content") or "")))
+                    self.stamps_table.setItem(row, 2, QTableWidgetItem(str(s.get("page", 1))))
+                    self.stamps_table.setItem(row, 3, QTableWidgetItem(str(s.get("confidence", 1.0))))
         else:
-             self.source_viewer.setPlainText("No source mapping available.")
+            self.tab_widget.setTabVisible(idx_stamps, False)
+
+        # Extracted Data
+        self.sender_edit.setText(doc.sender or sd.get("sender", ""))
+        
+        # Date Handling
+        doc_date = doc.doc_date or sd.get("doc_date")
+        if doc_date:
+            if isinstance(doc_date, str):
+                qdate = QDate.fromString(doc_date, Qt.DateFormat.ISODate)
+                if qdate.isValid(): self.date_edit.setDate(qdate)
+            elif hasattr(doc_date, "isoformat"):
+                self.date_edit.setDate(QDate.fromString(doc_date.isoformat(), Qt.DateFormat.ISODate))
+        else:
+            self.date_edit.setDate(QDate(2000, 1, 1)) # Default
+
+        self.amount_edit.setText(str(doc.amount) if doc.amount is not None else "")
+
+        # Source Mapping
+        try: # Added try-except block for source mapping parsing
+            mapping = doc.extra_data.get("source_mapping")
+            if mapping:
+                try:
+                    if isinstance(mapping, str): mapping_data = json.loads(mapping)
+                    else: mapping_data = mapping
+                    self.source_viewer.setPlainText(json.dumps(mapping_data, indent=2, ensure_ascii=False))
+                except json.JSONDecodeError: # Specific exception for JSON parsing
+                    self.source_viewer.setPlainText(str(mapping)) # Fallback to string if not valid JSON
+            else:
+                 self.source_viewer.setPlainText("No source mapping available.")
+        except Exception as e:
+            print(f"Error displaying source mapping: {e}")
 
         # Full Text & Semantic Data
         self.full_text_viewer.setPlainText(getattr(doc, "text_content", "")) # Document object uses 'text_content'
@@ -202,14 +380,33 @@ class MetadataEditorWidget(QWidget):
         else:
             self.semantic_viewer.setPlainText("{}")
 
+    def _add_stamp_row(self):
+        row = self.stamps_table.rowCount()
+        self.stamps_table.insertRow(row)
+        self.stamps_table.setItem(row, 0, QTableWidgetItem("OTHER"))
+        self.stamps_table.setItem(row, 1, QTableWidgetItem(""))
+        self.stamps_table.setItem(row, 2, QTableWidgetItem("1"))
+        self.stamps_table.setItem(row, 3, QTableWidgetItem("1.0"))
+
+    def _remove_selected_stamps(self):
+        indices = sorted({idx.row() for idx in self.stamps_table.selectedIndexes()}, reverse=True)
+        for row in indices:
+            self.stamps_table.removeRow(row)
+
     def clear(self):
         self.current_uuids = []
         self.doc = None
         self.uuid_lbl.clear()
         self.created_at_lbl.clear()
         self.page_count_lbl.clear()
-        self.status_edit.clear()
+        self.status_combo.setCurrentIndex(0)
         self.export_filename_edit.clear()
+        self.doc_types_combo.setCheckedItems([])
+        self.direction_combo.setCurrentIndex(3) # UNKNOWN
+        self.context_combo.setCurrentIndex(2) # UNKNOWN
+        self.sender_edit.clear()
+        self.amount_edit.clear()
+        self.reasoning_view.clear()
         self.source_viewer.clear()
         self.semantic_viewer.clear()
         self.setEnabled(False) 
@@ -217,16 +414,103 @@ class MetadataEditorWidget(QWidget):
     def save_changes(self):
         if not self.current_uuids or not self.db_manager:
             return
-        tags_raw = self.tags_edit.text().strip()
-        tags_list = [t.strip() for t in tags_raw.split(",") if t.strip()]
+        # 1. Base Metadata
+        custom_tags_raw = self.tags_edit.text().strip()
+        custom_tags = [t.strip() for t in custom_tags_raw.split(",") if t.strip()]
+        
+        # 2. Get Structured Data
+        doc_types = self.doc_types_combo.getCheckedItems()
+        direction = self.direction_combo.currentText()
+        context = self.context_combo.currentText()
+        
+        # 3. Reconstruct full type_tags (System + Custom)
+        final_tags = list(doc_types) # Start with doc types
+        if direction != "UNKNOWN" and direction not in final_tags:
+            final_tags.append(direction)
+        if context != "UNKNOWN":
+            ctx_tag = f"CTX_{context}"
+            if ctx_tag not in final_tags:
+                final_tags.append(ctx_tag)
+        
+        # Append Custom Tags
+        for ct in custom_tags:
+            if ct not in final_tags:
+                final_tags.append(ct)
         
         updates = {
-            "status": self.status_edit.text().strip(),
+            "status": self.status_combo.currentText(),
             "export_filename": self.export_filename_edit.text().strip(),
-            "type_tags": tags_list
+            "type_tags": final_tags
         }
+
+        # 2. Semantic Metadata (Extracted Data)
+        # We merge existing semantic_data with UI changes
+        sd = self.doc.semantic_data or {}
+        sd["doc_types"] = doc_types
+        sd["direction"] = direction
+        sd["tenant_context"] = context
+        sd["reasoning"] = self.reasoning_view.toPlainText().strip()
+        
+        # 3. Stamps Persistence (Phase 105 Fix: Handle hierarchy & overwriting)
+        stamps_list = []
+        for r in range(self.stamps_table.rowCount()):
+            try:
+                page_val = int(self.stamps_table.item(r, 2).text())
+            except: page_val = 1
+            try:
+                conf_val = float(self.stamps_table.item(r, 3).text())
+            except: conf_val = 1.0
+            
+            raw_type = self.stamps_table.item(r, 0).text()
+            val = self.stamps_table.item(r, 1).text()
+            
+            # Un-flatten: "TYPE: Label" -> type=TYPE, form_field={label: Label, value: val}
+            if ":" in raw_type:
+                parts = [p.strip() for p in raw_type.split(":", 1)]
+                s_type = parts[0]
+                label = parts[1]
+                
+                # Check if we already have a block for this type on this page
+                # (Simplification: treat each row as its own block for now, or group by type/page)
+                stamps_list.append({
+                    "type": s_type,
+                    "page": page_val,
+                    "form_fields": [{
+                        "label": label,
+                        "raw_value": val,
+                        "normalized_value": val
+                    }]
+                })
+            else:
+                stamps_list.append({
+                    "type": raw_type,
+                    "raw_content": val,
+                    "page": page_val,
+                    "confidence": conf_val
+                })
+        
+        # Persist as 'layer_stamps' inside visual_audit for consistency with filters
+        if stamps_list or "visual_audit" in sd:
+            if "visual_audit" not in sd: sd["visual_audit"] = {}
+            # Overwrite both locations to stay safe
+            sd["visual_audit"]["layer_stamps"] = stamps_list
+            sd["visual_audit"]["stamps"] = stamps_list
+            # Also check if it exists at root (Phase 105 AI compatibility)
+            if "layer_stamps" in sd: 
+                sd["layer_stamps"] = stamps_list
+        
+        # Update flat document fields as well (Redundancy for filtering)
+        updates["sender"] = self.sender_edit.text().strip()
+        updates["amount"] = self.amount_edit.text().strip()
+        
+        if self.date_edit.date().year() > 2000:
+             updates["doc_date"] = self.date_edit.date().toString(Qt.DateFormat.ISODate)
+        
+        updates["semantic_data"] = sd
+        
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)
              self.db_manager.touch_last_used(uuid)
+             
         self.metadata_saved.emit()
         QMessageBox.information(self, self.tr("Saved"), self.tr("Changes saved to Database."))

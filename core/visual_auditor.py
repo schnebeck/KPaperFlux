@@ -53,11 +53,9 @@ DOCTYPE_AUDIT_CONFIG = {
     "OTHER": AUDIT_MODE_NONE
 }
 
-SIGNATURE_KEYWORDS = [
-    "unterschrift", "signature", "gez.", "signed by", 
-    "auftragnehmer", "contractor", "arbeitgeber", "employer",
-    "ort, datum", "date", "unterzeichner"
-]
+SIGNATURE_KEYWORDS_HIGH = ["unterschrift", "signature", "gez.", "signed by", "auftragnehmer", "contractor", "arbeitgeber", "employer", "unterzeichner"]
+SIGNATURE_KEYWORDS_LOW = ["ort", "datum", "date"]
+SIGNATURE_THRESHOLD = 10
 
 # ==============================================================================
 # 2. PROMPTS (STAMP vs. FULL)
@@ -72,6 +70,11 @@ Your goal is to separate the document into two distinct layers (Document Text vs
 1. **IMAGE:** Visual scan of the **FIRST_PAGE**.
 2. **RAW OCR:** Text extracted by standard OCR from the First Page.
    >>> {raw_ocr_page1} <<<
+3. **EXPECTED TYPES:** The system previously identified this as: {expected_types}
+
+### MISSION 0: IDENTITY & TYPE INTEGRITY
+- Quickly verify the document type based on visual clues (Logos, Titles).
+- If the visual evidence contradicts the EXPECTED TYPES, flag it.
 
 ### MISSION 1: THE DOCUMENT LAYER (X-Ray Mode)
 - Visually "remove" any ink stamps, handwritten notes, or stains.
@@ -121,6 +124,12 @@ Your goal is to separate the document into two distinct layers (Document Text vs
     }
   ],
 
+  "integrity": {
+    "is_type_match": Boolean,
+    "suggested_types": ["String"], // Only if is_type_match is False
+    "reasoning": "String"
+  },
+
   "arbiter_decision": {
     "raw_ocr_quality_score": Integer (0-100),
     "ai_vision_quality_score": Integer (0-100),
@@ -140,6 +149,11 @@ Your goal is to audit the document structure, extract overlays (forms/stamps), a
    - `SIGNATURE_PAGE`: Visual scan of the page likely containing signatures.
 2. **RAW OCR:** Text extracted by standard OCR from the FIRST PAGE.
    >>> {raw_ocr_page1} <<<
+3. **EXPECTED TYPES:** The system previously identified this as: {expected_types}
+
+### MISSION 0: IDENTITY & TYPE INTEGRITY
+- Quickly verify the document type based on visual clues (Logos, Titles).
+- If the visual evidence contradicts the EXPECTED TYPES, flag it.
 
 ### MISSION 1: THE DOCUMENT LAYER (X-Ray Mode on FIRST_PAGE)
 - Focus on the **FIRST_PAGE**.
@@ -185,6 +199,11 @@ Your goal is to audit the document structure, extract overlays (forms/stamps), a
       ]
     }
   ],
+  "integrity": {
+    "is_type_match": Boolean,
+    "suggested_types": ["String"],
+    "reasoning": "String"
+  },
   "signatures": {
     "has_signature": Boolean,
     "count": Integer,
@@ -283,22 +302,32 @@ class VisualAuditor:
         
         # --- 2. LOGIC FOR SIGNATURES (FULL_AUDIT) ---
         if mode == AUDIT_MODE_FULL:
-            signature_page_index = -1 # Not found yet
+            signature_page_index = -1
+            best_score = 0
             
             # Smart Search within range
             for i in scan_indices:
                 try:
                     text = get_page_text(i).lower()
-                    if any(kw in text for kw in SIGNATURE_KEYWORDS):
-                        signature_page_index = i
-                        # Continue to find LAST occurrence
+                    score = 0
+                    for kw in SIGNATURE_KEYWORDS_HIGH:
+                        if kw in text: score += 10
+                    for kw in SIGNATURE_KEYWORDS_LOW:
+                        if kw in text: score += 1
+                    
+                    if score >= SIGNATURE_THRESHOLD:
+                        # Found a candidate.
+                        # If multiple candidates, usually the LAST one is the real signature page.
+                        if score >= best_score:
+                             best_score = score
+                             signature_page_index = i
                 except:
                     pass
             
             # Decision:
             if signature_page_index != -1:
                 indices_with_labels[signature_page_index] = "SIGNATURE_PAGE"
-                print(f"[Smart Audit] Signature keywords found on physical page {signature_page_index + 1}")
+                print(f"[Smart Audit] Signature candidate found on physical page {signature_page_index + 1} (Score: {best_score})")
             else:
                 last_idx = scan_indices[-1]
                 indices_with_labels[last_idx] = "SIGNATURE_PAGE"
@@ -312,8 +341,8 @@ class VisualAuditor:
         for idx, label in indices_with_labels.items():
             try:
                 page = doc.load_page(idx)
-                # Matrix 2.0 = 2x Zoom for better OCR resolution (Stamps)
-                pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+                # Matrix 4.16 = ~300 DPI for high-resolution visual analysis (Stamps/Signatures)
+                pix = page.get_pixmap(matrix=fitz.Matrix(4.16, 4.16))
                 
                 from PIL import Image
                 import io
@@ -345,7 +374,7 @@ class VisualAuditor:
         print(f"Decided Audit Mode: {audit_mode}")
         
         if audit_mode == AUDIT_MODE_NONE:
-            return {}
+            return {"meta_mode": AUDIT_MODE_NONE}
             
         # 2. Generate Images & Text
         data = self.generate_audit_images_and_text(str(pdf_path), audit_mode, text_content=text_content, target_pages=target_pages)
@@ -360,12 +389,15 @@ class VisualAuditor:
         
         if not audit_images_data:
             print("[VisualAuditor] No images generated. Skipping.")
-            return {}
+            return {"meta_mode": "NONE"}
             
         # 3. Select & Format Prompt
         base_prompt = PROMPT_STAGE_1_5_FULL if audit_mode == AUDIT_MODE_FULL else PROMPT_STAGE_1_5_STAMP
-        # Inject Text
+        
+        # Inject Contextual Data
+        doc_types = [ent.get('doc_type', 'OTHER') for ent in entities]
         system_prompt = base_prompt.replace("{raw_ocr_page1}", raw_ocr_page1 if raw_ocr_page1 else "(No text found)")
+        system_prompt = system_prompt.replace("{expected_types}", str(doc_types))
         
         # 4. Construct Content List for Gemini
         contents = [system_prompt]

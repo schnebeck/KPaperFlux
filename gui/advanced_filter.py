@@ -23,20 +23,43 @@ class FilterConditionWidget(QWidget):
     remove_requested = pyqtSignal()
     changed = pyqtSignal()
 
-    FIELDS = {
-        # Phase 102: Stage 1 AI Fields
-        "AI Direction": "direction",
-        "AI Tenant Context": "tenant_context",
-        "AI Confidence": "confidence",
-        "AI Reasoning": "reasoning",
-        "Type Tags": "type_tags",
-        
-        "Filename": "original_filename",
-        "Created At": "created_at",
-        "Last Processed": "last_processed_at",
-        "Pages": "page_count_virt",
-        "Text Content": "cached_full_text",
-        "UUID": "uuid"
+    CATEGORIES = {
+        "basis": "📦 Basis",
+        "ai": "🤖 Analyse",
+        "stamps": "📑 Stempel",
+        "sys": "⚙️ System",
+        "raw": "🛠 Rohdaten"
+    }
+
+    FIELDS_BY_CAT = {
+        "basis": {
+            "Absender": "sender",
+            "Belegdatum": "doc_date",
+            "Betrag": "amount",
+            "Belegtyp": "doc_type",
+            "Status": "status",
+            "Schlagworte (Tags)": "type_tags",
+            "Volltext": "cached_full_text",
+        },
+        "ai": {
+            "Richtung": "direction",
+            "Kontext": "tenant_context",
+            "KI Vertrauen": "confidence",
+            "KI Begründung": "reasoning",
+        },
+        "stamps": {
+            "Stempeltext (Gesamt)": "stamp_text",
+            "Stempeltyp": "stamp_type",
+            "Audit-Modus": "visual_audit_mode",
+        },
+        "sys": {
+            "Dateiname": "original_filename",
+            "Seitenanzahl": "page_count_virt",
+            "UUID": "uuid",
+            "Erstellt am": "created_at",
+            "Verarbeitet am": "last_processed_at",
+            "In Papierkorb": "deleted",
+        }
     }
     
     # Operators per type hint (simplified)
@@ -56,62 +79,156 @@ class FilterConditionWidget(QWidget):
     def __init__(self, parent=None, extra_keys=None, available_tags=None):
         super().__init__(parent)
         self.available_tags = available_tags or []
+        self.extra_keys = extra_keys or []
+        self.last_field = None
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
-        self.combo_field = QComboBox()
-        self._populate_fields(extra_keys)
-        self.combo_field.currentTextChanged.connect(self._on_field_changed)
+        # 1. Instantiate all Widgets
+        self.btn_field_selector = QPushButton(self.tr("Select Field..."))
+        self.btn_field_selector.setMinimumWidth(150)
+        self.field_key = None
+        self.field_name = None
         
-        # Operator Selector
         self.combo_op = QComboBox()
-        for name, key in self.OPERATORS:
-            self.combo_op.addItem(name, key)
-        self.combo_op.currentIndexChanged.connect(self.changed)
-
-        # Negate Checkbox
-        self.chk_negate = QCheckBox("Not")
-        self.chk_negate.toggled.connect(self.changed)
-            
-        # Value Input (Stacked / Dynamic)
+        self.chk_negate = QCheckBox(self.tr("Not"))
         self.input_stack = QStackedWidget()
-        
-        # 0: Text Input (Default)
-        self.input_text = QLineEdit()
-        self.input_text.textChanged.connect(self.changed)
-        self.input_stack.addWidget(self.input_text)
-        
-        # 1: Multi Select (Tags / Enum)
-        self.input_multi = MultiSelectComboBox()
-        self.input_multi.selectionChanged.connect(lambda: self.changed.emit())
-        self.input_stack.addWidget(self.input_multi)
-        
-        # 2: Date Picker
-        self.input_date = DateRangePicker()
-        self.input_date.rangeChanged.connect(lambda: self.changed.emit())
-        self.input_stack.addWidget(self.input_date)
-        
-        # Remove Button
         self.btn_remove = QPushButton("X")
         self.btn_remove.setFixedWidth(24)
-        self.btn_remove.clicked.connect(self.remove_requested)
         
-        self.layout.addWidget(self.combo_field, 1)
+        # 2. Setup Input Stack
+        self.input_text = QLineEdit()
+        self.input_stack.addWidget(self.input_text)
+        self.input_multi = MultiSelectComboBox()
+        self.input_stack.addWidget(self.input_multi)
+        self.input_date = DateRangePicker()
+        self.input_stack.addWidget(self.input_date)
+        
+        # 3. Populate Operators
+        for name, key in self.OPERATORS:
+            self.combo_op.addItem(name, key)
+            
+        # 4. Add to Layout
+        self.layout.addWidget(self.btn_field_selector, 1)
         self.layout.addWidget(self.chk_negate)
         self.layout.addWidget(self.combo_op, 1)
         self.layout.addWidget(self.input_stack, 2)
         self.layout.addWidget(self.btn_remove)
-        
-    # ... _populate_fields ...
 
-    def _on_field_changed(self, text):
-        field_key = self.FIELDS.get(text)
-        # Check dynamic
+        # 5. Connect Signals (AFTER creating widgets!)
+        self.btn_field_selector.clicked.connect(self._show_field_menu)
+        self.combo_op.currentIndexChanged.connect(self.changed)
+        self.chk_negate.toggled.connect(self.changed)
+        self.input_text.textChanged.connect(self.changed)
+        self.input_multi.selectionChanged.connect(lambda: self.changed.emit())
+        self.input_date.rangeChanged.connect(lambda: self.changed.emit())
+        self.btn_remove.clicked.connect(self.remove_requested)
+
+        # Simply store for next menu open
+        pass
+
+    def update_metadata(self, extra_keys=None, available_tags=None):
+        """Update available keys/tags and refresh UI without losing state."""
+        if extra_keys is not None: self.extra_keys = extra_keys
+        if available_tags is not None: self.available_tags = available_tags
+        
+        # With the menu-based selection, we don't need to repopulate/restore state
+        # on existing widgets. The menu is built dynamically each time it's opened.
+
+    def _show_field_menu(self):
+        menu = QMenu(self)
+        translator = SemanticTranslator.instance()
+        
+        # 1. Categories
+        for cat_id, cat_label in self.CATEGORIES.items():
+            cat_menu = menu.addMenu(cat_label)
+            
+            # Basis fields
+            fields = self.FIELDS_BY_CAT.get(cat_id, {})
+            for name, key in fields.items():
+                action = cat_menu.addAction(name)
+                action.triggered.connect(lambda checked, k=key, n=name: self._set_field(k, n))
+                
+            # Dynamic additions per category
+            if cat_id == "stamps":
+                has_stamps = False
+                for k in self.extra_keys:
+                    if k.startswith("stamp_field:"):
+                        has_stamps = True
+                        label = k[12:]
+                        action = cat_menu.addAction(f"Feld: {label}")
+                        action.triggered.connect(lambda checked, k=k, n=label: self._set_field(k, n))
+                if not has_stamps and not fields:
+                    cat_menu.setEnabled(False)
+                    
+            elif cat_id == "ai":
+                config = MetadataNormalizer.get_config() or {}
+                for t_name, t_def in config.get("types", {}).items():
+                    # Translated Type Name
+                    label_key = t_def.get("label_key", f"type_{t_name.lower()}")
+                    type_label = translator.translate(label_key)
+                    
+                    type_menu = cat_menu.addMenu(type_label)
+                    for f in t_def.get("fields", []):
+                        for s in f.get("strategies", []):
+                            if s["type"] == "json_path":
+                                f_id = f["id"]
+                                f_label_key = f.get("label_key", f_id)
+                                f_label = translator.translate(f_label_key)
+                                
+                                key = f"semantic:{s['path']}"
+                                action = type_menu.addAction(f_label)
+                                action.triggered.connect(lambda checked, k=key, n=f"{type_label} > {f_label}": self._set_field(k, n))
+                                
+            elif cat_id == "raw":
+                # Build nested menus for dotted keys (e.g. summary.tax.total)
+                # Sort keys to ensure consistent menu structure
+                sorted_keys = sorted([k for k in self.extra_keys if not k.startswith("stamp_field:")])
+                
+                # Dictionary to store created menus to avoid duplicates
+                # Base is the cat_menu
+                menus = {"": cat_menu}
+                
+                for k in sorted_keys:
+                    parts = k.split(".")
+                    current_path = ""
+                    
+                    # Create parent menus if needed
+                    for i in range(len(parts) - 1):
+                        parent_path = current_path
+                        part = parts[i]
+                        current_path = f"{parent_path}.{part}" if parent_path else part
+                        
+                        if current_path not in menus:
+                            menus[current_path] = menus[parent_path].addMenu(part)
+                    
+                    # Add the final action
+                    leaf_name = parts[-1]
+                    parent_path = ".".join(parts[:-1])
+                    action = menus[parent_path].addAction(leaf_name)
+                    action.triggered.connect(lambda checked, key=k, name=k: self._set_field(key, name))
+
+        menu.exec(self.btn_field_selector.mapToGlobal(self.btn_field_selector.rect().bottomLeft()))
+
+    def _set_field(self, key, display_name):
+        self.field_key = key
+        self.field_name = display_name
+        self.btn_field_selector.setText(display_name)
+        self._on_field_changed(key)
+
+    def _on_category_changed(self, index):
+        # Deprecated
+        pass
+
+    def _on_field_changed(self, field_key):
         if not field_key:
-             idx = self.combo_field.currentIndex()
-             field_key = self.combo_field.itemData(idx)
+             return
              
+        if field_key == self.last_field:
+            return
+        self.last_field = field_key
+            
         # Logic to switch inputs
         # Logic to switch inputs
         if field_key in ["doc_date", "created_at", "last_processed_at", "last_used"]:
@@ -139,6 +256,10 @@ class FilterConditionWidget(QWidget):
                  "DUNNING", "PAYSLIP", "SICK_NOTE", "EXPENSE_REPORT", "BANK_STATEMENT", "TAX_ASSESSMENT",
                  "CONTRACT", "INSURANCE_POLICY", "OFFICIAL_LETTER", "TECHNICAL_DOC", "CERTIFICATE", "APPLICATION", "NOTE", "OTHER"
              ])
+        elif field_key == "visual_audit_mode":
+              self.input_stack.setCurrentIndex(1)
+              self.input_multi.clear()
+              self.input_multi.addItems(["STAMP_ONLY", "FULL_AUDIT", "NONE"])
         else:
             self.input_stack.setCurrentIndex(0) # Text
             
@@ -204,6 +325,10 @@ class FilterConditionWidget(QWidget):
                       short = key[5:]
                       display = f"Raw: {short}"
                       value = key
+                 elif key.startswith("stamp_field:"):
+                      short = key[12:]
+                      display = f"Stamp: {short}"
+                      value = key
                  else:
                       display = f"Raw: {key}"
                       value = f"json:{key}"
@@ -215,12 +340,9 @@ class FilterConditionWidget(QWidget):
                      self.combo_field.addItem(display, value)
 
     def get_condition(self):
-        # Handle standard vs dynamic fields
-        if self.combo_field.currentData():
-            field_key = self.combo_field.currentData()
-        else:
-            field_name = self.combo_field.currentText()
-            field_key = self.FIELDS.get(field_name, field_name.lower())
+        field_key = self.field_key
+        if not field_key:
+             return None
         
         op = self.combo_op.currentData()
         
@@ -251,43 +373,31 @@ class FilterConditionWidget(QWidget):
         
         self.chk_negate.setChecked(mode.get("negate", False))
         
-        # 1. Set Field (This triggers _on_field_changed -> sets up input stack)
-        found = False
-        if key.startswith("json:") or key.startswith("semantic:"):
-             # Check if item exists
-             for i in range(self.combo_field.count()):
-                 if self.combo_field.itemData(i) == key:
-                     self.combo_field.setCurrentIndex(i)
-                     found = True
-                     break
-             if not found:
-                 # Add ad-hoc
-                 if key.startswith("semantic:"): display = f"AI: {key[9:]}"
-                 elif key.startswith("json:"): display = f"JSON: {key[5:]}"
-                 else: display = f"JSON: {key}"
-                 self.combo_field.addItem(display, key)
-                 self.combo_field.setCurrentIndex(self.combo_field.count() - 1)
-        else:
-             # Standard
-             # Reverse lookup FIELDS
-             text_key = None
-             for k, v in self.FIELDS.items():
-                 if v == key:
-                     text_key = k
-                     break
-             
-             if text_key:
-                 self.combo_field.setCurrentText(text_key)
-             else:
-                 # Fallback: Check if data exists or add it (System Fields like 'deleted')
-                 idx = self.combo_field.findData(key)
-                 if idx >= 0:
-                     self.combo_field.setCurrentIndex(idx)
-                 else:
-                     # Not found, add it so we can filter on it
-                     display = f"System: {key}"
-                     self.combo_field.addItem(display, key)
-                     self.combo_field.setCurrentIndex(self.combo_field.count() - 1)
+        # Determine Display Name for the button
+        display_name = key
+        
+        # Search in static mappings
+        for cat, fields in self.FIELDS_BY_CAT.items():
+            for name, k in fields.items():
+                if k == key:
+                    display_name = name
+                    break
+                    
+        # Search in AI schema
+        if key.startswith("semantic:"):
+             path = key[9:]
+             config = MetadataNormalizer.get_config() or {}
+             for t_name, t_def in config.get("types", {}).items():
+                 for f in t_def.get("fields", []):
+                     for s in f.get("strategies", []):
+                         if s["type"] == "json_path" and s["path"] == path:
+                             display_name = f"{t_name} > {f['id']}"
+                             
+        # Search in Dynamic Stamps
+        if key.startswith("stamp_field:"):
+             display_name = f"Stempel: {key[12:]}"
+
+        self._set_field(key, display_name)
                  
         # 2. Set Operator
         op = mode.get("op", "contains")
@@ -416,6 +526,18 @@ class AdvancedFilterWidget(QWidget):
     def add_condition(self, data=None):
         # Delegate to root group
         self.root_group.add_condition(data)
+
+    def refresh_dynamic_data(self):
+        """Re-fetch extra keys and tags from DB and refresh UI components."""
+        if not self.db_manager: return
+        
+        print("[DEBUG] AdvancedFilter: Refreshing dynamic metadata (Stamps/Tags)...")
+        self.extra_keys = self.db_manager.get_available_extra_keys()
+        if hasattr(self.db_manager, "get_available_tags"):
+            self.available_tags = self.db_manager.get_available_tags()
+            
+        if self.root_group:
+            self.root_group.update_metadata(self.extra_keys, self.available_tags)
 
     def remove_condition(self, row):
         # Handled internally by groups
@@ -675,7 +797,7 @@ class AdvancedFilterWidget(QWidget):
         self._emit_change()
 
     def save_current_filter(self):
-        if not self.rows:
+        if not self.root_group.children_widgets:
              QMessageBox.warning(self, self.tr("Save Filter"), self.tr("No conditions to save."))
              return
              

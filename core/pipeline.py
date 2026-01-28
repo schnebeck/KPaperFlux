@@ -87,11 +87,7 @@ class PipelineProcessor:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         print(f"[STAGE 0] Starting Ingest for: {file_path}")
-        try:
-            file_sha = self._compute_sha256(path)
-        except Exception as e:
-            print(f"Error computing hash: {e}")
-            return None
+        file_sha = self._compute_sha256(path)
         
         # Check by SHA (Dedup)
         phys_file = self.physical_repo.get_by_phash(file_sha)
@@ -636,12 +632,14 @@ class PipelineProcessor:
             output_pdf = Path(temp_dir) / f"ocr_{path.name}"
             # sidecar_txt = Path(temp_dir) / f"ocr_{path.name}.txt"
             
-            # Run ocrmypdf
+            # Run ocrmypdf with quality enhancements
             cmd = [
                 ocr_binary,
                 "--force-ocr", 
                 "-l", "deu+eng",
-                # "--sidecar", str(sidecar_txt), # We don't use sidecar anymore, we parse output
+                "--deskew",       # Straighten tilted pages
+                "--clean",        # Remove scanning noise/dots
+                "--rotate-pages", # Fix upside down or sideways pages
                 str(path), 
                 str(output_pdf)
             ]

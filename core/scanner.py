@@ -134,7 +134,7 @@ class SaneScanner(ScannerDriver):
             
         except Exception as e:
             print(f"SANE scan error: {e}")
-            return None
+            raise
     
     def cleanup(self):
         if SANE_AVAILABLE:

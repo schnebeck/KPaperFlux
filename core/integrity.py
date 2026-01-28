@@ -36,7 +36,7 @@ class IntegrityManager:
             return sha256_hash.hexdigest()
         except Exception as e:
             print(f"Error hashing {path}: {e}")
-            return ""
+            raise
 
     def check_integrity(self) -> IntegrityReport:
         """

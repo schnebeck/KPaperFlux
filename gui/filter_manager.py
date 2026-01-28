@@ -277,22 +277,44 @@ class FilterManagerDialog(QDialog):
             self.details_text.setHtml(html)
             
         else:
-            # Dynamic Filter
+            # Regular Filter or Snapshot
+            # Reverse map for human readable display
+            field_map_rev = {
+                "direction": "AI Direction",
+                "tenant_context": "AI Context",
+                "confidence": "AI Confidence",
+                "reasoning": "AI Reasoning",
+                "type_tags": "Type Tags",
+                "visual_audit_mode": "Visual Audit",
+                "original_filename": "Filename",
+                "export_filename": "Filename",
+                "created_at": "Created At",
+                "last_processed_at": "Last Processed",
+                "page_count_virt": "Pages",
+                "cached_full_text": "Text Content"
+            }
+
             self.details_label.setText(f"<b>Filter Rule:</b> {node.name}")
             
-            # Simple human readable summary
-            # Condition 'field' 'op' 'value'
             lines = []
             if node.data and 'conditions' in node.data:
                  op_main = node.data.get('operator', 'AND')
                  lines.append(f"<b>Logic: {op_main}</b>")
                  lines.append("<ul>")
                  for c in node.data['conditions']:
-                     f = c.get('field')
+                     f_key = c.get('field', '')
+                     f_display = field_map_rev.get(f_key, f_key)
                      o = c.get('op')
                      v = c.get('value')
+                     
+                     # Format value for display
+                     if isinstance(v, list):
+                         v_display = ", ".join(map(str, v))
+                     else:
+                         v_display = str(v)
+                         
                      neg = "NOT " if c.get('negate') else ""
-                     lines.append(f"<li>{neg}<b>{f}</b> <i>{o}</i> '{v}'</li>")
+                     lines.append(f"<li>{neg}<b>{f_display}</b> <i>{o}</i> '{v_display}'</li>")
                  lines.append("</ul>")
             
             self.details_text.setHtml("".join(lines))

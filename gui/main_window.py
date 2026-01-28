@@ -67,19 +67,26 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         self.pending_selection = []
         
+        # Phase 105: Selection Tracking
+        self._dashboard_selections = {} # query_str -> uuid
+        
         self.filter_config_path = Path("filter_tree.json").resolve()
         
         self.create_menu_bar()
         self.create_tool_bar() 
         self.setup_shortcuts()
         
+        # --- Global Models ---
+        self.filter_tree = FilterTree()
+        self.load_filter_tree()
+
         # Central Widget is now a Stacked Widget
         self.central_stack = QStackedWidget()
         self.setCentralWidget(self.central_stack)
         
         # --- Page 0: Dashboard (Home) ---
         from gui.dashboard import DashboardWidget
-        self.dashboard_widget = DashboardWidget(self.db_manager)
+        self.dashboard_widget = DashboardWidget(self.db_manager, filter_tree=self.filter_tree)
         self.dashboard_widget.navigation_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.dashboard_widget)
         
@@ -96,18 +103,11 @@ class MainWindow(QMainWindow):
         self.central_stack.setCurrentIndex(0) # Start with Dashboard
         
         # --- Left Pane (Filter | List | Editor) ---
-        
-        # --- Left Pane (Filter | List | Editor) ---
         self.left_pane_splitter = QSplitter(Qt.Orientation.Vertical)
         
         # 1. Filter (Fixed/Small)
-        # Note: Splitter usually takes widgets directly.
-        # But FilterWidget might need a container or simply add it.
         self.filter_widget = FilterWidget()
         self.left_pane_splitter.addWidget(self.filter_widget)
-        
-        self.filter_tree = FilterTree()
-        self.load_filter_tree()
         
         self.advanced_filter = AdvancedFilterWidget(
             db_manager=self.db_manager, 
@@ -116,10 +116,8 @@ class MainWindow(QMainWindow):
         )
         self.advanced_filter.setVisible(False)
         self.left_pane_splitter.addWidget(self.advanced_filter)
-        
         self.filter_widget.complex_filter_toggled.connect(self.advanced_filter.setVisible)
         
-        # 2. Document List
         if self.db_manager:
             self.list_widget = DocumentListWidget(self.db_manager)
             self.list_widget.document_selected.connect(self.on_document_selected)
@@ -143,6 +141,11 @@ class MainWindow(QMainWindow):
             self.list_widget.purge_requested.connect(self.purge_documents_slot)
             self.list_widget.active_filter_changed.connect(self._on_view_filter_changed)
             
+            # Phase 105: Active Filter Precedence
+            self.advanced_filter.chk_active.toggled.connect(self.list_widget.set_advanced_filter_active)
+            # Synchronize initial state
+            self.list_widget.advanced_filter_active = self.advanced_filter.chk_active.isChecked()
+            
             self.left_pane_splitter.addWidget(self.list_widget)
 
 
@@ -151,6 +154,11 @@ class MainWindow(QMainWindow):
         self.editor_widget = MetadataEditorWidget(self.db_manager)
         if hasattr(self.list_widget, 'refresh_list'):
             self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
+        if self.dashboard_widget:
+            self.editor_widget.metadata_saved.connect(self.dashboard_widget.refresh_stats)
+        # Phase 105: Ensure Rule Editor stays in sync with dynamic stamp labels
+        if self.advanced_filter:
+            self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
         self.left_pane_splitter.addWidget(self.editor_widget)
         
         # Add Left Pane to Main Splitter
@@ -439,6 +447,9 @@ class MainWindow(QMainWindow):
             self.pdf_viewer.clear()
             return
 
+        # Save selection for persistence (Phase 105)
+        self._save_current_selection_to_persistence(uuids[0])
+
         docs = []
         for uuid in uuids:
             # Try loading as Physical Document
@@ -463,13 +474,29 @@ class MainWindow(QMainWindow):
         print(f"[DEBUG] Ensuring Editor Visible. Current: {self.editor_widget.isVisible()}")
         self.editor_widget.setVisible(True)
         self.editor_widget.display_documents(docs)
-        
-        # Check Splitter Sizes
+        # Robust Status Sync (Case Insensitive)
+        if docs: # Only attempt if there are documents
+            doc = docs[0] # Use the first document for status display
+            stat = (doc.status or "NEW").upper()
+            idx = self.editor_widget.status_combo.findText(stat)
+            if idx >= 0:
+                self.editor_widget.status_combo.setCurrentIndex(idx)
+            else:
+                self.editor_widget.status_combo.setCurrentText(stat) # Fallback if not in list
+            self.editor_widget.export_filename_edit.setText(doc.original_filename or "")
+
+        # Phase 105: UI Resilience - Check Splitter Sizes
+        # 1. Main Splitter (Left Pane | PDF Viewer)
+        main_sizes = self.main_splitter.sizes()
+        if main_sizes and main_sizes[1] == 0:
+            print("[DEBUG] PDF Viewer collapsed! Forcing expand.")
+            total = sum(main_sizes)
+            self.main_splitter.setSizes([int(total*0.4), int(total*0.6)])
+            
+        # 2. Left Pane Splitter (Filter | List | Editor)
         sizes = self.left_pane_splitter.sizes()
-        print(f"[DEBUG] Left Splitter Sizes: {sizes}")
-        if sizes[2] == 0:
+        if sizes and sizes[2] == 0:
             print("[DEBUG] Editor pane collapsed! Forcing expand.")
-            # Heuristic: Give 30% to editor
             total = sum(sizes)
             new_sizes = [sizes[0], int(total*0.6), int(total*0.4)]
             self.left_pane_splitter.setSizes(new_sizes)
@@ -652,6 +679,10 @@ class MainWindow(QMainWindow):
         # This is cleaner than manually calling load_document.
         if uuid_to_restore and uuid_to_restore in processed_uuids:
              self.list_widget.select_document(uuid_to_restore)
+        
+        # Trigger Dashboard Refresh
+        if self.dashboard_widget:
+            self.dashboard_widget.refresh_stats()
              
         # Async: Queue for AI Analysis
         if self.ai_worker and processed_uuids:
@@ -1415,16 +1446,59 @@ class MainWindow(QMainWindow):
     
     def navigate_to_list_filter(self, filter_query: dict):
         """Switch to Explorer View and apply filter."""
-        self.central_stack.setCurrentIndex(1) # Explorer
+        from PyQt6.QtCore import QCoreApplication, QTimer
         
+        self.central_stack.setCurrentIndex(1) # Explorer
+        # Force Layout calculation
+        QCoreApplication.processEvents()
+        
+        # Prepare selection restore
+        q_str = json.dumps(filter_query, sort_keys=True)
+        target_uuid = self._dashboard_selections.get("DASH:" + q_str)
+        self.list_widget.target_uuid_to_restore = target_uuid
+        self.list_widget.current_dashboard_query = filter_query
+        
+        # User Rule: Dashboard click handles its own context.
+        # Usually we want the Rule Editor to REFLECT this query but maybe be INACTIVE
+        # if the user specifically asked for "Dashboard handles inactive".
+        # Let's LOAD it but potentially keep the active state or force inactive.
+        # User: "Wenn die Regel inaktiv ist, dann bestimmt der aktuelle Dashboardfilter den LKistview."
+        # This implies we can deactivate the rule editor.
+        if self.advanced_filter.chk_active.isChecked():
+             self.advanced_filter.chk_active.setChecked(False) # Deactivate to let Dashboard query through
+
+        # Phase 105: UI Resilience - Delay filter application to allow splitter/viewer to stabilize
+        QTimer.singleShot(100, lambda: self._apply_navigation_filter(filter_query))
+
+    def _save_current_selection_to_persistence(self, uuid: str):
+        """Save selected UUID for the current active filter context."""
+        try:
+            if self.advanced_filter.chk_active.isChecked():
+                # RULE Context
+                query = self.advanced_filter.get_query_object()
+                key = "RULE:" + json.dumps(query, sort_keys=True)
+            else:
+                # DASHBOARD Context
+                query = self.list_widget.current_dashboard_query or {}
+                key = "DASH:" + json.dumps(query, sort_keys=True)
+            
+            self._dashboard_selections[key] = uuid
+        except:
+            pass
+
+    def _apply_navigation_filter(self, filter_query: dict):
         if self.advanced_filter:
-            if hasattr(self.advanced_filter, "set_filter_from_dict"):
-                 # Assuming AdvancedFilter has this or load_from_object
-                 self.advanced_filter.load_from_object(filter_query)
-                 self.advanced_filter.apply_advanced_filter()
-            elif hasattr(self.advanced_filter, "load_from_object"):
-                 self.advanced_filter.load_from_object(filter_query)
-                 self.advanced_filter.apply_advanced_filter()
+            # Load into Rule Editor (will keep it inactive if we deactivated it above)
+            self.advanced_filter.blockSignals(True)
+            self.advanced_filter.load_from_object(filter_query)
+            # Re-enforce inactive state because load_from_object usually activates it
+            self.advanced_filter.chk_active.setChecked(False) 
+            self.list_widget.advanced_filter_active = False # Manual sync since signals are blocked
+            self.advanced_filter.blockSignals(False)
+            
+            # Now trigger list refresh
+            self.list_widget.refresh_list(force_select_first=True)
+            self.list_widget.tree.setFocus()
 
 
     def open_splitter_dialog_slot(self, uuid: str):
@@ -1496,7 +1570,7 @@ class MainWindow(QMainWindow):
     def go_home_slot(self):
         """Switch to Dashboard."""
         self.central_stack.setCurrentIndex(0)
-        if self.dashboard_widget:
+        if hasattr(self, "dashboard_widget") and self.dashboard_widget:
             self.dashboard_widget.refresh_stats()
 
     def create_tool_bar(self):

@@ -125,3 +125,24 @@ class FilterTree:
             node.children.append(child_node)
             
         return node
+    def get_all_filters(self) -> List[FilterNode]:
+        """Returns a flat list of all FILTER nodes in the tree."""
+        results = []
+        def _recurse(node):
+            if node.node_type == NodeType.FILTER:
+                results.append(node)
+            for child in node.children:
+                _recurse(child)
+        _recurse(self.root)
+        return results
+
+    def find_node_by_id(self, node_id: str) -> Optional[FilterNode]:
+        """Find a node by its UUID."""
+        def _recurse(node):
+            if node.id == node_id:
+                return node
+            for child in node.children:
+                found = _recurse(child)
+                if found: return found
+            return None
+        return _recurse(self.root)

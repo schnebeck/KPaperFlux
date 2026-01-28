@@ -98,6 +98,14 @@ class FilterGroupWidget(QWidget):
         child.changed.connect(self.changed)
         self.changed.emit()
 
+    def update_metadata(self, extra_keys, available_tags):
+        """Recursively update metadata for all children."""
+        self.extra_keys = extra_keys
+        self.available_tags = available_tags
+        for child in self.children_widgets:
+             if hasattr(child, "update_metadata"):
+                 child.update_metadata(extra_keys, available_tags)
+
     def remove_child(self, child_widget):
         if child_widget in self.children_widgets:
             self.children_widgets.remove(child_widget)

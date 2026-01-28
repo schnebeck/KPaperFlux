@@ -45,6 +45,15 @@ class PdfViewerWidget(QWidget):
         
         self._init_ui()
         self.restore_zoom_state()
+        self._pending_refresh = False
+
+    def showEvent(self, event):
+        """Force a refresh if we were hidden during load."""
+        super().showEvent(event)
+        if self._pending_refresh or (self.current_uuid and self.document.pageCount() == 0):
+            print("[PdfViewer] Detected gray canvas on show. Forcing refresh.")
+            self._refresh_preview()
+            self._pending_refresh = False
         
     def _init_ui(self):
         self.main_layout = QVBoxLayout(self)
@@ -160,6 +169,8 @@ class PdfViewerWidget(QWidget):
     def load_document(self, file_path_or_uuid, uuid: str = None, initial_page: int = 1):
         """Standard entry point from MainWindow."""
         self.clear()
+        if not self.isVisible():
+            self._pending_refresh = True
         
         if uuid:
             self.current_uuid = uuid
@@ -253,6 +264,7 @@ class PdfViewerWidget(QWidget):
             
         except Exception as e:
             print(f"Error refreshing preview: {e}")
+            self._pending_refresh = True
 
     def _swap_pdf_document(self, path):
         """Safely swap the document in the viewer."""

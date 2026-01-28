@@ -47,6 +47,11 @@ class VirtualDocument:
     deleted: bool = False
     type_tags: List[str] = field(default_factory=list) # Phase 102
     
+    # Filter Columns (Phase 105)
+    sender: Optional[str] = None
+    doc_date: Optional[str] = None
+    amount: Optional[float] = None
+    
     # Runtime properties (SQLite Generated)
     page_count_virt: int = 0
     
@@ -89,7 +94,8 @@ class VirtualDocument:
         Parse from virtual_documents row.
         # Indices: 0:uuid, 1:source_mapping, 2:status, 3:export_filename, 4:last_used, 
         #          5:last_processed_at, 6:is_immutable, 7:thumbnail_path, 8:cached_full_text,
-        #          9:semantic_data, 10:created_at, 11:deleted, 12:page_count_virt, 13:type_tags
+        #          9:semantic_data, 10:created_at, 11:deleted, 12:page_count_virt, 13:type_tags,
+        #          14:sender, 15:doc_date, 16:amount
         """
         source_mapping = []
         if row[1]:
@@ -123,5 +129,8 @@ class VirtualDocument:
             created_at=row[10],
             deleted=bool(row[11]),
             page_count_virt=row[12] or 0,
-            type_tags=type_tags
+            type_tags=type_tags,
+            sender=row[14] if len(row) > 14 else None,
+            doc_date=row[15] if len(row) > 15 else None,
+            amount=row[16] if len(row) > 16 else None
         )

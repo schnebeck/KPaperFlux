@@ -11,8 +11,6 @@ from google.genai.errors import ClientError
 from core.models.canonical_entity import (
     DocType, InvoiceData, LogisticsData, BankStatementData, 
     TaxAssessmentData, ExpenseData, UtilityData, ContractData, 
-    DocType, InvoiceData, LogisticsData, BankStatementData, 
-    TaxAssessmentData, ExpenseData, UtilityData, ContractData, 
     InsuranceData, VehicleData, MedicalData, LegalMetaData
 )
 from core.models.identity import IdentityProfile
@@ -259,24 +257,13 @@ class AIAnalyzer:
                     # Set Cooldown
                     AIAnalyzer._cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=delay)
                     continue
-                else:
-                    # Other errors -> Trace/Log and Stop? Or Retry?
-                    # Usually fail fast for Client/Auth errors.
-                    print(f"GenAI Error (Non-Retriable): {e}")
-                    return None
-        
-        print("AI Analysis Failed after retries.")
-        return None
+        raise RuntimeError("AI Analysis Failed after retries.")
 
     def analyze_text(self, text: str, image=None) -> AIAnalysisResult:
         schema_path = "/home/schnebeck/.gemini/antigravity/brain/0c4bc2e7-3c24-4140-a725-c6afcc6fb483/document_schema.json" # Hardcoded for now or loaded relative?
         # Let's read it here or pass it in. For robustness, I'll inline a minimal version if file read fails, or better read it.
-        try:
-             with open(schema_path, "r") as f:
-                 doc_schema = json.load(f)
-        except Exception as e:
-             print(f"Error loading schema: {e}")
-             return AIAnalysisResult() # Fail safe
+        with open(schema_path, "r") as f:
+            doc_schema = json.load(f)
              
         # Create a simplified One-Shot Example to guide the model away from Schema copying
         example_json = """
@@ -848,70 +835,52 @@ class AIAnalyzer:
 
         # 3. Construct System Prompt
         # 3. Construct System Prompt
-        # Phase 102 Update: Multi-Doc Classification Prompt
-        
-        # Serialize IDs for prompt
-        priv_json_str = private_id.model_dump_json() if private_id else "{}"
-        bus_json_str = business_id.model_dump_json() if business_id else "{}"
-        
+        # Prepare Identity JSON for prompt
+        identity_json = {
+            "PRIVATE_IDENTITY": private_id.model_dump() if private_id else {},
+            "BUSINESS_IDENTITY": business_id.model_dump() if business_id else {}
+        }
+        identity_json_str = json.dumps(identity_json, indent=2)
+
         prompt = f"""
 === [SYSTEM INSTRUCTION] ===
 
 You are an expert Document Structure Analyzer & Splitter for a hybrid DMS.
 Your task is to analyze the input text and identify ALL distinct logical document types contained within it.
 
-  "BUSINESS_IDENTITY": {bus_json_str}
-}}
+### 1. CONTEXT: USER IDENTITIES
+Use the following JSON to determine the `direction` (INBOUND/OUTBOUND) and `tenant_context` for EACH detected document.
 
-### SCAN MODE CONTEXT
+{identity_json_str}
+
+### 2. SCAN MODE CONTEXT
 Current Scan Mode: {mode}
+(If 'SANDWICH_MODE': Assume missing pages belong to the same entity. If 'HEADER_SCAN_MODE': Rely on headers/logos.)
 
-1. **IF MODE = 'SANDWICH_MODE':**
-   - You are only seeing the FIRST few and the LAST page of a large document.
-   - Assume all missing pages between the provided pages belong to the SAME logical entity.
-   - Do NOT split the document unless the last page clearly belongs to a completely different document.
+### 3. CRITICAL ANALYSIS RULES
+1. **Segmentation (Full Coverage):**
+   - Identify the exact `page_indices` for each logical document based on the `--- PAGE X ---` markers.
+   - **Do NOT orphan pages:** If a document says "Page 1 of 3", you MUST include pages 1, 2, and 3.
 
-2. **IF MODE = 'HEADER_SCAN_MODE':**
-   - You are seeing ALL pages, but ONLY the Header and Footer areas.
-   - Use changes in Document Numbers or Logos to detect splits.
-   - Body content is missing, so rely purely on formal identifiers in the header.
-
-3. **IF MODE = 'FULL_READ_MODE':**
-   - You are seeing the full content of all pages.
-
-### 2. CRITICAL ANALYSIS RULES
-1. **Segmentation (Full Coverage):** - Identify the exact `page_indices` for each logical document based on the `--- PAGE X ---` markers.
-   - **Do NOT orphan pages:** If a document says "Page 1 of 3", you MUST include pages 1, 2, and 3 in the `page_indices` list.
-   - **Trailing Pages:** Terms and Conditions (AGB) attached to an invoice usually belong to the invoice entity.
-
-2. **Identity Disambiguation:**
-   - If the User Name appears in multiple identities (Private vs. Business), you MUST check the **ADDRESS** or **COMPANY NAME** to decide.
-   - Example: Address matches Private address? -> Use PRIVATE_IDENTITY. Address matches Business address? -> Use BUSINESS_IDENTITY.
-   - Do NOT hallucinate a business context if the address is clearly private.
+2. **Identity Disambiguation (BILLING vs. DELIVERY):**
+   - **HIERARCHY RULE:** The **BILLING ADDRESS** (usually top-left or under "Invoice to") is the SOLE decider for the `tenant_context`.
+   - **IGNORE** the Delivery Address (Lieferadresse) for context determination.
+   - **Scenario:** Invoice billed to "Private Person" (Home Address) but delivered to "Company Office" (Work Address) -> Context is **PRIVATE**.
+   - **Scenario:** Invoice billed to "Company Corp" -> Context is **BUSINESS**.
 
 3. **Hybrid Documents (Tagging):**
-   - If a single logical document serves multiple purposes (e.g., "Invoice & Delivery Note" on Page 1), assign **MULTIPLE** tags to the `doc_types` array. 
-   - Do NOT split a single physical page into multiple entities.
+   - If a single logical document serves multiple purposes (e.g. "Invoice & Delivery Note"), assign **MULTIPLE** tags. Do NOT split a single physical page.
 
-4. **Differentiation: INVOICE vs. DELIVERY_NOTE (CRITICAL):**
-   - **Standard Invoice:** Almost every invoice lists goods/services. This does NOT make it a delivery note.
+4. **Differentiation: INVOICE vs. DELIVERY_NOTE:**
    - **Rule:** Do NOT apply the tag "DELIVERY_NOTE" merely because items are listed.
-   - **Condition for DELIVERY_NOTE:** Only apply this tag if:
-     A) The document title explicitly contains "Lieferschein" / "Delivery Note" (e.g., "Rechnung / Lieferschein").
-     B) OR the document lists items/quantities WITHOUT prices/totals (a pure packing list).
+   - **Condition:** Only apply "DELIVERY_NOTE" if the title explicitly says "Lieferschein" OR if it is a pure packing list without prices.
 
-5. **Keyword Priority:**
-   - Trust the **Document Title** (Header) more than the body content. 
-   - If the header says "Rechnung" and body lists items -> Type is ["INVOICE"].
-   - If the header says "Lieferschein" -> Type is ["DELIVERY_NOTE"].
-   - If the header says "Rechnung / Lieferschein" -> Type is ["INVOICE", "DELIVERY_NOTE"].
-
-6. **Direction Logic:**
+5. **Direction Logic:**
    - **INBOUND:** User Identity is in the **RECIPIENT** area OR sender is a third party.
    - **OUTBOUND:** User Identity is in the **SENDER/HEADER** area.
    - **INTERNAL:** User Identity is both Sender and Recipient.
 
-### 3. ALLOWED DOCTYPES (Strict List)
+### 4. ALLOWED DOCTYPES
 [
   "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT",
   "DUNNING", "PAYSLIP", "SICK_NOTE", "EXPENSE_REPORT", "BANK_STATEMENT", "TAX_ASSESSMENT",
@@ -919,8 +888,8 @@ Current Scan Mode: {mode}
   "APPLICATION", "NOTE", "OTHER"
 ]
 
-### 4. OUTPUT SCHEMA (JSON)
-Return ONLY a valid JSON object. No markdown.
+### 5. OUTPUT SCHEMA (JSON)
+Return ONLY a valid JSON object. 
 
 {{
   "source_file_summary": {{
@@ -928,12 +897,12 @@ Return ONLY a valid JSON object. No markdown.
   }},
   "detected_entities": [
     {{
-      "doc_types": ["INVOICE", "DELIVERY_NOTE"], 
-      "page_indices": [1, 2],       
+      "doc_types": ["INVOICE"], 
+      "page_indices": [1],       
       "direction": "INBOUND | OUTBOUND | INTERNAL | UNKNOWN",
       "tenant_context": "PRIVATE | BUSINESS | UNKNOWN",
-      "confidence": 0.98,
-      "reasoning": "Recipient matches Private Identity. Sender is a third party. Document lists physical goods, so Delivery Note tag is added."
+      "confidence": 0.99,
+      "reasoning": "Billing address matches 'Max Mustermann' (Private). Delivery address to 'ACME Corp' is ignored."
     }}
   ]
 }}
@@ -943,7 +912,7 @@ Return ONLY a valid JSON object. No markdown.
 ### DOCUMENT CONTENT (with Page Markers):
 {analysis_text}
 """
-        
+
         try:
             # --- START VALIDATOR LOOP ---
             max_retries = 2
@@ -993,6 +962,8 @@ TASK:
 
     def validate_classification(self, result: dict, ocr_pages: List[str], priv_id=None, bus_id=None) -> List[str]:
         """Validates AI response for logical errors (Orphan pages, Context insanity)."""
+        from core.validators import validate_ai_structure_response
+        
         errors = []
         entities = result.get("detected_entities", [])
         total_pages = len(ocr_pages)
@@ -1006,23 +977,9 @@ TASK:
              missing = set(range(1, total_pages + 1)) - claimed_pages
              errors.append(f"SEGMENTATION_ERROR: Missing pages {sorted(list(missing))}. Every page must be assigned to an entity.")
 
-        # 2. Context Sanity Check
-        for ent in entities:
-             ctx = ent.get("tenant_context")
-             pages = ent.get("page_indices", [])
-             if not pages: continue
-             
-             # Check first page of entity
-             first_page_idx = pages[0] - 1
-             if first_page_idx < 0 or first_page_idx >= len(ocr_pages):
-                 continue
-                 
-             text = ocr_pages[first_page_idx]
-             if ctx == "BUSINESS" and bus_id:
-                 # Check for business markers
-                 biz_markers = [bus_id.name, bus_id.company_name] + bus_id.address_keywords
-                 if not any(str(m).lower() in text.lower() for m in biz_markers if m):
-                      errors.append(f"CONTEXT_ERROR: Entity starting on page {pages[0]} is marked as BUSINESS but contains no business identity markers. Check if it should be PRIVATE.")
+        # 2. Context Sanity Check (Fuzzy)
+        fuzzy_errors = validate_ai_structure_response(result, ocr_pages, priv_id, bus_id)
+        errors.extend(fuzzy_errors)
 
         return errors
 

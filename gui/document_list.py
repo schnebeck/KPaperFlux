@@ -89,9 +89,12 @@ class DocumentListWidget(QWidget):
         self.pipeline = pipeline
         self.current_filter = {}
         self.current_filter_text = ""
-        self.current_advanced_query = None # Phase 58: Store advanced query state
+        self.current_advanced_query = None 
+        self.current_dashboard_query = None # Phase 105: Dashboard Precedence
+        self.advanced_filter_active = True   # Phase 105: Active Rule Toggle
+        self.target_uuid_to_restore = None   # Phase 105: Programmatic override
         self.dynamic_columns = []
-        self.is_trash_mode = False # Phase 92
+        self.is_trash_mode = False 
         
         self.init_ui()
 
@@ -565,52 +568,66 @@ class DocumentListWidget(QWidget):
         if not self.db_manager:
             return
             
-        try:
-             # Store current selection AND current item (keyboard focus)
-             selected_uuids = self.get_selected_uuids()
-             current_uuid = None
-             if self.tree.currentItem():
-                 current_uuid = self.tree.currentItem().data(1, Qt.ItemDataRole.UserRole)
-             
-             # Phase 92: Trash Mode
-             if self.is_trash_mode:
-                 docs = self.db_manager.get_deleted_entities_view()
-             elif self.current_advanced_query:
-                 print(f"[DEBUG] refresh_list executing Advanced Query: {self.current_advanced_query}")
-                 docs = self.db_manager.search_documents_advanced(self.current_advanced_query)
-                 print(f"[DEBUG] Advanced Query returned {len(docs)} documents.")
-             else:
-                 query = getattr(self, "current_filter_text", None)
-                 if query:
-                     docs = self.db_manager.search_documents(query)
-                 else:
-                     docs = self.db_manager.get_all_entities_view()
-                 print(f"[DEBUG] Standard View returned {len(docs)} documents.")
+        # Store current selection AND current item (keyboard focus)
+        selected_uuids = self.get_selected_uuids()
+        current_uuid = None
+        current_row_index = -1
+        if self.tree.currentItem():
+            item = self.tree.currentItem()
+            current_uuid = item.data(1, Qt.ItemDataRole.UserRole)
+            current_row_index = self.tree.indexOfTopLevelItem(item)
+        
+        # Phase 105: Tiered Query Selection
+        active_query = None
+        if self.is_trash_mode:
+            docs = self.db_manager.get_deleted_entities_view()
+        else:
+            if self.advanced_filter_active and self.current_advanced_query:
+                active_query = self.current_advanced_query
+                print(f"[DEBUG] refresh_list: Rule Editor is ACTIVE. Query: {active_query}")
+            elif self.current_dashboard_query:
+                active_query = self.current_dashboard_query
+                print(f"[DEBUG] refresh_list: Rule Editor INACTIVE. Using Dashboard Filter: {active_query}")
 
-             # v28.2: Change Detection / Redraw Prevention
-             # We create a footprint of the data to see if a redraw is actually needed.
-             current_sig = tuple((d.uuid, d.status, str(d.last_processed_at)) for d in docs)
-             
-             if not force_select_first and hasattr(self, '_last_refresh_sig') and self._last_refresh_sig == current_sig:
-                  # [SILENT] Data is identical to what is currently shown.
-                  return
-             
-             if hasattr(self, '_last_refresh_sig'):
-                  print(f"[DEBUG] refresh_list: Change detected in {len(docs)} documents (or forced). Redrawing view.")
-             else:
-                  print(f"[DEBUG] refresh_list: Initial population ({len(docs)} documents).")
-                  
-             self._last_refresh_sig = current_sig
+            if active_query:
+                 docs = self.db_manager.search_documents_advanced(active_query)
+            else:
+                query_text = getattr(self, "current_filter_text", None)
+                if query_text:
+                    docs = self.db_manager.search_documents(query_text)
+                else:
+                    docs = self.db_manager.get_all_entities_view()
+                print(f"[DEBUG] Standard View returned {len(docs)} documents.")
 
-        except Exception as e:
-             print(f"[ERROR] refresh_list error: {e}")
-             docs = []
+        # v28.2: Change Detection / Redraw Prevention
+        # We create a footprint of the data to see if a redraw is actually needed.
+        current_sig = tuple((d.uuid, d.status, str(d.last_processed_at)) for d in docs)
+        
+        if not force_select_first and hasattr(self, '_last_refresh_sig') and self._last_refresh_sig == current_sig:
+             # [SILENT] Data is identical to what is currently shown.
+             return
+        
+        if hasattr(self, '_last_refresh_sig'):
+             print(f"[DEBUG] refresh_list: Change detected in {len(docs)} documents (or forced). Redrawing view.")
+        else:
+             print(f"[DEBUG] refresh_list: Initial population ({len(docs)} documents).")
+             
+        self._last_refresh_sig = current_sig
              
         self.populate_tree(docs)
         
-        # Restore selection
-        if selected_uuids:
-             self.tree.blockSignals(True)
+        # Phase 105: Selection Resilience
+        self.tree.blockSignals(True)
+        restored = False
+        
+        # 1. Higher Priority: Explicit Target (from Dashboard or Re-analysis)
+        if self.target_uuid_to_restore:
+             self.select_document(self.target_uuid_to_restore)
+             self.target_uuid_to_restore = None
+             restored = bool(self.tree.selectedItems())
+             
+        # 2. Medium Priority: Previous Selection
+        if not restored and selected_uuids:
              for uuid in selected_uuids:
                   self.select_document(uuid)
                   if uuid == current_uuid:
@@ -619,9 +636,27 @@ class DocumentListWidget(QWidget):
                            if item.data(1, Qt.ItemDataRole.UserRole) == uuid:
                                self.tree.setCurrentItem(item)
                                break
-             self.tree.blockSignals(False)
-        elif force_select_first and docs:
+             restored = bool(self.tree.selectedItems())
+             
+        # 3. Medium-Low Priority: Positional Persistence (Phase 105: Next Item logic)
+        # If the doc moved out of filter, select the one now at the same row
+        if not restored and current_row_index >= 0 and docs:
+             target_index = min(current_row_index, self.tree.topLevelItemCount() - 1)
+             if target_index >= 0:
+                 self.selectRow(target_index)
+                 restored = True
+
+        # 4. Fallback: First Document (Prevent Gray Canvas)
+        if not restored and force_select_first and docs:
              self.selectRow(0)
+             restored = True
+             
+        self.tree.blockSignals(False)
+        
+        # Emit selection signal manually if we forced a new selection
+        # (Signals were blocked during restoration)
+        if restored:
+             self._on_selection_changed()
              
         self.document_count_changed.emit(len(docs), len(docs)) 
         return
@@ -794,6 +829,7 @@ class DocumentListWidget(QWidget):
         if 0 <= row < self.tree.topLevelItemCount():
             item = self.tree.topLevelItem(row)
             item.setSelected(True)
+            self.tree.setCurrentItem(item)
             self.tree.scrollToItem(item)
 
     def item(self, row: int, column: int = 0) -> QTreeWidgetItem:
@@ -863,8 +899,15 @@ class DocumentListWidget(QWidget):
             self.show_trash_bin(False, refresh=False) # Ensure we leave trash mode
             self.current_filter_text = None # Clear simple text search
             
-        # Consolidate via refresh_list to benefit from signature checks
+        # Phase 105: Handled inside refresh_list logic
         self.refresh_list(force_select_first=True)
+        self.tree.setFocus()
+
+    def set_advanced_filter_active(self, active: bool):
+        """Toggle between Rule Editor and Dashboard Filter precedence."""
+        self.advanced_filter_active = active
+        self.refresh_list(force_select_first=True)
+        self.tree.setFocus()
 
     def populate_tree(self, docs):
         """Populate the tree with document data, including dynamic columns."""

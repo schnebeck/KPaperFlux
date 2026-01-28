@@ -204,7 +204,9 @@ class CanonizerService:
         base_ref = original_source_map[0] # Assuming single source for now
         
         for idx, candidate in enumerate(split_candidates):
-            c_type = candidate.get("type", "OTHER")
+            # Determine primary type for audit logic
+            c_types = candidate.get("types", ["OTHER"])
+            c_type = c_types[0] if c_types else "OTHER"
             c_pages = candidate.get("pages", []) # 1-based indices relative to logic doc
             
             # Map Logical Pages -> Physical Pages
@@ -278,6 +280,52 @@ class CanonizerService:
             # Skip automated CDM extraction for now
             # cdm_data = self.analyzer.extract_canonical_data(c_type, entity_text)
             # target_doc.semantic_data = cdm_data
+            
+            # [STAGE 1.5] Visual Audit (Stamps, Handwritings, Signatures)
+            # The Auditor decides based on DocType if a visual scan is needed.
+            pf = self.physical_repo.get_by_uuid(base_ref.file_uuid)
+            if pf:
+                audit_res = self.visual_auditor.run_stage_1_5(
+                    pdf_path=pf.file_path,
+                    doc_uuid=target_doc.uuid,
+                    stage_1_result={"detected_entities": [{"doc_type": c_type}]},
+                    text_content=entity_text,
+                    target_pages=new_source_pages
+                )
+                print(f"[DEBUG] Stage 1.5 Result for {target_doc.uuid[:8]}: {json.dumps(audit_res, indent=2) if audit_res else 'EMPTY'}")
+                if audit_res:
+                    # Persist Audit in Semantic Data
+                    if target_doc.semantic_data is None:
+                         target_doc.semantic_data = {}
+                    target_doc.semantic_data["visual_audit"] = audit_res
+                    
+                    # --- THE ARBITER LOGIC ---
+                    # 1. Type Integrity Check
+                    integrity = audit_res.get("integrity", {})
+                    if integrity.get("is_type_match") is False:
+                        new_types = integrity.get("suggested_types", [])
+                        if new_types:
+                            print(f"[ARBITER] !!! TYPE MISMATCH !!! for {target_doc.uuid[:8]}")
+                            print(f"  Expected: {c_type} | Suggested: {new_types}")
+                            print(f"  Reason: {integrity.get('reasoning')}")
+                            # Update local classification for this entity
+                            c_type = new_types[0] if new_types else c_type
+                            # Update the document's type tags
+                            target_doc.type_tags = list(set(new_types + target_doc.type_tags))
+                            if "direction" in target_doc.type_tags: 
+                                # preserve direction if it was there, target_doc.type_tags might contain more info
+                                pass
+
+                    # 2. OCR Quality Recommendation
+                    decision = audit_res.get("arbiter_decision", {})
+                    print(f"[ARBITER] OCR Score: {decision.get('raw_ocr_quality_score')} | AI Score: {decision.get('ai_vision_quality_score')}")
+                    print(f"[ARBITER] Recommended Source: {decision.get('primary_source_recommendation')}")
+                    
+                    if decision.get("primary_source_recommendation") == "AI_VISION":
+                        cleaned_text = audit_res.get("layer_document", {}).get("clean_text")
+                        if cleaned_text:
+                            print(f"[ARBITER] Swapping OCR text with AI-repaired text (Reason: {decision.get('reasoning')})")
+                            entity_text = cleaned_text
             
             target_doc.cached_full_text = entity_text
             
@@ -619,11 +667,6 @@ class CanonizerService:
         # Not reliable if markers missing, so default to full text if A failed
         return full_text
                  
-    def save_entity(self, entity: CanonicalEntity):
-        """Persist Pydantic Entity to DB."""
-        # Convert Pydantic to JSON/Dict
-        data = entity.model_dump()
-        
     def _save_entity(self, entity: CanonicalEntity):
         """
         Phase 102: Save Canonical Result to Stage 0/1.
@@ -656,78 +699,78 @@ class CanonizerService:
             print(f"[Canonizer] Saved Stage 0 Entity {new_uuid} from AI result ({entity.doc_type.value})")
         except Exception as e:
             print(f"[Canonizer] Error saving AI entity: {e}")
+        
+    def _fuzzy_identity_match(self, party_name: str, party_address: str, profile: IdentityProfile) -> bool:
+        """
+        Robust identity check inspired by user scenario.
+        Tolerates OCR noise via scoring and PLZ-first strategy.
+        """
+        if not party_name and not party_address:
+            return False
+            
+        text_lower = f"{party_name or ''} {party_address or ''}".lower()
+        
+        # 1. HARTER CHECK: Postleitzahlen (PLZ)
+        for kw in profile.address_keywords:
+            if kw.isdigit() and len(kw) == 5:
+                if kw in text_lower:
+                    return True
+
+        # 2. WEICHER CHECK: Scoring
+        score = 0.0
+        threshold = 0.8
+        
+        search_terms = []
+        if profile.name: search_terms.append(profile.name)
+        if profile.company_name: search_terms.append(profile.company_name)
+        search_terms += profile.aliases
+        search_terms += profile.company_aliases
+        search_terms += [k for k in profile.address_keywords if not k.isdigit()]
+
+        for term in set(search_terms):
+            if not term or len(term) < 3: continue
+            clean_term = term.lower()
+            if clean_term in text_lower:
+                score += 1.0
+            elif len(clean_term) >= 5:
+                prefix = clean_term[:5]
+                if prefix in text_lower:
+                    score += 0.5
+                parts = clean_term.split()
+                for part in parts:
+                    if len(part) > 3 and part in text_lower:
+                        score += 0.3
+                        
+        return score >= threshold
 
     def _classify_direction(self, entity: CanonicalEntity):
         """
         Phase 101: Semantic Direction Classification.
-        Uses both raw signatures and structured IdentityProfiles (if available).
+        Uses robust fuzzy matching for IdentityProfiles.
         """
-        # Load Raw Signatures
-        private_sig = self.config.get_private_signature().strip()
-        business_sig = self.config.get_business_signature().strip()
-        
         # Load Structured Profiles
         priv_json = self.config.get_private_profile_json()
         bus_json = self.config.get_business_profile_json()
         
-        profiles = []
+        identities = []
         try:
-            if priv_json: profiles.append(IdentityProfile.model_validate_json(priv_json))
-            if bus_json: profiles.append(IdentityProfile.model_validate_json(bus_json))
+            if priv_json: identities.append(IdentityProfile.model_validate_json(priv_json))
+            if bus_json: identities.append(IdentityProfile.model_validate_json(bus_json))
         except Exception as e:
             print(f"[Canonizer] Profile Load Error: {e}")
 
-        # Helper to check if a Party matches Me
-        def is_me(party_name: str, party_address: str) -> bool:
-            if not party_name: return False
-            norm_name = party_name.lower()
-            norm_addr = party_address.lower() if party_address else ""
-            
-            # 1. Raw Signature Match (Heuristic: First line)
-            for sig in [private_sig, business_sig]:
-                if sig:
-                    first_line = sig.split('\n')[0].strip().lower()
-                    if first_line and first_line in norm_name:
-                        return True
-                        
-            # 2. Structured Profile Match
-            for prof in profiles:
-                # Name (Person or Entity Main)
-                if prof.name and prof.name.lower() in norm_name:
-                    return True
-                # Aliases
-                for alias in prof.aliases:
-                    if alias.lower() in norm_name:
-                        return True
-                
-                # Company Name
-                if prof.company_name and prof.company_name.lower() in norm_name:
-                    return True
-                # Company Aliases
-                for ca in prof.company_aliases:
-                    if ca.lower() in norm_name:
-                        return True
-                        
-                # Address Keywords (Weak match, usually needs multiple? For now just checks presence in address field)
-                # If Address is present, check keywords
-                if norm_addr and prof.address_keywords:
-                    # Require at least one significant keyword (e.g. Street or City) to match
-                    for kw in prof.address_keywords:
-                        if len(kw) > 3 and kw.lower() in norm_addr:
-                             # Strengthen this? Maybe checking Zip is safest.
-                             # For now, simplistic match.
-                             return True
-            return False
-
+        # Check Sender
+        sender_name = entity.parties.sender.name
         sender_addr = entity.parties.sender.address
+        for prof in identities:
+            if self._fuzzy_identity_match(sender_name, sender_addr, prof):
+                entity.direction = "OUTGOING"
+                return
+
+        # Check Recipient
+        recipient_name = entity.parties.recipient.name
         recipient_addr = entity.parties.recipient.address
-
-        # Sender = Me? -> OUTGOING
-        if is_me(entity.parties.sender.name, sender_addr):
-            entity.direction = "OUTGOING"
-            return
-
-        # Recipient = Me? -> INCOMING
-        if is_me(entity.parties.recipient.name, recipient_addr):
-            entity.direction = "INCOMING"
-            return
+        for prof in identities:
+            if self._fuzzy_identity_match(recipient_name, recipient_addr, prof):
+                entity.direction = "INCOMING"
+                return

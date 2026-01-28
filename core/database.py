@@ -60,7 +60,12 @@ class DatabaseManager:
             -- Stage 0/1 Powerhouse: Generated Count
             -- Using a simplified version: Number of source segments (files)
             page_count_virt INTEGER DEFAULT 0,
-            type_tags TEXT -- JSON List of strings
+            type_tags TEXT, -- JSON List of strings
+            
+            -- Filter Columns (Phase 105)
+            sender TEXT,
+            doc_date TEXT,
+            amount REAL
         );
         """
         
@@ -85,6 +90,13 @@ class DatabaseManager:
                 self.connection.execute("ALTER TABLE virtual_documents ADD COLUMN type_tags TEXT")
             except sqlite3.OperationalError:
                 pass # Already exists
+
+            # Phase 105 Filter Column Migrations
+            for col, col_type in [("sender", "TEXT"), ("doc_date", "TEXT"), ("amount", "REAL")]:
+                try:
+                    self.connection.execute(f"ALTER TABLE virtual_documents ADD COLUMN {col} {col_type}")
+                except sqlite3.OperationalError:
+                    pass
                 
             self.connection.execute("DROP VIEW IF EXISTS documents")
         
@@ -100,8 +112,12 @@ class DatabaseManager:
         """
         if not updates: return False
         
-        # Whitelist for Stage 0/1
-        allowed = ["status", "export_filename", "deleted", "is_immutable", "locked", "type_tags", "cached_full_text", "last_used", "last_processed_at"]
+        # Whitelist for Stage 0/1/2
+        allowed = [
+            "status", "export_filename", "deleted", "is_immutable", "locked", 
+            "type_tags", "cached_full_text", "last_used", "last_processed_at",
+            "semantic_data", "sender", "amount", "doc_date"
+        ]
         filtered = {k: v for k, v in updates.items() if k in allowed}
         
         if "locked" in filtered:
@@ -109,6 +125,9 @@ class DatabaseManager:
              
         if "type_tags" in filtered and isinstance(filtered["type_tags"], list):
              filtered["type_tags"] = json.dumps(filtered["type_tags"])
+
+        if "semantic_data" in filtered and isinstance(filtered["semantic_data"], dict):
+             filtered["semantic_data"] = json.dumps(filtered["semantic_data"], ensure_ascii=False)
         
         if filtered:
             self._update_table("virtual_documents", uuid, filtered, pk_col="uuid")
@@ -135,7 +154,8 @@ class DatabaseManager:
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
                    page_count_virt, created_at, is_immutable, type_tags, 
                    cached_full_text, last_used, last_processed_at,
-                   semantic_data
+                   semantic_data,
+                   sender, doc_date, amount
             FROM virtual_documents
             WHERE uuid = ?
         """
@@ -172,21 +192,7 @@ class DatabaseManager:
         keys = set()
         cursor = self.connection.cursor()
         
-        # 1. Source Mapping Keys
-        try:
-            cursor.execute("SELECT source_mapping FROM virtual_documents WHERE source_mapping IS NOT NULL")
-            for row in cursor.fetchall():
-                if row[0]:
-                    try:
-                        data = json.loads(row[0])
-                        if isinstance(data, list):
-                             for item in data:
-                                 if isinstance(item, dict):
-                                     self._extract_keys_recursive(item, keys, prefix="source:")
-                    except: pass
-        except: pass
-
-        # 2. Semantic Data Keys (AI Results)
+        # 1. Semantic Data Keys (AI Results)
         try:
             cursor.execute("SELECT semantic_data FROM virtual_documents WHERE semantic_data IS NOT NULL")
             for row in cursor.fetchall():
@@ -197,6 +203,10 @@ class DatabaseManager:
                              self._extract_keys_recursive(data, keys, prefix="semantic:")
                     except: pass
         except: pass
+
+        # 2. Add Stamp Labels (Phase 105: Dynamic Stamps)
+        for label in self.get_unique_stamp_labels():
+            keys.add(f"stamp_field:{label}")
                         
         return sorted(list(keys))
 
@@ -238,22 +248,39 @@ class DatabaseManager:
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
-                   semantic_data
+                   semantic_data,
+                   sender, doc_date, amount
             FROM virtual_documents
             WHERE {where_clause}
             ORDER BY created_at DESC
         """
         
-        try:
-            cursor = self.connection.cursor()
-            cursor.execute(sql, params)
-            rows = cursor.fetchall()
-            return [self._row_to_doc(row) for row in rows]
-        except sqlite3.Error as e:
-            print(f"[Database] Advanced Search Error: {e}\nSQL: {sql}\nParams: {params}")
-            return []
+        cursor = self.connection.cursor()
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+        
+        results = []
+        for row in rows:
+            results.append(self._row_to_doc(row))
+        return results
 
-    def _build_where_clause(self, node: dict):
+    def count_documents_advanced(self, query: dict) -> int:
+        """
+        Efficiently count documents matching an advanced query.
+        """
+        if not query or (not query.get("conditions") and not query.get("field")):
+            return self.count_documents()
+
+        where_clause, params = self._build_where_clause(query)
+        if "deleted" not in where_clause.lower():
+            where_clause = f"({where_clause}) AND deleted = 0"
+
+        sql = f"SELECT COUNT(*) FROM virtual_documents WHERE {where_clause}"
+        cursor = self.connection.cursor()
+        cursor.execute(sql, params)
+        return cursor.fetchone()[0]
+
+    def _build_where_clause(self, node: dict) -> tuple[str, list]:
         """Recursively builds SQL WHERE clause from query node."""
         if "field" in node:
             # It's a single condition
@@ -307,13 +334,25 @@ class DatabaseManager:
             
             # Stage 1 Direct fields
             "type_tags": "type_tags", # JSON array
+            "sender": "sender",
+            "doc_date": "doc_date",
+            "amount": "amount",
             
             # Stage 1 Semantic fields (nested in semantic_data)
             "direction": "json_extract(semantic_data, '$.direction')",
             "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
             "confidence": "json_extract(semantic_data, '$.confidence')",
             "reasoning": "json_extract(semantic_data, '$.reasoning')",
-            "doc_type": "json_extract(semantic_data, '$.doc_types[0]')" # First one as primary for simple search
+            "doc_type": "json_extract(semantic_data, '$.doc_types[0]')", # First one as primary for simple search
+            "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
+            
+            # Phase 105: Visual Audit / Stamps
+            "stamp_text": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.raw_content'), '')) "
+                          "FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), "
+                          "json_extract(semantic_data, '$.layer_stamps'))) AS s)",
+            "stamp_type": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.type'), '')) "
+                          "FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), "
+                          "json_extract(semantic_data, '$.layer_stamps'))) AS s)"
         }
         
         if field in mapping:
@@ -326,6 +365,16 @@ class DatabaseManager:
         if field.startswith("semantic:"):
             path = field[9:]
             return f"json_extract(semantic_data, '$.{path}')"
+            
+        # Dynamic Stamp Fields (Phase 105)
+        if field.startswith("stamp_field:"):
+             label = field[12:]
+             # Return subquery that aggregates values for THIS label from all stamps
+             return f"(SELECT group_concat(COALESCE(json_extract(f.value, '$.normalized_value'), json_extract(f.value, '$.raw_value'))) " \
+                    f" FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), " \
+                    f" json_extract(semantic_data, '$.layer_stamps'))) AS s, " \
+                    f" json_each(json_extract(s.value, '$.form_fields')) AS f " \
+                    f" WHERE json_extract(f.value, '$.label') = '{label}')"
             
         return field # fallback
 
@@ -383,7 +432,8 @@ class DatabaseManager:
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
-                   semantic_data
+                   semantic_data,
+                   sender, doc_date, amount
             FROM virtual_documents
             WHERE deleted = 0
             ORDER BY created_at DESC
@@ -425,7 +475,11 @@ class DatabaseManager:
             "text_content": row[8] if len(row) > 8 else None,
             "last_used": row[9] if len(row) > 9 else None,
             "last_processed_at": row[10] if len(row) > 10 else None,
-            "semantic_data": semantic_data
+            "semantic_data": semantic_data,
+            # Phase 105 Filter Columns
+            "sender": row[12] if len(row) > 12 else None,
+            "doc_date": row[13] if len(row) > 13 else None,
+            "amount": row[14] if len(row) > 14 else None,
         }
 
         # If semantic_data exists, Pydantic Document model has many attributes 
@@ -722,7 +776,7 @@ class DatabaseManager:
         except Exception as e:
             print(f"Purge failed: {e}")
             self.connection.rollback()
-            return False
+            raise # Re-raise to let the user know
 
     def get_source_mapping_from_entity(self, entity_uuid: str) -> Optional[list]:
         """
@@ -733,12 +787,28 @@ class DatabaseManager:
         cursor.execute("SELECT source_mapping FROM virtual_documents WHERE uuid = ?", (entity_uuid,))
         row = cursor.fetchone()
         if row and row[0]:
-            try:
-                return json.loads(row[0])
-            except:
-                pass
+            return json.loads(row[0])
         return None
 
+    def get_unique_stamp_labels(self) -> List[str]:
+        """Fetch all unique labels used in stamp form fields across the database."""
+        sql = """
+            SELECT DISTINCT json_extract(f.value, '$.label')
+            FROM virtual_documents,
+                 json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), 
+                                    json_extract(semantic_data, '$.layer_stamps'))) AS s,
+                 json_each(json_extract(s.value, '$.form_fields')) AS f
+            WHERE f.value IS NOT NULL AND json_extract(f.value, '$.label') IS NOT NULL;
+        """
+        try:
+            with self.connection:
+                cursor = self.connection.cursor()
+                cursor.execute(sql)
+                return [row[0] for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"[DB] Error fetching unique stamp labels: {e}")
+            return []
+            
     def get_source_uuid_from_entity(self, entity_uuid: str) -> Optional[str]:
         """Phase 98: Resolve an entity UUID to its primary source physical UUID."""
         mapping = self.get_source_mapping_from_entity(entity_uuid)

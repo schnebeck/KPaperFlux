@@ -88,7 +88,7 @@ class FilterWidget(QWidget):
         form.addWidget(self.txt_tags)
         
         # Apply/Reset (Advanced)
-        btn_apply = QPushButton(self.tr("Apply Advanced"))
+        btn_apply = QPushButton(self.tr("Filter anwenden"))
         btn_apply.clicked.connect(self.emit_filter)
         form.addWidget(btn_apply)
         

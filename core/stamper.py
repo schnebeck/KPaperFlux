@@ -239,7 +239,7 @@ class DocumentStamper:
                             stamps.append({'id': s_id, 'text': text})
         except Exception as e:
             print(f"Error getting stamps: {e}")
-        return stamps
+            raise
 
     def has_stamp(self, file_path: str) -> bool:
         return len(self.get_stamps(file_path)) > 0
@@ -335,4 +335,4 @@ class DocumentStamper:
             
         except Exception as e:
             print(f"Error removing stamp: {e}")
-            return False
+            raise
