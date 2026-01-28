@@ -33,14 +33,14 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, 
             last_used, last_processed_at, is_immutable, thumbnail_path, 
             cached_full_text, semantic_data, created_at, deleted, page_count_virt,
-            type_tags
+            type_tags, sender, doc_date, amount
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
         
         type_tags_json = json.dumps(doc.type_tags) if doc.type_tags else None
-
+ 
         values = (
             doc.uuid,
             mapping_json,
@@ -55,7 +55,10 @@ class LogicalRepository(BaseRepository):
             doc.created_at,
             int(doc.deleted),
             total_pages,
-            type_tags_json
+            type_tags_json,
+            doc.sender,
+            doc.doc_date,
+            doc.amount
         )
         
         with self.conn:

@@ -10,6 +10,7 @@ from core.document import Document
 from core.database import DatabaseManager
 from gui.utils import format_datetime
 from gui.widgets.multi_select_combo import MultiSelectComboBox
+from gui.widgets.tag_input import TagInputWidget
 
 class MetadataEditorWidget(QWidget):
     """
@@ -63,11 +64,11 @@ class MetadataEditorWidget(QWidget):
         general_layout.addRow(self.tr("Status:"), self.status_combo)
         
         self.export_filename_edit = QLineEdit()
-        general_layout.addRow(self.tr("Export Filename:"), self.export_filename_edit)
+        general_layout.addRow(self.tr("Export Name:"), self.export_filename_edit)
         
-        self.tags_edit = QLineEdit()
-        self.tags_edit.setPlaceholderText("e.g. URGENT, TAX_RELEVANT")
-        general_layout.addRow(self.tr("Custom Tags:"), self.tags_edit)
+        self.tags_edit = TagInputWidget()
+        self.tags_edit.setToolTip(self.tr("Custom Tags: Enter keywords, separated by commas or Enter."))
+        general_layout.addRow(self.tr("Tags:"), self.tags_edit)
         
         self.tab_widget.addTab(self.general_scroll, self.tr("General"))
 

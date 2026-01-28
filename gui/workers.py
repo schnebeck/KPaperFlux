@@ -5,6 +5,65 @@ import queue
 import time
 from core.document import Document
 from core.ai_analyzer import AIAnalyzer
+from core.rules_engine import RulesEngine
+from core.repositories.logical_repo import LogicalRepository
+
+class BatchTaggingWorker(QThread):
+    """
+    Phase 106: Worker thread to apply tagging rules to many documents in background.
+    """
+    progress = pyqtSignal(int, int) # processed, total
+    finished = pyqtSignal(int) # count of modified documents
+    
+    def __init__(self, db, rules=None, uuids=None):
+        super().__init__()
+        self.db = db
+        self.rules = rules # If None, will fetch enabled rules from DB. Can be a single Rule.
+        self.uuids = uuids # If None, will fetch all non-deleted documents
+        self.is_cancelled = False
+        
+    def run(self):
+        engine = RulesEngine(self.db)
+        repo = LogicalRepository(self.db)
+        
+        if self.rules is None:
+            rules = engine.get_enabled_rules()
+        elif isinstance(self.rules, list):
+            rules = self.rules
+        else:
+            rules = [self.rules] # Single rule provided
+            
+        if not rules:
+            self.finished.emit(0)
+            return
+
+        # Fetch UUIDs if not provided
+        uuids = self.uuids
+        if uuids is None:
+            cursor = self.db.connection.cursor()
+            cursor.execute("SELECT uuid FROM virtual_documents WHERE deleted = 0")
+            uuids = [row[0] for row in cursor.fetchall()]
+        
+        total = len(uuids)
+        
+        modified_count = 0
+        for i, uuid in enumerate(uuids):
+            if self.is_cancelled:
+                break
+                
+            v_doc = repo.get_by_uuid(uuid)
+            if v_doc:
+                if engine.apply_rules_to_entity(v_doc, rules):
+                    repo.save(v_doc)
+                    modified_count += 1
+            
+            if i % 10 == 0:
+                self.progress.emit(i + 1, total)
+
+        self.finished.emit(modified_count)
+
+    def cancel(self):
+        self.is_cancelled = True
 
 class ImportWorker(QThread):
     """

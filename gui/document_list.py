@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QTreeWidgetItem, QTreeWidget, QWidget, QVBoxLayout, QAbstractItemView, QStyledItemDelegate, QMessageBox
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QTreeWidgetItem, QTreeWidget, QWidget, QVBoxLayout, QAbstractItemView, QStyledItemDelegate, QMessageBox, QTreeWidgetItemIterator
 from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QEvent, QTimer
 
 class RowNumberDelegate(QStyledItemDelegate):
@@ -848,6 +848,17 @@ class DocumentListWidget(QWidget):
             if uid:
                 uuids.add(uid)
         return list(uuids)
+
+    def get_all_uuids_in_view(self) -> list[str]:
+        """Return list of all UUIDs currently displayed in the list/tree."""
+        uuids = []
+        iterator = QTreeWidgetItemIterator(self.tree)
+        while iterator.value():
+            uid = iterator.value().data(1, Qt.ItemDataRole.UserRole)
+            if uid:
+                uuids.append(uid)
+            iterator += 1
+        return uuids
 
     def select_rows_by_uuids(self, uuids: list[str]):
         """Select items matching the given UUIDs."""

@@ -97,6 +97,47 @@ class DatabaseManager:
                     self.connection.execute(f"ALTER TABLE virtual_documents ADD COLUMN {col} {col_type}")
                 except sqlite3.OperationalError:
                     pass
+
+            # Phase 106: Auto-Tagging Rules
+            create_tagging_rules_table = """
+            CREATE TABLE IF NOT EXISTS tagging_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                filter_conditions TEXT NOT NULL,     -- JSON
+                tags_to_add TEXT NOT NULL,           -- JSON
+                tags_to_remove TEXT DEFAULT '[]',    -- JSON
+                is_enabled INTEGER DEFAULT 1,
+                execution_order INTEGER DEFAULT 0,
+                auto_apply INTEGER DEFAULT 1
+            );
+            """
+            self.connection.execute(create_tagging_rules_table)
+            
+            # Migration for auto_apply
+            try:
+                self.connection.execute("ALTER TABLE tagging_rules ADD COLUMN auto_apply INTEGER DEFAULT 1")
+                print("[DB] Migrated tagging_rules: Added auto_apply column")
+            except:
+                pass # Already exists
+
+    def matches_condition(self, entity_uuid: str, query_dict: dict) -> bool:
+        """
+        Phase 106: Check if a specific document matches a rule's filter conditions.
+        Uses the existing SQL-based filter engine.
+        """
+        if not query_dict:
+            return True # Empty rule matches everything? Usually safety first: return False if preferred.
+            
+        where_clause, params = self._build_where_clause(query_dict)
+        sql = f"SELECT 1 FROM virtual_documents WHERE uuid = ? AND ({where_clause})"
+        
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(sql, [entity_uuid] + params)
+            return cursor.fetchone() is not None
+        except Exception as e:
+            print(f"[DB] Error in matches_condition: {e}")
+            return False
                 
             self.connection.execute("DROP VIEW IF EXISTS documents")
         
