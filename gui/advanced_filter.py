@@ -488,16 +488,30 @@ class AdvancedFilterWidget(QWidget):
         search_layout = QVBoxLayout(self.search_tab)
         
         s_row = QHBoxLayout()
-        s_row.addWidget(QLabel(self.tr("Global Search:")))
+        s_row.addWidget(QLabel(self.tr("Search:")))
         self.txt_smart_search = QLineEdit()
         self.txt_smart_search.setPlaceholderText(self.tr("e.g. Amazon 2024 Invoice..."))
         self.txt_smart_search.returnPressed.connect(self._on_smart_search)
         s_row.addWidget(self.txt_smart_search)
         
-        btn_apply_search = QPushButton(self.tr("Apply"))
+        btn_apply_search = QPushButton(self.tr("Go"))
         btn_apply_search.clicked.connect(self._on_smart_search)
         s_row.addWidget(btn_apply_search)
         search_layout.addLayout(s_row)
+        
+        # Options & Status Row
+        opt_layout = QHBoxLayout()
+        self.chk_search_scope = QCheckBox(self.tr("Search in current view only"))
+        self.chk_search_scope.setToolTip(self.tr("If checked, combines the search with the active filters from 'Filter View'."))
+        opt_layout.addWidget(self.chk_search_scope)
+        
+        opt_layout.addStretch()
+        
+        self.lbl_search_status = QLabel("")
+        self.lbl_search_status.setStyleSheet("color: #666; font-style: italic;")
+        opt_layout.addWidget(self.lbl_search_status)
+        
+        search_layout.addLayout(opt_layout)
         search_layout.addStretch()
         
         self.tabs.addTab(self.search_tab, "🔍 " + self.tr("Search"))
@@ -939,18 +953,56 @@ class AdvancedFilterWidget(QWidget):
 
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
+        
+        # 1. Validation
+        if len(text) < 3:
+            self.lbl_search_status.setText(self.tr("Search string too short (min 3 chars)"))
+            self.lbl_search_status.setStyleSheet("color: red;")
+            return
+            
+        self.lbl_search_status.setText(self.tr("Searching..."))
+        self.lbl_search_status.setStyleSheet("color: black;")
+        # Process UI updates immediately
+        from PyQt6.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
+
         criteria = self.parser.parse(text)
         
         # Phase 106: Deep Search for fulltext using Raw Data if available
-        # This solves the issue where cached_full_text is empty but raw OCR exists.
         if criteria.get("fulltext") and self.db_manager:
              # Find UUIDs that match the text in RAW or CACHE
              deep_uuids = self.db_manager.get_virtual_uuids_with_text_content(criteria["fulltext"])
              criteria["deep_uuids"] = deep_uuids
         
-        # Convert simple criteria to advanced query object format for consistency
-        query = self._criteria_to_query(criteria)
-        self.filter_changed.emit(query)
+        # 2. Build Text Query
+        text_query = self._criteria_to_query(criteria)
+        
+        # 3. Handle Scope
+        final_query = text_query
+        scope_msg = self.tr("in all documents")
+        
+        if self.chk_search_scope.isChecked():
+            # Merge with "Filter View"
+            current_filter = self.root_group.get_query()
+            if current_filter and current_filter.get("conditions"):
+                final_query = {
+                    "operator": "AND",
+                    "conditions": [current_filter, text_query]
+                }
+                scope_msg = self.tr("in current view")
+        
+        # 4. Count & Feedback
+        count = 0
+        if self.db_manager:
+            try:
+                count = self.db_manager.count_documents_advanced(final_query)
+            except Exception as e:
+                print(f"[Search] Count failed: {e}")
+                
+        self.lbl_search_status.setText(self.tr(f"{count} Documents found ({scope_msg})"))
+        self.lbl_search_status.setStyleSheet("color: green;" if count > 0 else "color: red;")
+
+        self.filter_changed.emit(final_query)
         self.search_triggered.emit(text)
 
     def _criteria_to_query(self, criteria: dict) -> dict:
