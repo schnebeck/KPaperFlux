@@ -709,6 +709,7 @@ class DatabaseManager:
         text = text.strip()
         if not text: return []
         
+        print(f"[Search-Trace] Logic: Checking Virtual Doc {doc_uuid} for '{text}'")
         matching_pages = []
         
         # 1. Get Source Mapping
@@ -717,6 +718,7 @@ class DatabaseManager:
         cursor.execute(sql, (doc_uuid,))
         row = cursor.fetchone()
         if not row or not row[0]:
+            print("[Search-Trace] No source mapping found.")
             return []
             
         try:
@@ -749,16 +751,20 @@ class DatabaseManager:
                 for i, src_page_idx in enumerate(src_pages):
                     virt_page_idx = current_virt_page + i
                     
-                    # Convert 0-based src_page_idx to OCR map key
-                    # Need to be careful. Typically OCR keys form 'ocr_data' are strings of "1", "2"...
-                    # But src_page_idx is 0-based. So key is str(src_page_idx + 1).
-                    # Check both 0-based and 1-based just in case.
-                    page_text = ocr_map.get(str(src_page_idx + 1))
-                    if not page_text:
-                         page_text = ocr_map.get(str(src_page_idx)) # Fallback
-                         
+                    # src_page_idx is 1-based (from source_mapping convention)
+                    # OCR keys are strings of "1", "2"...
+                    
+                    # Correct lookup:
+                    page_text = ocr_map.get(str(src_page_idx))
+                    
+                    snippet = (page_text[:30] + "...") if page_text else "None"
+                    
+                    match = False
                     if page_text and text.lower() in page_text.lower():
+                        match = True
                         matching_pages.append(virt_page_idx)
+                    
+                    print(f"[Search-Trace]   VirtPage {virt_page_idx} (PhysPage {src_page_idx} in {p_uuid[:8]}): Text={snippet} -> Match={match}")
                         
             current_virt_page += len(src_pages)
             
