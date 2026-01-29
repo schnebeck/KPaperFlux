@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
         
         if self.db_manager:
             self.list_widget = DocumentListWidget(self.db_manager, filter_tree=self.filter_tree)
-            self.list_widget.document_selected.connect(self.on_document_selected)
+            self.list_widget.document_selected.connect(self._on_document_selected)
             self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
             self.list_widget.merge_requested.connect(self.merge_documents_slot)
