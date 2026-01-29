@@ -1,30 +1,57 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
-    QSpinBox, QPushButton, QProgressBar, QMessageBox
+    QSpinBox, QPushButton, QProgressBar, QMessageBox, QCheckBox
 )
 from PyQt6.QtCore import QThread, pyqtSignal, Qt
-from typing import Optional
+from typing import Optional, List
 from core.scanner import get_scanner_driver, ScannerDriver
 import os
+import tempfile
+import pikepdf
 
 class ScannerWorker(QThread):
     finished = pyqtSignal(str) # Path
     error = pyqtSignal(str)
+    progress_update = pyqtSignal(int, int)
     
-    def __init__(self, driver: ScannerDriver, device: str, dpi: int, mode: str):
+    def __init__(self, driver: ScannerDriver, device: str, dpi: int, mode: str, use_adf: bool, duplex: bool):
         super().__init__()
         self.driver = driver
         self.device = device
         self.dpi = dpi
         self.mode = mode
+        self.use_adf = use_adf
+        self.duplex = duplex
         
     def run(self):
         try:
-            path = self.driver.scan_page(self.device, self.dpi, self.mode)
-            if path:
-                self.finished.emit(path)
-            else:
+            paths = self.driver.scan_pages(
+                self.device, self.dpi, self.mode, 
+                self.use_adf, self.duplex, 
+                progress_callback=self.progress_update.emit
+            )
+            
+            if not paths:
                 self.error.emit("Scan returned no data.")
+                return
+
+            if len(paths) == 1:
+                self.finished.emit(paths[0])
+            else:
+                # Merge into one PDF
+                fd, out_path = tempfile.mkstemp(suffix=".pdf", prefix="scan_batch_")
+                os.close(fd)
+                
+                with pikepdf.new() as combined:
+                    for p in paths:
+                        with pikepdf.open(p) as src:
+                            combined.pages.extend(src.pages)
+                        try: os.remove(p) # Cleanup individual pages
+                        except: pass
+                    combined.save(out_path)
+                
+                self.finished.emit(out_path)
+                
         except Exception as e:
             self.error.emit(str(e))
 
@@ -32,7 +59,7 @@ class ScannerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Scanner"))
-        self.resize(400, 200)
+        self.resize(450, 250)
         
         self.driver = get_scanner_driver("auto")
         self.scanned_file = None
@@ -70,16 +97,23 @@ class ScannerDialog(QDialog):
         settings_layout.addWidget(self.mode_combo)
         
         layout.addLayout(settings_layout)
+
+        # ADF & Duplex
+        adv_layout = QHBoxLayout()
+        self.chk_adf = QCheckBox(self.tr("Use Document Feeder (ADF)"))
+        self.chk_duplex = QCheckBox(self.tr("Duplex Scan"))
+        adv_layout.addWidget(self.chk_adf)
+        adv_layout.addWidget(self.chk_duplex)
+        layout.addLayout(adv_layout)
         
         # Progress
         self.progress = QProgressBar()
-        self.progress.setRange(0, 0) # Indeterminate
         self.progress.setVisible(False)
         layout.addWidget(self.progress)
         
         # Buttons
         btn_layout = QHBoxLayout()
-        self.scan_btn = QPushButton(self.tr("Scan"))
+        self.scan_btn = QPushButton(self.tr("Start Scan"))
         self.scan_btn.clicked.connect(self.start_scan)
         self.scan_btn.setDefault(True)
         
@@ -113,30 +147,35 @@ class ScannerDialog(QDialog):
             return
             
         dpi = self.dpi_spin.value()
-        mode = self.mode_combo.currentText() # NOTE: This might need adjustment if we want to send English mode to backend
-        # Actually in _init_ui I added "Color", "data". 
-        # But QComboBox.addItems only takes list of texts. 
-        # I changed to addItem(text, userData).
-        # We need to retrieve userData to send to backend if backend expects English.
-        mode = self.mode_combo.currentData()
-        if not mode: # Fallback if no user data (should not happen with my change)
-             mode = self.mode_combo.currentText()
+        mode = self.mode_combo.currentData() or self.mode_combo.currentText()
+        use_adf = self.chk_adf.isChecked()
+        duplex = self.chk_duplex.isChecked()
 
         self.scan_btn.setEnabled(False)
         self.progress.setVisible(True)
-        self.progress.setFormat(self.tr("Scanning..."))
+        self.progress.setRange(0, 0)
+        self.progress.setFormat(self.tr("Initializing..."))
         
-        self.worker = ScannerWorker(self.driver, device_id, dpi, mode)
+        self.worker = ScannerWorker(self.driver, device_id, dpi, mode, use_adf, duplex)
         self.worker.finished.connect(self.on_scan_finished)
         self.worker.error.connect(self.on_scan_error)
+        self.worker.progress_update.connect(self.on_progress)
         self.worker.start()
         
+    def on_progress(self, current, total):
+        if total > 0:
+            self.progress.setRange(0, total)
+            self.progress.setValue(current)
+            self.progress.setFormat(self.tr(f"Scanning page {current} of {total}..."))
+        else:
+            self.progress.setRange(0, 0)
+            self.progress.setFormat(self.tr(f"Scanning page {current}..."))
+
     def on_scan_finished(self, path):
         self.progress.setVisible(False)
         self.scanned_file = path
         # Verify file exists
         if os.path.exists(path):
-            QMessageBox.information(self, self.tr("Success"), self.tr("Scan completed successfully."))
             self.accept()
         else:
             self.on_scan_error(self.tr("Output file missing."))
