@@ -28,7 +28,8 @@ class ScannerDriver(ABC):
 
     @abstractmethod
     def scan_pages(self, device_name: str, dpi: int = 200, color_mode: str = 'Color', 
-                   use_adf: bool = False, duplex: bool = False, progress_callback = None) -> List[str]:
+                   use_adf: bool = False, duplex: bool = False, duplex_mode: str = 'LongEdge',
+                   progress_callback = None) -> List[str]:
         """
         Scan multiple pages (ADF).
         Returns list of temporary file paths.
@@ -53,7 +54,8 @@ class MockScanner(ScannerDriver):
         return pages[0] if pages else None
 
     def scan_pages(self, device_name: str, dpi: int = 200, color_mode: str = 'Color', 
-                   use_adf: bool = False, duplex: bool = False, progress_callback = None) -> List[str]:
+                   use_adf: bool = False, duplex: bool = False, duplex_mode: str = 'LongEdge',
+                   progress_callback = None) -> List[str]:
         print(f"MockScanner: Scanning from {device_name}...")
         
         count = 3 if use_adf else 1
@@ -107,7 +109,8 @@ class SaneScanner(ScannerDriver):
         return pages[0] if pages else None
 
     def scan_pages(self, device_name: str, dpi: int = 200, color_mode: str = 'Color', 
-                   use_adf: bool = False, duplex: bool = False, progress_callback = None) -> List[str]:
+                   use_adf: bool = False, duplex: bool = False, duplex_mode: str = 'LongEdge',
+                   progress_callback = None) -> List[str]:
         if not SANE_AVAILABLE:
             raise RuntimeError("python-sane not installed.")
             
@@ -155,6 +158,15 @@ class SaneScanner(ScannerDriver):
                     # Some eSCL scanners use Source="ADF Duplex"
                     try: dev.source = "ADF Duplex"
                     except: pass
+            
+            # 5. Duplex Mode (LongEdge vs ShortEdge)
+            # This is highly backend specific. Often handled by 'source' or a specific 'duplex-mode' opt.
+            if duplex and 'duplex-mode' in options:
+                 # Map 'LongEdge' -> 'long-edge', 'ShortEdge' -> 'short-edge' etc.
+                 # SANE values vary, we try common ones.
+                 val = "long-edge" if duplex_mode == "LongEdge" else "short-edge"
+                 try: dev.duplex_mode = val
+                 except: pass
 
             # --- Scanning Loop ---
             page_idx = 0
