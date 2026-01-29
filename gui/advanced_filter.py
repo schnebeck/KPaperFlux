@@ -953,6 +953,7 @@ class AdvancedFilterWidget(QWidget):
 
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
+        print(f"[Search-Debug] Raw Input: '{text}'")
         
         # 1. Validation
         if len(text) < 3:
@@ -967,12 +968,27 @@ class AdvancedFilterWidget(QWidget):
         QCoreApplication.processEvents()
 
         criteria = self.parser.parse(text)
+        print(f"[Search-Debug] Parser Output criteria: {criteria}")
+        
+        # Fix: Normalize Parser Keys to Internal filter keys
+        if "text_search" in criteria:
+            criteria["fulltext"] = criteria.pop("text_search")
+            
+        if "type" in criteria:
+             # Convert single type to list "types"
+             criteria["types"] = [criteria.pop("type")]
+             
+        print(f"[Search-Debug] Normalized criteria: {criteria}")
         
         # Phase 106: Deep Search for fulltext using Raw Data if available
         if criteria.get("fulltext") and self.db_manager:
+             print(f"[Search-Debug] Performing Deep Search for text: '{criteria['fulltext']}'")
              # Find UUIDs that match the text in RAW or CACHE
              deep_uuids = self.db_manager.get_virtual_uuids_with_text_content(criteria["fulltext"])
              criteria["deep_uuids"] = deep_uuids
+             print(f"[Search-Debug] Deep Search found {len(deep_uuids)} UUIDs")
+             if len(deep_uuids) > 0:
+                 print(f"[Search-Debug] Sample UUIDs: {deep_uuids[:3]}")
         
         # 2. Build Text Query
         text_query = self._criteria_to_query(criteria)
@@ -991,6 +1007,8 @@ class AdvancedFilterWidget(QWidget):
                 }
                 scope_msg = self.tr("in current view")
         
+        print(f"[Search-Debug] Final Query: {json.dumps(final_query)}")
+
         # 4. Count & Feedback
         count = 0
         if self.db_manager:
@@ -999,6 +1017,7 @@ class AdvancedFilterWidget(QWidget):
             except Exception as e:
                 print(f"[Search] Count failed: {e}")
                 
+        print(f"[Search-Debug] Count Result: {count}")
         self.lbl_search_status.setText(self.tr(f"{count} Documents found ({scope_msg})"))
         self.lbl_search_status.setStyleSheet("color: green;" if count > 0 else "color: red;")
 
