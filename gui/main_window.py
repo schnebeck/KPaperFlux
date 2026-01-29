@@ -126,8 +126,11 @@ class MainWindow(QMainWindow):
             self.list_widget.apply_rule_requested.connect(self._on_rule_apply_requested)
               
             # Connect Filter
+            # IMPORTANT: Connect local handler FIRST so current_search_text is updated 
+            # BEFORE the list refreshes and triggers selection logic.
+            self.advanced_filter.filter_changed.connect(self._on_filter_changed) 
             self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
-            self.advanced_filter.filter_changed.connect(self._on_filter_changed) # Fix for Search Text Sync
+            
             self.advanced_filter.trash_mode_changed.connect(self.set_trash_mode)
               
             # Phase 92: Trash Actions
