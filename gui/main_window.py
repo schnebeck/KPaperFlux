@@ -450,6 +450,45 @@ class MainWindow(QMainWindow):
             if self.list_widget:
                 self.list_widget.refresh_list()
 
+    def _resolve_pdf_path(self, doc_uuid: str) -> Optional[str]:
+        """
+        Resolve the filesystem path for the PDF of a Virtual Document.
+        Stage 0/1 Simplified: Returns path of the FIRST source file.
+        TODO: Implement stitching for merged documents.
+        """
+        if not self.db_manager or not self.db_manager.connection:
+            return None
+            
+        cursor = self.db_manager.connection.cursor()
+        
+        # 1. Get Source Mapping
+        cursor.execute("SELECT source_mapping FROM virtual_documents WHERE uuid = ?", (doc_uuid,))
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            # Fallback: check legacy (uuid.pdf in vault) - but vault path is configurable
+            return None
+            
+        try:
+            mapping = json.loads(row[0])
+            if not mapping: return None
+            
+            # 2. Get First Source
+            first_seg = mapping[0]
+            file_uuid = first_seg.get("file_uuid")
+            if not file_uuid: return None
+            
+            # 3. Get Physical File Path
+            cursor.execute("SELECT file_path FROM physical_files WHERE uuid = ?", (file_uuid,))
+            f_row = cursor.fetchone()
+            if f_row and f_row[0]:
+                path = f_row[0]
+                if os.path.exists(path):
+                    return path
+        except Exception as e:
+            print(f"Error resolving PDF path for {doc_uuid}: {e}")
+            
+        return None
+
     def _on_document_selected(self, uuids: list[str]):
         """Callback when selection changes in document list."""
         if not uuids:
@@ -471,20 +510,18 @@ class MainWindow(QMainWindow):
         uuid = primary_doc.uuid
 
         # Load into PDF Viewer
-        self.doc_gen_service = self.service_registry.get("document_generator")
-        if self.doc_gen_service:
-            path = self.doc_gen_service.generate_virtual_pdf(uuid)
-            if path and os.path.exists(path):
-                 self.pdf_viewer.load_document(path)
-                 
-                 # Check for Search Hits to Auto-Scroll
-                 if self.current_search_text and self.db_manager:
-                     hits = self.db_manager.find_text_pages_in_document(uuid, self.current_search_text)
-                     if hits:
-                         print(f"[Search-Scroll] Auto-scrolling to page {hits[0]} (0-based)")
-                         self.pdf_viewer.go_to_page(hits[0])
-            else:
-                 print(f"Error: Could not generate PDF for {uuid}")
+        path = self._resolve_pdf_path(uuid)
+        if path:
+             self.pdf_viewer.load_document(path)
+             
+             # Check for Search Hits to Auto-Scroll
+             if self.current_search_text and self.db_manager:
+                 hits = self.db_manager.find_text_pages_in_document(uuid, self.current_search_text)
+                 if hits:
+                     print(f"[Search-Scroll] Auto-scrolling to page {hits[0]} (0-based)")
+                     self.pdf_viewer.go_to_page(hits[0])
+        else:
+             print(f"Error: Could not resolve PDF path for {uuid}")
                  
         # Update Info Panel
         if hasattr(self, 'info_panel') and self.info_panel:
