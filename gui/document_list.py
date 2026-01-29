@@ -81,7 +81,8 @@ class DocumentListWidget(QWidget):
         9: "Amount",
         10: "AI Processed",
         11: "Last Used",
-        12: "Locked"
+        12: "Locked",
+        13: "Tags"
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
 
@@ -113,8 +114,9 @@ class DocumentListWidget(QWidget):
         # Row Counter Delegate (Column 0)
         self.tree.setItemDelegateForColumn(0, RowNumberDelegate(self.tree))
         
-        # Tag Delegate (Column 6: Type Tags)
+        # Tag Delegates
         self.tree.setItemDelegateForColumn(6, TagDelegate(self.tree))
+        self.tree.setItemDelegateForColumn(13, TagDelegate(self.tree))
         
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.tree.setSortingEnabled(True)
@@ -797,12 +799,17 @@ class DocumentListWidget(QWidget):
                     show = False
                     
             if show and target_tags:
-                type_tags = getattr(doc, "type_tags", []) or []
-                doc_types = getattr(doc, "doc_type", []) or []
-                if isinstance(doc_types, str): doc_types = [doc_types]
-                tags_str = getattr(doc, "tags", "") or ""
-                combined_tags = ", ".join(type_tags + doc_types) + " " + tags_str
-                if target_tags.lower() not in combined_tags.lower():
+                doc_tags = getattr(doc, "tags", []) or []
+                if isinstance(doc_tags, str):
+                    doc_tags = [t.strip() for t in doc_tags.split(",") if t.strip()]
+                
+                # Search in User Tags
+                found = False
+                for t in doc_tags:
+                    if target_tags.lower() in t.lower():
+                        found = True
+                        break
+                if not found:
                     show = False
 
             if show and text_search and doc:
@@ -981,7 +988,8 @@ class DocumentListWidget(QWidget):
                 str(doc.amount or "-"),    # 9: Amount
                 processed_str,      # 10: AI Processed
                 used_str,           # 11: Last Used
-                locked_str          # 12: Locked
+                locked_str,         # 12: Locked
+                ", ".join(doc.tags or []) # 13: User Tags
             ]
             
             # Phase 102: Support Dynamic Columns
@@ -1012,6 +1020,7 @@ class DocumentListWidget(QWidget):
             if doc.sender: item.setData(7, Qt.ItemDataRole.UserRole, doc.sender)
             if doc.doc_date: item.setData(8, Qt.ItemDataRole.UserRole, str(doc.doc_date))
             if doc.amount: item.setData(9, Qt.ItemDataRole.UserRole, float(doc.amount))
+            if doc.tags: item.setData(13, Qt.ItemDataRole.UserRole, ", ".join(doc.tags))
             
             # Sort keys for timestamps
             if hasattr(doc, "last_processed_at") and doc.last_processed_at:

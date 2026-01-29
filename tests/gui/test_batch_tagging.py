@@ -35,9 +35,9 @@ def db_for_tags(tmp_path):
     db.init_db()
     
     # Doc 1: Has "old", "keep"
-    db.insert_document(Document(uuid="1", original_filename="a.pdf", tags="old, keep"))
+    db.insert_document(Document(uuid="1", original_filename="a.pdf", tags=["old", "keep"]))
     # Doc 2: Has "keep"
-    db.insert_document(Document(uuid="2", original_filename="b.pdf", tags="keep"))
+    db.insert_document(Document(uuid="2", original_filename="b.pdf", tags=["keep"]))
     
     return db
 
@@ -61,8 +61,8 @@ def test_manage_tags_logic(qtbot, db_for_tags):
         
         # Verify DB updates
         doc1 = db_for_tags.get_document_by_uuid("1")
-        # Check type_tags list directly
-        tags1 = doc1.type_tags
+        # Check User tags list
+        tags1 = doc1.tags
         # Should have: keep, new, tax. Removed: old.
         assert "old" not in tags1
         assert "keep" in tags1
@@ -70,7 +70,7 @@ def test_manage_tags_logic(qtbot, db_for_tags):
         assert "tax" in tags1
         
         doc2 = db_for_tags.get_document_by_uuid("2")
-        tags2 = doc2.type_tags
+        tags2 = doc2.tags
         # Should have: keep, new, tax. (Old wasn't there)
         assert "keep" in tags2
         assert "new" in tags2

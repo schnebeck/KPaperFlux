@@ -76,7 +76,7 @@ def test_detail_widget_display(qapp, mock_db, mock_vault):
         uuid="test-uuid",
         original_filename="foo.pdf",
         sender="Test Sender",
-        tags="tag1, tag2"
+        tags=["tag1", "tag2"]
     )
     
     widget.display_document(doc)

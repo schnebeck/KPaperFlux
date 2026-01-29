@@ -157,7 +157,7 @@ class DatabaseManager:
         allowed = [
             "status", "export_filename", "deleted", "is_immutable", "locked", 
             "type_tags", "cached_full_text", "last_used", "last_processed_at",
-            "semantic_data", "sender", "amount", "doc_date"
+            "semantic_data", "sender", "amount", "doc_date", "tags"
         ]
         filtered = {k: v for k, v in updates.items() if k in allowed}
         
@@ -166,6 +166,9 @@ class DatabaseManager:
              
         if "type_tags" in filtered and isinstance(filtered["type_tags"], list):
              filtered["type_tags"] = json.dumps(filtered["type_tags"])
+             
+        if "tags" in filtered and isinstance(filtered["tags"], list):
+             filtered["tags"] = json.dumps(filtered["tags"])
 
         if "semantic_data" in filtered and isinstance(filtered["semantic_data"], dict):
              filtered["semantic_data"] = json.dumps(filtered["semantic_data"], ensure_ascii=False)
@@ -505,6 +508,16 @@ class DatabaseManager:
             try: semantic_data = json.loads(row[11])
             except: pass
 
+        tags = []
+        if len(row) > 15 and row[15]:
+            try: 
+                tags = json.loads(row[15])
+                if isinstance(tags, str): # Handle legacy CSV in DB if any
+                     tags = [t.strip() for t in tags.split(",") if t.strip()]
+            except: 
+                if isinstance(row[15], str):
+                    tags = [t.strip() for t in row[15].split(",") if t.strip()]
+            
         doc_data = {
             "uuid": row[0],
             "extra_data": {"source_mapping": row[1]},
@@ -525,7 +538,7 @@ class DatabaseManager:
             "sender": row[12] if len(row) > 12 else None,
             "doc_date": row[13] if len(row) > 13 else None,
             "amount": row[14] if len(row) > 14 else None,
-            "tags": row[15] if len(row) > 15 else None,
+            "tags": tags,
         }
 
         # If semantic_data exists, Pydantic Document model has many attributes 
@@ -916,12 +929,9 @@ class DatabaseManager:
         
         status = doc.status or "NEW"
         filename = doc.original_filename or "Unknown"
-        tags = doc.type_tags if hasattr(doc, 'type_tags') and doc.type_tags else (doc.tags or "[]")
-        if isinstance(tags, list): 
-            tags = json.dumps(tags)
-        elif isinstance(tags, str) and not tags.strip().startswith("[") and tags != "[]":
-            t_list = [t.strip() for t in tags.split(",") if t.strip()]
-            tags = json.dumps(t_list)
+        
+        type_tags_json = json.dumps(doc.type_tags or [])
+        user_tags_json = json.dumps(doc.tags or [])
         
         # Build semantic data from extra fields
         semantic = {}
@@ -951,10 +961,10 @@ class DatabaseManager:
              with self.connection:
                  self.connection.execute(sql, (
                      doc.uuid, source_mapping, status, filename, 
-                     created, tags, semantic_json, (doc.text_content or doc.cached_full_text),
+                     created, type_tags_json, semantic_json, (doc.text_content or doc.cached_full_text),
                      doc.sender, str(doc.doc_date) if doc.doc_date else None, 
                      float(doc.amount) if doc.amount else 0.0,
-                     doc.tags
+                     user_tags_json
                  ))
         except Exception as e:
             print(f"[WARN] insert_document compatibility failed: {e}")

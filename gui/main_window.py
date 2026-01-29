@@ -1150,13 +1150,13 @@ class MainWindow(QMainWindow):
         if uuids:
              first_doc = self.db_manager.get_document_by_uuid(uuids[0])
              if first_doc:
-                 # Phase 102: Use type_tags (list) instead of tags (csv string)
-                 common_tags = set(first_doc.type_tags or [])
+                 # Phase 102/105: Use tags (User) separately from type_tags (System)
+                 common_tags = set(first_doc.tags or [])
                  
                  for i in range(1, len(uuids)):
                      doc = self.db_manager.get_document_by_uuid(uuids[i])
                      if doc:
-                         doc_tags = set(doc.type_tags or [])
+                         doc_tags = set(doc.tags or [])
                          common_tags = common_tags.intersection(doc_tags)
         
         available_tags.sort(key=lambda x: x.lower())
@@ -1171,7 +1171,7 @@ class MainWindow(QMainWindow):
                 doc = self.db_manager.get_document_by_uuid(uuid)
                 if not doc: continue
                 
-                current_tags_list = doc.type_tags or []
+                current_tags_list = doc.tags or []
                 
                 # Create new list
                 new_tags = [t for t in current_tags_list]
@@ -1183,8 +1183,8 @@ class MainWindow(QMainWindow):
                 new_tags = [t for t in new_tags if t not in remove_tags]
                 
                 if new_tags != current_tags_list:
-                    # Update DB using type_tags
-                    success = self.db_manager.update_document_metadata(uuid, {'type_tags': new_tags})
+                    # Update DB using User tags
+                    success = self.db_manager.update_document_metadata(uuid, {'tags': new_tags})
                     if success:
                         count += 1
                     

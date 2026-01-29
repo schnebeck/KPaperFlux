@@ -107,7 +107,12 @@ class DocumentDetailWidget(QWidget):
         self.date_edit.setText(str(doc.doc_date) if doc.doc_date else "")
         self.amount_edit.setText(str(doc.amount) if doc.amount is not None else "")
         self.type_edit.setText(doc.doc_type or "")
-        self.tags_edit.setText(doc.tags or "")
+        # Tags: Handle List or legacy String
+        tags = doc.tags or []
+        if isinstance(tags, list):
+            self.tags_edit.setText(", ".join(tags))
+        else:
+            self.tags_edit.setText(str(tags))
         
         # Load PDF
         if self.vault:
@@ -144,7 +149,7 @@ class DocumentDetailWidget(QWidget):
             "iban": self.iban_edit.text(),
             "phone": self.phone_edit.text(),
             "doc_type": self.type_edit.text(),
-            "tags": self.tags_edit.text(),
+            "tags": [t.strip() for t in self.tags_edit.text().split(",") if t.strip()],
             # Handle amount and date parsing carefully?
             # For now simple string -> db might depend. 
             # DatabaseManager update method accepts raw values, but doc_date is DATE column.

@@ -33,6 +33,21 @@ class Document(BaseModel):
     deleted: bool = False # Phase 90: Trash Bin
     type_tags: Optional[List[str]] = Field(default_factory=list) # Phase 102
     
+    @field_validator('tags', mode='before')
+    @classmethod
+    def normalize_tags(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            if v.startswith("["):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return parsed
+                except: pass
+            return [t.strip() for t in v.split(",") if t.strip()]
+        return v
+    
     @field_validator('doc_type')
     @classmethod
     def normalize_doc_type(cls, v):
@@ -76,7 +91,7 @@ class Document(BaseModel):
     sender_address: Optional[str] = None 
     iban: Optional[str] = None
     phone: Optional[str] = None
-    tags: Optional[str] = None
+    tags: Optional[List[str]] = Field(default_factory=list)
     
     # Phase 8: Extended Details
     recipient_company: Optional[str] = None

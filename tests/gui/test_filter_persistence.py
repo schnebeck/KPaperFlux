@@ -21,8 +21,8 @@ def doc_list_widget(db_manager, qapp):
 
 def test_refresh_preserves_basic_filter(doc_list_widget, db_manager):
     # Setup Data
-    doc1 = Document(uuid="u1", original_filename="doc1.pdf", doc_date="2023-01-01", amount=10.0, tags="tag1")
-    doc2 = Document(uuid="u2", original_filename="doc2.pdf", doc_date="2023-02-01", amount=20.0, tags="tag2")
+    doc1 = Document(uuid="u1", original_filename="doc1.pdf", doc_date="2023-01-01", amount=10.0, tags=["tag1"])
+    doc2 = Document(uuid="u2", original_filename="doc2.pdf", doc_date="2023-02-01", amount=20.0, tags=["tag2"])
     db_manager.insert_document(doc1)
     db_manager.insert_document(doc2)
     
