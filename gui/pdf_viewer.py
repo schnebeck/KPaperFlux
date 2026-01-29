@@ -381,7 +381,8 @@ class PdfViewerWidget(QWidget):
             
             # Navigate if pending (Delayed to allow Viewport Init)
             if self._pending_page_index >= 0 and self._pending_page_index < count:
-                print(f"[PdfViewer] Starting Jump Timer for Page {self._pending_page_index} (300ms)...")
+                self._retry_jump_target = self._pending_page_index  # Capture safely
+                print(f"[PdfViewer] Starting Jump Timer for Page {self._retry_jump_target} (300ms)...")
                 self._jump_timer.start(300)
 
         elif status == QPdfDocument.Status.Error:
@@ -390,13 +391,21 @@ class PdfViewerWidget(QWidget):
     @pyqtSlot()
     def _execute_deferred_jump(self):
         """Execute the jump after delay."""
-        if self._pending_page_index >= 0 and self._pending_page_index < self.document.pageCount():
-            print(f"[PdfViewer] EXECUTE JUMP -> Page {self._pending_page_index} (Index)")
-            self.nav.jump(self._pending_page_index, QPointF(), self.nav.currentZoom())
-            self._pending_page_index = -1
-        else:
-            if self._pending_page_index != -1:
-                print(f"[PdfViewer] EXECUTE JUMP SKIPPED: Pending={self._pending_page_index}, PageCount={self.document.pageCount()}")
+        # Use captured target
+        idx = getattr(self, '_retry_jump_target', -1)
+        print(f"[PdfViewer] Timer FIRED. Target={idx}, Pending={self._pending_page_index}")
+        
+        try:
+            if idx >= 0 and idx < self.document.pageCount():
+                print(f"[PdfViewer] EXECUTE JUMP -> Page {idx} (Index)")
+                self.nav.jump(idx, QPointF(), self.nav.currentZoom())
+                self._retry_jump_target = -1
+                self._pending_page_index = -1 # Clear original too
+            else:
+                if idx != -1:
+                    print(f"[PdfViewer] EXECUTE JUMP SKIPPED: Target={idx}, PageCount={self.document.pageCount()}")
+        except Exception as e:
+            print(f"[PdfViewer] JUMP ERROR: {e}")
 
     def enable_controls(self, enabled: bool):
         for btn in [self.btn_prev, self.btn_next, self.btn_zoom_in, self.btn_zoom_out, 
