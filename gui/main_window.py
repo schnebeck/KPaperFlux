@@ -127,6 +127,7 @@ class MainWindow(QMainWindow):
               
             # Connect Filter
             self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
+            self.advanced_filter.filter_changed.connect(self._on_filter_changed) # Fix for Search Text Sync
             self.advanced_filter.trash_mode_changed.connect(self.set_trash_mode)
               
             # Phase 92: Trash Actions
@@ -450,6 +451,11 @@ class MainWindow(QMainWindow):
             if self.list_widget:
                 self.list_widget.refresh_list()
 
+    def _on_filter_changed(self, criteria: dict):
+        """Update local state when filter changes."""
+        self.current_search_text = criteria.get('fulltext', '')
+        print(f"[DEBUG] MainWindow updated current_search_text to: '{self.current_search_text}'")
+
     def _resolve_pdf_path(self, doc_uuid: str) -> Optional[str]:
         """
         Resolve the filesystem path for the PDF of a Virtual Document.
@@ -518,7 +524,7 @@ class MainWindow(QMainWindow):
                  hits = self.db_manager.find_text_pages_in_document(uuid, self.current_search_text)
                  if hits:
                      target_index = hits[0] # 0-based
-                     print(f"[Search-Scroll] Requesting jump to page {target_index} (0-based)")
+                     print(f"[Search-Hit-Debug] Term: '{self.current_search_text}', UUID: '{uuid}', Found on Pages: {hits} -> Jumping to {target_index}")
              
              self.pdf_viewer.load_document(path, jump_to_index=target_index)
         else:
