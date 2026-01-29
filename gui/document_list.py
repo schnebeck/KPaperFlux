@@ -640,8 +640,9 @@ class DocumentListWidget(QWidget):
              
         self.populate_tree(docs)
         
-        # User Feedback: Auto-select if exactly one result
-        if len(docs) == 1:
+        # User Feedback: Auto-select if exactly one result OR if a specific query/search is active
+        # This ensures immediate display of the top result after a search.
+        if len(docs) == 1 or active_query:
             force_select_first = True
         
         # Re-apply basic filter (hide/show) if one was active
