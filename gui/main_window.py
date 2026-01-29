@@ -1004,11 +1004,16 @@ class MainWindow(QMainWindow):
             self.list_widget.refresh_list()
 
     def dragEnterEvent(self, event: QDragEnterEvent):
-        """Handle Drag Enter: Check for PDFs."""
+        """Handle Drag Enter: Check for valid files (PDF, Images, ZIP)."""
         if event.mimeData().hasUrls():
-            # Check if any file is PDF
+            convertible_exts = PreFlightImporter.ALLOWED_EXTENSIONS.union({'.zip'})
+            
             for url in event.mimeData().urls():
-                if url.toLocalFile().lower().endswith('.pdf'):
+                path = url.toLocalFile()
+                _, ext = os.path.splitext(path)
+                ext = ext.lower()
+                
+                if path.endswith('.pdf') or ext in convertible_exts:
                     event.acceptProposedAction()
                     return
         event.ignore()
