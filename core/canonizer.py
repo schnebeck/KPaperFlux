@@ -25,9 +25,11 @@ class CanonizerService:
     
     def __init__(self, db: DatabaseManager, analyzer: Optional[AIAnalyzer] = None, 
                  physical_repo: Optional[PhysicalRepository] = None,
-                 logical_repo: Optional[LogicalRepository] = None):
+                 logical_repo: Optional[LogicalRepository] = None,
+                 filter_tree: Optional['FilterTree'] = None):
         self.db = db
         self.config = AppConfig()
+        self.filter_tree = filter_tree
         
         # Repositories (Lazy init or passed)
         self.physical_repo = physical_repo if physical_repo else PhysicalRepository(db)
@@ -40,7 +42,7 @@ class CanonizerService:
             self.analyzer = AIAnalyzer(self.config.get_api_key(), self.config.get_gemini_model())
             
         self.visual_auditor = VisualAuditor(self.analyzer)
-        self.rules_engine = RulesEngine(db)
+        self.rules_engine = RulesEngine(db, filter_tree) if filter_tree else None
 
     def process_pending_documents(self, limit: int = 10):
         """
@@ -340,7 +342,7 @@ class CanonizerService:
             print(f"[Canonizer] Saved Stage 1.1/1.2 Entity {target_doc.uuid} ({candidate.get('types')})")
 
             # [STAGE 1.6] Auto-Tagging
-            if self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
+            if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
                  print(f"[Canonizer] Rule-based tags automatically applied to {target_doc.uuid}")
                  self.logical_repo.save(target_doc) # Persist tags
         

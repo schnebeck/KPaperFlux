@@ -99,27 +99,8 @@ class DatabaseManager:
                 except sqlite3.OperationalError:
                     pass
 
-            # Phase 106: Auto-Tagging Rules
-            create_tagging_rules_table = """
-            CREATE TABLE IF NOT EXISTS tagging_rules (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                filter_conditions TEXT NOT NULL,     -- JSON
-                tags_to_add TEXT NOT NULL,           -- JSON
-                tags_to_remove TEXT DEFAULT '[]',    -- JSON
-                is_enabled INTEGER DEFAULT 1,
-                execution_order INTEGER DEFAULT 0,
-                auto_apply INTEGER DEFAULT 1
-            );
-            """
-            self.connection.execute(create_tagging_rules_table)
-            
-            # Migration for auto_apply
-            try:
-                self.connection.execute("ALTER TABLE tagging_rules ADD COLUMN auto_apply INTEGER DEFAULT 1")
-                print("[DB] Migrated tagging_rules: Added auto_apply column")
-            except:
-                pass # Already exists
+            # Phase 106: Auto-Tagging Rules migrated to FilterTree
+            self.connection.execute("DROP TABLE IF EXISTS tagging_rules")
             
             # Ensure legacy view is gone
             self.connection.execute("DROP VIEW IF EXISTS documents")
@@ -378,6 +359,7 @@ class DatabaseManager:
             
             # Stage 1 Direct fields
             "type_tags": "type_tags", # JSON array
+            "tags": "tags",           # JSON array (User)
             "sender": "sender",
             "doc_date": "doc_date",
             "amount": "amount",
@@ -431,7 +413,7 @@ class DatabaseManager:
                 return f"{expr} IN ({placeholders})", val
             return f"{expr} = ?", [val]
         if op == "contains":
-            if expr == "type_tags":
+            if expr in ["type_tags", "tags"]:
                 # Precise JSON array element match
                 if isinstance(val, list):
                     if not val: return "1=1", []
@@ -655,28 +637,51 @@ class DatabaseManager:
     def get_all_tags_with_counts(self) -> dict[str, int]:
         """
         Aggregate all tags from virtual_documents and return a count for each.
-        Tags are stored in semantic_data->tags_and_flags as a JSON list.
+        Aggregates from both 'type_tags' (System) and 'tags' (User) columns.
         """
-        sql = "SELECT json_extract(semantic_data, '$.tags_and_flags') FROM virtual_documents WHERE semantic_data IS NOT NULL"
+        sql = "SELECT type_tags, tags FROM virtual_documents"
         cursor = self.connection.cursor()
         tag_counts = {}
         
         try:
             cursor.execute(sql)
             rows = cursor.fetchall()
-            for (tags_json,) in rows:
-                if not tags_json: continue
-                try:
-                    tags_list = json.loads(tags_json)
-                    if isinstance(tags_list, list):
-                        for t in tags_list:
-                            if t and isinstance(t, str):
-                                tag_counts[t] = tag_counts.get(t, 0) + 1
-                except: pass
-        except sqlite3.OperationalError:
-            pass
+            for (type_tags_json, tags_json) in rows:
+                for json_val in [type_tags_json, tags_json]:
+                    if not json_val: continue
+                    try:
+                        tags_list = json.loads(json_val)
+                        if isinstance(tags_list, list):
+                            for t in tags_list:
+                                if t and isinstance(t, str):
+                                    tag_counts[t] = tag_counts.get(t, 0) + 1
+                    except: pass
+        except Exception as e:
+            print(f"[WARN] get_all_tags_with_counts failed: {e}")
             
         return tag_counts
+
+    def get_available_tags(self, system: bool = False) -> List[str]:
+        """
+        Return a list of unique tags.
+        :param system: If True, return from 'type_tags' column, else from 'tags' (User).
+        """
+        col = "type_tags" if system else "tags"
+        sql = f"SELECT {col} FROM virtual_documents WHERE {col} IS NOT NULL"
+        cursor = self.connection.cursor()
+        tags = set()
+        try:
+            cursor.execute(sql)
+            for (json_val,) in cursor.fetchall():
+                try:
+                    data = json.loads(json_val)
+                    if isinstance(data, list):
+                        for t in data:
+                            tags.add(str(t))
+                except: pass
+        except Exception as e:
+            print(f"[WARN] get_available_tags failed: {e}")
+        return sorted(list(tags))
 
     def rename_tag(self, old_name: str, new_name: str) -> int:
         """Rename a tag (Placeholder)."""

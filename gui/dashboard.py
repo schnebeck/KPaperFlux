@@ -220,6 +220,8 @@ class DashboardWidget(QWidget):
                 query,
                 parent=self.content_widget
             )
+            card.filter_id = config.get("filter_id")
+            card.preset_id = config.get("preset_id")
             card.edit_requested.connect(lambda idx=index: self._edit_card(idx))
             card.delete_requested.connect(lambda idx=index: self._delete_card(idx))
             
@@ -244,7 +246,12 @@ class DashboardWidget(QWidget):
             if actual_card:
                 if self.locked:
                     # In locked mode, click-only navigation
-                    self.navigation_requested.emit(actual_card.filter_query)
+                    payload = {
+                        "query": actual_card.filter_query,
+                        "filter_id": getattr(actual_card, "filter_id", None),
+                        "preset_id": getattr(actual_card, "preset_id", None)
+                    }
+                    self.navigation_requested.emit(payload)
                     return
                 else:
                     # In unlocked mode, start drag

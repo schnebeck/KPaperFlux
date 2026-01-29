@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
         if self.pipeline and not self.db_manager:
             self.db_manager = self.pipeline.db
 
+        self.current_search_text = "" # Phase 106: Persistent search terms
         self.setWindowTitle(self.tr("KPaperFlux"))
         self.setWindowIcon(QIcon("resources/icon.png"))
         self.resize(1000, 700)
@@ -111,7 +112,7 @@ class MainWindow(QMainWindow):
         self.left_pane_splitter.addWidget(self.advanced_filter)
         
         if self.db_manager:
-            self.list_widget = DocumentListWidget(self.db_manager)
+            self.list_widget = DocumentListWidget(self.db_manager, filter_tree=self.filter_tree)
             self.list_widget.document_selected.connect(self.on_document_selected)
             self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
@@ -122,6 +123,7 @@ class MainWindow(QMainWindow):
             self.list_widget.edit_requested.connect(self.open_splitter_dialog_slot)
             self.list_widget.document_count_changed.connect(self.update_status_bar)
             self.list_widget.save_list_requested.connect(self.save_static_list)
+            self.list_widget.apply_rule_requested.connect(self._on_rule_apply_requested)
               
             # Connect Filter
             self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
@@ -139,6 +141,7 @@ class MainWindow(QMainWindow):
               
             # Phase 106: Rule Application Scope
             self.advanced_filter.request_apply_rule.connect(self._on_rule_apply_requested)
+            self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
               
             self.left_pane_splitter.addWidget(self.list_widget)
 
@@ -200,7 +203,7 @@ class MainWindow(QMainWindow):
              self.ai_worker.start()
              
              # Start Main Loop Worker (Stage 1)
-             self.main_loop_worker = MainLoopWorker(self.pipeline)
+             self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
              # Connect to refresh list when documents are processed
              self.main_loop_worker.documents_processed.connect(self.list_widget.refresh_list)
              self.main_loop_worker.start()
@@ -221,6 +224,12 @@ class MainWindow(QMainWindow):
         
         # Call the actual worker logic in the filter widget
         self.advanced_filter.run_batch_tagging(rule, uuids)
+
+    def _on_global_search_triggered(self, search_text: str):
+        """Stores global search terms and updates viewer if active."""
+        self.current_search_text = search_text
+        if hasattr(self, 'pdf_viewer'):
+            self.pdf_viewer.set_highlight_text(search_text)
 
     def load_filter_tree(self):
         """Load Filter Tree from JSON file."""
@@ -510,6 +519,9 @@ class MainWindow(QMainWindow):
             if docs:
                 # Show first doc as reference (works for single and batch)
                 self.pdf_viewer.load_document(docs[0].uuid, uuid=docs[0].uuid)
+                # Apply current global search highlight if any
+                if self.current_search_text:
+                    self.pdf_viewer.set_highlight_text(self.current_search_text)
             else:
                 self.pdf_viewer.clear()
 
@@ -1348,10 +1360,16 @@ class MainWindow(QMainWindow):
             self.list_widget.refresh_list()
             QMessageBox.information(self, self.tr("Deleted"), self.tr(f"Permanently deleted {count} document(s)."))
 
-    def navigate_to_list_filter(self, filter_query: dict):
+    def navigate_to_list_filter(self, payload: dict):
         """Switch to Explorer View and apply filter."""
         from PyQt6.QtCore import QCoreApplication, QTimer
         
+        # New payload can be just query (legacy) or dict with metadata
+        if "query" in payload:
+            filter_query = payload["query"]
+        else:
+            filter_query = payload
+
         self.central_stack.setCurrentIndex(1) # Explorer
         QCoreApplication.processEvents()
         
@@ -1363,7 +1381,7 @@ class MainWindow(QMainWindow):
         if self.advanced_filter.chk_active.isChecked():
              self.advanced_filter.chk_active.setChecked(False)
 
-        QTimer.singleShot(100, lambda: self._apply_navigation_filter(filter_query))
+        QTimer.singleShot(100, lambda: self._apply_navigation_filter(payload))
 
     def _save_current_selection_to_persistence(self, uuid: str):
         """Save selected UUID for the current active filter context."""
@@ -1379,10 +1397,38 @@ class MainWindow(QMainWindow):
         except:
             pass
 
-    def _apply_navigation_filter(self, filter_query: dict):
+    def _apply_navigation_filter(self, payload: dict):
         if self.advanced_filter:
+            if "query" in payload:
+                filter_query = payload["query"]
+                filter_id = payload.get("filter_id")
+                preset_id = payload.get("preset_id")
+            else:
+                filter_query = payload
+                filter_id = None
+                preset_id = None
+
             self.advanced_filter.blockSignals(True)
             self.advanced_filter.load_from_object(filter_query)
+            
+            # Sync the Combo Box if possible
+            if filter_id:
+                # Find the node in the tree and select it in combo
+                node = self.filter_tree.find_node_by_id(filter_id)
+                if node:
+                    idx = self.advanced_filter.combo_filters.findData(node)
+                    if idx >= 0:
+                        self.advanced_filter.combo_filters.setCurrentIndex(idx)
+                        self.advanced_filter.loaded_filter_node = node
+            elif preset_id:
+                # Handle preset selection (Inbox, Proccessed etc)
+                # We need to find the itemData that matches the preset
+                for i in range(self.advanced_filter.combo_filters.count()):
+                    d = self.advanced_filter.combo_filters.itemData(i)
+                    if isinstance(d, dict) and d.get("id") == preset_id:
+                        self.advanced_filter.combo_filters.setCurrentIndex(i)
+                        break
+
             self.advanced_filter.chk_active.setChecked(False) 
             self.list_widget.advanced_filter_active = False 
             self.advanced_filter.blockSignals(False)
@@ -1438,13 +1484,6 @@ class MainWindow(QMainWindow):
         action_home = QAction(self.tr("Dashboard"), self)
         action_home.triggered.connect(self.go_home_slot)
         toolbar.addAction(action_home)
-        
-        toolbar.addSeparator()
-        
-        btn_import = QPushButton(self.tr("Import"))
-        btn_import.setObjectName("btn_import")
-        btn_import.clicked.connect(self.import_document_slot)
-        toolbar.addWidget(btn_import)
         
         toolbar.addSeparator()
         

@@ -12,10 +12,11 @@ class FilterGroupWidget(QWidget):
     remove_requested = pyqtSignal()
     changed = pyqtSignal()
 
-    def __init__(self, parent=None, extra_keys=None, available_tags=None, is_root=False):
+    def __init__(self, parent=None, extra_keys=None, available_tags=None, available_system_tags=None, is_root=False):
         super().__init__(parent)
         self.extra_keys = extra_keys
         self.available_tags = available_tags
+        self.available_system_tags = available_system_tags or []
         self.is_root = is_root
         
         # Style
@@ -75,7 +76,10 @@ class FilterGroupWidget(QWidget):
         self.children_widgets = []
 
     def add_condition(self, data=None):
-        child = FilterConditionWidget(self, extra_keys=self.extra_keys, available_tags=self.available_tags)
+        child = FilterConditionWidget(self, 
+                                      extra_keys=self.extra_keys, 
+                                      available_tags=self.available_tags,
+                                      available_system_tags=self.available_system_tags)
         if data:
             child.set_condition(data)
             
@@ -87,7 +91,11 @@ class FilterGroupWidget(QWidget):
         self.changed.emit()
 
     def add_group(self, data=None):
-        child = FilterGroupWidget(self, extra_keys=self.extra_keys, available_tags=self.available_tags, is_root=False)
+        child = FilterGroupWidget(self, 
+                                  extra_keys=self.extra_keys, 
+                                  available_tags=self.available_tags, 
+                                  available_system_tags=self.available_system_tags,
+                                  is_root=False)
         if data:
             child.set_query(data)
             
@@ -98,13 +106,20 @@ class FilterGroupWidget(QWidget):
         child.changed.connect(self.changed)
         self.changed.emit()
 
-    def update_metadata(self, extra_keys, available_tags):
+    def update_metadata(self, extra_keys, available_tags, available_system_tags=None):
         """Recursively update metadata for all children."""
         self.extra_keys = extra_keys
         self.available_tags = available_tags
+        self.available_system_tags = available_system_tags or []
         for child in self.children_widgets:
              if hasattr(child, "update_metadata"):
-                 child.update_metadata(extra_keys, available_tags)
+                 # Note: FilterConditionWidget might also need an update_metadata method if not inherited/recursive
+                 # but since we rebuild on refresh_dynamic_data or call update_metadata recursively:
+                 if isinstance(child, FilterGroupWidget):
+                     child.update_metadata(extra_keys, available_tags, available_system_tags)
+                 else:
+                     child.available_tags = available_tags
+                     child.available_system_tags = self.available_system_tags
 
     def remove_child(self, child_widget):
         if child_widget in self.children_widgets:

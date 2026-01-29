@@ -67,6 +67,7 @@ class DocumentListWidget(QWidget):
     document_count_changed = pyqtSignal(int, int) # visible_count, total_count
     save_list_requested = pyqtSignal(str, list) # name, uuids
     restore_requested = pyqtSignal(list) # Phase 92: Trash Restore
+    apply_rule_requested = pyqtSignal(object, str) # rule_node, scope ("SELECTED")
     # Logical Index -> Label Mapping (Fixed Columns)
     FIXED_COLUMNS = {
         0: "#",
@@ -86,10 +87,11 @@ class DocumentListWidget(QWidget):
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
 
-    def __init__(self, db_manager: DatabaseManager, pipeline: Optional[object] = None):
+    def __init__(self, db_manager: DatabaseManager, pipeline: Optional[object] = None, filter_tree: Optional[object] = None):
         super().__init__()
         self.db_manager = db_manager
         self.pipeline = pipeline
+        self.filter_tree = filter_tree
         self.current_filter = {}
         self.current_filter_text = ""
         self.current_advanced_query = None 
@@ -473,6 +475,20 @@ class DocumentListWidget(QWidget):
         
         tags_action = menu.addAction(self.tr("Manage Tags..."))
         stamp_action = menu.addAction(self.tr("Stamp..."))
+        
+        # Phase 106: Apply Rules
+        if self.filter_tree:
+            rules_menu = menu.addMenu(self.tr("Apply Rule..."))
+            active_rules = self.filter_tree.get_active_rules(only_auto=False)
+            if active_rules:
+                for rule in active_rules:
+                    act = rules_menu.addAction(rule.name)
+                    # Use closure for loop variable
+                    act.triggered.connect(lambda checked, r=rule: self.apply_rule_requested.emit(r, "SELECTED"))
+            else:
+                rules_menu.setEnabled(False)
+                rules_menu.setToolTip(self.tr("No active rules found in Filter Tree."))
+
         menu.addSeparator()
         save_list_action = menu.addAction(self.tr("Save as List..."))
         save_list_action.triggered.connect(self.save_as_list)
@@ -1016,11 +1032,18 @@ class DocumentListWidget(QWidget):
             item.setData(3, Qt.ItemDataRole.UserRole, pages_sort)
             item.setData(4, Qt.ItemDataRole.UserRole, created_sort)
             
-            # Sorting for new columns
+            # Sorting for metadata columns
             if doc.sender: item.setData(7, Qt.ItemDataRole.UserRole, doc.sender)
             if doc.doc_date: item.setData(8, Qt.ItemDataRole.UserRole, str(doc.doc_date))
             if doc.amount: item.setData(9, Qt.ItemDataRole.UserRole, float(doc.amount))
-            if doc.tags: item.setData(13, Qt.ItemDataRole.UserRole, ", ".join(doc.tags))
+
+            # Sorting and Tooltips for Tags
+            if combined_types:
+                item.setToolTip(6, "\n".join(combined_types))
+            
+            if doc.tags:
+                item.setData(13, Qt.ItemDataRole.UserRole, ", ".join(doc.tags))
+                item.setToolTip(13, "\n".join(doc.tags))
             
             # Sort keys for timestamps
             if hasattr(doc, "last_processed_at") and doc.last_processed_at:

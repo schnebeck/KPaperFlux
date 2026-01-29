@@ -11,6 +11,7 @@ from core.database import DatabaseManager
 from gui.utils import format_datetime
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.tag_input import TagInputWidget
+from core.models.canonical_entity import DocType
 
 class MetadataEditorWidget(QWidget):
     """
@@ -81,12 +82,7 @@ class MetadataEditorWidget(QWidget):
 
         # Core Selectors
         self.doc_types_combo = MultiSelectComboBox()
-        self.doc_types_combo.addItems([
-            "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT",
-            "DUNNING", "PAYSLIP", "SICK_NOTE", "EXPENSE_REPORT", "BANK_STATEMENT", "TAX_ASSESSMENT",
-            "CONTRACT", "INSURANCE_POLICY", "OFFICIAL_LETTER", "TECHNICAL_DOC", "CERTIFICATE",
-            "APPLICATION", "NOTE", "OTHER"
-        ])
+        self.doc_types_combo.addItems(sorted([t.value for t in DocType]))
         analysis_layout.addRow(self.tr("Document Types:"), self.doc_types_combo)
 
         self.direction_combo = QComboBox()
@@ -266,39 +262,26 @@ class MetadataEditorWidget(QWidget):
 
         self.export_filename_edit.setText(doc.original_filename or "")
         
-        # Phase 105: Separate System Tags from Custom Tags
-        all_tags = getattr(doc, "type_tags", [])
-        
-        # Define system tag sets for filtering
-        system_doc_types = {
-            "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT",
-            "DUNNING", "PAYSLIP", "SICK_NOTE", "EXPENSE_REPORT", "BANK_STATEMENT", "TAX_ASSESSMENT",
-            "CONTRACT", "INSURANCE_POLICY", "OFFICIAL_LETTER", "TECHNICAL_DOC", "CERTIFICATE",
-            "APPLICATION", "NOTE", "OTHER"
-        }
-        system_directions = {"INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"}
-        system_contexts = {"PRIVATE", "BUSINESS", "UNKNOWN", "CTX_PRIVATE", "CTX_BUSINESS", "CTX_UNKNOWN"}
-        
-        custom_tags = []
-        for t in all_tags:
-            t_up = t.upper()
-            if t_up in system_doc_types: continue
-            if t_up in system_directions: continue
-            if t_up in system_contexts: continue
-            custom_tags.append(t)
-            
-        self.tags_edit.setText(", ".join(custom_tags) if custom_tags else "")
+        # Phase 106: Display User Tags from the dedicated 'tags' column
+        user_tags = getattr(doc, "tags", []) or []
+        if isinstance(user_tags, list):
+            self.tags_edit.setTags(user_tags)
+        else:
+            self.tags_edit.setText(str(user_tags))
         
         # AI / Analysis Fields
         sd = doc.semantic_data or {}
         
-        # Doc Types
+        # Doc Types (Dynamic via Enum)
         dt = sd.get("doc_types", [])
         if not dt and getattr(doc, 'doc_type', None):
             # Legacy field compat
             dt = doc.doc_type if isinstance(doc.doc_type, list) else [doc.doc_type]
         self.doc_types_combo.setCheckedItems(dt)
-
+        
+        # Directions & Context (Dynamic via standard values)
+        # Note: We keep these UNKNOWN by default if nothing found
+        # They will grow as the system evolves.
         self.direction_combo.setCurrentText(sd.get("direction", "UNKNOWN"))
         self.context_combo.setCurrentText(sd.get("tenant_context", "UNKNOWN"))
         self.reasoning_view.setText(sd.get("reasoning", ""))
@@ -416,8 +399,7 @@ class MetadataEditorWidget(QWidget):
         if not self.current_uuids or not self.db_manager:
             return
         # 1. Base Metadata
-        custom_tags_raw = self.tags_edit.text().strip()
-        custom_tags = [t.strip() for t in custom_tags_raw.split(",") if t.strip()]
+        custom_tags = self.tags_edit.getTags()
         
         # 2. Get Structured Data
         doc_types = self.doc_types_combo.getCheckedItems()
@@ -441,7 +423,8 @@ class MetadataEditorWidget(QWidget):
         updates = {
             "status": self.status_combo.currentText(),
             "export_filename": self.export_filename_edit.text().strip(),
-            "type_tags": final_tags
+            "type_tags": final_tags,
+            "tags": custom_tags
         }
 
         # 2. Semantic Metadata (Extracted Data)

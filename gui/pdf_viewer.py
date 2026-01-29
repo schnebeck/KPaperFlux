@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
-    QSpinBox, QFrame, QMessageBox, QFileDialog, QSizePolicy
+    QSpinBox, QFrame, QMessageBox, QFileDialog, QSizePolicy,
+    QLineEdit
 )
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPdfWidgets import QPdfView
@@ -33,6 +34,8 @@ class PdfViewerWidget(QWidget):
         # State
         self.temp_pdf_path = None
         self.current_pages_data = [] # List of {file_path, page_index, rotation}
+        self.highlight_text = "" # Global search text to highlight
+        self.doc_search_text = "" # Local search text to highlight
         
         # UI Components
         self.document = QPdfDocument(self)
@@ -142,6 +145,22 @@ class PdfViewerWidget(QWidget):
         self.toolbar_layout.addWidget(self.btn_delete)
         self.toolbar_layout.addWidget(self.btn_split)
         
+        self._add_separator()
+        
+        # --- Group 4: In-Doc Search ---
+        self.toolbar_layout.addWidget(QLabel(self.tr("Find:")))
+        self.edit_search = QLineEdit()
+        self.edit_search.setFixedWidth(120)
+        self.edit_search.setPlaceholderText(self.tr("Search in doc..."))
+        self.edit_search.returnPressed.connect(self._on_local_search_triggered)
+        self.toolbar_layout.addWidget(self.edit_search)
+        
+        self.btn_clear_search = QPushButton("✕")
+        self.btn_clear_search.setFixedSize(25, 25)
+        self.btn_clear_search.setFlat(True)
+        self.btn_clear_search.clicked.connect(self.clear_search_highlight)
+        self.toolbar_layout.addWidget(self.btn_clear_search)
+        
         # Ensure toolbar doesn't prevent shrinking
         self.toolbar.setMinimumWidth(0)
         self.toolbar_layout.setStretch(12, 1) # Add stretch after buttons
@@ -212,6 +231,22 @@ class PdfViewerWidget(QWidget):
         self._refresh_preview()
         return True
 
+    def set_highlight_text(self, text: str):
+        """Set text to be highlighted (usually from global search)."""
+        self.highlight_text = text
+        if self.current_pages_data:
+            self._refresh_preview()
+
+    def _on_local_search_triggered(self):
+        self.doc_search_text = self.edit_search.text().strip()
+        self._refresh_preview()
+
+    def clear_search_highlight(self):
+        self.edit_search.clear()
+        self.doc_search_text = ""
+        self.highlight_text = ""
+        self._refresh_preview()
+
     def _load_from_raw_path(self, path):
         try:
             doc = fitz.open(path)
@@ -247,6 +282,31 @@ class PdfViewerWidget(QWidget):
                     new_page.set_rotation(pg["rotation"])
                 src.close()
             
+            # 1.5 Apply Highlights (v29.x)
+            search_terms = []
+            if self.highlight_text: search_terms.extend(self.highlight_text.split())
+            if self.doc_search_text: search_terms.append(self.doc_search_text)
+            
+            # Clean up short terms to avoid highlighting every 'e' or 'a'
+            search_terms = [t for t in search_terms if len(t) > 2]
+            
+            if search_terms:
+                print(f"[PDF-Search] Scanning current document for terms: {search_terms}")
+                found_total = 0
+                for i, page in enumerate(preview_doc):
+                    for term in search_terms:
+                        quads = page.search_for(term)
+                        if quads:
+                            print(f"  [FOUND] '{term}' on Page {i+1}: {len(quads)} match(es)")
+                            for j, q in enumerate(quads):
+                                print(f"    - Match {j+1} at Coords: {q}")
+                                page.add_highlight_annot(q)
+                                found_total += 1
+                if found_total == 0:
+                    print("[PDF-Search] No matches found in document.")
+                else:
+                    print(f"[PDF-Search] Total highlights applied: {found_total}")
+
             # Save to temp
             fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="kpf_preview_")
             os.close(fd)

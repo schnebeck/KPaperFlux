@@ -8,6 +8,7 @@ from core.document import Document
 from core.database import DatabaseManager
 from core.vault import DocumentVault
 from gui.pdf_viewer import PdfViewerWidget
+from gui.widgets.tag_input import TagInputWidget
 from decimal import Decimal
 
 class DocumentDetailWidget(QWidget):
@@ -78,9 +79,8 @@ class DocumentDetailWidget(QWidget):
         self.type_edit.setObjectName("type_edit")
         self.form_layout.addRow(self.tr("Type:"), self.type_edit)
         
-        self.tags_edit = QLineEdit()
+        self.tags_edit = TagInputWidget()
         self.tags_edit.setObjectName("tags_edit")
-        self.tags_edit.setPlaceholderText("Tag1, Tag2...")
         self.form_layout.addRow(self.tr("Tags:"), self.tags_edit)
         
         scroll.setWidget(form_content)
@@ -110,8 +110,9 @@ class DocumentDetailWidget(QWidget):
         # Tags: Handle List or legacy String
         tags = doc.tags or []
         if isinstance(tags, list):
-            self.tags_edit.setText(", ".join(tags))
+            self.tags_edit.setTags(tags)
         else:
+            # Fallback for old CSV strings
             self.tags_edit.setText(str(tags))
         
         # Load PDF
@@ -149,7 +150,7 @@ class DocumentDetailWidget(QWidget):
             "iban": self.iban_edit.text(),
             "phone": self.phone_edit.text(),
             "doc_type": self.type_edit.text(),
-            "tags": [t.strip() for t in self.tags_edit.text().split(",") if t.strip()],
+            "tags": self.tags_edit.getTags(),
             # Handle amount and date parsing carefully?
             # For now simple string -> db might depend. 
             # DatabaseManager update method accepts raw values, but doc_date is DATE column.

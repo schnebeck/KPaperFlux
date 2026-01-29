@@ -33,13 +33,14 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, 
             last_used, last_processed_at, is_immutable, thumbnail_path, 
             cached_full_text, semantic_data, created_at, deleted, page_count_virt,
-            type_tags, sender, doc_date, amount
+            type_tags, sender, doc_date, amount, tags
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
         
         type_tags_json = json.dumps(doc.type_tags) if doc.type_tags else None
+        tags_json = json.dumps(doc.tags) if doc.tags else None
  
         values = (
             doc.uuid,
@@ -58,7 +59,8 @@ class LogicalRepository(BaseRepository):
             type_tags_json,
             doc.sender,
             doc.doc_date,
-            doc.amount
+            doc.amount,
+            tags_json
         )
         
         with self.conn:
@@ -70,7 +72,8 @@ class LogicalRepository(BaseRepository):
         SELECT 
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
-            semantic_data, created_at, deleted, page_count_virt, type_tags
+            semantic_data, created_at, deleted, page_count_virt, type_tags,
+            sender, doc_date, amount, tags
         FROM virtual_documents
         WHERE uuid = ?
         """
@@ -91,7 +94,8 @@ class LogicalRepository(BaseRepository):
         SELECT 
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
-            semantic_data, created_at, deleted, page_count_virt, type_tags
+            semantic_data, created_at, deleted, page_count_virt, type_tags,
+            sender, doc_date, amount, tags
         FROM virtual_documents
         WHERE source_mapping LIKE ?
         """
@@ -115,7 +119,8 @@ class LogicalRepository(BaseRepository):
         SELECT 
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
-            semantic_data, created_at, deleted, page_count_virt, type_tags
+            semantic_data, created_at, deleted, page_count_virt, type_tags,
+            sender, doc_date, amount, tags
         FROM virtual_documents
         """
         cursor = self.conn.cursor()

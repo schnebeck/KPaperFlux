@@ -19,12 +19,22 @@ class FilterNode:
         self.children: List['FilterNode'] = []
         self.parent = parent
         
+        # Phase 106: Rule Extension
+        self.tags_to_add: List[str] = []
+        self.tags_to_remove: List[str] = []
+        self.auto_apply: bool = False
+        self.is_enabled: bool = True
+        
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "type": self.node_type.value,
             "data": self.data,
+            "tags_to_add": self.tags_to_add,
+            "tags_to_remove": self.tags_to_remove,
+            "auto_apply": self.auto_apply,
+            "is_enabled": self.is_enabled,
             "children": [child.to_dict() for child in self.children]
         }
         
@@ -119,18 +129,39 @@ class FilterTree:
         node = FilterNode(name, node_type, data=node_data, parent=parent)
         if "id" in data:
             node.id = data["id"]
+        
+        # Rule Fields
+        node.tags_to_add = data.get("tags_to_add", [])
+        node.tags_to_remove = data.get("tags_to_remove", [])
+        node.auto_apply = bool(data.get("auto_apply", False))
+        node.is_enabled = bool(data.get("is_enabled", True))
             
         for child_data in data.get("children", []):
             child_node = self._parse_node(child_data, parent=node)
             node.children.append(child_node)
             
         return node
+        
     def get_all_filters(self) -> List[FilterNode]:
         """Returns a flat list of all FILTER nodes in the tree."""
         results = []
         def _recurse(node):
             if node.node_type == NodeType.FILTER:
                 results.append(node)
+            for child in node.children:
+                _recurse(child)
+        _recurse(self.root)
+        return results
+
+    def get_active_rules(self, only_auto: bool = False) -> List[FilterNode]:
+        """Returns all nodes that have tagging actions and are enabled."""
+        results = []
+        def _recurse(node):
+            if node.node_type == NodeType.FILTER and node.is_enabled:
+                # A filter is a rule if it has tags to add/remove
+                if node.tags_to_add or node.tags_to_remove:
+                    if not only_auto or node.auto_apply:
+                        results.append(node)
             for child in node.children:
                 _recurse(child)
         _recurse(self.root)

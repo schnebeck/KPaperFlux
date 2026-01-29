@@ -15,19 +15,20 @@ class BatchTaggingWorker(QThread):
     progress = pyqtSignal(int, int) # processed, total
     finished = pyqtSignal(int) # count of modified documents
     
-    def __init__(self, db, rules=None, uuids=None):
+    def __init__(self, db, filter_tree, rules=None, uuids=None):
         super().__init__()
         self.db = db
-        self.rules = rules # If None, will fetch enabled rules from DB. Can be a single Rule.
+        self.filter_tree = filter_tree
+        self.rules = rules # If None, will fetch enabled rules from Tree. Can be a single Rule.
         self.uuids = uuids # If None, will fetch all non-deleted documents
         self.is_cancelled = False
         
     def run(self):
-        engine = RulesEngine(self.db)
+        engine = RulesEngine(self.db, self.filter_tree)
         repo = LogicalRepository(self.db)
         
         if self.rules is None:
-            rules = engine.get_enabled_rules()
+            rules = self.filter_tree.get_active_rules()
         elif isinstance(self.rules, list):
             rules = self.rules
         else:
@@ -307,12 +308,14 @@ class MainLoopWorker(QThread):
     status_changed = pyqtSignal(str)
     documents_processed = pyqtSignal() # Notify UI to refresh list
     
-    def __init__(self, pipeline: PipelineProcessor):
+    def __init__(self, pipeline: PipelineProcessor, filter_tree):
         super().__init__()
         self.pipeline = pipeline
+        self.filter_tree = filter_tree
         self.is_running = True
         from core.canonizer import CanonizerService
         self.canonizer = CanonizerService(pipeline.db, 
+                                        filter_tree=self.filter_tree,
                                         physical_repo=pipeline.physical_repo, 
                                         logical_repo=pipeline.logical_repo)
 

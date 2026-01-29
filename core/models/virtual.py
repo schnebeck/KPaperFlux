@@ -46,6 +46,7 @@ class VirtualDocument:
     last_processed_at: Optional[str] = None
     deleted: bool = False
     type_tags: List[str] = field(default_factory=list) # Phase 102
+    tags: List[str] = field(default_factory=list) # Phase 106: User Tags
     
     # Filter Columns (Phase 105)
     sender: Optional[str] = None
@@ -115,6 +116,11 @@ class VirtualDocument:
              try: type_tags = json.loads(row[13])
              except: pass
 
+        tags = []
+        if len(row) > 17 and row[17]:
+             try: tags = json.loads(row[17])
+             except: pass
+
         return cls(
             uuid=row[0],
             source_mapping=source_mapping,
@@ -132,5 +138,6 @@ class VirtualDocument:
             type_tags=type_tags,
             sender=row[14] if len(row) > 14 else None,
             doc_date=row[15] if len(row) > 15 else None,
-            amount=row[16] if len(row) > 16 else None
+            amount=row[16] if len(row) > 16 else None,
+            tags=tags
         )

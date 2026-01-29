@@ -36,13 +36,14 @@ class FilterManagerDialog(QDialog):
     """
     filter_selected = pyqtSignal(object) # Emits FilterNode (or data) on selection/open
     
-    def __init__(self, filter_tree: FilterTree, db_manager=None, parent=None):
+    def __init__(self, filter_tree: FilterTree, db_manager=None, parent=None, start_node: FilterNode = None):
         super().__init__(parent)
-        self.setWindowTitle("Filter Manager")
+        self.setWindowTitle("Filter & Rule Manager")
         self.resize(1000, 600)
         
         self.tree_model = filter_tree
         self.db_manager = db_manager
+        self.start_node = start_node # Focused node/folder on open
         
         # UI Setup
         self.layout = QVBoxLayout(self)
@@ -74,6 +75,9 @@ class FilterManagerDialog(QDialog):
         self.tree_widget.item_dropped.connect(self.on_item_dropped)
         
         self.populate_tree()
+        
+        if self.start_node:
+            self.focus_node(self.start_node)
         
         self.splitter.addWidget(self.tree_widget)
         
@@ -211,6 +215,29 @@ class FilterManagerDialog(QDialog):
             
         self.update_details(node)
 
+    def focus_node(self, node: FilterNode):
+        """Finds and selects the item for a given node."""
+        for item_id, n in self.item_map.items():
+            if n == node:
+                # Need to find the actual QTreeWidgetItem by its ID
+                # Since id(item) is not persistent across populate, we need a better lookup or store the reverse.
+                # For now, let's just iterate items in tree.
+                it = self._find_item_by_node(self.tree_widget.invisibleRootItem(), node)
+                if it:
+                    self.tree_widget.setCurrentItem(it)
+                    it.setSelected(True)
+                    it.setExpanded(True)
+                break
+
+    def _find_item_by_node(self, parent_it, node):
+        for i in range(parent_it.childCount()):
+            it = parent_it.child(i)
+            if self.item_map.get(id(it)) == node:
+                return it
+            found = self._find_item_by_node(it, node)
+            if found: return found
+        return None
+
     def update_details(self, node: FilterNode):
         """Update the details pane based on selected node."""
         if node.node_type == NodeType.FOLDER:
@@ -297,9 +324,29 @@ class FilterManagerDialog(QDialog):
             self.details_label.setText(f"<b>Filter Rule:</b> {node.name}")
             
             lines = []
+            
+            # Phase 106: Display Rule specific fields
+            if node.tags_to_add or node.tags_to_remove:
+                lines.append("<b>Tagging Actions:</b>")
+                lines.append("<ul style='margin-bottom: 10px;'>")
+                if node.tags_to_add:
+                    lines.append(f"<li>➕ Add: <span style='color: green;'>{', '.join(node.tags_to_add)}</span></li>")
+                if node.tags_to_remove:
+                    lines.append(f"<li>➖ Remove: <span style='color: red;'>{', '.join(node.tags_to_remove)}</span></li>")
+                
+                status_bits = []
+                if node.is_enabled: status_bits.append("<span style='color: green;'>Active</span>")
+                else: status_bits.append("<span style='color: gray;'>Inactive</span>")
+                
+                if node.auto_apply: status_bits.append("<span style='color: blue;'>Run on Import</span>")
+                
+                lines.append(f"<li>⚙️ Settings: {' | '.join(status_bits)}</li>")
+                lines.append("</ul>")
+                lines.append("<hr/>")
+
             if node.data and 'conditions' in node.data:
                  op_main = node.data.get('operator', 'AND')
-                 lines.append(f"<b>Logic: {op_main}</b>")
+                 lines.append(f"<b>Filtering Logic: {op_main}</b>")
                  lines.append("<ul>")
                  for c in node.data['conditions']:
                      f_key = c.get('field', '')

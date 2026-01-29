@@ -1,3 +1,4 @@
+
 import json
 from typing import Optional, List
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, 
@@ -6,19 +7,21 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QCheckBox, QSpinBox, QFrame, QProgressDialog, QWidget)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from core.database import DatabaseManager
-from core.rules_engine import TaggingRule, RulesEngine
+from core.filter_tree import FilterTree, FilterNode, NodeType
 from gui.widgets.filter_group import FilterGroupWidget
 
 class RuleEditorDialog(QDialog):
     """
     Phase 106: Editor for a single Auto-Tagging Rule.
-    Wraps the FilterGroupWidget and adds the "Condition -> Action" logic.
+    Now works with FilterNode objects from the FilterTree.
     """
-    def __init__(self, rule: Optional[TaggingRule] = None, db_manager: Optional[DatabaseManager] = None, parent=None):
+    def __init__(self, node: Optional[FilterNode] = None, filter_tree: Optional[FilterTree] = None, db_manager: Optional[DatabaseManager] = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Edit Tagging Rule" if rule else "New Tagging Rule")
+        self.setWindowTitle("Edit Tagging Rule" if node else "New Tagging Rule")
         self.resize(800, 600)
         self.db_manager = db_manager
+        self.filter_tree = filter_tree
+        self.node = node
         
         # 1. Initialize Metadata for Filter Engine
         self.extra_keys = []
@@ -30,11 +33,8 @@ class RuleEditorDialog(QDialog):
 
         self._init_ui()
         
-        if rule:
-            self.set_rule(rule)
-        else:
-            # Default state
-            pass
+        if node:
+            self.set_node(node)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -48,14 +48,13 @@ class RuleEditorDialog(QDialog):
         self.name_edit.setPlaceholderText("e.g. Mark High Priority Invoices")
         header_layout.addWidget(self.name_edit, 1)
         
-        header_layout.addWidget(QLabel("Order:"))
-        self.order_spin = QSpinBox()
-        self.order_spin.setRange(0, 1000)
-        header_layout.addWidget(self.order_spin)
-        
         self.enabled_chk = QCheckBox("Enabled")
         self.enabled_chk.setChecked(True)
         header_layout.addWidget(self.enabled_chk)
+        
+        self.auto_chk = QCheckBox("Auto-Apply")
+        self.auto_chk.setChecked(True)
+        header_layout.addWidget(self.auto_chk)
         
         layout.addWidget(header_frame)
         
@@ -97,35 +96,30 @@ class RuleEditorDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
 
-    def set_rule(self, rule: TaggingRule):
-        self.name_edit.setText(rule.name)
-        self.order_spin.setValue(rule.execution_order)
-        self.enabled_chk.setChecked(rule.is_enabled)
-        self.filter_group.set_query(rule.filter_conditions)
-        self.tags_add_edit.setText(", ".join(rule.tags_to_add))
-        self.tags_rem_edit.setText(", ".join(rule.tags_to_remove))
+    def set_node(self, node: FilterNode):
+        self.name_edit.setText(node.name)
+        self.enabled_chk.setChecked(node.is_enabled)
+        self.auto_chk.setChecked(node.auto_apply)
+        self.filter_group.set_query(node.data)
+        self.tags_add_edit.setText(", ".join(node.tags_to_add))
+        self.tags_rem_edit.setText(", ".join(node.tags_to_remove))
 
-    def get_rule(self) -> TaggingRule:
-        tags_add = [t.strip() for t in self.tags_add_edit.text().split(",") if t.strip()]
-        tags_rem = [t.strip() for t in self.tags_rem_edit.text().split(",") if t.strip()]
-        
-        return TaggingRule(
-            name=self.name_edit.text().strip() or "Unnamed Rule",
-            filter_conditions=self.filter_group.get_query(),
-            tags_to_add=tags_add,
-            tags_to_remove=tags_rem,
-            is_enabled=self.enabled_chk.isChecked(),
-            execution_order=self.order_spin.value()
-        )
+    def save_to_node(self, node: FilterNode):
+        node.name = self.name_edit.text().strip() or "Unnamed Rule"
+        node.data = self.filter_group.get_query()
+        node.tags_to_add = [t.strip() for t in self.tags_add_edit.text().split(",") if t.strip()]
+        node.tags_to_remove = [t.strip() for t in self.tags_rem_edit.text().split(",") if t.strip()]
+        node.is_enabled = self.enabled_chk.isChecked()
+        node.auto_apply = self.auto_chk.isChecked()
 
 class RuleManagerWidget(QWidget):
     """
-    Phase 106: Reusable widget to manage all Auto-Tagging Rules.
-    Can be used in a tab or a dialog.
+    Phase 106: Reusable widget to manage all Auto-Tagging Rules from the FilterTree.
     """
-    def __init__(self, db_manager: DatabaseManager, parent=None):
+    def __init__(self, db_manager: DatabaseManager, filter_tree: FilterTree, parent=None):
         super().__init__(parent)
         self.db_manager = db_manager
+        self.filter_tree = filter_tree
         self._init_ui()
         self.load_rules()
 
@@ -134,22 +128,20 @@ class RuleManagerWidget(QWidget):
         layout.setContentsMargins(5, 5, 5, 5)
         
         # Help text
-        help_label = QLabel(self.tr("Rules are applied automatically after AI analysis or can be triggered manually."))
+        help_label = QLabel(self.tr("Rules are integrated into the FilterTree structure."))
         help_label.setStyleSheet("color: #666; font-style: italic;")
         layout.addWidget(help_label)
         
         # Table
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels([
-            self.tr("Order"), 
+            self.tr("Type"), 
             self.tr("Name"), 
             self.tr("Add Tags"), 
-            self.tr("Enabled"), 
+            self.tr("Active"), 
             self.tr("Actions")
         ])
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-        self.table.setColumnWidth(2, 150)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         layout.addWidget(self.table)
         
@@ -169,20 +161,17 @@ class RuleManagerWidget(QWidget):
         layout.addLayout(btn_layout)
 
     def load_rules(self):
-        cursor = self.db_manager.connection.cursor()
-        cursor.execute("SELECT id, name, filter_conditions, tags_to_add, tags_to_remove, is_enabled, execution_order FROM tagging_rules ORDER BY execution_order ASC")
-        rows = cursor.fetchall()
+        rules = self.filter_tree.get_active_rules(only_auto=False)
         
         self.table.setRowCount(0)
-        for row in rows:
-            rule = TaggingRule.from_row(row)
+        for node in rules:
             r = self.table.rowCount()
             self.table.insertRow(r)
             
-            self.table.setItem(r, 0, QTableWidgetItem(str(rule.execution_order)))
-            self.table.setItem(r, 1, QTableWidgetItem(rule.name))
-            self.table.setItem(r, 2, QTableWidgetItem(", ".join(rule.tags_to_add)))
-            self.table.setItem(r, 3, QTableWidgetItem("Yes" if rule.is_enabled else "No"))
+            self.table.setItem(r, 0, QTableWidgetItem("Rule"))
+            self.table.setItem(r, 1, QTableWidgetItem(node.name))
+            self.table.setItem(r, 2, QTableWidgetItem(", ".join(node.tags_to_add)))
+            self.table.setItem(r, 3, QTableWidgetItem("Yes" if node.is_enabled else "No"))
             
             # Action Buttons
             btn_container = QWidget()
@@ -190,56 +179,59 @@ class RuleManagerWidget(QWidget):
             bl.setContentsMargins(2, 2, 2, 2)
             
             edit_btn = QPushButton(self.tr("Edit"))
-            edit_btn.clicked.connect(lambda checked, rule_id=rule.id: self.on_edit_rule(rule_id))
+            edit_btn.clicked.connect(lambda checked, n=node: self.on_edit_rule(n))
             bl.addWidget(edit_btn)
             
             del_btn = QPushButton(self.tr("Delete"))
-            del_btn.clicked.connect(lambda checked, rule_id=rule.id: self.on_delete_rule(rule_id))
+            del_btn.clicked.connect(lambda checked, n=node: self.on_delete_rule(n))
             bl.addWidget(del_btn)
             
             self.table.setCellWidget(r, 4, btn_container)
 
+    def _get_rules_parent(self):
+        # Find/Ensure "Auto-Tagging Rules" folder
+        parent = self.filter_tree.root
+        for child in self.filter_tree.root.children:
+            if child.name == "Auto-Tagging Rules":
+                return child
+        # Not found? Create it
+        from core.filter_tree import NodeType
+        folder = FilterNode("Auto-Tagging Rules", NodeType.FOLDER)
+        self.filter_tree.root.add_child(folder)
+        return folder
+
     def on_add_rule(self):
-        dlg = RuleEditorDialog(db_manager=self.db_manager, parent=self)
+        dlg = RuleEditorDialog(filter_tree=self.filter_tree, db_manager=self.db_manager, parent=self)
         if dlg.exec():
-            rule = dlg.get_rule()
-            self._save_rule(rule)
+            parent = self._get_rules_parent()
+            new_node = self.filter_tree.add_filter(parent, "New Rule", {})
+            dlg.save_to_node(new_node)
+            self._notify_change()
             self.load_rules()
 
-    def on_edit_rule(self, rule_id):
-        cursor = self.db_manager.connection.cursor()
-        cursor.execute("SELECT id, name, filter_conditions, tags_to_add, tags_to_remove, is_enabled, execution_order FROM tagging_rules WHERE id = ?", (rule_id,))
-        row = cursor.fetchone()
-        if not row: return
-        
-        rule = TaggingRule.from_row(row)
-        dlg = RuleEditorDialog(rule=rule, db_manager=self.db_manager, parent=self)
+    def on_edit_rule(self, node: FilterNode):
+        dlg = RuleEditorDialog(node=node, filter_tree=self.filter_tree, db_manager=self.db_manager, parent=self)
         if dlg.exec():
-            updated_rule = dlg.get_rule()
-            updated_rule.id = rule_id
-            self._save_rule(updated_rule)
+            dlg.save_to_node(node)
+            self._notify_change()
             self.load_rules()
 
-    def on_delete_rule(self, rule_id):
-        if QMessageBox.question(self, "Delete Rule", "Are you sure you want to delete this rule?") == QMessageBox.StandardButton.Yes:
-            with self.db_manager.connection:
-                self.db_manager.connection.execute("DELETE FROM tagging_rules WHERE id = ?", (rule_id,))
-            self.load_rules()
+    def on_delete_rule(self, node: FilterNode):
+        if QMessageBox.question(self, "Delete Rule", f"Are you sure you want to delete '{node.name}'?") == QMessageBox.StandardButton.Yes:
+            if node.parent:
+                node.parent.remove_child(node)
+                self._notify_change()
+                self.load_rules()
 
-    def _save_rule(self, rule: TaggingRule):
-        sql = ""
-        params = (rule.name, json.dumps(rule.filter_conditions), 
-                  json.dumps(rule.tags_to_add), json.dumps(rule.tags_to_remove),
-                  1 if rule.is_enabled else 0, rule.execution_order)
-        
-        if rule.id:
-            sql = "UPDATE tagging_rules SET name=?, filter_conditions=?, tags_to_add=?, tags_to_remove=?, is_enabled=?, execution_order=? WHERE id=?"
-            params += (rule.id,)
-        else:
-            sql = "INSERT INTO tagging_rules (name, filter_conditions, tags_to_add, tags_to_remove, is_enabled, execution_order) VALUES (?, ?, ?, ?, ?, ?)"
-            
-        with self.db_manager.connection:
-            self.db_manager.connection.execute(sql, params)
+    def _notify_change(self):
+        # Trigger persistence if possible
+        # Check if parent (AdvancedFilterWidget) has a save_callback
+        p = self.parent()
+        while p:
+            if hasattr(p, "save_callback") and p.save_callback:
+                p.save_callback()
+                break
+            p = p.parent()
 
     def on_apply_all(self):
         """Retroactive tagging: Batch process all documents in background."""
@@ -252,7 +244,7 @@ class RuleManagerWidget(QWidget):
             self.progress = QProgressDialog("Applying rules to database...", "Cancel", 0, 100, self)
             self.progress.setWindowModality(Qt.WindowModality.WindowModal)
             
-            self.worker = BatchTaggingWorker(self.db_manager)
+            self.worker = BatchTaggingWorker(self.db_manager, self.filter_tree)
             self.worker.progress.connect(self._on_worker_progress)
             self.worker.finished.connect(self._on_worker_finished)
             
@@ -272,17 +264,13 @@ class RuleManagerWidget(QWidget):
                                 f"Finished processing database.\n\n{modified_count} documents were modified.")
 
 class RuleManagerDialog(QDialog):
-    """
-    Phase 106: Dialog to manage all Auto-Tagging Rules.
-    (Keeping for backward compatibility or specialized use, but now wraps RuleManagerWidget)
-    """
-    def __init__(self, db_manager: DatabaseManager, parent=None):
+    def __init__(self, db_manager: DatabaseManager, filter_tree: FilterTree, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Auto-Tagging Rule Manager")
         self.resize(800, 600)
         
         layout = QVBoxLayout(self)
-        self.widget = RuleManagerWidget(db_manager, self)
+        self.widget = RuleManagerWidget(db_manager, filter_tree, self)
         layout.addWidget(self.widget)
         
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
