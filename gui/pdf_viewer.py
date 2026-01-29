@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import QUrl, Qt, QPointF, pyqtSignal, QSettings, QTemporaryFile
+from PyQt6.QtCore import QUrl, Qt, QPointF, pyqtSignal, QSettings, QTemporaryFile, QTimer
 from pathlib import Path
 import fitz
 import os
@@ -358,25 +358,31 @@ class PdfViewerWidget(QWidget):
             self.spin_page.blockSignals(True)
             self.spin_page.setRange(1, count)
             
-            # Navigate if pending, otherwise maintain pos
-            if self._pending_page_index >= 0 and self._pending_page_index < count:
-                print(f"[PdfViewer] Executing deferred jump to page {self._pending_page_index}")
-                self.nav.jump(self._pending_page_index, QPointF(), self.nav.currentZoom())
-                curr = self._pending_page_index
-                self._pending_page_index = -1
-            else:
-                curr = self.nav.currentPage()
-                
+            # Initial SpinBox State (Default to current, usually 0/1)
+            curr = self.nav.currentPage()
             self.spin_page.setValue(curr + 1)
             self.spin_page.blockSignals(False)
+            
             self.enable_controls(True)
             self.restore_zoom_state()
             
             # Show/Hide split
             self.btn_split.setVisible(count > 1)
-            
+
+            # Navigate if pending (Delayed to allow Viewport Init)
+            if self._pending_page_index >= 0 and self._pending_page_index < count:
+                print(f"[PdfViewer] Scheduling deferred jump to page {self._pending_page_index} (100ms delay)")
+                QTimer.singleShot(100, self._execute_deferred_jump)
+
         elif status == QPdfDocument.Status.Error:
             self.enable_controls(False)
+
+    def _execute_deferred_jump(self):
+        """Execute the jump after delay."""
+        if self._pending_page_index >= 0 and self._pending_page_index < self.document.pageCount():
+            print(f"[PdfViewer] Jumping to page {self._pending_page_index}")
+            self.nav.jump(self._pending_page_index, QPointF(), self.nav.currentZoom())
+            self._pending_page_index = -1
 
     def enable_controls(self, enabled: bool):
         for btn in [self.btn_prev, self.btn_next, self.btn_zoom_in, self.btn_zoom_out, 
