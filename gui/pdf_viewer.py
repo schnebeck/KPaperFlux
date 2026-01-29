@@ -446,6 +446,11 @@ class PdfViewerWidget(QWidget):
         if 1 <= page_num <= self.document.pageCount():
             self.nav.jump(page_num - 1, QPointF(), self.nav.currentZoom())
 
+    def go_to_page(self, page_index: int):
+        """Programmatic navigation (0-based index)."""
+        if 0 <= page_index < self.document.pageCount():
+            self.nav.jump(page_index, QPointF(), self.nav.currentZoom())
+
     def on_page_changed(self, page):
         self.spin_page.blockSignals(True)
         self.spin_page.setValue(page + 1)
