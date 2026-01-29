@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import QUrl, Qt, QPointF, pyqtSignal, QSettings, QTemporaryFile, QTimer
+from PyQt6.QtCore import QUrl, Qt, QPointF, pyqtSignal, QSettings, QTemporaryFile, QTimer, pyqtSlot
 from pathlib import Path
 import fitz
 import os
@@ -203,6 +203,9 @@ class PdfViewerWidget(QWidget):
         if not self.isVisible():
             self._pending_refresh = True
         
+        # Detach to prevent transient errors during load (Fix for 'invalid nullptr')
+        self.view.setDocument(None)
+        
         if uuid:
             self.current_uuid = uuid
         else:
@@ -356,22 +359,29 @@ class PdfViewerWidget(QWidget):
 
     def on_document_status(self, status):
         if status == QPdfDocument.Status.Ready:
+            # Re-attach document now that it is safe (Fix for 'invalid nullptr')
+            if self.view.document() is None:
+                self.view.setDocument(self.document)
+
+            self.enable_controls(True)
+            self.update_zoom_label(self.view.zoomFactor())
+            
             count = self.document.pageCount()
-            self.lbl_total.setText(f"/ {count}")
+            self.lbl_page_count.setText(f"/ {count}")
+            
             self.spin_page.blockSignals(True)
             self.spin_page.setRange(1, count)
             
-            # Initial SpinBox State (Default to current, usually 0/1)
+            # Initial SpinBox State
             curr = self.nav.currentPage()
             self.spin_page.setValue(curr + 1)
             self.spin_page.blockSignals(False)
             
-            self.enable_controls(True)
             self.restore_zoom_state()
             
             # Show/Hide split
             self.btn_split.setVisible(count > 1)
-
+            
             # Navigate if pending (Delayed to allow Viewport Init)
             if self._pending_page_index >= 0 and self._pending_page_index < count:
                 print(f"[PdfViewer] Starting Jump Timer for Page {self._pending_page_index} (300ms)...")
@@ -380,6 +390,7 @@ class PdfViewerWidget(QWidget):
         elif status == QPdfDocument.Status.Error:
             self.enable_controls(False)
 
+    @pyqtSlot()
     def _execute_deferred_jump(self):
         """Execute the jump after delay."""
         if self._pending_page_index >= 0 and self._pending_page_index < self.document.pageCount():
