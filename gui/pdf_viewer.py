@@ -7,6 +7,7 @@ from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPdfWidgets import QPdfView
 from PyQt6.QtCore import QUrl, Qt, QPointF, pyqtSignal, QSettings, QTemporaryFile, QTimer, pyqtSlot
 from pathlib import Path
+from PyQt6.QtGui import QAction, QIcon, QKeySequence, QShortcut
 import fitz
 import os
 import shutil
@@ -154,18 +155,11 @@ class PdfViewerWidget(QWidget):
         self._add_separator()
         
         # --- Group 4: In-Doc Search ---
-        self.toolbar_layout.addWidget(QLabel(self.tr("Find:")))
-        self.edit_search = QLineEdit()
-        self.edit_search.setFixedWidth(120)
-        self.edit_search.setPlaceholderText(self.tr("Search in doc..."))
-        self.edit_search.returnPressed.connect(self._on_local_search_triggered)
-        self.toolbar_layout.addWidget(self.edit_search)
-        
-        self.btn_clear_search = QPushButton("✕")
-        self.btn_clear_search.setFixedSize(25, 25)
-        self.btn_clear_search.setFlat(True)
-        self.btn_clear_search.clicked.connect(self.clear_search_highlight)
-        self.toolbar_layout.addWidget(self.btn_clear_search)
+        self.btn_show_search = QPushButton("🔍")
+        self.btn_show_search.setFixedSize(35, 30)
+        self.btn_show_search.setToolTip(self.tr("Find in document (Ctrl+F)"))
+        self.btn_show_search.clicked.connect(self.show_search_bar)
+        self.toolbar_layout.addWidget(self.btn_show_search)
         
         # Ensure toolbar doesn't prevent shrinking
         self.toolbar.setMinimumWidth(0)
@@ -186,6 +180,11 @@ class PdfViewerWidget(QWidget):
         self.enable_controls(False)
         self.btn_split.setVisible(False)
         self.restore_zoom_state()
+        
+        # Phase 106: Search Overlay
+        self._init_search_overlay()
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self.show_search_bar)
+        QShortcut(QKeySequence("Esc"), self).activated.connect(self.hide_search_bar)
 
     def _add_separator(self):
         line = QFrame()
@@ -429,6 +428,64 @@ class PdfViewerWidget(QWidget):
                 self.current_pages_data.pop(idx)
                 self.btn_save.setVisible(True)
                 self._refresh_preview()
+
+    # --- Search Bar Overlay (Phase 106) ---
+    def _init_search_overlay(self):
+        self.search_bar = QFrame(self)
+        self.search_bar.setObjectName("searchBar")
+        self.search_bar.setStyleSheet("""
+            #searchBar {
+                background-color: rgba(255, 255, 255, 0.95);
+                border: 1px solid #bbb;
+                border-radius: 6px;
+            }
+        """)
+        self.search_bar.setFixedSize(220, 36)
+        
+        layout = QHBoxLayout(self.search_bar)
+        layout.setContentsMargins(10, 2, 5, 2)
+        layout.setSpacing(5)
+        
+        lbl_icon = QLabel("🔍")
+        lbl_icon.setStyleSheet("color: #666;")
+        layout.addWidget(lbl_icon)
+        
+        self.edit_search = QLineEdit()
+        self.edit_search.setPlaceholderText(self.tr("Find in document..."))
+        self.edit_search.setFrame(False)
+        self.edit_search.setStyleSheet("background: transparent; font-size: 13px;")
+        self.edit_search.returnPressed.connect(self._on_local_search_triggered)
+        layout.addWidget(self.edit_search)
+        
+        self.btn_close_search = QPushButton("✕")
+        self.btn_close_search.setFixedSize(24, 24)
+        self.btn_close_search.setFlat(True)
+        self.btn_close_search.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close_search.clicked.connect(self.hide_search_bar)
+        layout.addWidget(self.btn_close_search)
+        
+        self.search_bar.hide()
+
+    def show_search_bar(self):
+        self.search_bar.show()
+        self.search_bar.raise_()
+        self.edit_search.setFocus()
+        self.edit_search.selectAll()
+        self._reposition_search_bar()
+
+    def hide_search_bar(self):
+        self.search_bar.hide()
+        self.clear_search_highlight()
+
+    def _reposition_search_bar(self):
+        if hasattr(self, 'search_bar'):
+            # Fixed positioning: Top Right corner, inside the Widget but above the Viewport
+            # 10px from right, 50px from top (below toolbar)
+            self.search_bar.move(self.width() - self.search_bar.width() - 25, 55)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._reposition_search_bar()
 
     def on_split_clicked(self):
         if self.current_uuid:
