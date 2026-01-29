@@ -45,32 +45,41 @@ class DocumentDetailWidget(QWidget):
         
         # Fields
         self.uuid_lbl = QLabel()
+        self.uuid_lbl.setObjectName("uuid_lbl")
         self.form_layout.addRow("UUID:", self.uuid_lbl)
         
         self.sender_edit = QLineEdit()
+        self.sender_edit.setObjectName("sender_edit")
         self.form_layout.addRow(self.tr("Sender:"), self.sender_edit)
         
         self.address_edit = QTextEdit()
+        self.address_edit.setObjectName("address_edit")
         self.address_edit.setMaximumHeight(80)
         self.form_layout.addRow(self.tr("Sender Address:"), self.address_edit)
         
         self.iban_edit = QLineEdit()
+        self.iban_edit.setObjectName("iban_edit")
         self.form_layout.addRow(self.tr("IBAN:"), self.iban_edit)
         
         self.phone_edit = QLineEdit()
+        self.phone_edit.setObjectName("phone_edit")
         self.form_layout.addRow(self.tr("Phone:"), self.phone_edit)
         
         self.date_edit = QLineEdit() 
+        self.date_edit.setObjectName("date_edit")
         self.date_edit.setPlaceholderText("YYYY-MM-DD")
         self.form_layout.addRow(self.tr("Date:"), self.date_edit)
         
         self.amount_edit = QLineEdit()
+        self.amount_edit.setObjectName("amount_edit")
         self.form_layout.addRow(self.tr("Amount:"), self.amount_edit)
         
         self.type_edit = QLineEdit()
+        self.type_edit.setObjectName("type_edit")
         self.form_layout.addRow(self.tr("Type:"), self.type_edit)
         
         self.tags_edit = QLineEdit()
+        self.tags_edit.setObjectName("tags_edit")
         self.tags_edit.setPlaceholderText("Tag1, Tag2...")
         self.form_layout.addRow(self.tr("Tags:"), self.tags_edit)
         

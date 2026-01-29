@@ -47,11 +47,11 @@ def test_german_translation_loading(app_config, qtbot):
     # We assume 'File' -> 'Datei' based on our .ts file
     
     # Note: Using a context that exists in the .ts file
-    # Context: MainWindow, Source: File
-    translated_text = translator.translate("MainWindow", "File")
+    # Context: MainWindow, Source: &File
+    translated_text = translator.translate("MainWindow", "&File")
     
-    # If translation works, it should be 'Datei'
-    assert translated_text == "Datei", f"Expected 'Datei', got '{translated_text}'"
+    # If translation works, it should be '&Datei'
+    assert translated_text == "&Datei", f"Expected '&Datei', got '{translated_text}'"
 
 def test_app_config_language_setting(app_config):
     """Test that AppConfig can save/retrieve language setting."""

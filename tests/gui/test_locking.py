@@ -117,5 +117,5 @@ def test_visual_graying(main_window, mock_db, qtbot):
     # Verify Foreground Color
     # We check column 0 or 1
     brush = item.foreground(1)
-    # Qt.GlobalColor.gray
-    assert brush.color() == Qt.GlobalColor.gray
+    from PyQt6.QtGui import QColor
+    assert brush.color().getRgb() == QColor(Qt.GlobalColor.gray).getRgb()

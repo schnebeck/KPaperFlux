@@ -63,7 +63,7 @@ def test_smart_list_filtering(qtbot, db_with_docs):
     qtbot.addWidget(widget)
     widget.refresh_list()
     
-    assert widget.rowCount() == 3
+    assert widget.tree.topLevelItemCount() == 3
     
     # Query: "2024"
     widget.apply_filter({'date_from': '2024-01-01', 'date_to': '2024-12-31'})
@@ -71,16 +71,16 @@ def test_smart_list_filtering(qtbot, db_with_docs):
     # Row indices might vary, verify visibility by content or count
     shown = 0
     for r in range(3):
-        if not widget.isRowHidden(r): shown += 1
+        if not widget.tree.topLevelItem(r).isHidden(): shown += 1
     assert shown == 2 # Amazon (2024), Ebay (2024)
     
     # Query: "Amazon" (Text)
     widget.apply_filter({'text_search': 'amazon'})
     shown = 0
     for r in range(3):
-        if not widget.isRowHidden(r): 
+        if not widget.tree.topLevelItem(r).isHidden(): 
             # Verify it is Amazon
-            sender = widget.item(r, 1).text()
+            sender = widget.tree.topLevelItem(r).text(7) # Sender index
             assert sender == "Amazon"
             shown += 1
     assert shown == 1
@@ -90,7 +90,7 @@ def test_smart_list_filtering(qtbot, db_with_docs):
     widget.apply_filter({'type': 'Letter', 'text_search': 'urgent'})
     shown = 0
     for r in range(3):
-         if not widget.isRowHidden(r):
-             assert widget.item(r, 1).text() == "Ebay"
+         if not widget.tree.topLevelItem(r).isHidden():
+             assert widget.tree.topLevelItem(r).text(7) == "Ebay"
              shown += 1
     assert shown == 1

@@ -19,6 +19,7 @@ def mock_db():
     db.get_all_documents.return_value = docs
     db.search_documents.return_value = docs
     db.get_document_by_uuid.side_effect = lambda u: next((d for d in docs if d.uuid == u), None)
+    db.get_all_entities_view.return_value = docs
     return db
 
 @pytest.fixture
@@ -90,7 +91,7 @@ def test_save_list_selection(main_window):
         assert len(conds) == 1
         c = conds[0]
         assert c['field'] == 'uuid'
-        assert c['operator'] == 'in'
+        assert c['op'] == 'in'
         assert set(c['value']) == {"u1", "u2"}
 
 def test_save_list_all(main_window):
@@ -113,6 +114,6 @@ def test_save_list_all(main_window):
         assert node is not None
         
         c = node.data['conditions'][0]
-        assert c['operator'] == 'in'
+        assert c['op'] == 'in'
         # Should contain u1, u2, u3 (all visible)
         assert set(c['value']) == {"u1", "u2", "u3"}

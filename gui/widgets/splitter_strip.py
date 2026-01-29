@@ -1398,3 +1398,19 @@ class SplitterStripWidget(QWidget):
         """Restore visibility of selected widgets."""
         for w in self.selected_widgets:
             w.show()
+
+    def _move_selection(self, target_index):
+        """Programmatically move current selection to target layout index (for tests)."""
+        if not self.selected_widgets: return
+        
+        # 1. Remove from layout
+        for w in list(self.selected_widgets):
+            self.content_layout.removeWidget(w)
+            
+        # 2. Insert at target
+        for i, w in enumerate(self.selected_widgets):
+            self.content_layout.insertWidget(target_index + i, w)
+            
+        self._rebuild_dividers()
+        self.on_scroll_changed()
+        

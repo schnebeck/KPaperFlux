@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QTreeWidgetItem, QTreeWidget, QWidget, QVBoxLayout, QAbstractItemView, QStyledItemDelegate, QMessageBox, QTreeWidgetItemIterator
 from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QEvent, QTimer
+from PyQt6.QtGui import QBrush, QColor
 
 class RowNumberDelegate(QStyledItemDelegate):
     def initStyleOption(self, option, index):
@@ -15,7 +16,6 @@ class FixedFirstColumnHeader(QHeaderView):
         super().mousePressEvent(event)
 from core.database import DatabaseManager
 from gui.utils import format_date, format_datetime
-from gui.utils import format_date, format_datetime
 from gui.export_dialog import ExportDialog
 from gui.dialogs.save_list_dialog import SaveListDialog
 from core.config import AppConfig
@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Optional
 import datetime
 import os
-from core.metadata_normalizer import MetadataNormalizer
 from core.metadata_normalizer import MetadataNormalizer
 from core.semantic_translator import SemanticTranslator
 from gui.delegates.tag_delegate import TagDelegate
@@ -77,9 +76,12 @@ class DocumentListWidget(QWidget):
         4: "Created",
         5: "Status",
         6: "Type Tags",
-        7: "AI Processed",
-        8: "Last Used",
-        9: "Locked"
+        7: "Sender",
+        8: "Date",
+        9: "Amount",
+        10: "AI Processed",
+        11: "Last Used",
+        12: "Locked"
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
 
@@ -616,6 +618,11 @@ class DocumentListWidget(QWidget):
              
         self.populate_tree(docs)
         
+        # Re-apply basic filter (hide/show) if one was active
+        if hasattr(self, "current_filter") and self.current_filter:
+             self.apply_filter(self.current_filter)
+        
+        
         # Phase 105: Selection Resilience
         self.tree.blockSignals(True)
         restored = False
@@ -725,9 +732,12 @@ class DocumentListWidget(QWidget):
         target_item.setText(4, created_str)
         target_item.setText(5, status)
         target_item.setText(6, ", ".join(type_tags))
-        target_item.setText(7, processed_str)
-        target_item.setText(8, used_str)
-        target_item.setText(9, locked_str)
+        target_item.setText(7, doc.sender or "-")
+        target_item.setText(8, str(doc.doc_date or "-"))
+        target_item.setText(9, str(doc.amount or "-"))
+        target_item.setText(10, processed_str)
+        target_item.setText(11, used_str)
+        target_item.setText(12, locked_str)
 
         # 5. Dynamic Columns
         num_fixed = len(self.FIXED_COLUMNS)
@@ -779,30 +789,36 @@ class DocumentListWidget(QWidget):
                         show = False
             
             if show and target_type:
-                type_tags = getattr(doc, "type_tags", [])
-                if target_type not in type_tags:
+                type_tags = getattr(doc, "type_tags", []) or []
+                doc_types = getattr(doc, "doc_type", []) or []
+                if isinstance(doc_types, str): doc_types = [doc_types]
+                combined = type_tags + doc_types
+                if target_type.lower() not in [t.lower() for t in combined]:
                     show = False
                     
             if show and target_tags:
-                type_tags = getattr(doc, "type_tags", [])
-                tag_val = ", ".join(type_tags).lower()
-                if target_tags.lower() not in tag_val:
+                type_tags = getattr(doc, "type_tags", []) or []
+                doc_types = getattr(doc, "doc_type", []) or []
+                if isinstance(doc_types, str): doc_types = [doc_types]
+                tags_str = getattr(doc, "tags", "") or ""
+                combined_tags = ", ".join(type_tags + doc_types) + " " + tags_str
+                if target_tags.lower() not in combined_tags.lower():
                     show = False
 
             if show and text_search and doc:
                 query = text_search.lower()
                 haystack = [
-                    doc.sender or "",
-                    doc.doc_type or "",
-                    doc.tags or "",
-                    doc.original_filename or "",
-                    doc.sender_address or "",
-                    doc.text_content or "",
-                    doc.recipient_company or "",
-                    doc.recipient_name or "",
-                    doc.recipient_city or "",
-                    doc.sender_company or "",
-                    doc.sender_city or "",
+                    str(doc.sender or ""),
+                    str(doc.doc_type or ""),
+                    str(doc.tags or ""),
+                    str(doc.original_filename or ""),
+                    str(doc.sender_address or ""),
+                    str(doc.text_content or ""),
+                    str(doc.recipient_company or ""),
+                    str(doc.recipient_name or ""),
+                    str(doc.recipient_city or ""),
+                    str(doc.sender_company or ""),
+                    str(doc.sender_city or ""),
                     str(doc.page_count or ""),
                     str(doc.created_at or "")
                 ]
@@ -941,7 +957,11 @@ class DocumentListWidget(QWidget):
             pages_sort = doc.page_count if doc.page_count is not None else 0
             pages_str = str(pages_sort)
             status = getattr(doc, "status", "NEW")
-            type_tags = getattr(doc, "type_tags", [])
+            type_tags = getattr(doc, "type_tags", []) or []
+            doc_types = getattr(doc, "doc_type", []) or []
+            if isinstance(doc_types, str): doc_types = [doc_types]
+            # Combine for consistent display
+            combined_types = sorted(list(set(type_tags + doc_types)))
             locked_str = "Yes" if getattr(doc, "locked", False) else "No"
             
             # Format timestamps
@@ -955,10 +975,13 @@ class DocumentListWidget(QWidget):
                 pages_str,          # 3: Pages
                 created_str,        # 4: Created
                 status,             # 5: Status
-                ", ".join(type_tags), # 6: Type Tags
-                processed_str,      # 7: AI Processed
-                used_str,           # 8: Last Used
-                locked_str          # 9: Locked
+                ", ".join(combined_types), # 6: Type Tags
+                doc.sender or "-",    # 7: Sender
+                str(doc.doc_date or "-"), # 8: Date
+                str(doc.amount or "-"),    # 9: Amount
+                processed_str,      # 10: AI Processed
+                used_str,           # 11: Last Used
+                locked_str          # 12: Locked
             ]
             
             # Phase 102: Support Dynamic Columns
@@ -985,21 +1008,32 @@ class DocumentListWidget(QWidget):
             item.setData(3, Qt.ItemDataRole.UserRole, pages_sort)
             item.setData(4, Qt.ItemDataRole.UserRole, created_sort)
             
+            # Sorting for new columns
+            if doc.sender: item.setData(7, Qt.ItemDataRole.UserRole, doc.sender)
+            if doc.doc_date: item.setData(8, Qt.ItemDataRole.UserRole, str(doc.doc_date))
+            if doc.amount: item.setData(9, Qt.ItemDataRole.UserRole, float(doc.amount))
+            
             # Sort keys for timestamps
             if hasattr(doc, "last_processed_at") and doc.last_processed_at:
-                item.setData(7, Qt.ItemDataRole.UserRole, str(doc.last_processed_at))
+                item.setData(10, Qt.ItemDataRole.UserRole, str(doc.last_processed_at))
             if hasattr(doc, "last_used") and doc.last_used:
-                item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_used))
+                item.setData(11, Qt.ItemDataRole.UserRole, str(doc.last_used))
             
             # Dynamic Columns Sort Data
             for d_idx, key in enumerate(self.dynamic_columns):
                 col_idx = num_fixed + d_idx
+
                 val = getattr(doc, key, None)
                 if val is None and doc.semantic_data:
                     val = doc.semantic_data.get(key)
                 if val is not None:
                     item.setData(col_idx, Qt.ItemDataRole.UserRole, val)
             
+            if getattr(doc, "locked", False):
+                brush = QBrush(Qt.GlobalColor.gray)
+                for i in range(len(col_data)):
+                    item.setForeground(i, brush)
+
             self.tree.addTopLevelItem(item)
             
         self.tree.setSortingEnabled(True)

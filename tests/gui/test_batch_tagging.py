@@ -8,15 +8,25 @@ from PyQt6.QtWidgets import QDialog
 from unittest.mock import MagicMock, patch
 
 def test_batch_tag_dialog_parsing(qtbot):
-    dialog = BatchTagDialog()
+    dialog = BatchTagDialog(available_tags=["tax", "2024", "old", "unused"], common_tags=["old", "unused"])
     qtbot.addWidget(dialog)
     
-    dialog.txt_add.setText(" tax , 2024,  ")
-    dialog.txt_remove.setText("old  ,  unused")
+    # Logic: 
+    # combo_common manages "checked" items for all. 
+    # Start: "old", "unused" are checked.
+    # We want to Add: "tax", "2024" -> So Check them.
+    # We want to Remove: "old", "unused" -> So Uncheck them.
+    
+    dialog.combo_common.setCheckedItems(["tax", "2024"]) # old/unused NOT included -> removed
+    
+    # extra_remove is additional force remove
+    dialog.extra_remove.setText("") 
     
     add, remove = dialog.get_data()
-    assert add == ["tax", "2024"]
-    assert remove == ["old", "unused"]
+    # Added: In New (tax, 2024) - Old (old, unused) = tax, 2024
+    assert set(add) == {"tax", "2024"}
+    # Removed: In Old (old, unused) - New (tax, 2024) = old, unused
+    assert set(remove) == {"old", "unused"}
 
 @pytest.fixture
 def db_for_tags(tmp_path):
@@ -51,7 +61,8 @@ def test_manage_tags_logic(qtbot, db_for_tags):
         
         # Verify DB updates
         doc1 = db_for_tags.get_document_by_uuid("1")
-        tags1 = [t.strip() for t in doc1.tags.split(",")]
+        # Check type_tags list directly
+        tags1 = doc1.type_tags
         # Should have: keep, new, tax. Removed: old.
         assert "old" not in tags1
         assert "keep" in tags1
@@ -59,7 +70,7 @@ def test_manage_tags_logic(qtbot, db_for_tags):
         assert "tax" in tags1
         
         doc2 = db_for_tags.get_document_by_uuid("2")
-        tags2 = [t.strip() for t in doc2.tags.split(",")]
+        tags2 = doc2.type_tags
         # Should have: keep, new, tax. (Old wasn't there)
         assert "keep" in tags2
         assert "new" in tags2

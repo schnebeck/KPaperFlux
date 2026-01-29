@@ -17,6 +17,7 @@ def test_document_list_population(qtbot, mock_db):
         Document(original_filename="contract.pdf", doc_type="Vertrag")
     ]
     mock_db.get_all_documents.return_value = docs
+    mock_db.get_all_entities_view.return_value = docs
     
     # Init Widget
     widget = DocumentListWidget(db_manager=mock_db)
@@ -30,17 +31,20 @@ def test_document_list_population(qtbot, mock_db):
     # Columns: Date, Sender, Type, Amount, Filename (or similar)
     # Let's assume order: Date, Sender, Type, Amount
     
-    # Item at 0,1 (Sender)
-    item_sender = widget.item(0, 1)
-    assert item_sender.text() == "Amazon"
+    # Item at 0 (Row Item)
+    item = widget.item(0, 0)
+    # Check UUID (Col 1)
+    # The default fixed columns put Entity ID (UUID) at index 1.
+    assert item.text(1) == docs[0].uuid
     
-    # Item at 0,3 (Amount)
-    item_amount = widget.item(0, 3)
-    assert "15.99" in item_amount.text()
+    # Item at 0 (Row Item)
+    # Check Pages (Col 3) - Defaults to 0/None -> "0"
+    assert item.text(3) == "0"
 
 def test_empty_state(qtbot, mock_db):
     """Test empty list behavior."""
     mock_db.get_all_documents.return_value = []
+    mock_db.get_all_entities_view.return_value = []
     
     widget = DocumentListWidget(db_manager=mock_db)
     qtbot.addWidget(widget)
@@ -52,6 +56,7 @@ def test_selection_emits_signal(qtbot, mock_db):
     """Test that selecting a row emits specific signal with UUID."""
     docs = [Document(original_filename="test.pdf")]
     mock_db.get_all_documents.return_value = docs
+    mock_db.get_all_entities_view.return_value = docs
     
     widget = DocumentListWidget(db_manager=mock_db)
     qtbot.addWidget(widget)
@@ -60,13 +65,14 @@ def test_selection_emits_signal(qtbot, mock_db):
     with qtbot.waitSignal(widget.document_selected, timeout=1000) as blocker:
         widget.selectRow(0)
         
-    # Check signal payload
-    assert blocker.args[0] == docs[0].uuid
+    # Check signal payload (Expects list of UUIDs)
+    assert blocker.args[0] == [docs[0].uuid]
 
 def test_context_menu_actions(qtbot, mock_db):
     """Test context menu actions emission."""
     doc = Document(original_filename="test.pdf")
     mock_db.get_all_documents.return_value = [doc]
+    mock_db.get_all_entities_view.return_value = [doc]
     
     widget = DocumentListWidget(db_manager=mock_db)
     qtbot.addWidget(widget)
@@ -81,9 +87,9 @@ def test_context_menu_actions(qtbot, mock_db):
     
     # We can simulate the action trigger
     with qtbot.waitSignal(widget.delete_requested) as blocker:
-        widget.delete_requested.emit(doc.uuid)
-    assert blocker.args[0] == doc.uuid
+        widget.delete_requested.emit([doc.uuid])
+    assert blocker.args[0] == [doc.uuid]
     
     with qtbot.waitSignal(widget.reprocess_requested) as blocker:
-        widget.reprocess_requested.emit(doc.uuid)
-    assert blocker.args[0] == doc.uuid
+        widget.reprocess_requested.emit([doc.uuid])
+    assert blocker.args[0] == [doc.uuid]

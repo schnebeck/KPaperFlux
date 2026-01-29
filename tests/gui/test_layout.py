@@ -38,7 +38,7 @@ def test_layout_structure(qtbot, mock_db):
     # Check Left Pane Widgets
     # 0 = Filter, 1 = List, 2 = Editor
     assert left_pane.count() == 3
-    assert hasattr(mw, 'filter_widget')
+    assert hasattr(mw, 'advanced_filter')
     assert hasattr(mw, 'list_widget')
     assert isinstance(left_pane.widget(2), MetadataEditorWidget)
     
@@ -50,13 +50,16 @@ def test_toggle_editor(qtbot, mock_db):
     
     editor = mw.editor_widget
     
-    # Initially visible
-    assert editor.isVisible()
+    # Switch to Explorer page so children can be visible
+    mw.central_stack.setCurrentIndex(1)
     
-    # Trigger toggle off
-    mw.toggle_editor_visibility(False)
-    assert not editor.isVisible()
+    # Initially hidden (no selection)
+    assert editor.isHidden()
     
     # Trigger toggle on
     mw.toggle_editor_visibility(True)
-    assert editor.isVisible()
+    assert not editor.isHidden()
+    
+    # Trigger toggle off
+    mw.toggle_editor_visibility(False)
+    assert editor.isHidden()

@@ -50,12 +50,13 @@ def test_refresh_preserves_basic_filter(doc_list_widget, db_manager):
     
     visible_after_refresh = 0
     for i in range(doc_list_widget.tree.topLevelItemCount()):
-        if not doc_list_widget.tree.topLevelItem(i).isHidden():
+        item = doc_list_widget.tree.topLevelItem(i)
+        if not item.isHidden():
             visible_after_refresh += 1
+            # u1 should be the one visible
+            assert item.data(1, Qt.ItemDataRole.UserRole) == "u1"
             
     assert visible_after_refresh == 1, "Filter should still be active after refresh"
-    assert not doc_list_widget.tree.topLevelItem(0).isHidden() # u1 (tag1) should be visible
-    # Note: order matches insertion if not sorted, doc1 is first usually
     
 def test_refresh_preserves_advanced_filter(doc_list_widget, db_manager):
     # Setup Data

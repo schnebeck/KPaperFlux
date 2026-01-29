@@ -15,6 +15,7 @@ def test_zoom_persistence_reproduction(qtbot, qapp):
     # --- Session 1: Set Zoom to Fit ---
     viewer1 = PdfViewerWidget()
     qtbot.addWidget(viewer1)
+    viewer1.enable_controls(True)
     
     # Simulate user clicking "Fit"
     # Note: restore_state is called in __init__
@@ -23,7 +24,8 @@ def test_zoom_persistence_reproduction(qtbot, qapp):
     # Default is Custom, 1.0 (as per code)
     
     # Change to FitInView
-    viewer1.btn_fit.click()
+    from PyQt6.QtCore import Qt
+    qtbot.mouseClick(viewer1.btn_fit, Qt.MouseButton.LeftButton)
     
     # Verify State 1
     assert viewer1.view.zoomMode() == QPdfView.ZoomMode.FitInView

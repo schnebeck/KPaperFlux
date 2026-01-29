@@ -51,7 +51,10 @@ class AppConfig:
         self._set_setting("Storage", self.KEY_VAULT_PATH, path)
         
     def get_ocr_binary(self) -> str:
-        return str(self._get_setting("OCR", self.KEY_OCR_BINARY, ""))
+        val = str(self._get_setting("OCR", self.KEY_OCR_BINARY, ""))
+        if not val:
+            return "ocrmypdf"
+        return val
         
     def set_ocr_binary(self, path: str):
         self._set_setting("OCR", self.KEY_OCR_BINARY, path)

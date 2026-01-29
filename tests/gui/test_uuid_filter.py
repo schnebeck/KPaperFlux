@@ -7,7 +7,7 @@ def test_uuid_filter_fields(qapp):
     widget = FilterConditionWidget()
     
     # Check if UUID is in FIELDS
-    field_keys = widget.FIELDS.values()
+    field_keys = widget.FIELDS.keys()
     assert "uuid" in field_keys, "UUID field missing in FilterConditionWidget"
     
     # Check if IN is in OPERATORS
@@ -29,30 +29,28 @@ def test_set_condition_uuid_list(qapp):
     widget.set_condition(condition)
     
     # Verify Display
-    # Field Combo should show UUID
-    assert widget.combo_field.currentText() == "UUID"
+    # Field should show UUID
+    assert widget.btn_field_selector.text() == "UUID"
     
     # Operator should be "In List"
     assert widget.combo_op.currentData() == "in"
     
     # Input should show CSV string
-    # We implemented ", ".join(...)
-    assert widget.current_input.text() == "u1, u2, u3"
+    assert widget.input_text.text() == "u1, u2, u3"
     
 def test_get_condition_uuid_list(qapp):
     widget = FilterConditionWidget()
     
     # Set UI state manually
     # Select UUID
-    idx = widget.combo_field.findText("UUID")
-    widget.combo_field.setCurrentIndex(idx)
+    widget._set_field("uuid", "UUID")
     
     # Select IN
     idx_op = widget.combo_op.findData("in")
     widget.combo_op.setCurrentIndex(idx_op)
     
     # Enter CSV
-    widget.current_input.setText("u1, u2,   u3")
+    widget.input_text.setText("u1, u2,   u3")
     
     # Get Data
     data = widget.get_condition()

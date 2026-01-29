@@ -33,6 +33,10 @@ def test_env():
     vault = DocumentVault(vault_path)
     pipeline = PipelineProcessor(vault=vault, db=db_manager)
     
+    # Mock OCR to avoid external binary dependency
+    from unittest.mock import MagicMock
+    pipeline._run_ocr = MagicMock(return_value={"1": "OCR Text", "2": "OCR Text", "3": "OCR Text", "4": "OCR Text"})
+    
     yield {
         "pipeline": pipeline,
         "db": db_manager,

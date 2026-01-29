@@ -20,6 +20,7 @@ def mock_db():
     def get_by_uuid(u):
         return next((d for d in docs if d.uuid == u), None)
     db.get_document_by_uuid.side_effect = get_by_uuid
+    db.get_all_entities_view.return_value = docs # Support Stage 0 ListView
     return db
 
 @pytest.fixture
@@ -76,16 +77,17 @@ def test_save_and_verify_ui_operator(main_window):
     
     # 5. Verify UI State
     # Should have 1 row
-    assert len(adv_widget.rows) == 1
-    row = adv_widget.rows[0]
+    rows = adv_widget.root_group.children_widgets
+    assert len(rows) == 1
+    row = rows[0]
     
     # Field: UUID
-    assert row.combo_field.currentText() == "UUID"
+    assert row.btn_field_selector.text() == "UUID"
     
     # Operator: In List (key='in')
     # If this fails (equals 'contains'), then finding 'in' failed
     assert row.combo_op.currentData() == 'in', f"Operator displayed as {row.combo_op.currentData()}, expected 'in'"
     
     # Value
-    assert "u1" in row.current_input.text()
-    assert "u2" in row.current_input.text()
+    assert "u1" in row.input_text.text()
+    assert "u2" in row.input_text.text()

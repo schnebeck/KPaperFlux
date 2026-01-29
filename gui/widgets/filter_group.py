@@ -130,7 +130,9 @@ class FilterGroupWidget(QWidget):
         
         for child in self.children_widgets:
             if isinstance(child, FilterConditionWidget):
-                conditions.append(child.get_condition())
+                cond = child.get_condition()
+                if cond:
+                    conditions.append(cond)
             elif isinstance(child, FilterGroupWidget):
                 group_q = child.get_query()
                 # If group is empty, skip it? Or allow empty groups (which do nothing)
@@ -156,6 +158,8 @@ class FilterGroupWidget(QWidget):
         # Add Children
         conditions = query.get("conditions", [])
         for item in conditions:
+            if not item:
+                continue
             if "operator" in item and "conditions" in item:
                 # Is a Group
                 self.add_group(item)

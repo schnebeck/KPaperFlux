@@ -60,6 +60,12 @@ class FilterConditionWidget(QWidget):
             "In Papierkorb": "deleted",
         }
     }
+
+    # Flat mapping for internal use / tests
+    FIELDS = {}
+    for cat in FIELDS_BY_CAT.values():
+        for label, val in cat.items():
+            FIELDS[val] = label
     
     # Operators per type hint (simplified)
     # Generic, Numeric, Text, Date
@@ -613,6 +619,10 @@ class AdvancedFilterWidget(QWidget):
         self.combo_rules.clear()
         self.combo_rules.addItem(self.tr("- New / Select Rule -"), None)
         
+        if not self.db_manager or not hasattr(self.db_manager, 'connection'):
+            self.combo_rules.blockSignals(False)
+            return
+
         from core.rules_engine import RulesEngine
         engine = RulesEngine(self.db_manager)
         # We need all rules, not just enabled ones for editing
@@ -823,8 +833,8 @@ class AdvancedFilterWidget(QWidget):
         self._emit_change()
         
     def get_query(self):
-        # Delegate
-        return self.root_group.get_query()
+        """Returns the current query from the UI."""
+        return self.get_query_object()
         
     def load_from_node(self, node: FilterNode):
         self._loading = True

@@ -159,6 +159,8 @@ class PdfViewerWidget(QWidget):
         self.document.statusChanged.connect(self.on_document_status)
         
         self.enable_controls(False)
+        self.btn_split.setVisible(False)
+        self.restore_zoom_state()
 
     def _add_separator(self):
         line = QFrame()
@@ -399,7 +401,9 @@ class PdfViewerWidget(QWidget):
         self.btn_fit.setChecked(False)
         self.view.setZoomFactor(self.view.zoomFactor() / 1.2)
 
-    def toggle_fit(self, checked):
+    def toggle_fit(self, checked=None):
+        if checked is None:
+            checked = self.btn_fit.isChecked()
         if checked:
             self.view.setZoomMode(QPdfView.ZoomMode.FitInView)
         else:

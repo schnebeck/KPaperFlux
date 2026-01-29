@@ -12,9 +12,10 @@ def filter_widget(qapp):
 def test_apply_workflow(filter_widget):
     # 1. Add Condition
     filter_widget.add_condition()
-    assert len(filter_widget.rows) == 1
-    row = filter_widget.rows[0]
-    
+    assert len(filter_widget.root_group.children_widgets) == 1
+    row = filter_widget.root_group.children_widgets[0]
+    row._set_field("amount", "Amount") # Ensure field is set so get_condition works
+
     # Check initial state of Apply button
     # If implemented, it should be Disabled initially?
     # Or enabled if we just added a condition that makes it dirty?
@@ -23,7 +24,7 @@ def test_apply_workflow(filter_widget):
     
     # 2. Modify value
     # Trigger change
-    row.current_input.setText("123")
+    row.input_text.setText("123")
     
     # Assert Signal NOT emitted yet (Manual Apply policy)
     filter_widget.filter_changed.emit.assert_not_called()

@@ -20,15 +20,15 @@ def filter_widget(qapp):
 
 def test_add_condition_initial(filter_widget):
     filter_widget.add_condition()
-    assert len(filter_widget.rows) == 1
-    row = filter_widget.rows[0]
+    assert len(filter_widget.root_group.children_widgets) == 1
+    row = filter_widget.root_group.children_widgets[0]
     # Default stack index 0 (Text)
     assert row.input_stack.currentIndex() == 0
     assert isinstance(row.input_stack.currentWidget(), QLineEdit)
 
 def test_switch_to_tags(filter_widget):
     filter_widget.add_condition()
-    row = filter_widget.rows[0]
+    row = filter_widget.root_group.children_widgets[0]
     
     # Change field to 'Tags'
     # Find index for 'Tags'
@@ -43,11 +43,11 @@ def test_switch_to_tags(filter_widget):
     
     # Check population
     combo = row.input_stack.currentWidget()
-    assert combo.count() == 3 # tag1, tag2, urgent
+    assert combo.count() >= 3 # tag1, tag2, urgent + standard tags
     
 def test_switch_to_date(filter_widget):
     filter_widget.add_condition()
-    row = filter_widget.rows[0]
+    row = filter_widget.root_group.children_widgets[0]
     
     row.set_condition({"field": "doc_date", "op": "between", "value": "2023-01-01,2023-01-31"})
     
@@ -60,7 +60,7 @@ def test_switch_to_date(filter_widget):
 
 def test_get_condition_tags(filter_widget):
     filter_widget.add_condition()
-    row = filter_widget.rows[0]
+    row = filter_widget.root_group.children_widgets[0]
     
     # Set Up
     row.set_condition({"field": "tags", "op": "in", "value": ["urgent", "tag1"]})

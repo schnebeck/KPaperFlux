@@ -31,40 +31,38 @@ def test_date_sorting(document_list, mock_db):
     doc2 = Document(uuid="2", doc_date=datetime.date(2023, 1, 15), original_filename="Older.pdf") # 15.01.2023
     
     mock_db.search_documents.return_value = [doc1, doc2]
-    mock_db.get_all_documents.return_value = [doc1, doc2] # Fallback
+    mock_db.get_all_entities_view.return_value = [doc1, doc2]
     
     document_list.refresh_list()
     
     tree = document_list.tree
     
-    # Check Col 1 (Date)
-    # Check initial texts
-    item0 = tree.topLevelItem(0)
-    item1 = tree.topLevelItem(1)
+    # Check Col 8 (Date)
+    # Access Logical index 1 (UUID) for identification
     
     # Verify we populated the tree
     assert tree.topLevelItemCount() == 2
     
     # Sort Ascending (Oldest First)
-    tree.sortItems(1, Qt.SortOrder.AscendingOrder)
+    tree.sortItems(8, Qt.SortOrder.AscendingOrder)
     
     # Expected: 2023 (Older) then 2024 (Newer)
     first_item = tree.topLevelItem(0)
     second_item = tree.topLevelItem(1)
     
-    # Check UUIDs stored in UserRole of Col 0
-    assert first_item.data(0, Qt.ItemDataRole.UserRole) == "2" # Older
-    assert second_item.data(0, Qt.ItemDataRole.UserRole) == "1" # Newer
+    # UUID is in Col 1, UserRole
+    assert first_item.data(1, Qt.ItemDataRole.UserRole) == "2" # Older
+    assert second_item.data(1, Qt.ItemDataRole.UserRole) == "1" # Newer
     
     # Sort Descending (Newest First)
-    tree.sortItems(1, Qt.SortOrder.DescendingOrder)
+    tree.sortItems(8, Qt.SortOrder.DescendingOrder)
     
     first_item = tree.topLevelItem(0)
-    assert first_item.data(0, Qt.ItemDataRole.UserRole) == "1" # Newer
+    assert first_item.data(1, Qt.ItemDataRole.UserRole) == "1" # Newer
 
 def test_number_sorting(document_list, mock_db):
     """Verify numeric columns sort numerically."""
-    # Amount is Col 5.
+    # Amount is Col 9.
     # "10.00" vs "2.00"
     # String sort: "10.00" < "2.00".
     # Numeric sort: 2.00 < 10.00.
@@ -73,16 +71,17 @@ def test_number_sorting(document_list, mock_db):
     doc2 = Document(uuid="B", amount=Decimal("2.00"), original_filename="b.pdf")
     
     mock_db.search_documents.return_value = [doc1, doc2]
+    mock_db.get_all_entities_view.return_value = [doc1, doc2]
     
     document_list.refresh_list()
     tree = document_list.tree
     
     # Sort Ascending (Smallest First)
-    tree.sortItems(5, Qt.SortOrder.AscendingOrder)
+    tree.sortItems(9, Qt.SortOrder.AscendingOrder)
     
     first_item = tree.topLevelItem(0)
-    assert first_item.data(0, Qt.ItemDataRole.UserRole) == "B" # 2.00
+    assert first_item.data(1, Qt.ItemDataRole.UserRole) == "B" # 2.00
     
     second_item = tree.topLevelItem(1)
-    assert second_item.data(0, Qt.ItemDataRole.UserRole) == "A" # 10.00
+    assert second_item.data(1, Qt.ItemDataRole.UserRole) == "A" # 10.00
 

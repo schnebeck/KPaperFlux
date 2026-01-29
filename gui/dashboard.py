@@ -187,19 +187,27 @@ class DashboardWidget(QWidget):
             
             if "preset_id" in config:
                 pid = config["preset_id"]
-                if pid == "NEW":
-                    count = self.db_manager.count_entities("NEW")
-                    query = {"status": "NEW"}
-                elif pid == "PROCESSED":
-                    count = self.db_manager.count_entities("PROCESSED")
-                    query = {"status": "PROCESSED"}
+                if self.db_manager:
+                    if pid == "NEW":
+                        count = self.db_manager.count_entities("NEW")
+                        query = {"status": "NEW"}
+                    elif pid == "PROCESSED":
+                        count = self.db_manager.count_entities("PROCESSED")
+                        query = {"status": "PROCESSED"}
+                    else:
+                        count = self.db_manager.count_entities(None)
+                        query = {}
                 else:
-                    count = self.db_manager.count_entities(None)
+                    count = 0
                     query = {}
+
             elif "filter_id" in config and self.filter_tree:
                 node = self.filter_tree.find_node_by_id(config["filter_id"])
                 if node:
-                    count = self.db_manager.count_documents_advanced(node.data)
+                    if self.db_manager:
+                        count = self.db_manager.count_documents_advanced(node.data)
+                    else:
+                        count = 0
                     query = node.data
                 else:
                     count = "ERR"

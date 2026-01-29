@@ -8,34 +8,35 @@ from gui.pdf_viewer import PdfViewerWidget
 app = QApplication.instance() or QApplication(sys.argv)
 
 class TestViewerIntegration(unittest.TestCase):
-    def setUp(self):
-        self.viewer = PdfViewerWidget()
-        self.viewer.show()
-        
     def test_split_button_visibility(self):
         """Verify Split button is visible only for multiple pages."""
-        # 0 Pages (Initial)
-        self.assertFalse(self.viewer.btn_split.isVisible())
+        viewer = PdfViewerWidget()
+        # Mock document after it's created in __init__
+        viewer.document = MagicMock()
+        
+        # Initial state (initially hidden by _init_ui)
+        self.assertTrue(viewer.btn_split.isHidden())
         
         # 1 Page
-        page_data = {"file_path": None, "page_index": 0, "rotation": 0, "is_deleted": False}
-        with patch('gui.pdf_viewer.CanvasPageWidget._render_initial'):
-             self.viewer._add_page_widget(page_data)
-        self.assertFalse(self.viewer.btn_split.isVisible())
+        viewer.document.pageCount.return_value = 1
+        from PyQt6.QtPdf import QPdfDocument
+        viewer.on_document_status(QPdfDocument.Status.Ready)
+        self.assertTrue(viewer.btn_split.isHidden())
         
         # 2 Pages
-        with patch('gui.pdf_viewer.CanvasPageWidget._render_initial'):
-             self.viewer._add_page_widget(page_data)
-        self.assertTrue(self.viewer.btn_split.isVisible())
+        viewer.document.pageCount.return_value = 2
+        viewer.on_document_status(QPdfDocument.Status.Ready)
+        self.assertFalse(viewer.btn_split.isHidden())
         
     def test_split_signal_emission(self):
         """Verify split_requested is emitted with current UUID."""
-        self.viewer.current_uuid = "test-uuid"
+        viewer = PdfViewerWidget()
+        viewer.current_uuid = "test-uuid"
         
         mock_signal = MagicMock()
-        self.viewer.split_requested.connect(mock_signal)
+        viewer.split_requested.connect(mock_signal)
         
-        self.viewer.on_split_clicked()
+        viewer.on_split_clicked()
         mock_signal.assert_called_once_with("test-uuid")
 
 if __name__ == '__main__':

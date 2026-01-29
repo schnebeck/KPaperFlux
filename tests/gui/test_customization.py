@@ -8,7 +8,9 @@ from gui.document_list import DocumentListWidget
 @pytest.fixture
 def db_manager(tmp_path):
     db_path = tmp_path / "test.db"
-    return DatabaseManager(str(db_path))
+    db = DatabaseManager(str(db_path))
+    db.init_db() # Create tables
+    return db
 
 def test_column_state_persistence(db_manager, qapp):
     # Setup
@@ -22,7 +24,7 @@ def test_column_state_persistence(db_manager, qapp):
     widget = DocumentListWidget(db_manager)
     
     # Verify default
-    header = widget.horizontalHeader()
+    header = widget.tree.header()
     # Sections are 0,1,2,3...
     
     # Hide column 1
@@ -39,7 +41,7 @@ def test_column_state_persistence(db_manager, qapp):
     
     # New Widget
     widget2 = DocumentListWidget(db_manager)
-    header2 = widget2.horizontalHeader()
+    header2 = widget2.tree.header()
     
     # Restore happens in __init__
     

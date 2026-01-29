@@ -33,12 +33,17 @@ def mock_vault():
 def test_document_list_columns(qapp, mock_db):
     widget = DocumentListWidget(mock_db)
     # Check headers: Date, Sender, Type, Tags, Amount, Filename
-    headers = [widget.horizontalHeaderItem(i).text() for i in range(widget.columnCount())]
-    assert "Tags" in headers
+    # Access internal tree
+    tree = widget.tree
+    header = tree.header()
+    headers = [tree.headerItem().text(i) for i in range(tree.columnCount())]
+    assert "Type Tags" in headers
     assert "Sender" in headers
+    assert "Date" in headers
+    assert "Amount" in headers
     
     # Check sorting enabled
-    assert widget.isSortingEnabled()
+    assert tree.isSortingEnabled()
 
 def test_pdf_viewer_load(qapp):
     viewer = PdfViewerWidget()

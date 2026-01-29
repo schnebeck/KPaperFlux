@@ -65,16 +65,17 @@ class DatabaseManager:
             -- Filter Columns (Phase 105)
             sender TEXT,
             doc_date TEXT,
-            amount REAL
+            amount REAL,
+            tags TEXT
         );
         """
         
         create_virtual_documents_fts = """
         CREATE VIRTUAL TABLE IF NOT EXISTS virtual_documents_fts USING fts5(
             uuid UNINDEXED,
-            filename,
+            export_filename,
             type_tags,
-            content,
+            cached_full_text,
             content='virtual_documents',
             content_rowid='rowid'
         );
@@ -92,7 +93,7 @@ class DatabaseManager:
                 pass # Already exists
 
             # Phase 105 Filter Column Migrations
-            for col, col_type in [("sender", "TEXT"), ("doc_date", "TEXT"), ("amount", "REAL")]:
+            for col, col_type in [("sender", "TEXT"), ("doc_date", "TEXT"), ("amount", "REAL"), ("tags", "TEXT")]:
                 try:
                     self.connection.execute(f"ALTER TABLE virtual_documents ADD COLUMN {col} {col_type}")
                 except sqlite3.OperationalError:
@@ -119,6 +120,10 @@ class DatabaseManager:
                 print("[DB] Migrated tagging_rules: Added auto_apply column")
             except:
                 pass # Already exists
+            
+            # Ensure legacy view is gone
+            self.connection.execute("DROP VIEW IF EXISTS documents")
+            self._create_fts_triggers()
 
     def matches_condition(self, entity_uuid: str, query_dict: dict) -> bool:
         """
@@ -138,11 +143,6 @@ class DatabaseManager:
         except Exception as e:
             print(f"[DB] Error in matches_condition: {e}")
             return False
-                
-            self.connection.execute("DROP VIEW IF EXISTS documents")
-        
-        self._create_fts_triggers()
-        self.connection.commit()
 
 
 
@@ -196,7 +196,7 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags, 
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount
+                   sender, doc_date, amount, tags
             FROM virtual_documents
             WHERE uuid = ?
         """
@@ -290,7 +290,7 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount
+                   sender, doc_date, amount, tags
             FROM virtual_documents
             WHERE {where_clause}
             ORDER BY created_at DESC
@@ -447,8 +447,12 @@ class DatabaseManager:
             return f"{expr} LIKE ?", [f"{val}%"]
         if op == "gt":
             return f"{expr} > ?", [val]
+        if op == "gte":
+            return f"{expr} >= ?", [val]
         if op == "lt":
             return f"{expr} < ?", [val]
+        if op == "lte":
+            return f"{expr} <= ?", [val]
         if op == "is_empty":
             return f"{expr} IS NULL OR {expr} = ''", []
         if op == "is_not_empty":
@@ -474,7 +478,7 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount
+                   sender, doc_date, amount, tags
             FROM virtual_documents
             WHERE deleted = 0
             ORDER BY created_at DESC
@@ -510,7 +514,7 @@ class DatabaseManager:
             "created_at": row[5],
             "locked": bool(row[6]),
             "deleted": False,
-            "doc_type": "entity",
+            "doc_type": None,
             "type_tags": type_tags,
             "cached_full_text": row[8] if len(row) > 8 else None,
             "text_content": row[8] if len(row) > 8 else None,
@@ -521,6 +525,7 @@ class DatabaseManager:
             "sender": row[12] if len(row) > 12 else None,
             "doc_date": row[13] if len(row) > 13 else None,
             "amount": row[14] if len(row) > 14 else None,
+            "tags": row[15] if len(row) > 15 else None,
         }
 
         # If semantic_data exists, Pydantic Document model has many attributes 
@@ -558,10 +563,10 @@ class DatabaseManager:
                    COALESCE(v.export_filename, 'Entity ' || substr(v.uuid, 1, 8)),
                    v.page_count_virt, v.created_at, v.is_immutable, v.type_tags,
                    v.cached_full_text, v.last_used, v.last_processed_at,
-                   v.semantic_data
+                   v.semantic_data, v.sender, v.doc_date, v.amount, v.tags
             FROM virtual_documents v
             JOIN virtual_documents_fts f ON v.uuid = f.uuid
-            WHERE f.content MATCH ? AND v.deleted = 0
+            WHERE f.cached_full_text MATCH ? AND v.deleted = 0
             ORDER BY rank
         """
         cursor = self.connection.cursor()
@@ -863,23 +868,23 @@ class DatabaseManager:
             # INSERT
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_ai AFTER INSERT ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(rowid, uuid, filename, type_tags, content)
+                INSERT INTO virtual_documents_fts(rowid, uuid, export_filename, type_tags, cached_full_text)
                 VALUES (new.rowid, new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
             END;
             """,
             # DELETE
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_ad AFTER DELETE ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, filename, type_tags, content)
+                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, export_filename, type_tags, cached_full_text)
                 VALUES('delete', old.rowid, old.uuid, old.export_filename, old.type_tags, old.cached_full_text);
             END;
             """,
             # UPDATE
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_au AFTER UPDATE ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, filename, type_tags, content)
+                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, export_filename, type_tags, cached_full_text)
                 VALUES('delete', old.rowid, old.uuid, old.export_filename, old.type_tags, old.cached_full_text);
-                INSERT INTO virtual_documents_fts(rowid, uuid, filename, type_tags, content)
+                INSERT INTO virtual_documents_fts(rowid, uuid, export_filename, type_tags, cached_full_text)
                 VALUES (new.rowid, new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
             END;
             """
@@ -896,3 +901,60 @@ class DatabaseManager:
         vals = list(updates.values()) + [pk_val]
         with self.connection:
             self.connection.execute(sql, vals)
+
+    # --- Compatibility / Legacy Methods ---
+
+    def get_all_documents(self) -> List[Document]:
+        """Compatibility wrapper for get_all_entities_view."""
+        return self.get_all_entities_view()
+
+    def insert_document(self, doc: Document):
+        """Compatibility wrapper for inserting into virtual_documents (for tests)."""
+        source_mapping = "[]"
+        if doc.extra_data and "source_mapping" in doc.extra_data:
+             source_mapping = json.dumps(doc.extra_data["source_mapping"])
+        
+        status = doc.status or "NEW"
+        filename = doc.original_filename or "Unknown"
+        tags = doc.type_tags if hasattr(doc, 'type_tags') and doc.type_tags else (doc.tags or "[]")
+        if isinstance(tags, list): 
+            tags = json.dumps(tags)
+        elif isinstance(tags, str) and not tags.strip().startswith("[") and tags != "[]":
+            t_list = [t.strip() for t in tags.split(",") if t.strip()]
+            tags = json.dumps(t_list)
+        
+        # Build semantic data from extra fields
+        semantic = {}
+        for field in ["sender", "amount", "doc_date", "invoice_number", "tax_rate", "doc_type"]:
+            if hasattr(doc, field) and getattr(doc, field):
+                semantic[field] = getattr(doc, field)
+        
+        if hasattr(doc, "semantic_data") and doc.semantic_data:
+            semantic.update(doc.semantic_data)
+            
+        semantic_json = json.dumps(semantic, default=str)
+        
+        sql = """
+            INSERT INTO virtual_documents (
+                uuid, source_mapping, status, export_filename, created_at, 
+                deleted, type_tags, semantic_data, page_count_virt, is_immutable, 
+                cached_full_text, sender, doc_date, amount, tags
+            ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 1, 0, ?, ?, ?, ?, ?)
+        """
+        
+        created = doc.created_at
+        if not created: 
+            from datetime import datetime
+            created = datetime.now().isoformat()
+        
+        try:
+             with self.connection:
+                 self.connection.execute(sql, (
+                     doc.uuid, source_mapping, status, filename, 
+                     created, tags, semantic_json, (doc.text_content or doc.cached_full_text),
+                     doc.sender, str(doc.doc_date) if doc.doc_date else None, 
+                     float(doc.amount) if doc.amount else 0.0,
+                     doc.tags
+                 ))
+        except Exception as e:
+            print(f"[WARN] insert_document compatibility failed: {e}")

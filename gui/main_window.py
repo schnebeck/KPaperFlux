@@ -154,6 +154,7 @@ class MainWindow(QMainWindow):
             self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
                  
             self.left_pane_splitter.addWidget(self.editor_widget)
+            self.editor_widget.setVisible(False)
             # ------------------------------------------
         
         # Add Left Pane to Main Splitter
@@ -167,7 +168,8 @@ class MainWindow(QMainWindow):
         self.pdf_viewer.export_requested.connect(self.export_documents_slot)
         self.pdf_viewer.reprocess_requested.connect(self.reprocess_document_slot)
         self.pdf_viewer.delete_requested.connect(self.delete_document_slot)
-        self.pdf_viewer.document_changed.connect(self.list_widget.refresh_list)
+        if hasattr(self, 'list_widget'):
+            self.pdf_viewer.document_changed.connect(self.list_widget.refresh_list)
         self.pdf_viewer.split_requested.connect(self.open_splitter_dialog_slot)
         self.main_splitter.addWidget(self.pdf_viewer)
         
@@ -981,8 +983,6 @@ class MainWindow(QMainWindow):
         if error_msg:
              print(f"[ERROR] Import Finished with error: {error_msg}")
              QMessageBox.critical(self, self.tr("Import Error"), error_msg)
-        else:
-             pass
              
         # Refresh List
         if self.list_widget:
@@ -1150,12 +1150,13 @@ class MainWindow(QMainWindow):
         if uuids:
              first_doc = self.db_manager.get_document_by_uuid(uuids[0])
              if first_doc:
-                 common_tags = set([t.strip() for t in (first_doc.tags or "").split(",") if t.strip()])
+                 # Phase 102: Use type_tags (list) instead of tags (csv string)
+                 common_tags = set(first_doc.type_tags or [])
                  
                  for i in range(1, len(uuids)):
                      doc = self.db_manager.get_document_by_uuid(uuids[i])
                      if doc:
-                         doc_tags = set([t.strip() for t in (doc.tags or "").split(",") if t.strip()])
+                         doc_tags = set(doc.type_tags or [])
                          common_tags = common_tags.intersection(doc_tags)
         
         available_tags.sort(key=lambda x: x.lower())
@@ -1170,18 +1171,20 @@ class MainWindow(QMainWindow):
                 doc = self.db_manager.get_document_by_uuid(uuid)
                 if not doc: continue
                 
-                current_tags_list = [t.strip() for t in (doc.tags or "").split(",") if t.strip()]
+                current_tags_list = doc.type_tags or []
+                
+                # Create new list
+                new_tags = [t for t in current_tags_list]
                 
                 for t in add_tags:
-                    if t not in current_tags_list:
-                        current_tags_list.append(t)
+                    if t not in new_tags:
+                        new_tags.append(t)
                         
-                current_tags_list = [t for t in current_tags_list if t not in remove_tags]
+                new_tags = [t for t in new_tags if t not in remove_tags]
                 
-                new_tags_str = ", ".join(current_tags_list)
-                
-                if new_tags_str != (doc.tags or ""):
-                    success = self.db_manager.update_document_metadata(uuid, {'tags': new_tags_str})
+                if new_tags != current_tags_list:
+                    # Update DB using type_tags
+                    success = self.db_manager.update_document_metadata(uuid, {'type_tags': new_tags})
                     if success:
                         count += 1
                     
@@ -1438,6 +1441,13 @@ class MainWindow(QMainWindow):
         
         toolbar.addSeparator()
         
+        btn_import = QPushButton(self.tr("Import"))
+        btn_import.setObjectName("btn_import")
+        btn_import.clicked.connect(self.import_document_slot)
+        toolbar.addWidget(btn_import)
+        
+        toolbar.addSeparator()
+        
         action_list = QAction(self.tr("Documents"), self)
         action_list.triggered.connect(lambda: self.central_stack.setCurrentIndex(1))
         toolbar.addAction(action_list)
@@ -1465,18 +1475,18 @@ class MainWindow(QMainWindow):
                 self.advanced_filter.txt_smart_search.setFocus()
             self.shortcut_search.activated.connect(focus_search)
 
+        self.shortcut_home = QShortcut(QKeySequence("Ctrl+H"), self)
+        self.shortcut_home.activated.connect(self.go_home_slot)
+        
+        self.shortcut_home_alt = QShortcut(QKeySequence("Alt+Home"), self)
+        self.shortcut_home_alt.activated.connect(self.go_home_slot)
+
     def _toggle_filter_view(self, checked):
         """Toggle visibility of the unified filter console."""
         if hasattr(self, "advanced_filter"):
             self.advanced_filter.setVisible(checked)
             if hasattr(self, "action_toggle_filter"):
                 self.action_toggle_filter.setChecked(checked)
-        
-        self.shortcut_home = QShortcut(QKeySequence("Ctrl+H"), self)
-        self.shortcut_home.activated.connect(self.go_home_slot)
-        
-        self.shortcut_home_alt = QShortcut(QKeySequence("Alt+Home"), self)
-        self.shortcut_home_alt.activated.connect(self.go_home_slot)
 
     def open_tag_manager_slot(self):
         """Open the Tag Manager dialog."""

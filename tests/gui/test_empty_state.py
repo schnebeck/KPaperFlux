@@ -5,7 +5,7 @@ from gui.main_window import MainWindow
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
 from core.document import Document
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 @pytest.fixture
 def db_manager():
@@ -16,7 +16,21 @@ def db_manager():
 @pytest.fixture
 def main_window(db_manager, qapp):
     # Mock pipeline for MainWindow
-    mw = MainWindow(pipeline=MagicMock(), db_manager=db_manager)
+    pipeline = MagicMock()
+    # Mock Canonizer -> AIAnalyzer chain
+    # The error comes from MainWindow -> MainLoopWorker -> Canonizer -> AIAnalyzer -> GenAI.Client
+    # We need to mock MainLoopWorker or Canonizer inside MainWindow
+    
+    with patch('gui.main_window.MainLoopWorker') as MockWorker, \
+         patch('core.ai_analyzer.AIAnalyzer') as MockAI:
+         
+         mw = MainWindow(pipeline=pipeline, db_manager=db_manager)
+         
+         # Need to ensure list_widget exists since mocked __init__ might not create it? 
+         # Wait, we are NOT mocking MainWindow.__init__, we are patching its dependencies.
+         # So mw is real.
+         
+         return mw
     # Ensure it's shown? No need for offscreen testing usually, just instantiation.
     return mw
 
@@ -31,15 +45,15 @@ def test_viewer_unloads_on_empty_list(main_window, db_manager):
     
     # Simulate loading document into viewer
     main_window.pdf_viewer.load_document = MagicMock()
-    main_window.pdf_viewer.unload = MagicMock()
+    main_window.pdf_viewer.clear = MagicMock()
     
     # Select document to "load" it
     main_window.list_widget.selectRow(0)
     # In real app, signal triggers load. 
-    # But for test, we want to check UNLOAD on FILTER.
+    # But for test, we want to check CLEAR on FILTER.
     
     # 2. Apply Filter that returns empty
-    # Logic: apply_filter -> count_changed -> update_status_bar -> check 0 -> unload
+    # Logic: apply_filter -> count_changed -> update_status_bar -> check 0 -> clear
     
     criteria = {'tags': 'non-existent'}
     main_window.list_widget.apply_filter(criteria)
@@ -53,7 +67,7 @@ def test_viewer_unloads_on_empty_list(main_window, db_manager):
     assert visible_count == 0
     
     # 3. Verify Unload Call
-    main_window.pdf_viewer.unload.assert_called_once()
+    main_window.pdf_viewer.clear.assert_called_once()
     
     # 4. Check for Hidden Selection Race
     # Ensure hidden items are NOT selected or signal is NOT emitted
@@ -76,4 +90,4 @@ def test_viewer_unloads_on_empty_list(main_window, db_manager):
     
     # Check if load_document called?
     main_window.pdf_viewer.load_document.assert_not_called()
-    assert main_window.pdf_viewer.unload.call_count == 2
+    assert main_window.pdf_viewer.clear.call_count == 2

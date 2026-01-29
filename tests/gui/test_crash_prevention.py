@@ -19,6 +19,7 @@ def mock_db():
         gross_amount=Decimal("11.90")
     )
     db.get_all_documents.return_value = [doc]
+    db.get_all_entities_view.return_value = [doc]
     db.search_documents.return_value = [doc]
     
     # Mock extra keys
@@ -35,7 +36,7 @@ def test_document_list_signal_signature(qtbot, mock_db):
     qtbot.addWidget(widget)
     
     with qtbot.waitSignal(widget.document_count_changed, check_params_cb=lambda v, t: isinstance(v, int) and isinstance(t, int)) as blocker:
-        widget.refresh_list()
+        widget.refresh_list(force_select_first=True)
         
     assert blocker.signal_triggered, "Signal not triggered with correct signature (int, int)"
 
@@ -58,7 +59,7 @@ def test_search_documents_columns(mock_db):
     real_db.insert_document(doc)
     
     # Perform Search
-    results = real_db.search_documents(text_query="invoice")
+    results = real_db.search_documents(search_text="invoice")
     
     assert len(results) == 1
     assert results[0].original_filename == "test.pdf"

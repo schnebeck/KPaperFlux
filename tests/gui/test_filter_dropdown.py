@@ -42,7 +42,7 @@ def test_dropdown_retains_selection_on_load(filter_widget):
     assert filter_widget.combo_filters.currentText() == "Test Filter A"
     
     # ... Then click Load
-    filter_widget.btn_load.click()
+    # filter_widget.btn_load.click() # Auto-load is active now
     
     # Assert: Dropdown should STILL equal "Test Filter A"
     # Bug Expectation: It reverts to "- Select -" because load calls clear_all() which resets combo.

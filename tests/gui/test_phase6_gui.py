@@ -44,10 +44,10 @@ def test_document_list_filtering(qtbot, filled_db):
     qtbot.addWidget(widget)
     widget.refresh_list()
     
-    assert widget.rowCount() == 3
-    assert not widget.isRowHidden(0)
-    assert not widget.isRowHidden(1)
-    assert not widget.isRowHidden(2)
+    assert widget.tree.topLevelItemCount() == 3
+    assert not widget.tree.topLevelItem(0).isHidden()
+    assert not widget.tree.topLevelItem(1).isHidden()
+    assert not widget.tree.topLevelItem(2).isHidden()
     
     # Filter by Date (2023 only)
     criteria = {'date_from': '2023-01-01', 'date_to': '2023-12-31'}
@@ -57,7 +57,7 @@ def test_document_list_filtering(qtbot, filled_db):
     # Row 2 should be hidden
     hidden_count = 0
     for r in range(3):
-        if widget.isRowHidden(r):
+        if widget.tree.topLevelItem(r).isHidden():
              hidden_count += 1
              
     assert hidden_count == 1 # Doc 3 hidden
@@ -79,15 +79,15 @@ def test_document_list_filtering(qtbot, filled_db):
     # refresh_list populates row 0, 1, 2 in order of get_all_documents (usually insertion or query order).
     # Assuming order preserved for test.
     
-    item0 = widget.item(0, 2).text() # Type
-    item1 = widget.item(1, 2).text()
+    item0 = widget.tree.topLevelItem(0).text(6) # Type Tags
+    item1 = widget.tree.topLevelItem(1).text(6)
     
     # Ensure items match assumption
-    assert item0 == "Invoice"
-    assert widget.isRowHidden(0) == False
+    assert "Invoice" in item0
+    assert widget.tree.topLevelItem(0).isHidden() == False
     
-    assert item1 == "Receipt"
-    assert widget.isRowHidden(1) == True
+    assert "Receipt" in item1
+    assert widget.tree.topLevelItem(1).isHidden() == True
     
     # Filter by Tags ("paid")
     criteria = {'tags': 'paid'}
@@ -97,6 +97,6 @@ def test_document_list_filtering(qtbot, filled_db):
     # Doc 2 -> food -> Hide
     # Doc 3 -> unpaid -> Show (unpaid contains paid)
     
-    assert widget.isRowHidden(0) == False
-    assert widget.isRowHidden(1) == True
-    assert widget.isRowHidden(2) == False
+    assert widget.tree.topLevelItem(0).isHidden() == False
+    assert widget.tree.topLevelItem(1).isHidden() == True
+    assert widget.tree.topLevelItem(2).isHidden() == False
