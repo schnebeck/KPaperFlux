@@ -453,26 +453,58 @@ class MainWindow(QMainWindow):
     def _on_document_selected(self, uuids: list[str]):
         """Callback when selection changes in document list."""
         if not uuids:
-            # Clear viewer if single selection mode, or handle multi logic
-            # For now, clear if empty
             if hasattr(self, 'editor_widget'): self.editor_widget.clear()
             if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
-             
+            return
+
+        # Fetch Documents from DB
+        docs = []
+        for uuid in uuids:
+             d = self.db_manager.get_document_by_uuid(uuid)
+             if d: docs.append(d)
+        
+        if not docs:
+             return
+
+        # Use the first document for Single-View components (PDF, Info)
+        primary_doc = docs[0]
+        uuid = primary_doc.uuid
+
+        # Load into PDF Viewer
+        self.doc_gen_service = self.service_registry.get("document_generator")
+        if self.doc_gen_service:
+            path = self.doc_gen_service.generate_virtual_pdf(uuid)
+            if path and os.path.exists(path):
+                 self.pdf_viewer.load_document(path)
+                 
+                 # Check for Search Hits to Auto-Scroll
+                 if self.current_search_text and self.db_manager:
+                     hits = self.db_manager.find_text_pages_in_document(uuid, self.current_search_text)
+                     if hits:
+                         print(f"[Search-Scroll] Auto-scrolling to page {hits[0]} (0-based)")
+                         self.pdf_viewer.go_to_page(hits[0])
+            else:
+                 print(f"Error: Could not generate PDF for {uuid}")
+                 
+        # Update Info Panel
+        if hasattr(self, 'info_panel') and self.info_panel:
+            self.info_panel.load_document(primary_doc)
+
         # Update Editor (Batch aware)
         if hasattr(self, 'editor_widget'):
             print(f"[DEBUG] Ensuring Editor Visible. Current: {self.editor_widget.isVisible()}")
             self.editor_widget.setVisible(True)
             self.editor_widget.display_documents(docs)
+            
             # Robust Status Sync (Case Insensitive)
-            if docs: # Only attempt if there are documents
-                doc = docs[0] # Use the first document for status display
-                stat = (doc.status or "NEW").upper()
-                idx = self.editor_widget.status_combo.findText(stat)
-                if idx >= 0:
-                    self.editor_widget.status_combo.setCurrentIndex(idx)
-                else:
-                    self.editor_widget.status_combo.setCurrentText(stat) # Fallback if not in list
-                self.editor_widget.export_filename_edit.setText(doc.original_filename or "")
+            doc = primary_doc 
+            stat = (doc.status or "NEW").upper()
+            idx = self.editor_widget.status_combo.findText(stat)
+            if idx >= 0:
+                self.editor_widget.status_combo.setCurrentIndex(idx)
+            else:
+                self.editor_widget.status_combo.setCurrentText(stat) # Fallback if not in list
+            self.editor_widget.export_filename_edit.setText(doc.original_filename or "")
 
         # Phase 105: UI Resilience - Check Splitter Sizes
         # 1. Main Splitter (Left Pane | PDF Viewer)
