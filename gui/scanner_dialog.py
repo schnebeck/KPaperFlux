@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget, QWidget, QFormLayout, QFrame
 )
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer, QSettings
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QIcon
 from typing import Optional, List, Tuple
 from core.scanner import get_scanner_driver, ScannerDriver
 import os
@@ -73,7 +73,7 @@ class ScannerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Scanner"))
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(520)
         
         self.settings = QSettings("KPaperFlux", "Scanner")
         self.driver = get_scanner_driver("auto")
@@ -124,18 +124,34 @@ class ScannerDialog(QDialog):
         
         right_panel = QVBoxLayout()
         form = QFormLayout()
+        
+        # Device selection with Rescan button
+        device_layout = QHBoxLayout()
         self.device_combo = QComboBox()
-        form.addRow(self.tr("Gerät:"), self.device_combo)
+        self.device_combo.setMinimumHeight(30)
+        
+        self.rescan_btn = QPushButton()
+        self.rescan_btn.setToolTip(self.tr("Scannerliste aktualisieren"))
+        self.rescan_btn.setFixedSize(30, 30)
+        self.rescan_btn.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_BrowserReload))
+        self.rescan_btn.clicked.connect(self.trigger_rescan)
+        
+        device_layout.addWidget(self.device_combo, 1)
+        device_layout.addWidget(self.rescan_btn)
+        
+        form.addRow(self.tr("Gerät:"), device_layout)
         
         self.dpi_spin = QSpinBox()
         self.dpi_spin.setRange(75, 1200)
         self.dpi_spin.setValue(200)
         self.dpi_spin.setSuffix(" dpi")
+        self.dpi_spin.setMinimumHeight(30)
         form.addRow(self.tr("Auflösung:"), self.dpi_spin)
         
         self.mode_combo = QComboBox()
         self.mode_combo.addItem(self.tr("Farbe"), "Color")
         self.mode_combo.addItem(self.tr("Graustufen"), "Gray")
+        self.mode_combo.setMinimumHeight(30)
         form.addRow(self.tr("Modus:"), self.mode_combo)
         right_panel.addLayout(form)
         
@@ -228,11 +244,20 @@ class ScannerDialog(QDialog):
         QTimer.singleShot(50, self.adjustSize)
             
     def _start_discovery(self):
+        if self.discovery_running: return
         self.discovery_running = True
         self.discovery_worker = DeviceDiscoveryWorker(self.driver)
         self.discovery_worker.finished.connect(self._on_devices_found)
         self.discovery_worker.error.connect(self._on_discovery_error)
         self.discovery_worker.start()
+
+    def trigger_rescan(self):
+        """Manually trigger a full device rescan."""
+        self.loading_label.setText(self.tr("Suche nach Scannern..."))
+        self.search_progress.setVisible(True)
+        self.stack.setCurrentIndex(0) # Back to loading page
+        QTimer.singleShot(50, self.adjustSize)
+        self._start_discovery()
         
     def _on_devices_found(self, devices):
         self.discovery_running = False
@@ -241,9 +266,13 @@ class ScannerDialog(QDialog):
         self.device_combo.clear()
         if not devices:
             self.device_combo.addItem(self.tr("Keine Geräte gefunden"), None)
+            self.loading_label.setText(self.tr("Keine Scanner erkannt."))
+            self.search_progress.setVisible(False)
+            # We stay in loading view if nothing found during initial scan,
+            # or go back to settings if user just wants to see "nothing found".
             if self.stack.currentIndex() == 0:
-                self.loading_label.setText(self.tr("Keine Scanner erkannt."))
-                self.search_progress.setVisible(False)
+                 # If we were in settings and rescanned, let's go back and show "nothing"
+                 pass
         else:
             selected_idx = 0
             for i, dev in enumerate(devices):
@@ -261,9 +290,13 @@ class ScannerDialog(QDialog):
             
     def _on_discovery_error(self, msg):
         self.discovery_running = False
+        self.loading_label.setText(self.tr("Fehler bei der Suche"))
+        self.search_progress.setVisible(False)
+        QMessageBox.warning(self, self.tr("Suche fehlgeschlagen"), msg)
         if self.stack.currentIndex() == 0:
-            self.loading_label.setText(self.tr("Fehler bei der Suche"))
-            QMessageBox.warning(self, self.tr("Suche fehlgeschlagen"), msg)
+             # Try to show settings anyway if we have cached data
+             if self.device_combo.count() > 0:
+                  self.stack.setCurrentIndex(1)
         
     def start_scan(self):
         device_id = self.device_combo.currentData()
