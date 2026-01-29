@@ -9,6 +9,8 @@ from PyQt6.QtCore import Qt, QSettings, QSize
 import platform
 import os
 import sys
+import tempfile
+from core.importer import PreFlightImporter
 import PyQt6.QtCore
 import shutil
 from core.pipeline import PipelineProcessor
@@ -1012,17 +1014,42 @@ class MainWindow(QMainWindow):
         event.ignore()
 
     def dropEvent(self, event: QDropEvent):
-        """Handle Drop: Extract files."""
+        """Handle Drop: Extract files with Pre-Flight Conversion."""
         files = []
         if event.mimeData().hasUrls():
+            temp_dir = tempfile.gettempdir()
+            convertible_exts = PreFlightImporter.ALLOWED_EXTENSIONS.union({'.zip'})
+            
             for url in event.mimeData().urls():
                 path = url.toLocalFile()
-                if path.lower().endswith('.pdf') and os.path.exists(path):
+                if not os.path.exists(path): continue
+                
+                _, ext = os.path.splitext(path)
+                ext = ext.lower()
+                
+                if ext == '.pdf':
                     files.append(path)
+                elif ext in convertible_exts:
+                    # Conversion
+                    base_name = os.path.basename(path)
+                    temp_pdf_path = os.path.join(temp_dir, f"KPaperFlux_{base_name}.pdf")
+                    
+                    self.setCursor(Qt.CursorShape.WaitCursor)
+                    try:
+                        print(f"[Importer] Converting {path} -> {temp_pdf_path}...")
+                        success = PreFlightImporter.convert_to_pdf(path, temp_pdf_path)
+                        if success:
+                            files.append(temp_pdf_path)
+                        else:
+                            print(f"[Importer] Failed to convert: {path}")
+                    finally:
+                        self.setCursor(Qt.CursorShape.ArrowCursor)
         
         if files:
             self.handle_dropped_files(files)
             event.acceptProposedAction()
+        else:
+            event.ignore()
 
     def handle_dropped_files(self, files: list[str]):
         """Confirm import and options."""
