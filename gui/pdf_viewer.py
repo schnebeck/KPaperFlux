@@ -371,8 +371,8 @@ class PdfViewerWidget(QWidget):
 
             # Navigate if pending (Delayed to allow Viewport Init)
             if self._pending_page_index >= 0 and self._pending_page_index < count:
-                print(f"[PdfViewer] Scheduling deferred jump to page {self._pending_page_index} (100ms delay)")
-                QTimer.singleShot(100, self._execute_deferred_jump)
+                print(f"[PdfViewer] Scheduling deferred jump to page {self._pending_page_index} (300ms delay)")
+                QTimer.singleShot(300, self._execute_deferred_jump)
 
         elif status == QPdfDocument.Status.Error:
             self.enable_controls(False)
@@ -380,7 +380,7 @@ class PdfViewerWidget(QWidget):
     def _execute_deferred_jump(self):
         """Execute the jump after delay."""
         if self._pending_page_index >= 0 and self._pending_page_index < self.document.pageCount():
-            print(f"[PdfViewer] Jumping to page {self._pending_page_index}")
+            print(f"[PdfViewer] EXECUTE JUMP -> Page {self._pending_page_index} (Index)")
             self.nav.jump(self._pending_page_index, QPointF(), self.nav.currentZoom())
             self._pending_page_index = -1
 

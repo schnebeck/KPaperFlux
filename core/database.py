@@ -709,7 +709,6 @@ class DatabaseManager:
         text = text.strip()
         if not text: return []
         
-        print(f"[Search-Trace] Logic: Checking Virtual Doc {doc_uuid} for '{text}'")
         matching_pages = []
         
         # 1. Get Source Mapping
@@ -718,7 +717,6 @@ class DatabaseManager:
         cursor.execute(sql, (doc_uuid,))
         row = cursor.fetchone()
         if not row or not row[0]:
-            print("[Search-Trace] No source mapping found.")
             return []
             
         try:
@@ -759,12 +757,8 @@ class DatabaseManager:
                     
                     snippet = (page_text[:30] + "...") if page_text else "None"
                     
-                    match = False
                     if page_text and text.lower() in page_text.lower():
-                        match = True
                         matching_pages.append(virt_page_idx)
-                    
-                    print(f"[Search-Trace]   VirtPage {virt_page_idx} (PhysPage {src_page_idx} in {p_uuid[:8]}): Text={snippet} -> Match={match}")
                         
             current_virt_page += len(src_pages)
             
