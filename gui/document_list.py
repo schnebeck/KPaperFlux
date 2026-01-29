@@ -602,9 +602,13 @@ class DocumentListWidget(QWidget):
         if self.is_trash_mode:
             docs = self.db_manager.get_deleted_entities_view()
         else:
-            if self.advanced_filter_active and self.current_advanced_query:
+            # FIX: Prioritize Advanced Filter (Search) if it is set, regardless of "active" flag if it comes from search
+            # The issue was that Dashboard Filter was overriding Search.
+            # We assume if current_advanced_query is SET, it should be used.
+            # advanced_filter_active might be toggled by the UI checkbox, but search should override.
+            if self.current_advanced_query:
                 active_query = self.current_advanced_query
-                print(f"[DEBUG] refresh_list: Rule Editor is ACTIVE. Query: {active_query}")
+                print(f"[DEBUG] refresh_list: Using Advanced/Search Filter: {active_query}")
             elif self.current_dashboard_query:
                 active_query = self.current_dashboard_query
                 print(f"[DEBUG] refresh_list: Rule Editor INACTIVE. Using Dashboard Filter: {active_query}")
@@ -635,6 +639,10 @@ class DocumentListWidget(QWidget):
         self._last_refresh_sig = current_sig
              
         self.populate_tree(docs)
+        
+        # User Feedback: Auto-select if exactly one result
+        if len(docs) == 1:
+            force_select_first = True
         
         # Re-apply basic filter (hide/show) if one was active
         if hasattr(self, "current_filter") and self.current_filter:

@@ -450,33 +450,13 @@ class MainWindow(QMainWindow):
             if self.list_widget:
                 self.list_widget.refresh_list()
 
-    def on_document_selected(self, uuids: list):
-        """Handle document selection (single or batch)."""
-        if not self.db_manager or not uuids:
+    def _on_document_selected(self, uuids: list[str]):
+        """Callback when selection changes in document list."""
+        if not uuids:
+            # Clear viewer if single selection mode, or handle multi logic
+            # For now, clear if empty
             if hasattr(self, 'editor_widget'): self.editor_widget.clear()
             if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
-            return
-
-        # Save selection for persistence (Phase 105)
-        self._save_current_selection_to_persistence(uuids[0])
-
-        docs = []
-        for uuid in uuids:
-            # Try loading as Physical Document
-            d = self.db_manager.get_document_by_uuid(uuid)
-            
-            if not d:
-                 # Try loading as Entity (Phase 98)
-                 source_uuid = self.db_manager.get_source_uuid_from_entity(uuid)
-                 if source_uuid:
-                     d = self.db_manager.get_document_by_uuid(source_uuid)
-            
-            if d: docs.append(d)
-            
-        if not docs:
-             if hasattr(self, 'editor_widget'): self.editor_widget.clear()
-             if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
-             return
              
         # Update Editor (Batch aware)
         if hasattr(self, 'editor_widget'):

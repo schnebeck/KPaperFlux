@@ -701,6 +701,69 @@ class DatabaseManager:
                     
         return list(found_uuids)
 
+    def find_text_pages_in_document(self, doc_uuid: str, text: str) -> List[int]:
+        """
+        Identify logical page numbers (0-based) in a virtual document where text appears.
+        Uses Raw OCR Data from physical files.
+        """
+        text = text.strip()
+        if not text: return []
+        
+        matching_pages = []
+        
+        # 1. Get Source Mapping
+        sql = "SELECT source_mapping FROM virtual_documents WHERE uuid = ?"
+        cursor = self.connection.cursor()
+        cursor.execute(sql, (doc_uuid,))
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return []
+            
+        try:
+            mapping = json.loads(row[0]) # List[{file_uuid, pages: [int], ...}]
+        except:
+            return []
+            
+        current_virt_page = 0
+        
+        # 2. Iterate segments
+        for segment in mapping:
+            p_uuid = segment.get("file_uuid")
+            src_pages = segment.get("pages", []) # List of 0-based page indices in physical file
+            
+            if not p_uuid or not src_pages:
+                continue
+                
+            # Get Raw Data for this file
+            sql_ocr = "SELECT raw_ocr_data FROM physical_files WHERE uuid = ?"
+            cursor.execute(sql_ocr, (p_uuid,))
+            ocr_row = cursor.fetchone()
+            
+            if ocr_row and ocr_row[0]:
+                try:
+                    ocr_map = json.loads(ocr_row[0]) # Dict: "1": "Text", "2": "Text" (usually 1-based keys in Tesseract/OCR)
+                except:
+                    ocr_map = {}
+                    
+                # Check each page in this segment
+                for i, src_page_idx in enumerate(src_pages):
+                    virt_page_idx = current_virt_page + i
+                    
+                    # Convert 0-based src_page_idx to OCR map key
+                    # Need to be careful. Typically OCR keys form 'ocr_data' are strings of "1", "2"...
+                    # But src_page_idx is 0-based. So key is str(src_page_idx + 1).
+                    # Check both 0-based and 1-based just in case.
+                    page_text = ocr_map.get(str(src_page_idx + 1))
+                    if not page_text:
+                         page_text = ocr_map.get(str(src_page_idx)) # Fallback
+                         
+                    if page_text and text.lower() in page_text.lower():
+                        matching_pages.append(virt_page_idx)
+                        
+            current_virt_page += len(src_pages)
+            
+        return matching_pages
+
     def get_available_tags(self, system: bool = False) -> List[str]:
         """
         Return a list of unique tags.
