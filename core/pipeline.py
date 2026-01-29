@@ -633,13 +633,13 @@ class PipelineProcessor:
             # sidecar_txt = Path(temp_dir) / f"ocr_{path.name}.txt"
             
             # Run ocrmypdf with quality enhancements
+            # Run ocrmypdf with speed optimizations
             cmd = [
                 ocr_binary,
-                "--force-ocr", 
+                "--skip-text",    # Only OCR what needs it
+                "--jobs", "4",    # Parallel processing
                 "-l", "deu+eng",
-                "--deskew",       # Straighten tilted pages
-                "--clean",        # Remove scanning noise/dots
-                "--rotate-pages", # Fix upside down or sideways pages
+                # removed expensive image preprocessing for speed
                 str(path), 
                 str(output_pdf)
             ]
