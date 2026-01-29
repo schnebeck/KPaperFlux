@@ -147,6 +147,7 @@ class ImportWorker(QThread):
             
     def cancel(self):
         self.is_cancelled = True
+        self.pipeline.terminate_activity()
 
 class ReprocessWorker(QThread):
     """

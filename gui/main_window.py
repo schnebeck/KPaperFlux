@@ -1323,6 +1323,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'ai_worker') and self.ai_worker: self.ai_worker.stop()
         if hasattr(self, 'main_loop_worker') and self.main_loop_worker: self.main_loop_worker.stop()
         
+        # Cancel background workers to kill subprocesses
+        if hasattr(self, 'import_worker') and self.import_worker: self.import_worker.cancel()
+        if hasattr(self, 'batch_worker') and self.batch_worker: self.batch_worker.cancel()
+        if hasattr(self, 'reprocess_worker') and self.reprocess_worker: self.reprocess_worker.cancel()
+        
         self.write_settings()
         self.save_filter_tree()
         super().closeEvent(event)

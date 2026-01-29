@@ -36,7 +36,18 @@ class PipelineProcessor:
         # Repositories (Phase 2.0)
         self.physical_repo = PhysicalRepository(self.db)
         self.logical_repo = LogicalRepository(self.db)
-        
+        self.current_process = None
+
+    def terminate_activity(self):
+        """Forcefully terminate any running subprocess."""
+        if self.current_process:
+            try:
+                print(f"[Pipeline] Terminating subprocess PID {self.current_process.pid}...")
+                self.current_process.kill()
+            except Exception as e:
+                print(f"Error killing process: {e}")
+            self.current_process = None
+
     def _compute_sha256(self, path: Path) -> str:
         sha256_hash = hashlib.sha256()
         with open(path, "rb") as f:
@@ -644,7 +655,20 @@ class PipelineProcessor:
                 str(output_pdf)
             ]
             
-            subprocess.run(cmd, check=True, capture_output=True)
+            # Execute with process tracking
+            try:
+                self.current_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout, stderr = self.current_process.communicate()
+                
+                if self.current_process.returncode != 0:
+                     print(f"OCR Error: {stderr.decode('utf-8', errors='ignore')}")
+            except Exception as e:
+                 print(f"Subprocess Error: {e}")
+                 if self.current_process:
+                     try: self.current_process.kill() 
+                     except: pass
+            finally:
+                self.current_process = None
             
             if output_pdf.exists():
                 # Extract text from the OCR'd PDF using native extractor
