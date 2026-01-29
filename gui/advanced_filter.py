@@ -940,6 +940,14 @@ class AdvancedFilterWidget(QWidget):
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
         criteria = self.parser.parse(text)
+        
+        # Phase 106: Deep Search for fulltext using Raw Data if available
+        # This solves the issue where cached_full_text is empty but raw OCR exists.
+        if criteria.get("fulltext") and self.db_manager:
+             # Find UUIDs that match the text in RAW or CACHE
+             deep_uuids = self.db_manager.get_virtual_uuids_with_text_content(criteria["fulltext"])
+             criteria["deep_uuids"] = deep_uuids
+        
         # Convert simple criteria to advanced query object format for consistency
         query = self._criteria_to_query(criteria)
         self.filter_changed.emit(query)
@@ -949,8 +957,19 @@ class AdvancedFilterWidget(QWidget):
         # Simple translation for now
         # { 'fulltext': '...', 'tags': [...], 'types': [...] }
         conditions = []
-        if criteria.get("fulltext"):
+        
+        # Handle Deep Search Results
+        if "deep_uuids" in criteria:
+            found = criteria["deep_uuids"]
+            if found:
+                conditions.append({"field": "uuid", "op": "in", "value": found})
+            else:
+                # Nothing found in Deep Search -> Force empty result
+                conditions.append({"field": "uuid", "op": "equals", "value": "__NO_MATCH__"})
+        elif criteria.get("fulltext"):
+            # Fallback (legacy or no DB access)
             conditions.append({"field": "cached_full_text", "op": "contains", "value": criteria["fulltext"]})
+            
         if criteria.get("tags"):
             conditions.append({"field": "type_tags", "op": "contains", "value": criteria["tags"]})
         if criteria.get("types"):

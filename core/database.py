@@ -661,6 +661,46 @@ class DatabaseManager:
             
         return tag_counts
 
+    def get_virtual_uuids_with_text_content(self, text: str) -> List[str]:
+        """
+        Deep search for UUIDs of virtual documents that contain the given text.
+        Searches:
+        1. virtual_documents.cached_full_text
+        2. physical_files.raw_ocr_data (and maps back to virtual_doc)
+        """
+        text = text.strip()
+        if not text: return []
+        
+        found_uuids = set()
+        
+        # 1. Search Virtual Documents Cache
+        sql_v = "SELECT uuid FROM virtual_documents WHERE cached_full_text LIKE ? AND deleted = 0"
+        cursor = self.connection.cursor()
+        with self.connection:
+            cursor.execute(sql_v, (f"%{text}%",))
+            for row in cursor.fetchall():
+                found_uuids.add(row[0])
+                
+        # 2. Search Physical Files (Raw Data)
+        # This is the "Deep Search" requested by user
+        sql_p = "SELECT uuid FROM physical_files WHERE raw_ocr_data LIKE ?"
+        phys_uuids = []
+        with self.connection:
+            cursor.execute(sql_p, (f"%{text}%",))
+            phys_uuids = [r[0] for r in cursor.fetchall()]
+            
+        if phys_uuids:
+            # Find Virtual Docs referencing these physical files
+            # This logic assumes source_mapping contains the physical UUID string
+            # We construct a massive OR query or iterate
+            for p_uuid in phys_uuids:
+                sql_map = "SELECT uuid FROM virtual_documents WHERE source_mapping LIKE ? AND deleted = 0"
+                cursor.execute(sql_map, (f"%{p_uuid}%",))
+                for row in cursor.fetchall():
+                    found_uuids.add(row[0])
+                    
+        return list(found_uuids)
+
     def get_available_tags(self, system: bool = False) -> List[str]:
         """
         Return a list of unique tags.
