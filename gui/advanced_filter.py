@@ -1021,6 +1021,9 @@ class AdvancedFilterWidget(QWidget):
         self.lbl_search_status.setText(self.tr(f"{count} Documents found ({scope_msg})"))
         self.lbl_search_status.setStyleSheet("color: green;" if count > 0 else "color: red;")
 
+        # Inject debug meta info for MainWindow
+        final_query["_meta_fulltext"] = text
+
         self.filter_changed.emit(final_query)
         self.search_triggered.emit(text)
 

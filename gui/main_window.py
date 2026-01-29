@@ -453,7 +453,12 @@ class MainWindow(QMainWindow):
 
     def _on_filter_changed(self, criteria: dict):
         """Update local state when filter changes."""
-        self.current_search_text = criteria.get('fulltext', '')
+        # Check for explicit meta-key first (added by AdvancedFilter)
+        text = criteria.get('_meta_fulltext')
+        if text is None:
+             text = criteria.get('fulltext', '')
+             
+        self.current_search_text = text
         print(f"[DEBUG] MainWindow updated current_search_text to: '{self.current_search_text}'")
 
     def _resolve_pdf_path(self, doc_uuid: str) -> Optional[str]:
