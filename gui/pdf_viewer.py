@@ -204,7 +204,6 @@ class PdfViewerWidget(QWidget):
             self._pending_refresh = True
         
         # Detach to prevent transient errors during load (Fix for 'invalid nullptr')
-        self.view.setDocument(None)
         
         if uuid:
             self.current_uuid = uuid
@@ -359,15 +358,13 @@ class PdfViewerWidget(QWidget):
 
     def on_document_status(self, status):
         if status == QPdfDocument.Status.Ready:
-            # Re-attach document now that it is safe (Fix for 'invalid nullptr')
-            if self.view.document() is None:
-                self.view.setDocument(self.document)
-
+            # Re-attach logic removed
+            
             self.enable_controls(True)
             self.update_zoom_label(self.view.zoomFactor())
             
             count = self.document.pageCount()
-            self.lbl_page_count.setText(f"/ {count}")
+            self.lbl_total.setText(f"/ {count}")
             
             self.spin_page.blockSignals(True)
             self.spin_page.setRange(1, count)
