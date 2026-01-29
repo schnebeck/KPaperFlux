@@ -31,7 +31,7 @@ class ScannerWorker(QThread):
     error = pyqtSignal(str)
     progress_update = pyqtSignal(int, int)
     
-    def __init__(self, driver: ScannerDriver, device: str, dpi: int, mode: str, use_adf: bool, duplex: bool, duplex_mode: str):
+    def __init__(self, driver: ScannerDriver, device: str, dpi: int, mode: str, use_adf: bool, duplex: bool, duplex_mode: str, page_format: str):
         super().__init__()
         self.driver = driver
         self.device = device
@@ -40,12 +40,14 @@ class ScannerWorker(QThread):
         self.use_adf = use_adf
         self.duplex = duplex
         self.duplex_mode = duplex_mode
+        self.page_format = page_format
         
     def run(self):
         try:
             paths = self.driver.scan_pages(
                 self.device, self.dpi, self.mode, 
                 self.use_adf, self.duplex, self.duplex_mode,
+                self.page_format,
                 progress_callback=self.progress_update.emit
             )
             
@@ -153,6 +155,15 @@ class ScannerDialog(QDialog):
         self.mode_combo.addItem(self.tr("Graustufen"), "Gray")
         self.mode_combo.setMinimumHeight(30)
         form.addRow(self.tr("Modus:"), self.mode_combo)
+        
+        self.format_combo = QComboBox()
+        self.format_combo.addItem(self.tr("A4 (210 x 297 mm)"), "A4")
+        self.format_combo.addItem(self.tr("US Letter"), "Letter")
+        self.format_combo.addItem(self.tr("US Legal"), "Legal")
+        self.format_combo.addItem(self.tr("Maximal"), "Max")
+        self.format_combo.setMinimumHeight(30)
+        form.addRow(self.tr("Papierformat:"), self.format_combo)
+        
         right_panel.addLayout(form)
         
         self.chk_adf = QCheckBox(self.tr("Dokumenteneinzug (ADF) nutzen"))
@@ -215,6 +226,10 @@ class ScannerDialog(QDialog):
         idx = self.mode_combo.findData(mode)
         if idx >= 0: self.mode_combo.setCurrentIndex(idx)
         
+        fmt = self.settings.value("last_page_format", "A4")
+        idx = self.format_combo.findData(fmt)
+        if idx >= 0: self.format_combo.setCurrentIndex(idx)
+        
         self.chk_adf.setChecked(self.settings.value("last_use_adf", "false") == "true")
         self.chk_duplex.setChecked(self.settings.value("last_duplex", "false") == "true")
         
@@ -233,6 +248,7 @@ class ScannerDialog(QDialog):
         
         self.settings.setValue("last_dpi", self.dpi_spin.value())
         self.settings.setValue("last_mode", self.mode_combo.currentData())
+        self.settings.setValue("last_page_format", self.format_combo.currentData())
         self.settings.setValue("last_use_adf", "true" if self.chk_adf.isChecked() else "false")
         self.settings.setValue("last_duplex", "true" if self.chk_duplex.isChecked() else "false")
         self.settings.setValue("last_duplex_mode", self.combo_duplex_mode.currentData())
@@ -260,6 +276,7 @@ class ScannerDialog(QDialog):
         self._start_discovery()
         
     def _on_devices_found(self, devices):
+        print(f"[DEBUG] ScannerDialog received {len(devices)} devices: {devices}")
         self.discovery_running = False
         saved_id = self.settings.value("last_device_id")
         
@@ -276,7 +293,8 @@ class ScannerDialog(QDialog):
         else:
             selected_idx = 0
             for i, dev in enumerate(devices):
-                label = f"{dev[1]} {dev[2]}"
+                backend = dev[0].split(":")[0] if ":" in dev[0] else "sane"
+                label = f"[{backend}] {dev[1]} {dev[2]}"
                 self.device_combo.addItem(label, dev[0])
                 if dev[0] == saved_id:
                     selected_idx = i
@@ -310,7 +328,8 @@ class ScannerDialog(QDialog):
         
         self.worker = ScannerWorker(
             self.driver, device_id, self.dpi_spin.value(), self.mode_combo.currentData(), 
-            self.chk_adf.isChecked(), self.chk_duplex.isChecked(), self.combo_duplex_mode.currentData()
+            self.chk_adf.isChecked(), self.chk_duplex.isChecked(), self.combo_duplex_mode.currentData(),
+            self.format_combo.currentData()
         )
         self.worker.finished.connect(self.on_scan_finished)
         self.worker.error.connect(self.on_scan_error)
