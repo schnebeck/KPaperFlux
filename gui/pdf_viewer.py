@@ -382,8 +382,7 @@ class PdfViewerWidget(QWidget):
             # Navigate if pending (Delayed to allow Viewport Init)
             if self._pending_page_index >= 0 and self._pending_page_index < count:
                 self._retry_jump_target = self._pending_page_index  # Capture safely
-                print(f"[PdfViewer] Starting Jump Timer for Page {self._retry_jump_target} (300ms)...")
-                self._jump_timer.start(300)
+                self._jump_timer.start(50)
 
         elif status == QPdfDocument.Status.Error:
             self.enable_controls(False)
@@ -393,17 +392,12 @@ class PdfViewerWidget(QWidget):
         """Execute the jump after delay."""
         # Use captured target
         idx = getattr(self, '_retry_jump_target', -1)
-        print(f"[PdfViewer] Timer FIRED. Target={idx}, Pending={self._pending_page_index}")
         
         try:
             if idx >= 0 and idx < self.document.pageCount():
-                print(f"[PdfViewer] EXECUTE JUMP -> Page {idx} (Index)")
                 self.nav.jump(idx, QPointF(), self.nav.currentZoom())
                 self._retry_jump_target = -1
-                self._pending_page_index = -1 # Clear original too
-            else:
-                if idx != -1:
-                    print(f"[PdfViewer] EXECUTE JUMP SKIPPED: Target={idx}, PageCount={self.document.pageCount()}")
+                self._pending_page_index = -1
         except Exception as e:
             print(f"[PdfViewer] JUMP ERROR: {e}")
 
