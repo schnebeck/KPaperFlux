@@ -1,13 +1,30 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
-    QSpinBox, QPushButton, QProgressBar, QMessageBox, QCheckBox
+    QSpinBox, QPushButton, QProgressBar, QMessageBox, QCheckBox,
+    QStackedWidget, QWidget, QFormLayout
 )
-from PyQt6.QtCore import QThread, pyqtSignal, Qt
-from typing import Optional, List
+from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
+from typing import Optional, List, Tuple
 from core.scanner import get_scanner_driver, ScannerDriver
 import os
 import tempfile
 import pikepdf
+
+class DeviceDiscoveryWorker(QThread):
+    """Asynchronous scanner discovery to prevent UI freeze."""
+    finished = pyqtSignal(list)
+    error = pyqtSignal(str)
+    
+    def __init__(self, driver: ScannerDriver):
+        super().__init__()
+        self.driver = driver
+        
+    def run(self):
+        try:
+            devices = self.driver.list_devices()
+            self.finished.emit(devices)
+        except Exception as e:
+            self.error.emit(str(e))
 
 class ScannerWorker(QThread):
     finished = pyqtSignal(str) # Path
@@ -59,7 +76,7 @@ class ScannerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Scanner"))
-        self.resize(450, 250)
+        self.setMinimumWidth(400)
         
         self.driver = get_scanner_driver("auto")
         self.scanned_file = None
@@ -68,95 +85,131 @@ class ScannerDialog(QDialog):
         self._load_devices()
         
     def _init_ui(self):
-        layout = QVBoxLayout(self)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(15, 15, 15, 15)
+        self.main_layout.setSpacing(10)
         
-        # Device Selection
+        self.stack = QStackedWidget()
+        
+        # --- PAGE 0: LOADING ---
+        self.loading_page = QWidget()
+        loading_layout = QVBoxLayout(self.loading_page)
+        loading_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.loading_label = QLabel(self.tr("Searching for scanners..."))
+        self.loading_label.setStyleSheet("font-weight: bold; color: #555;")
+        loading_layout.addWidget(self.loading_label)
+        
+        self.search_progress = QProgressBar()
+        self.search_progress.setRange(0, 0) # Indeterminate
+        self.search_progress.setFixedSize(250, 6)
+        loading_layout.addWidget(self.search_progress)
+        
+        self.stack.addWidget(self.loading_page)
+        
+        # --- PAGE 1: SETTINGS ---
+        self.settings_page = QWidget()
+        settings_layout = QVBoxLayout(self.settings_page)
+        settings_layout.setContentsMargins(0, 0, 0, 0)
+        
+        form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        form.setSpacing(8)
+        
         self.device_combo = QComboBox()
-        layout.addWidget(QLabel(self.tr("Device:")))
-        layout.addWidget(self.device_combo)
+        self.device_combo.setMinimumHeight(28)
+        form.addRow(self.tr("Device:"), self.device_combo)
         
-        # Settings Layout
-        settings_layout = QHBoxLayout()
-        
-        # DPI
         self.dpi_spin = QSpinBox()
         self.dpi_spin.setRange(75, 1200)
         self.dpi_spin.setValue(200)
         self.dpi_spin.setSuffix(" dpi")
+        self.dpi_spin.setMinimumHeight(28)
+        form.addRow(self.tr("Resolution:"), self.dpi_spin)
         
-        settings_layout.addWidget(QLabel(self.tr("Resolution:")))
-        settings_layout.addWidget(self.dpi_spin)
-        
-        # Mode
         self.mode_combo = QComboBox()
         self.mode_combo.addItem(self.tr("Color"), "Color")
         self.mode_combo.addItem(self.tr("Gray"), "Gray")
         self.mode_combo.addItem(self.tr("Lineart"), "Lineart")
+        self.mode_combo.setMinimumHeight(28)
+        form.addRow(self.tr("Mode:"), self.mode_combo)
         
-        settings_layout.addWidget(QLabel(self.tr("Mode:")))
-        settings_layout.addWidget(self.mode_combo)
+        settings_layout.addLayout(form)
         
-        layout.addLayout(settings_layout)
-
-        # ADF & Duplex
         adv_layout = QHBoxLayout()
-        self.chk_adf = QCheckBox(self.tr("Use Document Feeder (ADF)"))
+        adv_layout.setContentsMargins(0, 5, 0, 5)
+        self.chk_adf = QCheckBox(self.tr("Use Feeder (ADF)"))
         self.chk_duplex = QCheckBox(self.tr("Duplex Scan"))
         adv_layout.addWidget(self.chk_adf)
         adv_layout.addWidget(self.chk_duplex)
-        layout.addLayout(adv_layout)
+        settings_layout.addLayout(adv_layout)
         
-        # Progress
-        self.progress = QProgressBar()
-        self.progress.setVisible(False)
-        layout.addWidget(self.progress)
+        self.stack.addWidget(self.settings_page)
         
-        # Buttons
+        self.main_layout.addWidget(self.stack)
+        
+        # Bottom area (Progress and Buttons)
+        self.scan_progress = QProgressBar()
+        self.scan_progress.setVisible(False)
+        self.main_layout.addWidget(self.scan_progress)
+        
         btn_layout = QHBoxLayout()
         self.scan_btn = QPushButton(self.tr("Start Scan"))
+        self.scan_btn.setMinimumSize(100, 32)
+        self.scan_btn.setEnabled(False) # Wait for discovery
         self.scan_btn.clicked.connect(self.start_scan)
         self.scan_btn.setDefault(True)
         
         self.cancel_btn = QPushButton(self.tr("Cancel"))
+        self.cancel_btn.setMinimumSize(80, 32)
         self.cancel_btn.clicked.connect(self.reject)
         
         btn_layout.addStretch()
         btn_layout.addWidget(self.scan_btn)
         btn_layout.addWidget(self.cancel_btn)
-        
-        layout.addLayout(btn_layout)
+        self.main_layout.addLayout(btn_layout)
         
     def _load_devices(self):
-        try:
-            devices = self.driver.list_devices()
-            if not devices:
-                self.device_combo.addItem(self.tr("No devices found"), None)
-                self.scan_btn.setEnabled(False)
-            else:
-                for dev in devices:
-                    # dev: (name, vendor, model, type)
-                    label = f"{dev[1]} {dev[2]} ({dev[3]})"
-                    self.device_combo.addItem(label, dev[0])
-                self.scan_btn.setEnabled(True)
-        except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr(f"Failed to list devices: {e}"))
+        """Start async discovery."""
+        self.discovery_worker = DeviceDiscoveryWorker(self.driver)
+        self.discovery_worker.finished.connect(self._on_devices_found)
+        self.discovery_worker.error.connect(self._on_discovery_error)
+        self.discovery_worker.start()
+        
+    def _on_devices_found(self, devices: List[Tuple[str, str, str, str]]):
+        self.device_combo.clear()
+        if not devices:
+            self.device_combo.addItem(self.tr("No devices found"), None)
+            self.scan_btn.setEnabled(False)
+            self.loading_label.setText(self.tr("No scanners detected."))
+            self.search_progress.setVisible(False)
+        else:
+            for dev in devices:
+                label = f"{dev[1]} {dev[2]} ({dev[3]})"
+                self.device_combo.addItem(label, dev[0])
+            self.scan_btn.setEnabled(True)
+            self.stack.setCurrentIndex(1) # Switch to settings
+            QTimer.singleShot(50, self.adjustSize)
             
+    def _on_discovery_error(self, msg):
+        self.loading_label.setText(self.tr("Discovery Error"))
+        self.search_progress.setVisible(False)
+        QMessageBox.warning(self, self.tr("Discovery Failed"), msg)
+        
     def start_scan(self):
         device_id = self.device_combo.currentData()
-        if not device_id:
-            return
+        if not device_id: return
             
-        dpi = self.dpi_spin.value()
-        mode = self.mode_combo.currentData() or self.mode_combo.currentText()
-        use_adf = self.chk_adf.isChecked()
-        duplex = self.chk_duplex.isChecked()
-
         self.scan_btn.setEnabled(False)
-        self.progress.setVisible(True)
-        self.progress.setRange(0, 0)
-        self.progress.setFormat(self.tr("Initializing..."))
+        self.scan_progress.setVisible(True)
+        self.scan_progress.setRange(0, 0)
+        self.scan_progress.setFormat(self.tr("Initializing..."))
         
-        self.worker = ScannerWorker(self.driver, device_id, dpi, mode, use_adf, duplex)
+        self.worker = ScannerWorker(self.driver, device_id, 
+                                   self.dpi_spin.value(),
+                                   self.mode_combo.currentData(),
+                                   self.chk_adf.isChecked(),
+                                   self.chk_duplex.isChecked())
         self.worker.finished.connect(self.on_scan_finished)
         self.worker.error.connect(self.on_scan_error)
         self.worker.progress_update.connect(self.on_progress)
@@ -164,24 +217,23 @@ class ScannerDialog(QDialog):
         
     def on_progress(self, current, total):
         if total > 0:
-            self.progress.setRange(0, total)
-            self.progress.setValue(current)
-            self.progress.setFormat(self.tr(f"Scanning page {current} of {total}..."))
+            self.scan_progress.setRange(0, total)
+            self.scan_progress.setValue(current)
+            self.scan_progress.setFormat(self.tr(f"Scanning page {current} of {total}..."))
         else:
-            self.progress.setRange(0, 0)
-            self.progress.setFormat(self.tr(f"Scanning page {current}..."))
+            self.scan_progress.setRange(0, 0)
+            self.scan_progress.setFormat(self.tr(f"Scanning page {current}..."))
 
     def on_scan_finished(self, path):
-        self.progress.setVisible(False)
+        self.scan_progress.setVisible(False)
         self.scanned_file = path
-        # Verify file exists
         if os.path.exists(path):
             self.accept()
         else:
             self.on_scan_error(self.tr("Output file missing."))
             
     def on_scan_error(self, msg):
-        self.progress.setVisible(False)
+        self.scan_progress.setVisible(False)
         self.scan_btn.setEnabled(True)
         QMessageBox.critical(self, self.tr("Scan Error"), msg)
         
