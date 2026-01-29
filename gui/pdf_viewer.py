@@ -39,6 +39,9 @@ class PdfViewerWidget(QWidget):
         
         # Phase 106: Deferred Navigation (Wait for Ready)
         self._pending_page_index = -1
+        self._jump_timer = QTimer(self)
+        self._jump_timer.setSingleShot(True)
+        self._jump_timer.timeout.connect(self._execute_deferred_jump)
         
         # UI Components
         self.document = QPdfDocument(self)
@@ -298,21 +301,21 @@ class PdfViewerWidget(QWidget):
             search_terms = [t for t in search_terms if len(t) > 2]
             
             if search_terms:
-                print(f"[PDF-Search] Scanning current document for terms: {search_terms}")
+                # print(f"[PDF-Search] Scanning current document for terms: {search_terms}")
                 found_total = 0
                 for i, page in enumerate(preview_doc):
                     for term in search_terms:
                         quads = page.search_for(term)
                         if quads:
-                            print(f"  [FOUND] '{term}' on Page {i+1}: {len(quads)} match(es)")
+                            # print(f"  [FOUND] '{term}' on Page {i+1}: {len(quads)} match(es)")
                             for j, q in enumerate(quads):
-                                print(f"    - Match {j+1} at Coords: {q}")
+                                # print(f"    - Match {j+1} at Coords: {q}")
                                 page.add_highlight_annot(q)
                                 found_total += 1
                 if found_total == 0:
-                    print("[PDF-Search] No matches found in document.")
+                    pass # print("[PDF-Search] No matches found in document.")
                 else:
-                    print(f"[PDF-Search] Total highlights applied: {found_total}")
+                    pass # print(f"[PDF-Search] Total highlights applied: {found_total}")
 
             # Save to temp
             fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="kpf_preview_")
@@ -371,8 +374,8 @@ class PdfViewerWidget(QWidget):
 
             # Navigate if pending (Delayed to allow Viewport Init)
             if self._pending_page_index >= 0 and self._pending_page_index < count:
-                print(f"[PdfViewer] Scheduling deferred jump to page {self._pending_page_index} (300ms delay)")
-                QTimer.singleShot(300, self._execute_deferred_jump)
+                print(f"[PdfViewer] Starting Jump Timer for Page {self._pending_page_index} (300ms)...")
+                self._jump_timer.start(300)
 
         elif status == QPdfDocument.Status.Error:
             self.enable_controls(False)
@@ -383,6 +386,9 @@ class PdfViewerWidget(QWidget):
             print(f"[PdfViewer] EXECUTE JUMP -> Page {self._pending_page_index} (Index)")
             self.nav.jump(self._pending_page_index, QPointF(), self.nav.currentZoom())
             self._pending_page_index = -1
+        else:
+            if self._pending_page_index != -1:
+                print(f"[PdfViewer] EXECUTE JUMP SKIPPED: Pending={self._pending_page_index}, PageCount={self.document.pageCount()}")
 
     def enable_controls(self, enabled: bool):
         for btn in [self.btn_prev, self.btn_next, self.btn_zoom_in, self.btn_zoom_out, 
