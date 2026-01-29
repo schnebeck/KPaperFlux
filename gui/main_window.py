@@ -512,14 +512,15 @@ class MainWindow(QMainWindow):
         # Load into PDF Viewer
         path = self._resolve_pdf_path(uuid)
         if path:
-             self.pdf_viewer.load_document(path)
-             
-             # Check for Search Hits to Auto-Scroll
+             # Check for Search Hits for Deferred Navigation
+             target_index = -1
              if self.current_search_text and self.db_manager:
                  hits = self.db_manager.find_text_pages_in_document(uuid, self.current_search_text)
                  if hits:
-                     print(f"[Search-Scroll] Auto-scrolling to page {hits[0]} (0-based)")
-                     self.pdf_viewer.go_to_page(hits[0])
+                     target_index = hits[0] # 0-based
+                     print(f"[Search-Scroll] Requesting jump to page {target_index} (0-based)")
+             
+             self.pdf_viewer.load_document(path, jump_to_index=target_index)
         else:
              print(f"Error: Could not resolve PDF path for {uuid}")
                  

@@ -37,6 +37,9 @@ class PdfViewerWidget(QWidget):
         self.highlight_text = "" # Global search text to highlight
         self.doc_search_text = "" # Local search text to highlight
         
+        # Phase 106: Deferred Navigation (Wait for Ready)
+        self._pending_page_index = -1
+        
         # UI Components
         self.document = QPdfDocument(self)
         self.view = QPdfView(self)
@@ -187,9 +190,13 @@ class PdfViewerWidget(QWidget):
         line.setFrameShadow(QFrame.Shadow.Sunken)
         self.toolbar_layout.addWidget(line)
 
-    def load_document(self, file_path_or_uuid, uuid: str = None, initial_page: int = 1):
+    def load_document(self, file_path_or_uuid, uuid: str = None, initial_page: int = 1, jump_to_index: int = -1):
         """Standard entry point from MainWindow."""
         self.clear()
+        
+        # Store deferred jump target
+        self._pending_page_index = jump_to_index
+        
         if not self.isVisible():
             self._pending_refresh = True
         
@@ -350,8 +357,16 @@ class PdfViewerWidget(QWidget):
             self.lbl_total.setText(f"/ {count}")
             self.spin_page.blockSignals(True)
             self.spin_page.setRange(1, count)
-            # Maintain current page if possible
-            curr = self.nav.currentPage()
+            
+            # Navigate if pending, otherwise maintain pos
+            if self._pending_page_index >= 0 and self._pending_page_index < count:
+                print(f"[PdfViewer] Executing deferred jump to page {self._pending_page_index}")
+                self.nav.jump(self._pending_page_index, QPointF(), self.nav.currentZoom())
+                curr = self._pending_page_index
+                self._pending_page_index = -1
+            else:
+                curr = self.nav.currentPage()
+                
             self.spin_page.setValue(curr + 1)
             self.spin_page.blockSignals(False)
             self.enable_controls(True)
