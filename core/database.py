@@ -410,17 +410,17 @@ class DatabaseManager:
             if isinstance(val, list):
                 if not val: return "1=1", []
                 placeholders = ", ".join(["?" for _ in val])
-                return f"{expr} IN ({placeholders})", val
-            return f"{expr} = ?", [val]
+                return f"{expr} COLLATE NOCASE IN ({placeholders})", val
+            return f"{expr} = ? COLLATE NOCASE", [val]
         if op == "contains":
             if expr in ["type_tags", "tags"]:
                 # Precise JSON array element match
                 if isinstance(val, list):
                     if not val: return "1=1", []
                     # Check if any of the provided tags exist in the array
-                    clauses = [f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ?)" for _ in val]
+                    clauses = [f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ? COLLATE NOCASE)" for _ in val]
                     return "(" + " OR ".join(clauses) + ")", val
-                return f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ?)", [val]
+                return f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ? COLLATE NOCASE)", [val]
 
             if isinstance(val, list):
                 if not val: return "1=1", []
@@ -445,7 +445,7 @@ class DatabaseManager:
         if op == "in":
             if not isinstance(val, list): val = [val]
             placeholders = ", ".join(["?" for _ in val])
-            return f"{expr} IN ({placeholders})", val
+            return f"{expr} COLLATE NOCASE IN ({placeholders})", val
         if op == "between":
             if isinstance(val, list) and len(val) == 2:
                 return f"{expr} BETWEEN ? AND ?", [val[0], val[1]]
