@@ -13,6 +13,19 @@ except ImportError:
     SANE_AVAILABLE = False
 
 
+class ScannerDriver(ABC):
+    """
+    Abstract interface for scanner devices.
+    """
+    
+    @abstractmethod
+    def list_devices(self) -> List[Tuple[str, str, str, str]]:
+        pass
+        
+    @abstractmethod
+    def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = 'Color') -> Optional[str]:
+        pass
+
     @abstractmethod
     def scan_pages(self, device_name: str, dpi: int = 200, color_mode: str = 'Color', 
                    use_adf: bool = False, duplex: bool = False, progress_callback = None) -> List[str]:
