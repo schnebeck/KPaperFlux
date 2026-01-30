@@ -31,14 +31,13 @@ class ScannerWorker(QThread):
     error = pyqtSignal(str)
     progress_update = pyqtSignal(int, int)
     
-    def __init__(self, driver: ScannerDriver, device: str, dpi: int, mode: str, use_adf: bool, duplex: bool, duplex_mode: str, page_format: str):
+    def __init__(self, driver: ScannerDriver, device: str, dpi: int, mode: str, source: str, duplex_mode: str, page_format: str):
         super().__init__()
         self.driver = driver
         self.device = device
         self.dpi = dpi
         self.mode = mode
-        self.use_adf = use_adf
-        self.duplex = duplex
+        self.source = source
         self.duplex_mode = duplex_mode
         self.page_format = page_format
         
@@ -46,7 +45,7 @@ class ScannerWorker(QThread):
         try:
             paths = self.driver.scan_pages(
                 self.device, self.dpi, self.mode, 
-                self.use_adf, self.duplex, self.duplex_mode,
+                self.source, self.duplex_mode,
                 self.page_format,
                 progress_callback=self.progress_update.emit
             )
@@ -142,6 +141,12 @@ class ScannerDialog(QDialog):
         device_layout.addWidget(self.rescan_btn)
         
         form.addRow(self.tr("Gerät:"), device_layout)
+        self.device_combo.currentIndexChanged.connect(self._on_device_changed)
+        
+        self.source_combo = QComboBox()
+        self.source_combo.setMinimumHeight(30)
+        self.source_combo.currentIndexChanged.connect(self._on_source_changed)
+        form.addRow(self.tr("Quelle:"), self.source_combo)
         
         self.dpi_spin = QSpinBox()
         self.dpi_spin.setRange(75, 1200)
@@ -166,13 +171,6 @@ class ScannerDialog(QDialog):
         
         right_panel.addLayout(form)
         
-        self.chk_adf = QCheckBox(self.tr("Dokumenteneinzug (ADF) nutzen"))
-        self.chk_adf.setToolTip(self.tr("Ermöglicht das automatische Scannen eines Papierstapels."))
-        self.chk_duplex = QCheckBox(self.tr("Beidseitig scannen (Duplex)"))
-        self.chk_duplex.toggled.connect(self._on_duplex_toggled)
-        right_panel.addWidget(self.chk_adf)
-        right_panel.addWidget(self.chk_duplex)
-        
         self.duplex_settings = QFrame()
         self.duplex_settings.setStyleSheet("background-color: #f9f9f9; border: 1px solid #eee; border-radius: 4px;")
         duplex_layout = QFormLayout(self.duplex_settings)
@@ -180,9 +178,11 @@ class ScannerDialog(QDialog):
         self.combo_duplex_mode = QComboBox()
         self.combo_duplex_mode.addItem(self.tr("Lange Seite (Standard)"), "LongEdge")
         self.combo_duplex_mode.addItem(self.tr("Kurze Seite (Umblättern)"), "ShortEdge")
-        duplex_layout.addRow(self.tr("Ausrichtung:"), self.combo_duplex_mode)
+        duplex_layout.addRow(self.tr("Zirkulär:"), self.combo_duplex_mode)
         self.duplex_settings.setVisible(False)
         right_panel.addWidget(self.duplex_settings)
+        
+        right_panel.addStretch()
         
         settings_main_layout.addLayout(right_panel)
         self.stack.addWidget(self.settings_page)
@@ -230,15 +230,12 @@ class ScannerDialog(QDialog):
         idx = self.format_combo.findData(fmt)
         if idx >= 0: self.format_combo.setCurrentIndex(idx)
         
-        self.chk_adf.setChecked(self.settings.value("last_use_adf", "false") == "true")
-        self.chk_duplex.setChecked(self.settings.value("last_duplex", "false") == "true")
+        # We restore source AFTER device is loaded in _on_devices_found
         
         duplex_mode = self.settings.value("last_duplex_mode", "LongEdge")
         idx = self.combo_duplex_mode.findData(duplex_mode)
         if idx >= 0: self.combo_duplex_mode.setCurrentIndex(idx)
         
-        self._on_duplex_toggled(self.chk_duplex.isChecked())
-
     def _save_current_settings(self):
         """Persist current scanner settings."""
         device_id = self.device_combo.currentData()
@@ -249,14 +246,30 @@ class ScannerDialog(QDialog):
         self.settings.setValue("last_dpi", self.dpi_spin.value())
         self.settings.setValue("last_mode", self.mode_combo.currentData())
         self.settings.setValue("last_page_format", self.format_combo.currentData())
-        self.settings.setValue("last_use_adf", "true" if self.chk_adf.isChecked() else "false")
-        self.settings.setValue("last_duplex", "true" if self.chk_duplex.isChecked() else "false")
+        self.settings.setValue("last_source", self.source_combo.currentText())
         self.settings.setValue("last_duplex_mode", self.combo_duplex_mode.currentData())
 
-    def _on_duplex_toggled(self, checked):
-        self.duplex_settings.setVisible(checked)
-        if checked:
-            self.chk_adf.setChecked(True)
+    def _on_device_changed(self, index):
+        """Called when user selects another scanner."""
+        device_id = self.device_combo.currentData()
+        if not device_id: return
+        
+        # Update sources
+        sources = self.driver.get_source_list(device_id)
+        self.source_combo.clear()
+        self.source_combo.addItems(sources)
+        
+        # Try to restore last source
+        last_src = self.settings.value("last_source")
+        if last_src:
+             idx = self.source_combo.findText(last_src)
+             if idx >= 0: self.source_combo.setCurrentIndex(idx)
+
+    def _on_source_changed(self, index):
+        """Update UI based on source (e.g. Duplex options)."""
+        src = self.source_combo.currentText()
+        is_duplex = any(kw in src for kw in ["Duplex", "Beidseitig", "Zweiseitig"])
+        self.duplex_settings.setVisible(is_duplex)
         QTimer.singleShot(50, self.adjustSize)
             
     def _start_discovery(self):
@@ -328,7 +341,7 @@ class ScannerDialog(QDialog):
         
         self.worker = ScannerWorker(
             self.driver, device_id, self.dpi_spin.value(), self.mode_combo.currentData(), 
-            self.chk_adf.isChecked(), self.chk_duplex.isChecked(), self.combo_duplex_mode.currentData(),
+            self.source_combo.currentText(), self.combo_duplex_mode.currentData(),
             self.format_combo.currentData()
         )
         self.worker.finished.connect(self.on_scan_finished)
