@@ -1134,11 +1134,6 @@ TASK:
                             "total_price": "Number"
                         }
                     ]
-                },
-                "internal_routing": {
-                    "project_code": "String (from Stamp 'Kostenstelle')",
-                    "received_at": "YYYY-MM-DD (from Stamp 'Eingang')",
-                    "verified_by": "String (from Stamp 'Bearbeiter')"
                 }
             }
 
@@ -1524,15 +1519,16 @@ Apply the blueprint found on Page 1 to the **ENTIRE RAW OCR TEXT** (all pages pr
 {document_text}
 
 **C. PRE-VERIFIED ANCHORS (STAMPS & SIGNATURES):**
-Use these as ground truth. Map them to fields like 'received_at' or 'is_signed'.
+These data points have ALREADY been processed and mapped to the system. 
 >>> STAMPS: {stamps_json} <<<
 >>> SIGNATURES: {signature_json} <<<
+*Instruction:* STICKLY IGNORE these in your analysis. DO NOT re-extract them, DO NOT mention them in your summary or reasoning. They are provided as context ONLY to avoid misinterpreting stamp noise as document content.
 
 ### 4. EXTRACTION TARGET: {doc_type}
 - **Identity Context:** {user_identity}
 - **Rules:**
   1. **Seitenunabhängigkeit:** Scan ALL pages. Do not stop after Page 1.
-  2. **Ignore Stamp Noise:** Do not let the text found in stamps (STAMP DATA) confuse your text analysis.
+  2. **Ignore Stamp Noise:** These anchors are already handled. Strictly ignore their text content and do NOT include or reference them in your JSON response or reasoning.
   3. **Auto-Discovery:** Fill mandatory fields for {doc_type}, but also fill 'finance_body', 'legal_body', etc., if the text provides patterns for them.
   4. **Strict Omission:** Do NOT return keys with null or empty values. Omit them entirely from the JSON.
 
