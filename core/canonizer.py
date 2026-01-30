@@ -83,7 +83,7 @@ class CanonizerService:
         Returns True if processing completed successfully (status changed), False if aborted/retrying.
         """
         if not self.analyzer: return False
-        print(f"[STAGE 1] Processing Logical Entity {v_doc.uuid}...")
+        print(f"[Canonizer] Processing {v_doc.uuid}...")
 
         # Capture original tags to detect manual intervention
         original_tags = getattr(v_doc, "type_tags", [])
@@ -99,7 +99,7 @@ class CanonizerService:
             return False
 
         v_doc.cached_full_text = full_text
-        print(f"[STAGE 1] Phase A: Resolved Full Text ({len(full_text)} chars)")
+        # print(f"[Canonizer] Resolved Full Text ({len(full_text)} chars)")
 
         # Reconstruct page list from source_mapping
         pages_text = []
@@ -351,7 +351,7 @@ class CanonizerService:
             if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
                  self.logical_repo.save(target_doc)
 
-        print(f"[Canonizer] Full Analysis (Stage 2) Complete for {v_doc.uuid}.")
+        # print(f"[Canonizer] Full Analysis (Stage 2) Complete for {v_doc.uuid}.")
         return True
 
     def _extract_range_text(self, pages_text: List[str], target_indices: List[int]) -> str:

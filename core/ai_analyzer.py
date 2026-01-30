@@ -70,8 +70,10 @@ class AIAnalyzer:
 
     def _print_debug_prompt(self, title: str, prompt: str):
         """Phase 102: Helper to print prompt ONCE in console for debugging."""
+        # By default, we only print if a 'VERBOSE_AI' env var or flag is set.
+        # For now, let's just print a very condensed version unless requested.
         if prompt not in self._printed_prompts:
-            print(f"\n=== [{title}] ===\n{prompt}\n==============================\n")
+            # print(f"\n=== [{title}] ===\n{prompt}\n==============================\n")
             self._printed_prompts.add(prompt)
 
     @classmethod
@@ -144,7 +146,7 @@ class AIAnalyzer:
           "confidence": 0.0-1.0
         }}
         """
-        result = self._generate_json(prompt, stage_label="PRE-FLIGHT TYPE CHECK")
+        result = self._generate_json(prompt, stage_label="Stage 1.0 (Pre-Flight)")
         return result or {}
 
     def run_stage_1_adaptive(self, pages_text: List[str], private_id: Optional[IdentityProfile], business_id: Optional[IdentityProfile]) -> dict:
@@ -928,7 +930,7 @@ Return ONLY a valid JSON object.
             chat_history = []
 
             # Initial Call
-            result = self._generate_json(prompt, stage_label="STAGE 1.1 AI REQUEST")
+            result = self._generate_json(prompt, stage_label="Stage 1.1 (Classification)")
 
             while attempt < max_retries:
                 if not result: break
@@ -1037,7 +1039,7 @@ TASK:
 
         try:
             res_json = json.loads(json_str)
-            print(f"\n=== [{stage_label} RESPONSE] ===\n{json.dumps(res_json, indent=2)}\n===================================\n")
+            print(f"[AI] {stage_label} -> Success (JSON parsed)")
             return res_json
         except Exception as e:
             print(f"[AI] Failed to parse JSON for {stage_label}: {e}")
@@ -1457,14 +1459,7 @@ TASK:
         """
         Phase 2.3: Semantic Extraction Pipeline.
         Executes extraction for each detected type and consolidates result.
-        Now supports surgically cleaned Page 1 for better scanning.
         """
-        print(f"--- [AIAnalyzer] STARTING STAGE 2 SEMANTIC EXTRACTION ---")
-        
-        if isinstance(raw_ocr_pages, str):
-            # Backward compatibility / fallback
-            raw_ocr_pages = [raw_ocr_pages]
-
         # 1. Safety Net: Page Limit and Hybrid Repair Logic
         # Gemini's output limit is approx 8k tokens. 
         # We allow scanning up to 50 pages for semantic data, but only repair the first 10.
@@ -1580,8 +1575,10 @@ Return ONLY valid JSON.
         if stage_1_5_result and "signatures" in stage_1_5_result:
             sig_data = stage_1_5_result["signatures"]
 
+        if types_to_extract:
+            print(f"[AI] Stage 2 -> Extracting: {', '.join(types_to_extract)} from {len(raw_ocr_pages)} pages")
+
         for doc_type in types_to_extract:
-            print(f"\n>>>> [Stage 2] Executing Extraction with PRESET: {doc_type} <<<<")
             schema = self.get_target_schema(doc_type)
             
             # Context Limit: Gemini handles large contexts easily. 100k chars is safe.
@@ -1603,7 +1600,7 @@ Return ONLY valid JSON.
 
             try:
                 # Merge images_payload into contents for _generate_json
-                extraction = self._generate_json(prompt, stage_label=f"STAGE 2 EXTRACTION ({doc_type})", images=images_payload)
+                extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {doc_type}", images=images_payload)
                 
                 if not extraction: continue
 

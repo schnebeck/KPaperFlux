@@ -366,12 +366,10 @@ class VisualAuditor:
         """
         Executes audit and returns result dict.
         """
-        print(f"--- Running Stage 1.5 (Visual Audit) for {doc_uuid} ---")
-        
         # 1. Determine Mode
         entities = stage_1_result.get('detected_entities', [])
         audit_mode = self.get_audit_mode_for_entities(entities)
-        print(f"Decided Audit Mode: {audit_mode}")
+        print(f"[AI] STAGE 1.5 Auditor -> Mode: {audit_mode}")
         
         if audit_mode == AUDIT_MODE_NONE:
             return {"meta_mode": AUDIT_MODE_NONE}
