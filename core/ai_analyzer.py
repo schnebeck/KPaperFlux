@@ -1404,33 +1404,15 @@ TASK:
     def assemble_best_text_source(self, raw_ocr_pages: List[str], stage_1_5_result: Dict) -> str:
         """
         Phase 2.2: The Arbiter.
-        Decides intelligently which text source to use (Raw OCR vs AI Repaired).
-        Now surgically replaces Page 1 instead of appending.
+        Now simply joins the raw OCR pages to ensure structural consistency for pattern scanning.
         """
-        if not stage_1_5_result or not raw_ocr_pages:
-            return "\n\n".join(raw_ocr_pages) if isinstance(raw_ocr_pages, list) else str(raw_ocr_pages)
-
-        # 1. What did the Arbiter recommend?
-        arbiter = stage_1_5_result.get("arbiter_decision", {})
-        recommendation = arbiter.get("primary_source_recommendation", "RAW_OCR")
-
-        # 2. If RAW is good enough, use RAW
-        if recommendation == "RAW_OCR":
-            return "\n\n".join(raw_ocr_pages)
-
-        # 3. If AI is better (e.g. because of stamps or noise):
-        clean_page_1 = stage_1_5_result.get("layer_document", {}).get("clean_text", "")
-
-        if not clean_page_1:
-             return "\n\n".join(raw_ocr_pages)
-
-        # Build optimized text:
-        # We replace the first page with the cleaned version and keep the rest
-        optimized_pages = []
-        optimized_pages.append(f"=== PAGE 1 (AI CLEANED / VERIFIED BLUEPRINT) ===\n{clean_page_1}")
+        # We use the pure RAW OCR for all pages.
+        # This ensures the 'visual blueprint' from Page 1 matches the text pattern
+        # on all subsequent raw OCR pages.
         
-        for i in range(1, len(raw_ocr_pages)):
-            optimized_pages.append(f"=== PAGE {i+1} (RAW OCR) ===\n{raw_ocr_pages[i]}")
+        optimized_pages = []
+        for i, page_text in enumerate(raw_ocr_pages):
+            optimized_pages.append(f"=== PAGE {i+1} (RAW OCR) ===\n{page_text}")
 
         return "\n\n".join(optimized_pages)
 
@@ -1524,13 +1506,14 @@ Your goal is to transform visual layout patterns into a page-independent, univer
 ### 1. THE VISION BLUEPRINT (IMAGE of FIRST PAGE)
 Analyze the image to find the **Geometric Master-Plan**:
 - Locate where the 'Sender', 'Recipient', and 'Tables' are placed.
-- Understand the **visual grammar**: How are table rows delimited? Which columns contain what data?
-- This visual blueprint is your KEY to interpreting the raw text stream correctly.
+- Understand the **visual grammar**: How are table rows delimited in the raw source? Which columns contain what data?
+- This visual blueprint is your KEY to interpreting the raw OCR text stream correctly.
 
 ### 2. MISSION: FULL-TEXT PATTERN SCANNING
-Apply the blueprint found on Page 1 to the **ENTIRE DOCUMENT TEXT** (all pages provided below):
-- **Think Out Loud:** Use the `reasoning` field in the JSON to explain what you are doing. "Plaudere" ein bisschen darüber, welche Muster du erkennst, ob du die Tabellenfortsetzung auf Seite 2 gefunden hast und warum du bestimmte Werte so zugeordnet hast.
-- **Pattern Matching:** Search the entire text stream for content that matches the geometric structure from Page 1.
+Apply the blueprint found on Page 1 to the **ENTIRE RAW OCR TEXT** (all pages provided below):
+- **Think Out Loud:** Use the `reasoning` field in the JSON to explain what you are doing. "Plaudere" ein bisschen darüber, welche Muster du im Raw-OCR erkennst, ob du die Tabellenfortsetzung auf Seite 2 gefunden hast und warum du bestimmte Werte so zugeordnet hast.
+- **Pattern Matching:** Search the raw OCR stream for content that matches the geometric structure from Page 1.
+- **Consistency:** Use the image to 'calibrate' your reading of the raw OCR.
 - **Table Expansion:** If a table continues on Page 2 or Page 3, use the identified layout from Page 1 to extract and append every single row into the semantic list.
 - **Universal Extraction:** Your results must be seitenunabhängig (page-independent). Consolidate all data into one coherent structure.
 
