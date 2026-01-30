@@ -1424,13 +1424,16 @@ TASK:
         try:
             doc = fitz.open(pdf_path)
             if page_index >= doc.page_count:
+                doc.close()
                 return None
-                
-            # 200 DPI is requested for better recognition
+            
+            page = doc.load_page(page_index)
+            # 200 DPI for better recognition
             pix = page.get_pixmap(dpi=200) 
             img_bytes = pix.tobytes("png")
             b64 = base64.b64encode(img_bytes).decode("utf-8")
             
+            doc.close()
             return {
                 "base64": b64,
                 "label": "FIRST_PAGE_VISUAL_CONTEXT",
@@ -1495,37 +1498,67 @@ TASK:
 
         PROMPT_TEMPLATE = """
 You are a Semantic Data Extractor for a Life Management System.
-Your goal is to extract structured data for the document type: **{doc_type}**.
+Your goal is to extract structured data from the provided document text into a standardized JSON format.
 
 ### 1. INPUT DATA
 
-**A. VISUAL CONTEXT (IMAGE):**
-(If provided) Use the image to understand the layout and geometric relationships.
-**Pattern Recognition Rule:** Apply the visual structure found on Page 1 to interpret the raw text stream.
+**A. VISUAL CONTEXT (IMAGE of FIRST PAGE):**
+You are provided with an image of the document's start.
+- **Geometric Grounding:** Use this image to understand the layout (e.g. "Invoice Number is top right", "Table headers are aligned").
+- **Pattern Rule:** Apply the visual structure found on Page 1 to interpret the raw text stream.
 
-**B. DOCUMENT TEXT:**
+**B. DOCUMENT TEXT (Repaired OCR):**
 {document_text}
 
 **C. STAMP DATA (Validated Meta-Data):**
-The visual audit identified the following structured data (Stamps/Handwriting).
-**Use these values with high priority** to fill metadata fields like 'received_at', 'project_code' or 'verified_by'.
 >>> {stamps_json} <<<
 
-### 2. INSTRUCTION
-Extract data into the target JSON schema.
-1. **Address Splitting:** Split addresses into street, house_number, zip_code, city, country.
-2. **Contact Info:** Extract all phones, emails, and websites into lists.
-3. **Registry/Tax:** Look for VAT IDs, Tax IDs and Commercial Register numbers.
-4. **Metadata Fields:** Extract Project IDs, Verifiers from STAMP DATA (match labels).
-5. **Normalization:** - Dates must be ISO 8601 (YYYY-MM-DD).
-   - Amounts must be Float (10.50). 
-   - Empty fields must be `null` or empty lists `[]`.
+**D. SIGNATURE DATA (Visual Verification):**
+>>> {signature_json} <<<
 
-### 3. TARGET SCHEMA (JSON)
+### 2. CONTEXT
+- **Target DocType:** {doc_type} (This defines the MANDATORY body to be extracted in this pass).
+- **User Identity:** {user_identity}
+
+### 3. EXTRACTION RULES (POLYMORPHIC)
+Analyze the text. Fill the **MANDATORY** body for the Target DocType.
+Additionally, check if other bodies apply (**Auto-Discovery**).
+
+- **finance_body:** IF the document contains costs, prices, taxes, or bank details.
+- **legal_body:** IF the document contains contract terms, deadlines, warranties, or laws.
+- **asset_body:** IF the document references a specific physical object (Car VIN, Real Estate ID, Serial Number).
+- **health_body:** IF the document contains medical diagnoses, medications, or patient info.
+- **career_body:** IF the document relates to employment, salary, or education.
+
+**Constraint:** If a body is NOT relevant, set it to `null`. Do not invent data.
+
+### 4. PRIORITY & DE-DUPLICATION (CRITICAL)
+- **Visual Supremacy:** Data provided in **STAMP DATA** and **SIGNATURE DATA** is considered **VERIFIED FACT**.
+  - **Action:** Map these values DIRECTLY to their target fields (e.g., Stamp 'Eingang' -> `internal_routing.received_at`, Signature 'True' -> `verification.is_signed`).
+  - **No Duplication:** Do **NOT** re-extract this information as generic text, notes, or description if it is already mapped.
+  - **Override:** If OCR text contradicts the Visual Data, trust the **Visual Data**.
+
+### 5. DATA NORMALIZATION (STRICT)
+- **Dates:** ISO 8601 (YYYY-MM-DD).
+- **Numbers:** Float (10.50). No thousand separators.
+- **Currency:** ISO Code (EUR, USD).
+- **Empty Fields:** Use `null`.
+
+### 6. TARGET OUTPUT (JSON SCHEMA)
 {target_schema_json}
 
-Return ONLY the valid JSON.
+Return ONLY valid JSON.
 """
+
+        # User Identity Context
+        priv_json = self.config.get_private_profile_json()
+        bus_json = self.config.get_business_profile_json()
+        user_identity = f"Private: {priv_json}\nBusiness: {bus_json}"
+
+        # Signature Data
+        sig_data = {}
+        if stage_1_5_result and "signatures" in stage_1_5_result:
+            sig_data = stage_1_5_result["signatures"]
 
         for doc_type in types_to_extract:
             print(f"[Stage 2] Processing Type: {doc_type}")
@@ -1538,6 +1571,8 @@ Return ONLY the valid JSON.
                 doc_type=doc_type,
                 document_text=best_text[:limit],
                 stamps_json=stamps_json_str,
+                signature_json=json.dumps(sig_data),
+                user_identity=user_identity,
                 target_schema_json=json.dumps(schema, indent=2)
             )
 
