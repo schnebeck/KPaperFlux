@@ -86,20 +86,16 @@ class AIAnalyzer:
         Fetches available models from the Google GenAI API.
         Filters for models with generateContent support.
         """
-        try:
-            models = []
-            for m in self.client.models.list():
-                # Filter for models that support generating content
-                if 'generateContent' in m.supported_methods:
-                    # Clean name (remove 'models/' prefix if present)
-                    name = m.name
-                    if name.startswith("models/"):
-                        name = name[7:]
-                    models.append(name)
-            return sorted(models)
-        except Exception as e:
-            print(f"[AIAnalyzer] Error listing models: {e}")
-            return []
+        models = []
+        for m in self.client.models.list():
+            # Filter for models that support generating content
+            # Note: In the new SDK, supported_methods is a list of strings
+            if hasattr(m, 'supported_methods') and 'generateContent' in m.supported_methods:
+                name = m.name
+                if name.startswith("models/"):
+                    name = name[7:]
+                models.append(name)
+        return sorted(models)
 
     @staticmethod
     def extract_headers_footers(ocr_pages: List[str], header_ratio=0.15, footer_ratio=0.10) -> List[str]:

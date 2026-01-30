@@ -219,9 +219,23 @@ class SettingsDialog(QDialog):
                 else:
                     self.combo_model.setCurrentText(current_model)
             else:
-                show_selectable_message_box(self, self.tr("Refresh Failed"), self.tr("Could not fetch models. Check your API Key and connection."), icon=QMessageBox.Icon.Warning)
+                show_selectable_message_box(
+                    self, 
+                    self.tr("Refresh Failed"), 
+                    self.tr("API returned an empty model list. Please check if your API Key has access to Gemini models."), 
+                    icon=QMessageBox.Icon.Warning
+                )
         except Exception as e:
-            show_selectable_message_box(self, self.tr("Error"), f"Failed to list models: {e}", icon=QMessageBox.Icon.Critical)
+            # Check for common auth errors
+            error_msg = str(e)
+            if "API_KEY_INVALID" in error_msg or "403" in error_msg:
+                msg = self.tr("Invalid API Key or Permission Denied.")
+            elif "429" in error_msg:
+                msg = self.tr("Rate limit exceeded.")
+            else:
+                msg = f"{self.tr('Failed to list models')}:\n{error_msg}"
+            
+            show_selectable_message_box(self, self.tr("Error"), msg, icon=QMessageBox.Icon.Critical)
         finally:
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.btn_refresh_models.setEnabled(True)
