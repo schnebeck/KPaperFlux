@@ -342,7 +342,7 @@ class CanonizerService:
                 target_doc.type_tags
             )
             target_doc.export_filename = smart_name
-            target_doc.cached_full_text = entity_text
+            target_doc.cached_full_text = semantic_extraction.get("repaired_text") or entity_text
 
             self.logical_repo.save(target_doc)
             print(f"[Canonizer] Saved Entity {target_doc.uuid} ({', '.join(c_types)})")

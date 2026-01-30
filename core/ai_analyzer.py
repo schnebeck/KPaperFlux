@@ -1102,8 +1102,7 @@ TASK:
 
         # --- GROUP 1: FINANCE & TRANSACTIONAL ---
         if dt in ["INVOICE", "RECEIPT", "CREDIT_NOTE", "CASH_EXPENSE"]:
-            return {
-                "reasoning": "String (Explain your pattern matching logic here: Why did you pick these fields? Did you find the table rows on Page 2? Any ambiguities?)",
+            schema = {
                 "meta_header": base_header,
                 "finance_body": {
                     "invoice_number": "String",
@@ -1138,8 +1137,7 @@ TASK:
             }
 
         elif dt == "DUNNING":
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "finance_body": {
                     "total_due": "Number (Float)",
@@ -1153,8 +1151,7 @@ TASK:
 
         # --- GROUP 2: TRADE & COMMERCE ---
         elif dt in ["QUOTE", "ORDER", "ORDER_CONFIRMATION"]:
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "trade_body": {
                     "document_number": "String (Offer/Order No)",
@@ -1175,8 +1172,7 @@ TASK:
             }
             
         elif dt == "DELIVERY_NOTE":
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "logistics_body": {
                     "delivery_number": "String",
@@ -1200,8 +1196,7 @@ TASK:
 
         # --- GROUP 3: CONTRACTS & LEGAL ---
         elif dt in ["CONTRACT", "INSURANCE_POLICY", "APPLICATION"]:
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "legal_body": {
                     "contract_id": "String",
@@ -1221,8 +1216,7 @@ TASK:
             }
 
         elif dt in ["LEGAL_CORRESPONDENCE", "OFFICIAL_LETTER"]:
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "legal_body": {
                     "our_reference": "String (Unser Zeichen)",
@@ -1235,8 +1229,7 @@ TASK:
 
         # --- GROUP 4: HR & HEALTH ---
         elif dt == "PAYSLIP":
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "hr_body": {
                     "employee_id": "String",
@@ -1250,8 +1243,7 @@ TASK:
             }
 
         elif dt in ["SICK_NOTE", "MEDICAL_DOCUMENT"]:
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "health_body": {
                     "patient": self.get_party_schema(),
@@ -1285,8 +1277,7 @@ TASK:
 
         # --- GROUP 5: TRAVEL ---
         elif dt in ["TRAVEL_REQUEST", "EXPENSE_REPORT"]:
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "travel_body": {
                     "traveler": self.get_party_schema(),
@@ -1308,8 +1299,7 @@ TASK:
 
         # --- GROUP 6: BANKING & TAX ---
         elif dt == "BANK_STATEMENT":
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "ledger_body": {
                     "account_info": self.get_bank_account_schema(),
@@ -1331,8 +1321,7 @@ TASK:
             }
 
         elif dt in ["TAX_ASSESSMENT", "UTILITY_BILL"]:
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "finance_body": {
                     "assessment_year": "YYYY",
@@ -1344,8 +1333,7 @@ TASK:
 
         # --- GROUP 7: TECHNICAL & ASSETS ---
         elif dt == "VEHICLE_REGISTRATION":
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "asset_body": {
                     "vin": "String",
@@ -1358,8 +1346,7 @@ TASK:
             }
 
         elif dt in ["DATASHEET", "MANUAL", "TECHNICAL_DOC"]:
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "technical_body": {
                     "product_name": "String",
@@ -1371,8 +1358,7 @@ TASK:
             }
 
         elif dt == "CERTIFICATE":
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "career_body": {
                     "title": "String",
@@ -1386,8 +1372,7 @@ TASK:
 
         # Fallback
         else:
-            return {
-                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
+            schema = {
                 "meta_header": base_header,
                 "generic_body": {
                     "subject": "String",
@@ -1395,6 +1380,12 @@ TASK:
                     "content_summary": "String"
                 }
             }
+
+        # Ensure Common Root Fields
+        schema["reasoning"] = "String (Chain of Thought: Explain your pattern scanning and matching logic)"
+        schema["repaired_text"] = "String (The FULL, corrected, and plausible text of ALL pages. Use === PAGE X === separators.)"
+        
+        return schema
 
     def assemble_best_text_source(self, raw_ocr_pages: List[str], stage_1_5_result: Dict) -> str:
         """
@@ -1491,7 +1482,9 @@ TASK:
         # 5. Consolidated Result
         final_semantic_data = {
             "meta_header": {},
-            "bodies": {}
+            "bodies": {},
+            "reasoning": "",
+            "repaired_text": ""
         }
 
         PROMPT_TEMPLATE = """
@@ -1511,6 +1504,7 @@ Apply the blueprint found on Page 1 to the **ENTIRE RAW OCR TEXT** (all pages pr
 - **Consistency:** Use the image to 'calibrate' your reading of the raw OCR.
 - **Table Expansion:** If a table continues on Page 2 or Page 3, use the identified layout from Page 1 to extract and append every single row into the semantic list.
 - **Intelligent Repair:** If you detect obvious errors or noise in the raw OCR (e.g. 'St1ck' instead of 'Stick', or '1nd' instead of 'and'), especially on Page 1 where you have the image, use your visual and logical understanding to REPAIR the text and extract the CORRECT values.
+- **Full Text Repair (MANDATORY):** In addition to the JSON fields, you MUST provide the field `repaired_text`. This should contain the COMPLETE, cleaned, and plausible text of the entire document (all pages). Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separators. This text will be used for future indexing and searching.
 
 ### 3. INPUT DATA
 **A. VISUAL CONTEXT:** (Image of Page 1)
@@ -1577,6 +1571,9 @@ Return ONLY valid JSON.
 
                 if "reasoning" in extraction:
                     final_semantic_data["reasoning"] = extraction["reasoning"]
+
+                if "repaired_text" in extraction:
+                    final_semantic_data["repaired_text"] = extraction["repaired_text"]
 
                 for key, value in extraction.items():
                     if key.endswith("_body") or key in ["internal_routing", "verification", "travel_body"]:
