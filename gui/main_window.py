@@ -844,29 +844,9 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             path = dialog.get_scanned_file()
             if path and self.pipeline:
-                try:
-                    # Treat scanned file as a normal import (Async AI)
-                    doc = self.pipeline.process_document(path, skip_ai=True)
-                    
-                    # Queue for background analysis
-                    if doc and hasattr(self, 'ai_worker') and self.ai_worker:
-                         self.ai_worker.add_task(doc.uuid)
-                         
-                    QMessageBox.information(
-                        self, self.tr("Success"), self.tr("Scanned document imported successfully!") + f"\nUUID: {doc.uuid}"
-                    )
-                    if self.list_widget:
-                        self.list_widget.refresh_list()
-                except Exception as e:
-                    QMessageBox.critical(
-                        self, self.tr("Error"), self.tr("Failed to process scanned document: {}").format(e)
-                    )
-            
-            if path and os.path.exists(path):
-                try:
-                    os.remove(path)
-                except:
-                    pass
+                # Delegate to the unified import process
+                # This fixes the GUI freeze (background worker) and enables Splitter support
+                self.start_import_process([path], move_source=True)
 
     def refresh_list_slot(self):
         if self.list_widget:
@@ -1105,6 +1085,10 @@ class MainWindow(QMainWindow):
                   
                   if d:
                       print(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
+                      # Queue for Background AI (Stage 1)
+                      if hasattr(self, 'ai_worker') and self.ai_worker:
+                           self.ai_worker.add_task(uid)
+                           queued_count += 1
                   else:
                       print(f"[DEBUG] Import Finished: UUID={uid} NOT FOUND in DB!")
 
@@ -1115,7 +1099,7 @@ class MainWindow(QMainWindow):
              
              if not error_msg and not splitter_opened:
                   QMessageBox.information(self, self.tr("Import Finished"), 
-                                        self.tr(f"Imported {success_count} documents.\n{queued_count} queued for AI."))
+                                        self.tr(f"Imported {len(imported_uuids)} documents.\n{queued_count} queued for AI analysis."))
                  
         if hasattr(self, "dashboard_widget"):
              self.dashboard_widget.refresh_stats()
