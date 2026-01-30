@@ -52,26 +52,23 @@ class CanonizerService:
             return 0
 
         cursor = self.db.connection.cursor()
-        # Fetch NEW entities
+        # Fetch entities in various stages of the pipeline
         query = """
             SELECT uuid
             FROM virtual_documents
-            WHERE status IN ('NEW', 'READY_FOR_PIPELINE', 'STAGE2_PENDING') AND deleted = 0
+            WHERE status IN ('NEW', 'READY_FOR_PIPELINE', 'STAGE2_PENDING', 
+                             'PROC_S1', 'PROC_S1_5', 'PROC_S2') 
+              AND deleted = 0
             LIMIT ?
         """
         cursor.execute(query, (limit,))
         rows = cursor.fetchall()
 
-        # Phase 110: Immediate Lock
-        # To prevent race conditions from concurrent GUI threads/workers,
-        # we immediately mark these documents as 'PROCESSING'.
+        # Phase 110: Immediate Lock (Transition to next logical processing state)
+        # Note: We don't mark all as a single 'PROCESSING' anymore, 
+        # but the specific resume logic in process_virtual_document will handle it.
         uuids = [row[0] for row in rows]
-        if uuids:
-            placeholders = ",".join(["?"] * len(uuids))
-            cursor.execute(f"UPDATE virtual_documents SET status = 'PROCESSING' WHERE uuid IN ({placeholders})", uuids)
-            self.db.connection.commit()
-            print(f"[Canonizer] Locked {len(uuids)} documents for processing.")
-
+        
         processed_count = 0
         for uuid in uuids:
             v_doc = self.logical_repo.get_by_uuid(uuid)
@@ -126,13 +123,15 @@ class CanonizerService:
         if not pages_text:
              pages_text = [full_text]
 
-        # Phase 107: Smart Reprocessing
-        is_stage2_only = v_doc.status == 'STAGE2_PENDING'
+        # --- PIPELINE STATE MACHINE ---
+        status = v_doc.status
+        is_stage2_only = status in ['STAGE2_PENDING', 'PROC_S1_5', 'PROC_S2']
         detected_entities = []
         is_hybrid = False
 
         if is_stage2_only:
-             print(f"[Canonizer] STAGE2_PENDING detected. Skipping Classification/Split.")
+             # Resume from split candidates already stored in semantic_data or from v_doc directly
+             print(f"[Canonizer] Resuming from {status}. Skipping Classification.")
              split_candidates = [{
                  "types": v_doc.type_tags or ["OTHER"],
                  "pages": list(range(1, len(pages_text) + 1)),
@@ -141,7 +140,10 @@ class CanonizerService:
                  "tenant_context": v_doc.semantic_data.get("tenant_context") if v_doc.semantic_data else None
              }]
         else:
-            # 2. AI Analysis (Stage 1: Structure/Split)
+            # 2. AI Analysis (Stage 1: Classification & Split)
+            v_doc.status = "PROC_S1"
+            self.logical_repo.save(v_doc)
+            
             priv_json = self.config.get_private_profile_json()
             bus_json = self.config.get_business_profile_json()
             priv_id = IdentityProfile.model_validate_json(priv_json) if priv_json else None
@@ -254,7 +256,12 @@ class CanonizerService:
             if idx < len(detected_entities):
                  target_doc.semantic_data = detected_entities[idx]
 
-            print(f"  [Split Loop] Processing Candidate {idx+1}/{len(split_candidates)}: Pages {c_pages} -> Source Index {new_source_pages}")
+            # Initial Save after Split
+            if target_doc.status != "PROCESSED":
+                target_doc.status = "STAGE2_PENDING"
+            self.logical_repo.save(target_doc)
+
+            print(f"  [Split Loop] Processing Candidate {idx+1}/{len(split_candidates)}: Pages {c_pages}")
             entity_pages = [pages_text[p-1] for p in c_pages if 0 <= p-1 < len(pages_text)]
             entity_text = "\n\n".join(entity_pages)
 
@@ -282,6 +289,10 @@ class CanonizerService:
                     if target_doc.semantic_data is None:
                          target_doc.semantic_data = {}
                     target_doc.semantic_data["visual_audit"] = audit_res
+                    
+                    # Update status to indicate Audit is done
+                    target_doc.status = "PROC_S1_5"
+                    self.logical_repo.save(target_doc)
 
                     # Arbiter Logic
                     integrity = audit_res.get("integrity", {})
@@ -298,7 +309,11 @@ class CanonizerService:
                             entity_text = cleaned_text
 
             # [STAGE 2] Semantic Extraction
+            target_doc.status = "PROC_S2"
+            self.logical_repo.save(target_doc)
+
             s1_context = {"detected_entities": [{"doc_types": c_types}]}
+            # ... run_stage_2 ...
 
             semantic_extraction = self.analyzer.run_stage_2(
                 raw_ocr_pages=entity_pages,
