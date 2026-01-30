@@ -140,11 +140,12 @@ class AIAnalyzer:
 
         ### TASK
         Return a JSON object:
-        {{
+        {
           "primary_type": "MANUAL | DATASHEET | BOOK | CATALOG | INVOICE | LETTER | OTHER",
+          "is_hybrid_suspicion": true | false, // True if first page suggests multiple roles (e.g. 'Invoice & Delivery Note')
           "looks_like_stack": true | false, // True if multiple different documents seem stuck together
           "confidence": 0.0-1.0
-        }}
+        }
         """
         result = self._generate_json(prompt, stage_label="Stage 1.0 (Pre-Flight)")
         return result or {}
@@ -881,7 +882,8 @@ Current Scan Mode: {mode}
    - **Scenario:** Invoice billed to "Company Corp" -> Context is **BUSINESS**.
 
 3. **Hybrid Documents (Tagging):**
-   - If a single logical document serves multiple purposes (e.g. "Invoice & Delivery Note"), assign **MULTIPLE** tags. Do NOT split a single physical page.
+   - If a single logical document serves multiple purposes (e.g. "Invoice & Delivery Note" or "Invoice & Certificate of Compliance"), assign **MULTIPLE** tags to that entity. 
+   - **BE EAGLE-EYED:** Check the absolute end of the document text for secondary titles like "Certificate", "Compliance Statement", or "Anhang".
 
 4. **Differentiation: INVOICE vs. DELIVERY_NOTE:**
    - **Rule:** Do NOT apply the tag "DELIVERY_NOTE" merely because items are listed.
@@ -1636,8 +1638,10 @@ Return ONLY valid JSON.
                 if "reasoning" in extraction:
                     final_semantic_data["reasoning"] = extraction["reasoning"]
 
-                if "repaired_text" in extraction:
-                    final_semantic_data["repaired_text"] = extraction["repaired_text"]
+                if extraction.get("repaired_text"):
+                    # Only take the first non-empty repair, or longest
+                    if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
+                        final_semantic_data["repaired_text"] = extraction["repaired_text"]
 
                 for key, value in extraction.items():
                     if key.endswith("_body") or key in ["internal_routing", "verification", "travel_body"]:

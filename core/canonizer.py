@@ -283,8 +283,7 @@ class CanonizerService:
             if context != "UNKNOWN" and f"CTX_{context}" not in final_tags:
                 final_tags.append(f"CTX_{context}")
 
-            target_doc.status = "PROCESSED"
-            target_doc.last_processed_at = datetime.now().isoformat()
+            # Initial Save after Split: Do NOT set to PROCESSED yet.
             target_doc.type_tags = final_tags
 
             target_doc.source_mapping = [SourceReference(
@@ -297,8 +296,7 @@ class CanonizerService:
                  target_doc.semantic_data = detected_entities[idx]
 
             # Transition to Stage 2 Readiness
-            if target_doc.status != "PROCESSED":
-                target_doc.status = "STAGE2_PENDING"
+            target_doc.status = "STAGE2_PENDING"
             self.logical_repo.save(target_doc)
 
             # print(f"  [Split Loop] Candidate {idx+1}/{len(split_candidates)}: Pages {c_pages}")
@@ -350,14 +348,15 @@ class CanonizerService:
 
             # [STAGE 2] Semantic Extraction
             # Gate: Only transition to PROCESSING_S2 if we are currently in a valid preceding state
-            if target_doc.status in ['STAGE2_PENDING', 'PROCESSING_S1_5']:
-                if not self._atomic_transition(target_doc, ['STAGE2_PENDING', 'PROCESSING_S1_5'], 'PROCESSING_S2'):
+            if target_doc.status in ['STAGE2_PENDING', 'PROCESSING_S1_5', 'PROCESSING_S1']:
+                if not self._atomic_transition(target_doc, ['STAGE2_PENDING', 'PROCESSING_S1_5', 'PROCESSING_S1'], 'PROCESSING_S2'):
                     continue
             elif target_doc.status == 'PROCESSING_S2':
-                # Resuming or already locked
+                # Already locked/resuming
                 pass
             else:
-                continue
+                 # This might happen if it was already PROCESSED by another thread
+                 continue
 
             s1_context = {"detected_entities": [{"doc_types": c_types}]}
             # ... run_stage_2 ...
