@@ -87,15 +87,21 @@ class SaneScanner(ScannerDriver):
     def get_source_list(self, device_name: str) -> List[str]:
         if not SANE_AVAILABLE: return ["Flatbed"]
         try:
+            import time
+            time.sleep(0.2) # Give device a moment
             dev = sane.open(device_name)
             opts = {opt[1]: opt for opt in dev.get_options()}
+            print(f"DEBUG: All SANE options for {device_name}: {list(opts.keys())}")
             sources = []
             if 'source' in opts:
                 try: sources = opts['source'][8]
-                except: sources = ["Flatbed"]
+                except Exception as e: 
+                    print(f"DEBUG: Could not read source list: {e}")
+                    sources = ["Flatbed"]
             dev.close()
             return sources
-        except:
+        except Exception as e:
+            print(f"DEBUG: get_source_list failed for {device_name}: {e}")
             return ["Flatbed", "ADF"]
 
     def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = 'Color') -> Optional[str]:
@@ -115,14 +121,18 @@ class SaneScanner(ScannerDriver):
             try:
                 dev = sane.open(device_name)
                 opts = {opt[1]: opt for opt in dev.get_options()}
-                if 'duplex' in opts: has_duplex_opt = True
+                if 'duplex' in opts: 
+                    has_duplex_opt = True
                 dev.close()
-            except: pass
+            except Exception as e:
+                print(f"DEBUG: Could not check duplex capability: {e}")
 
         # 2. Geometry / Page Size
         geom_args = []
         if page_format == 'A4':
-            geom_args = ['-x', '210mm', '-y', '296mm']
+            # We scan slightly more (315mm) to catch overlong pages, 
+            # then crop to 297mm in software as requested.
+            geom_args = ['-x', '210mm', '-y', '315mm']
         elif page_format == 'Letter':
             geom_args = ['-x', '215.9mm', '-y', '279.4mm']
         elif page_format == 'Legal':
@@ -135,7 +145,9 @@ class SaneScanner(ScannerDriver):
                 extra_args.append('--duplex=yes')
             
             try:
-                results = self._scan_via_scanimage(device_name, dpi, color_mode, source, extra_args, progress_callback)
+                import time
+                time.sleep(0.5) # Prevent "Device busy" between discovery and scan
+                results = self._scan_via_scanimage(device_name, dpi, color_mode, source, extra_args, progress_callback, page_format)
                 if results:
                     return results
             except Exception as e:
@@ -144,7 +156,7 @@ class SaneScanner(ScannerDriver):
         # FALLBACK: python-sane loop
         return self._scan_via_python_sane(device_name, dpi, color_mode, is_adf, is_duplex, source, duplex_mode, progress_callback)
 
-    def _scan_via_scanimage(self, device, dpi, mode, source, extra_args, progress_callback) -> List[str]:
+    def _scan_via_scanimage(self, device, dpi, mode, source, extra_args, progress_callback, page_format) -> List[str]:
         temp_dir = tempfile.mkdtemp(prefix="kpaper_scan_")
         pattern = os.path.join(temp_dir, "p%d.tif")
         
@@ -161,7 +173,6 @@ class SaneScanner(ScannerDriver):
             '--resolution', str(dpi),
             '--mode', mode_val,
             '--batch=' + pattern,
-            '--batch-prompt=no',
             '--format=tiff'
         ] + extra_args
         
@@ -179,6 +190,13 @@ class SaneScanner(ScannerDriver):
                     process.wait(timeout=0.5)
                 except subprocess.TimeoutExpired:
                     continue
+            
+            # After process finishes, capture results and errors
+            stdout, stderr = process.communicate()
+            if process.returncode != 0 or not glob.glob(os.path.join(temp_dir, "*.tif")):
+                print(f"ERROR: scanimage failed (Exit {process.returncode})")
+                if stderr: print(f"SANE Stderr: {stderr.strip()}")
+                if stdout: print(f"SANE Stdout: {stdout.strip()}")
         except Exception as e:
             print(f"ERROR calling scanimage: {e}")
             return []
@@ -190,55 +208,42 @@ class SaneScanner(ScannerDriver):
             try:
                 pdf_path = os.path.join(temp_dir, f"scan_p{i+1}.pdf")
                 with Image.open(tif) as im:
-                    # PIXEL-LEVEL A4 NORMALIZER (User Algorithm)
+                    # PIXEL-LEVEL A4 NORMALIZER (Width-Anchor)
                     if page_format == 'A4':
-                        print(f"\n--- A4 NORMALIZER DEBUG (User Algorithm) ---")
+                        print(f"\n--- A4 NORMALIZER DEBUG (Width-Anchor) ---")
                         target_w_mm, target_h_mm = 210.0, 297.0
                         
                         # Get reliable DPI
                         info_dpi = im.info.get('dpi')
                         res_unit = im.info.get('resolution_unit', 2) # 2: inch, 3: cm
+                        cur_dpi = float(info_dpi[0]) if (info_dpi and info_dpi[0] > 0) else float(dpi)
                         
-                        if info_dpi and info_dpi[0] > 0:
-                            cur_dpi_orig = float(info_dpi[0])
-                        else:
-                            cur_dpi_orig = float(dpi)
-                        
-                        # Normalize DPI to Dots Per Inch (DPI)
-                        if res_unit == 3: # Centimeters
-                            cur_dpi = cur_dpi_orig * 2.54
-                            print(f"DEBUG: Resolution unit is CM. Converting {cur_dpi_orig} dpc to {cur_dpi:.1f} dpi")
-                        else:
-                            cur_dpi = cur_dpi_orig
-                        
-                        # Calculate target pixel dimensions for A4 at this resolution
+                        if res_unit == 3: # Normalize to DPI
+                            cur_dpi = cur_dpi * 2.54
+
+                        # Calculate target pixel dimensions for A4
                         target_w_px = int(round((target_w_mm / 25.4) * cur_dpi))
                         target_h_px = int(round((target_h_mm / 25.4) * cur_dpi))
                         
-                        phys_w_mm = (im.width / cur_dpi) * 25.4
-                        phys_h_mm = (im.height / cur_dpi) * 25.4
-                        
-                        print(f"1. Input: {im.width}x{im.height} px ({phys_w_mm:.1f}x{phys_h_mm:.1f}mm) at {cur_dpi:.1f} DPI")
-                        print(f"2. Target A4: {target_w_px}x{target_h_px} px ({target_w_mm}x{target_h_mm}mm)")
-                        
-                        # Calculate scaling factor based on width (shorter side)
+                        # 1. Scale based on width (Anchor)
                         scale_factor = target_w_px / im.width
                         scaled_h = int(round(im.height * scale_factor))
                         
-                        print(f"3. Scaling: Factor {scale_factor:.4f} (Result: {target_w_px}x{scaled_h} px)")
+                        print(f"I.  Input: {im.width}x{im.height} px at {cur_dpi:.1f} DPI")
+                        print(f"II. Scale: Width mapping to {target_w_px}px (Factor {scale_factor:.4f})")
                         
                         im = im.resize((target_w_px, scaled_h), Image.Resampling.LANCZOS)
                         
-                        # Crop the vertical excess
+                        # 2. Crop to exactly A4 height
                         if im.height > target_h_px:
                             excess = im.height - target_h_px
-                            print(f"4. [CROP] Height {im.height} > {target_h_px}. Removing bottom {excess} px.")
+                            print(f"III. [CROP] Removing {excess} px from bottom to reach {target_h_px}px (297mm).")
                             im = im.crop((0, 0, target_w_px, target_h_px))
                         else:
-                            print(f"4. [SKIP CROP] Height {im.height} is already <= {target_h_px}.")
+                            print(f"III. [PAD/SKIP] Height {im.height} fits within A4 {target_h_px}.")
                         
                         save_resolution = float(cur_dpi)
-                        print(f"5. Final: {im.width}x{im.height} px. Saving PDF at {save_resolution:.1f} DPI.\n")
+                        print(f"IV. Result: {im.width}x{im.height} px (A4 Standard)\n")
                     else:
                         save_resolution = float(im.info.get('dpi', (dpi, dpi))[0])
                     
@@ -250,8 +255,10 @@ class SaneScanner(ScannerDriver):
             except Exception as e:
                 print(f"ERROR converting {tif} to PDF: {e}")
             finally:
-                try: os.remove(tif)
-                except: pass
+                try: 
+                    if os.path.exists(tif): os.remove(tif)
+                except Exception as e:
+                    print(f"DEBUG: Could not remove temp tif {tif}: {e}")
 
         print(f"SANE: scanimage batch finished. Found {len(results)} pages.")
         return results
@@ -268,19 +275,19 @@ class SaneScanner(ScannerDriver):
             
             if 'resolution' in options:
                 try: dev.resolution = dpi
-                except: pass
+                except Exception as e: print(f"DEBUG: Could not set resolution to {dpi}: {e}")
             if 'mode' in options:
                 try: dev.mode = color_mode
-                except: pass
+                except Exception as e: print(f"DEBUG: Could not set mode to {color_mode}: {e}")
 
             if 'source' in options:
                 # Use exactly the source selected by the user
                 try: dev.source = source
-                except: pass
+                except Exception as e: print(f"DEBUG: Could not set source to {source}: {e}")
             
             if is_duplex and 'duplex' in options:
                 try: dev.duplex = True
-                except: pass
+                except Exception as e: print(f"DEBUG: Could not set duplex: {e}")
 
             page_idx = 0
             while True:
