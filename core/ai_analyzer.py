@@ -1510,7 +1510,7 @@ Apply the blueprint found on Page 1 to the **ENTIRE RAW OCR TEXT** (all pages pr
 - **Pattern Matching:** Search the raw OCR stream for content that matches the geometric structure from Page 1.
 - **Consistency:** Use the image to 'calibrate' your reading of the raw OCR.
 - **Table Expansion:** If a table continues on Page 2 or Page 3, use the identified layout from Page 1 to extract and append every single row into the semantic list.
-- **Universal Extraction:** Your results must be seitenunabhängig (page-independent). Consolidate all data into one coherent structure.
+- **Intelligent Repair:** If you detect obvious errors or noise in the raw OCR (e.g. 'St1ck' instead of 'Stick', or '1nd' instead of 'and'), especially on Page 1 where you have the image, use your visual and logical understanding to REPAIR the text and extract the CORRECT values.
 
 ### 3. INPUT DATA
 **A. VISUAL CONTEXT:** (Image of Page 1)
@@ -1529,8 +1529,9 @@ These data points have ALREADY been processed and mapped to the system.
 - **Rules:**
   1. **Seitenunabhängigkeit:** Scan ALL pages. Do not stop after Page 1.
   2. **Ignore Stamp Noise:** These anchors are already handled. Strictly ignore their text content and do NOT include or reference them in your JSON response or reasoning.
-  3. **Auto-Discovery:** Fill mandatory fields for {doc_type}, but also fill 'finance_body', 'legal_body', etc., if the text provides patterns for them.
-  4. **Strict Omission:** Do NOT return keys with null or empty values. Omit them entirely from the JSON.
+  3. **Visual Supremacy:** If Raw OCR and Image/Reasoning conflict, the Image and your Logic are the source of truth. Correct OCR errors in your output JSON.
+  4. **Auto-Discovery:** Fill mandatory fields for {doc_type}, but also fill 'finance_body', 'legal_body', etc., if the text provides patterns for them.
+  5. **Strict Omission:** Do NOT return keys with null or empty values. Omit them entirely from the JSON.
 
 ### 5. TARGET SCHEMA
 {target_schema_json}
