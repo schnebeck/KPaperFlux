@@ -174,7 +174,11 @@ class SaneScanner(ScannerDriver):
                     count = len(glob.glob(os.path.join(temp_dir, "*.tif")))
                     if count > 0:
                         progress_callback(count, -1)
-                process.wait(timeout=1.0)
+                try:
+                    # Wait a bit, if it times out, just loop again to check progress
+                    process.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    continue
         except Exception as e:
             print(f"ERROR calling scanimage: {e}")
             return []
@@ -186,50 +190,62 @@ class SaneScanner(ScannerDriver):
             try:
                 pdf_path = os.path.join(temp_dir, f"scan_p{i+1}.pdf")
                 with Image.open(tif) as im:
-                    # Detect Resolution and Aspect Ratio
-                    dpi_x, dpi_y = im.info.get('dpi', (float(dpi), float(dpi)))
-                    print(f"DEBUG: Processing {tif}: {im.size}px, DPI: {dpi_x}x{dpi_y}")
-                    
-                    # Aspect Ratio Correction (DPI Mismatch)
-                    if abs(dpi_x - dpi_y) > 1.0:
-                        print(f"DEBUG: Correcting aspect ratio (DPI mismatch: {dpi_x} vs {dpi_y})")
-                        new_h = int(im.height * (dpi_x / dpi_y))
-                        im = im.resize((im.width, new_h), Image.Resampling.LANCZOS)
-                        dpi_y = dpi_x
-
-                    # SOFTWARE NORMALIZER (Fixes elongated/stretched Brother scans)
+                    # PIXEL-LEVEL A4 NORMALIZER (User Algorithm)
                     if page_format == 'A4':
-                        target_ratio = 1.4142 # A4 ratio (Height / Width)
-                        current_ratio = im.height / im.width
+                        print(f"\n--- A4 NORMALIZER DEBUG (User Algorithm) ---")
+                        target_w_mm, target_h_mm = 210.0, 297.0
                         
-                        if current_ratio > 1.45: # Tolerant threshold for "too long"
-                            print(f"DEBUG: Detected abnormally long scan (Ratio: {current_ratio:.2f})")
-                            
-                            # Decision: Crop or Rescale?
-                            # We analyze the bottom 5% of the image.
-                            # If it's nearly empty (high mean value for paper), we crop.
-                            # Otherwise, we assume stretching and rescale.
-                            bottom_slice = im.crop((0, int(im.height * 0.95), im.width, im.height))
-                            
-                            # Simple heuristic: if the bottom is "clean", it's likely extra tray space
-                            from PIL import ImageStat
-                            stat = ImageStat.Stat(bottom_slice.convert('L'))
-                            # Mean > 240 usually means paper white/empty
-                            is_empty_bottom = stat.mean[0] > 240
-                            
-                            target_h = int(im.width * target_ratio)
-                            
-                            if is_empty_bottom:
-                                print(f"DEBUG: Bottom of {tif} is empty. Cropping excess length to A4.")
-                                im = im.crop((0, 0, im.width, target_h))
-                            else:
-                                print(f"DEBUG: Bottom of {tif} has content. Rescaling stretched content to A4.")
-                                im = im.resize((im.width, target_h), Image.Resampling.LANCZOS)
+                        # Get reliable DPI
+                        info_dpi = im.info.get('dpi')
+                        res_unit = im.info.get('resolution_unit', 2) # 2: inch, 3: cm
+                        
+                        if info_dpi and info_dpi[0] > 0:
+                            cur_dpi_orig = float(info_dpi[0])
+                        else:
+                            cur_dpi_orig = float(dpi)
+                        
+                        # Normalize DPI to Dots Per Inch (DPI)
+                        if res_unit == 3: # Centimeters
+                            cur_dpi = cur_dpi_orig * 2.54
+                            print(f"DEBUG: Resolution unit is CM. Converting {cur_dpi_orig} dpc to {cur_dpi:.1f} dpi")
+                        else:
+                            cur_dpi = cur_dpi_orig
+                        
+                        # Calculate target pixel dimensions for A4 at this resolution
+                        target_w_px = int(round((target_w_mm / 25.4) * cur_dpi))
+                        target_h_px = int(round((target_h_mm / 25.4) * cur_dpi))
+                        
+                        phys_w_mm = (im.width / cur_dpi) * 25.4
+                        phys_h_mm = (im.height / cur_dpi) * 25.4
+                        
+                        print(f"1. Input: {im.width}x{im.height} px ({phys_w_mm:.1f}x{phys_h_mm:.1f}mm) at {cur_dpi:.1f} DPI")
+                        print(f"2. Target A4: {target_w_px}x{target_h_px} px ({target_w_mm}x{target_h_mm}mm)")
+                        
+                        # Calculate scaling factor based on width (shorter side)
+                        scale_factor = target_w_px / im.width
+                        scaled_h = int(round(im.height * scale_factor))
+                        
+                        print(f"3. Scaling: Factor {scale_factor:.4f} (Result: {target_w_px}x{scaled_h} px)")
+                        
+                        im = im.resize((target_w_px, scaled_h), Image.Resampling.LANCZOS)
+                        
+                        # Crop the vertical excess
+                        if im.height > target_h_px:
+                            excess = im.height - target_h_px
+                            print(f"4. [CROP] Height {im.height} > {target_h_px}. Removing bottom {excess} px.")
+                            im = im.crop((0, 0, target_w_px, target_h_px))
+                        else:
+                            print(f"4. [SKIP CROP] Height {im.height} is already <= {target_h_px}.")
+                        
+                        save_resolution = float(cur_dpi)
+                        print(f"5. Final: {im.width}x{im.height} px. Saving PDF at {save_resolution:.1f} DPI.\n")
+                    else:
+                        save_resolution = float(im.info.get('dpi', (dpi, dpi))[0])
                     
                     if im.mode != "RGB":
                         im = im.convert("RGB")
                     
-                    im.save(pdf_path, "PDF", resolution=float(dpi_x))
+                    im.save(pdf_path, "PDF", resolution=save_resolution)
                 results.append(pdf_path)
             except Exception as e:
                 print(f"ERROR converting {tif} to PDF: {e}")
