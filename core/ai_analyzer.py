@@ -1440,12 +1440,14 @@ TASK:
             # Backward compatibility / fallback
             raw_ocr_pages = [raw_ocr_pages]
 
-        # 1. Safety Net: Page Limit for Stage 2
-        # Gemini's output limit is approx 8k tokens. Generating repaired_text for > 15 pages 
-        # would likely hit this limit and truncate the JSON response.
-        MAX_PAGES_STAGE2 = 15
+        # 1. Safety Net: Page Limit and Hybrid Repair Logic
+        # Gemini's output limit is approx 8k tokens. 
+        # We allow scanning up to 50 pages for semantic data, but only repair the first 10.
+        MAX_PAGES_STAGE2 = 50
+        is_long_document = len(raw_ocr_pages) > 10
+        
         if len(raw_ocr_pages) > MAX_PAGES_STAGE2:
-            print(f"[Stage 2] WARNING: Document has {len(raw_ocr_pages)} pages. Truncating to {MAX_PAGES_STAGE2} for semantic extraction to avoid output token limits.")
+            print(f"[Stage 2] WARNING: Document has {len(raw_ocr_pages)} pages. Truncating to {MAX_PAGES_STAGE2} for semantic extraction.")
             raw_ocr_pages = raw_ocr_pages[:MAX_PAGES_STAGE2]
 
         # 2. Text Merging (Arbiter Logic)
@@ -1512,7 +1514,9 @@ Apply the blueprint found on Page 1 to the **ENTIRE RAW OCR TEXT** (all pages pr
 - **Consistency:** Use the image to 'calibrate' your reading of the raw OCR.
 - **Table Expansion:** If a table continues on Page 2 or Page 3, use the identified layout from Page 1 to extract and append every single row into the semantic list.
 - **Intelligent Repair:** If you detect obvious errors or noise in the raw OCR (e.g. 'St1ck' instead of 'Stick', or '1nd' instead of 'and'), especially on Page 1 where you have the image, use your visual and logical understanding to REPAIR the text and extract the CORRECT values.
-- **Full Text Repair (MANDATORY):** In addition to the JSON fields, you MUST provide the field `repaired_text`. This should contain the COMPLETE, cleaned, and plausible text of the entire document (all pages). Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separators. This text will be used for future indexing and searching.
+- **Full Text Repair (HYBRID):** In addition to the JSON fields, you MUST provide the field `repaired_text`. 
+  {long_doc_hint}
+  Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separators. This text will be used for future indexing and searching.
 
 ### 3. INPUT DATA
 **A. VISUAL CONTEXT:** (Image of Page 1)
@@ -1558,13 +1562,18 @@ Return ONLY valid JSON.
             # Context Limit: Gemini handles large contexts easily. 100k chars is safe.
             limit = 100000
             
+            long_doc_hint = ""
+            if is_long_document:
+                long_doc_hint = "CAUTION: This document is long (>10 pages). Please focus on repairing ONLY the first 10 pages in the `repaired_text` field to avoid output truncation. Ensure ALL semantic data (like transactions) are still extracted regardless of length!"
+
             prompt = PROMPT_TEMPLATE.format(
                 doc_type=doc_type,
                 document_text=best_text[:limit],
                 stamps_json=stamps_json_str,
                 signature_json=json.dumps(sig_data),
                 user_identity=user_identity,
-                target_schema_json=json.dumps(schema, indent=2)
+                target_schema_json=json.dumps(schema, indent=2),
+                long_doc_hint=long_doc_hint
             )
 
             try:
