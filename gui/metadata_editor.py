@@ -434,26 +434,44 @@ class MetadataEditorWidget(QWidget):
         rows = []
         
         # Helper to traverse and flatten
-        def traverse(data, section=""):
+        def traverse(data, section, prefix=""):
             if isinstance(data, dict):
                 for k, v in data.items():
-                    current_path = f"{section}.{k}" if section else k
-                    if isinstance(v, (dict, list)):
-                        # For complex types, show as JSON string in value, but mark section
-                        rows.append((section or "Root", k, json.dumps(v, ensure_ascii=False)))
+                    key_path = f"{prefix}.{k}" if prefix else k
+                    if isinstance(v, dict):
+                        traverse(v, section, key_path)
+                    elif isinstance(v, list):
+                        if not v: # Empty list
+                             rows.append((section, key_path, "[]"))
+                        else:
+                            for idx, item in enumerate(v):
+                                traverse(item, section, f"{key_path}.{idx}")
                     else:
-                        rows.append((section or "Root", k, str(v) if v is not None else ""))
-            elif isinstance(data, list):
-                pass # Already handled top-level list in dict traverse
+                        rows.append((section, key_path, str(v) if v is not None else ""))
+            elif isinstance(data, (str, int, float, bool)) or data is None:
+                rows.append((section, prefix, str(data) if data is not None else ""))
+            else:
+                # Fallback for unexpected types
+                rows.append((section, prefix, json.dumps(data, ensure_ascii=False)))
 
-        # Only show if there are actual bodies or header
+        # 1. Known Main Sections
         if "meta_header" in sd:
              traverse(sd["meta_header"], "Meta")
         if "custom_fields" in sd:
              traverse(sd["custom_fields"], "Custom")
-        if "bodies" in sd:
+        
+        # 2. Bodies (Phase 107/110)
+        handled_keys = {"meta_header", "custom_fields", "bodies", "visual_audit", "layer_stamps", "summary", "doc_types", "direction", "tenant_context", "reasoning"}
+        
+        if "bodies" in sd and isinstance(sd["bodies"], dict):
             for body_name, body_data in sd["bodies"].items():
                 traverse(body_data, body_name.replace("_body", "").capitalize())
+        
+        # 3. Catch-all for any other keys (like internal_routing or root-level finance_body)
+        for k, v in sd.items():
+            if k not in handled_keys:
+                sec_name = k.replace("_body", "").capitalize()
+                traverse(v, sec_name)
 
         if rows:
             self.tab_widget.setTabVisible(idx_tab, True)
@@ -602,7 +620,7 @@ class MetadataEditorWidget(QWidget):
                 sd["layer_stamps"] = stamps_list
 
         # 4. Semantic Table Sync (Phase 110)
-        # We read changes back into sd. We only update leaf values or JSON blocks.
+        # We read changes back into sd. We reconstruct nested structures from dotted keys.
         if "custom_fields" not in sd: sd["custom_fields"] = {} 
 
         for r in range(self.semantic_table.rowCount()):
@@ -612,48 +630,81 @@ class MetadataEditorWidget(QWidget):
             if not item_sec or not item_key or not item_val: continue
 
             section = item_sec.text()
-            field = item_key.text().strip()
+            field_path = item_key.text().strip()
             val_text = item_val.text()
-            if not field: continue
+            if not field_path: continue
             
             # Map back to target dict
-            target = None
+            root = sd
             if section == "Meta":
                 if "meta_header" not in sd: sd["meta_header"] = {}
-                target = sd["meta_header"]
+                root = sd["meta_header"]
             elif section == "Custom":
                 if "custom_fields" not in sd: sd["custom_fields"] = {}
-                target = sd["custom_fields"]
+                root = sd["custom_fields"]
             else:
+                # Check if it's in a body or other root key
                 body_key = section.lower() + "_body"
-                if "bodies" not in sd: sd["bodies"] = {}
-                if body_key in sd["bodies"]:
-                    target = sd["bodies"][body_key]
-                elif section.lower() in sd["bodies"]: # fallback
-                    target = sd["bodies"][section.lower()]
+                if "bodies" in sd and (body_key in sd["bodies"] or section.lower() in sd["bodies"]):
+                    if body_key in sd["bodies"]: root = sd["bodies"][body_key]
+                    else: root = sd["bodies"][section.lower()]
+                elif section.lower() in sd:
+                    root = sd[section.lower()]
+                elif body_key in sd:
+                    root = sd[body_key]
                 else:
-                    # New body or entry
+                    # New dynamic section
+                    if "bodies" not in sd: sd["bodies"] = {}
                     sd["bodies"][body_key] = {}
-                    target = sd["bodies"][body_key]
-            
-            if target is not None:
-                # Type conversion attempt
-                try:
-                    # If it looks like JSON list/dict, parse it
-                    if val_text.strip().startswith(("[", "{")):
-                        target[field] = json.loads(val_text)
+                    root = sd["bodies"][body_key]
+
+            # Reconstruct Nested Path
+            parts = field_path.split(".")
+            target = root
+            for i, part in enumerate(parts[:-1]):
+                # If part is numeric, we might be inside a list?
+                # For simplicity, if Target is a list and part is digit, use index
+                # If Target is dict, use key. 
+                if part.isdigit():
+                    idx = int(part)
+                    if isinstance(target, list):
+                        while len(target) <= idx: target.append({})
+                        target = target[idx]
                     else:
-                        # try numeric
-                        if "." in val_text:
-                            target[field] = float(val_text)
-                        elif val_text.isdigit():
-                            target[field] = int(val_text)
-                        elif val_text.lower() == "true": target[field] = True
-                        elif val_text.lower() == "false": target[field] = False
-                        elif not val_text: target[field] = None
-                        else: target[field] = val_text
-                except:
-                    target[field] = val_text
+                        # Fallback for ill-formed data
+                        if part not in target: target[part] = {}
+                        target = target[part]
+                else:
+                    if part not in target:
+                        # Peek at next part to decide if list or dict
+                        if i + 1 < len(parts) and parts[i+1].isdigit():
+                            target[part] = []
+                        else:
+                            target[part] = {}
+                    target = target[part]
+
+            # Set Value
+            last_key = parts[-1]
+            typed_val = val_text
+            try:
+                if val_text.strip().startswith(("[", "{")):
+                    typed_val = json.loads(val_text)
+                elif val_text.lower() == "true": typed_val = True
+                elif val_text.lower() == "false": typed_val = False
+                elif not val_text: typed_val = None
+                elif "." in val_text and val_text.replace(".", "", 1).isdigit():
+                    typed_val = float(val_text)
+                elif val_text.isdigit():
+                    typed_val = int(val_text)
+            except:
+                pass
+            
+            if isinstance(target, list) and last_key.isdigit():
+                idx = int(last_key)
+                while len(target) <= idx: target.append(None)
+                target[idx] = typed_val
+            else:
+                target[last_key] = typed_val
 
         # Update flat document fields as well (Redundancy for filtering)
         updates["sender"] = self.sender_edit.text().strip()
