@@ -1410,9 +1410,8 @@ TASK:
             if page_index >= doc.page_count:
                 return None
                 
-            page = doc.load_page(page_index)
-            # 150-200 DPI is usually sufficient for structure recognition
-            pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0)) 
+            # 200 DPI is requested for better recognition
+            pix = page.get_pixmap(dpi=200) 
             img_bytes = pix.tobytes("png")
             b64 = base64.b64encode(img_bytes).decode("utf-8")
             
@@ -1446,12 +1445,9 @@ TASK:
                 # Let's check _generate_json implementation. It takes 'image'.
                 # Actually, my _generate_with_retry takes 'contents'.
                 
-                # We'll use the bytes directly for the Gemini client
+                # Use the already rendered image from get_page_image_payload
                 try:
-                    doc = fitz.open(pdf_path)
-                    page = doc.load_page(0)
-                    pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
-                    img_bytes = pix.tobytes("png")
+                    img_bytes = base64.b64decode(img_data["base64"])
                     images_payload.append({"mime_type": "image/png", "data": img_bytes})
                     print("[Stage 2] Vision Context enabled (Page 1).")
                 except Exception as e:

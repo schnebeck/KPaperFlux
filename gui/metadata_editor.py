@@ -141,6 +141,23 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.addTab(self.stamps_tab, self.tr("Stamps"))
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.stamps_tab), False)
 
+        # --- Tab: Detailed Data (Phase 110) ---
+        self.details_tab = QWidget()
+        details_layout = QVBoxLayout(self.details_tab)
+
+        self.details_table = QTableWidget()
+        self.details_table.setColumnCount(3)
+        self.details_table.setHorizontalHeaderLabels([
+            self.tr("Section"), self.tr("Field"), self.tr("Value")
+        ])
+        self.details_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.details_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.details_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        details_layout.addWidget(self.details_table)
+
+        self.tab_widget.addTab(self.details_tab, self.tr("Detailed Data"))
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.details_tab), False)
+
         # --- Tab 2: Source Mapping (Component List) ---
         self.source_tab = QWidget()
         source_layout = QVBoxLayout(self.source_tab)
@@ -326,6 +343,9 @@ class MetadataEditorWidget(QWidget):
         else:
             self.tab_widget.setTabVisible(idx_stamps, False)
 
+        # Detailed Semantic Data (Phase 110)
+        self._populate_details_table(sd)
+
         # Extracted Data
         self.sender_edit.setText(doc.sender or sd.get("sender", ""))
 
@@ -378,6 +398,54 @@ class MetadataEditorWidget(QWidget):
         indices = sorted({idx.row() for idx in self.stamps_table.selectedIndexes()}, reverse=True)
         for row in indices:
             self.stamps_table.removeRow(row)
+
+    def _populate_details_table(self, sd: Dict):
+        """Flat representation of bodies & meta_header for the table."""
+        self.details_table.setRowCount(0)
+        if not sd:
+            self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.details_tab), False)
+            return
+
+        rows = []
+        
+        # Helper to traverse and flatten
+        def traverse(data, section=""):
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    current_path = f"{section}.{k}" if section else k
+                    if isinstance(v, (dict, list)):
+                        # For complex types, show as JSON string in value, but mark section
+                        rows.append((section or "Root", k, json.dumps(v, ensure_ascii=False)))
+                    else:
+                        rows.append((section or "Root", k, str(v) if v is not None else ""))
+            elif isinstance(data, list):
+                pass # Already handled top-level list in dict traverse
+
+        # Only show if there are actual bodies or header
+        if "meta_header" in sd:
+             traverse(sd["meta_header"], "Meta")
+        if "bodies" in sd:
+            for body_name, body_data in sd["bodies"].items():
+                traverse(body_data, body_name.replace("_body", "").capitalize())
+
+        if rows:
+            self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.details_tab), True)
+            for sec, key, val in rows:
+                row = self.details_table.rowCount()
+                self.details_table.insertRow(row)
+                
+                it_sec = QTableWidgetItem(sec)
+                it_sec.setFlags(it_sec.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                it_sec.setBackground(Qt.GlobalColor.lightGray)
+                
+                it_key = QTableWidgetItem(key)
+                it_key.setFlags(it_key.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                
+                self.details_table.setItem(row, 0, it_sec)
+                self.details_table.setItem(row, 1, it_key)
+                self.details_table.setItem(row, 2, QTableWidgetItem(val))
+        else:
+            self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.details_tab), False)
 
     def clear(self):
         self.current_uuids = []
@@ -500,6 +568,43 @@ class MetadataEditorWidget(QWidget):
             # Also check if it exists at root (Phase 105 AI compatibility)
             if "layer_stamps" in sd:
                 sd["layer_stamps"] = stamps_list
+
+        # 4. Detailed Table Sync (Phase 110)
+        # We read changes back into sd. We only update leaf values or JSON blocks.
+        for r in range(self.details_table.rowCount()):
+            section = self.details_table.item(r, 0).text()
+            field = self.details_table.item(r, 1).text()
+            val_text = self.details_table.item(r, 2).text()
+            
+            # Map back to target dict
+            target = None
+            if section == "Meta":
+                target = sd.get("meta_header")
+            else:
+                body_key = section.lower() + "_body"
+                if "bodies" in sd and body_key in sd["bodies"]:
+                    target = sd["bodies"][body_key]
+                elif "bodies" in sd and section.lower() in sd["bodies"]: # fallback
+                    target = sd["bodies"][section.lower()]
+            
+            if target is not None:
+                # Type conversion attempt
+                try:
+                    # If it looks like JSON list/dict, parse it
+                    if val_text.strip().startswith(("[", "{")):
+                        target[field] = json.loads(val_text)
+                    else:
+                        # try numeric
+                        if "." in val_text:
+                            target[field] = float(val_text)
+                        elif val_text.isdigit():
+                            target[field] = int(val_text)
+                        elif val_text.lower() == "true": target[field] = True
+                        elif val_text.lower() == "false": target[field] = False
+                        elif not val_text: target[field] = None
+                        else: target[field] = val_text
+                except:
+                    target[field] = val_text
 
         # Update flat document fields as well (Redundancy for filtering)
         updates["sender"] = self.sender_edit.text().strip()
