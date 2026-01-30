@@ -96,6 +96,31 @@ class AIAnalyzer:
         self.client = genai.Client(api_key=self.api_key)
         self.model_name = model_name
         self.config = AppConfig()
+        
+        # Phase 107: Dynamic Model Limits
+        self.max_output_tokens = 65636# Default
+        self._fetch_model_limits()
+
+    def _fetch_model_limits(self):
+        """Queries the API for model limits and applies safety overrides."""
+        try:
+            m = self.client.models.get(model=self.model_name)
+            self.max_output_tokens = getattr(m, 'output_token_limit', 8192)
+            
+            # Safety Override for Flash Models:
+            # Even if API reports 8k, Flash models usually support 64k or more.
+            # This is critical for information-dense documents like DigiKey invoices.
+            if "flash" in self.model_name.lower():
+                if self.max_output_tokens < 65536:
+                    print(f"[AI] Model Info: {self.model_name} (API Limit: {self.max_output_tokens}). Applying 64k Flash Strategy.")
+                    self.max_output_tokens = 65536
+                else:
+                    print(f"[AI] Model Info: {self.model_name} (API Limit: {self.max_output_tokens}). Using official limit.")
+            else:
+                print(f"[AI] Model Info: {self.model_name} (API Limit: {self.max_output_tokens})")
+        except Exception as e:
+            print(f"[AI] Warning: Could not fetch limits for {self.model_name}: {e}. Falling back to 64k.")
+            self.max_output_tokens = 65536
 
     def list_models(self) -> List[str]:
         """
@@ -316,10 +341,15 @@ class AIAnalyzer:
         return None
 
     def analyze_text(self, text: str, image=None) -> AIAnalysisResult:
-        schema_path = "/home/schnebeck/.gemini/antigravity/brain/0c4bc2e7-3c24-4140-a725-c6afcc6fb483/document_schema.json" # Hardcoded for now or loaded relative?
-        # Let's read it here or pass it in. For robustness, I'll inline a minimal version if file read fails, or better read it.
-        with open(schema_path, "r") as f:
-            doc_schema = json.load(f)
+        # document_schema used by legacy analyze_text.
+        # Inlined for portability (GitHub Safe).
+        doc_schema = {
+          "type": "object",
+          "properties": {
+             "summary": { "type": "object", "properties": { "doc_type": { "type": "array", "items": { "type": "string" } }, "main_date": { "type": "string" } } },
+             "pages": { "type": "array", "items": { "type": "object" } }
+          }
+        }
 
         # Create a simplified One-Shot Example to guide the model away from Schema copying
         example_json = """
@@ -1055,7 +1085,7 @@ TASK:
             'contents': contents,
             'config': types.GenerateContentConfig(
                 response_mime_type='application/json',
-                max_output_tokens=8192,
+                max_output_tokens=self.max_output_tokens,
                 temperature=0.1 # Low temperature for strict extraction
             )
         }
@@ -1148,6 +1178,9 @@ TASK:
                     raise e
             
             if res_json is not None:
+                # NEW: Debug Output for AI Response (Requested for Stage 1.5+)
+                print(f"\n=== [AI RESPONSE: {stage_label}] ===\n{json.dumps(res_json, indent=2, ensure_ascii=False)}\n==============================\n")
+                
                 # Phase 107: Strict Truncation Handling
                 # If the AI response was truncated, the data is incomplete.
                 # Even if we "repaired" the JSON structure, significant content is missing.

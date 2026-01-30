@@ -1,18 +1,45 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 venv/
 .pytest_cache/
-*.db
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Logs & DB
 *.log
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Environment & Thinking
 .env
+.agent/
+.gemini/
 .vscode/
 .idea/
 .DS_Store
-vault/
 
-*.db-shm
-*.db-wal
-*.xlsx
+# Project Specific
+*.pdf
+*.zip
+*.conf
+*.ini
+*.key
+*.pem
+/vault/
 filter_tree.json
 verify_*.py
 System Prompt*
+
+# Temp & Devel
+/tmp/
+/devel/*.py
+!/devel/*.md
