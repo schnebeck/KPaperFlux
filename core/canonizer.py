@@ -277,16 +277,12 @@ class CanonizerService:
                  # usually follow Stage 1.1 detected_entities order.
                  target_doc.semantic_data = detected_entities[idx]
             
-            # Stage 2: Extraction (Metadata) - DISABLED per User Request
             # Extract text for specific pages
             entity_text = self._extract_range_text(pages_text, c_pages) 
             
-            # Skip automated CDM extraction for now
-            # cdm_data = self.analyzer.extract_canonical_data(c_type, entity_text)
-            # target_doc.semantic_data = cdm_data
-            
             # [STAGE 1.5] Visual Audit (Stamps, Handwritings, Signatures)
             # The Auditor decides based on DocType if a visual scan is needed.
+            audit_res = None # Initialize audit_res
             pf = self.physical_repo.get_by_uuid(base_ref.file_uuid)
             if pf:
                 audit_res = self.visual_auditor.run_stage_1_5(
@@ -331,15 +327,53 @@ class CanonizerService:
                             print(f"[ARBITER] Swapping OCR text with AI-repaired text (Reason: {decision.get('reasoning')})")
                             entity_text = cleaned_text
             
-            target_doc.cached_full_text = entity_text
+            # [STAGE 2] Semantic Extraction (Metadata)
+            # We run this AFTER Stage 1.5 so we have the Arbiter's text decision 
+            # and the detected stamps as input.
             
-            # Determine export filename hint
-            if c_type != "OTHER":
-                 target_doc.export_filename = f"{c_type}_{target_doc.uuid[:8]}"
+            # Prepare context for Stage 2
+            # Use the type that might have been corrected by the Auditor
+            s1_context = {"detected_entities": [{"doc_types": [c_type]}]}
+            
+            try:
+                semantic_extraction = self.analyzer.run_stage_2(
+                    raw_ocr_text=entity_text,
+                    stage_1_result=s1_context,
+                    stage_1_5_result=audit_res
+                )
+                
+                # Merge Semantic Extraction into target_doc
+                if semantic_extraction:
+                    if target_doc.semantic_data is None:
+                        target_doc.semantic_data = {}
+                    
+                    # Store as "semantic_v2" or merge? 
+                    # The user's script structure: { "meta_header": ..., "bodies": ... }
+                    target_doc.semantic_data.update(semantic_extraction)
+                    
+                    # Update Doc Date from header if found
+                    header = semantic_extraction.get("meta_header", {})
+                    if header.get("doc_date"):
+                         try:
+                             # ISO format check
+                             datetime.fromisoformat(header["doc_date"])
+                         except: pass
+
+                    # Generate Smart Filename
+                    smart_name = self.analyzer.generate_smart_filename(
+                        semantic_extraction, 
+                        target_doc.type_tags
+                    )
+                    target_doc.export_filename = smart_name
+
+            except Exception as e:
+                print(f"[Canonizer] Stage 2 Failed for {target_doc.uuid[:8]}: {e}")
+
+            target_doc.cached_full_text = entity_text
             
             # Save
             self.logical_repo.save(target_doc)
-            print(f"[Canonizer] Saved Stage 1.1/1.2 Entity {target_doc.uuid} ({candidate.get('types')})")
+            print(f"[Canonizer] Saved Entity {target_doc.uuid} ({c_type}) with Smart Filename: {target_doc.export_filename}")
 
             # [STAGE 1.6] Auto-Tagging
             if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
