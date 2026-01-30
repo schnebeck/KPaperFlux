@@ -1,6 +1,6 @@
 # KPaperFlux 🚀
 > **Next-Generation Hybrid Document Management System for Linux**  
-> *Powered by Google Gemini 2.0 Flash & Python/Qt6*
+> *Powered by Google Gemini 2.5 Flash & Python/Qt6*
 
 ![Status](https://img.shields.io/badge/Status-Active_Development-green)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
@@ -37,7 +37,7 @@ KPaperFlux nutzt eine mehrstufige, intelligente Analyse-Pipeline, um Dokumente z
 
 *   **Core:** Python 3.12+
 *   **GUI:** PyQt6 (Modernes, responsives Interface)
-*   **AI Engine:** Google Generative AI (Gemini 2.0/2.5 Flash)
+*   **AI Engine:** Google Generative AI (Gemini 2.5 Flash)
 *   **PDF Engine:** PyMuPDF (fitz) für rasend schnelles Rendering
 *   **Database:** SQLite (lokal, schnell, serverless)
 
