@@ -255,7 +255,7 @@ class CanonizerService:
                 audit_res = self.visual_auditor.run_stage_1_5(
                     pdf_path=pf.file_path,
                     doc_uuid=target_doc.uuid,
-                    stage_1_result={"detected_entities": [{"doc_type": c_type}]},
+                    stage_1_result={"detected_entities": [{"doc_type": t} for t in c_types]},
                     text_content=entity_text,
                     target_pages=new_source_pages
                 )
@@ -288,7 +288,7 @@ class CanonizerService:
                             entity_text = cleaned_text
 
             # [STAGE 2] Semantic Extraction
-            s1_context = {"detected_entities": [{"doc_types": [c_type]}]}
+            s1_context = {"detected_entities": [{"doc_types": c_types}]}
 
             semantic_extraction = self.analyzer.run_stage_2(
                 raw_ocr_text=entity_text,
@@ -344,7 +344,7 @@ class CanonizerService:
             target_doc.cached_full_text = entity_text
 
             self.logical_repo.save(target_doc)
-            print(f"[Canonizer] Saved Entity {target_doc.uuid} ({c_type})")
+            print(f"[Canonizer] Saved Entity {target_doc.uuid} ({', '.join(c_types)})")
 
             # [STAGE 1.6] Auto-Tagging
             if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):

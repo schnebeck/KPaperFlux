@@ -1543,7 +1543,7 @@ Return ONLY valid JSON.
             sig_data = stage_1_5_result["signatures"]
 
         for doc_type in types_to_extract:
-            print(f"[Stage 2] Processing Type: {doc_type}")
+            print(f"\n>>>> [Stage 2] Executing Extraction with PRESET: {doc_type} <<<<")
             schema = self.get_target_schema(doc_type)
             
             # Context Limit: Gemini handles large contexts easily. 100k chars is safe.
