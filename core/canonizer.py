@@ -246,7 +246,8 @@ class CanonizerService:
                  target_doc.semantic_data = detected_entities[idx]
 
             print(f"  [Split Loop] Processing Candidate {idx+1}/{len(split_candidates)}: Pages {c_pages} -> Source Index {new_source_pages}")
-            entity_text = self._extract_range_text(pages_text, c_pages)
+            entity_pages = [pages_text[p-1] for p in c_pages if 0 <= p-1 < len(pages_text)]
+            entity_text = "\n\n".join(entity_pages)
 
             # [STAGE 1.5] Visual Audit
             audit_res = None
@@ -291,7 +292,7 @@ class CanonizerService:
             s1_context = {"detected_entities": [{"doc_types": c_types}]}
 
             semantic_extraction = self.analyzer.run_stage_2(
-                raw_ocr_text=entity_text,
+                raw_ocr_pages=entity_pages,
                 stage_1_result=s1_context,
                 stage_1_5_result=audit_res,
                 pdf_path=pf.file_path if pf else None

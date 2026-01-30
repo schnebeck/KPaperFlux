@@ -1401,13 +1401,14 @@ TASK:
                 }
             }
 
-    def assemble_best_text_source(self, raw_ocr_full: str, stage_1_5_result: Dict) -> str:
+    def assemble_best_text_source(self, raw_ocr_pages: List[str], stage_1_5_result: Dict) -> str:
         """
         Phase 2.2: The Arbiter.
         Decides intelligently which text source to use (Raw OCR vs AI Repaired).
+        Now surgically replaces Page 1 instead of appending.
         """
-        if not stage_1_5_result:
-            return raw_ocr_full
+        if not stage_1_5_result or not raw_ocr_pages:
+            return "\n\n".join(raw_ocr_pages) if isinstance(raw_ocr_pages, list) else str(raw_ocr_pages)
 
         # 1. What did the Arbiter recommend?
         arbiter = stage_1_5_result.get("arbiter_decision", {})
@@ -1415,17 +1416,23 @@ TASK:
 
         # 2. If RAW is good enough, use RAW
         if recommendation == "RAW_OCR":
-            return raw_ocr_full
+            return "\n\n".join(raw_ocr_pages)
 
         # 3. If AI is better (e.g. because of stamps or noise):
         clean_page_1 = stage_1_5_result.get("layer_document", {}).get("clean_text", "")
 
         if not clean_page_1:
-            return raw_ocr_full
+             return "\n\n".join(raw_ocr_pages)
 
-        # Build hybrid text:
-        combined_text = f"=== PAGE 1 (AI CLEANED / VERIFIED) ===\n{clean_page_1}\n\n=== FULL DOCUMENT CONTENT (RAW OCR) ===\n{raw_ocr_full}"
-        return combined_text
+        # Build optimized text:
+        # We replace the first page with the cleaned version and keep the rest
+        optimized_pages = []
+        optimized_pages.append(f"=== PAGE 1 (AI CLEANED / VERIFIED BLUEPRINT) ===\n{clean_page_1}")
+        
+        for i in range(1, len(raw_ocr_pages)):
+            optimized_pages.append(f"=== PAGE {i+1} (RAW OCR) ===\n{raw_ocr_pages[i]}")
+
+        return "\n\n".join(optimized_pages)
 
     def get_page_image_payload(self, pdf_path: str, page_index: int = 0) -> Optional[Dict]:
         """
@@ -1453,16 +1460,20 @@ TASK:
             print(f"[Stage 2] Image generation failed: {e}")
             return None
 
-    def run_stage_2(self, raw_ocr_text: str, stage_1_result: Dict, stage_1_5_result: Dict, pdf_path: Optional[str] = None) -> Dict:
+    def run_stage_2(self, raw_ocr_pages: List[str], stage_1_result: Dict, stage_1_5_result: Dict, pdf_path: Optional[str] = None) -> Dict:
         """
         Phase 2.3: Semantic Extraction Pipeline.
         Executes extraction for each detected type and consolidates result.
-        Now supports Vision Context if pdf_path is provided.
+        Now supports surgically cleaned Page 1 for better scanning.
         """
         print(f"--- [AIAnalyzer] STARTING STAGE 2 SEMANTIC EXTRACTION ---")
+        
+        if isinstance(raw_ocr_pages, str):
+            # Backward compatibility / fallback
+            raw_ocr_pages = [raw_ocr_pages]
 
         # 1. Text Merging (Arbiter Logic)
-        best_text = self.assemble_best_text_source(raw_ocr_text, stage_1_5_result)
+        best_text = self.assemble_best_text_source(raw_ocr_pages, stage_1_5_result)
 
         # 2. Image Prep (Vision Support)
         images_payload = []
