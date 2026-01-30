@@ -52,36 +52,59 @@ class CanonizerService:
             return 0
 
         cursor = self.db.connection.cursor()
-        # Fetch entities in various stages of the pipeline
+        # Fetch entities - but only those NOT currently being processed by another worker
         query = """
-            SELECT uuid
+            SELECT uuid, status
             FROM virtual_documents
-            WHERE status IN ('NEW', 'READY_FOR_PIPELINE', 'STAGE2_PENDING', 
-                             'PROC_S1', 'PROC_S1_5', 'PROC_S2') 
+            WHERE status IN ('NEW', 'READY_FOR_PIPELINE', 'STAGE2_PENDING') 
               AND deleted = 0
             LIMIT ?
         """
         cursor.execute(query, (limit,))
         rows = cursor.fetchall()
 
-        # Phase 110: Immediate Lock (Transition to next logical processing state)
-        # Note: We don't mark all as a single 'PROCESSING' anymore, 
-        # but the specific resume logic in process_virtual_document will handle it.
-        uuids = [row[0] for row in rows]
+        # Atomic locking of all candidates
+        uuids = []
+        for row in rows:
+            uuid_val, current = row
+            target = "PROCESSING_S1" if current in ["NEW", "READY_FOR_PIPELINE"] else "PROCESSING_S2"
+            
+            # Atomic update to lock this document
+            cursor.execute("UPDATE virtual_documents SET status = ? WHERE uuid = ? AND status = ?", (target, uuid_val, current))
+            if cursor.rowcount > 0:
+                uuids.append(uuid_val)
         
+        self.db.connection.commit()
+        if uuids: print(f"[Canonizer] Locked {len(uuids)} documents for processing.")
+
         processed_count = 0
         for uuid in uuids:
             v_doc = self.logical_repo.get_by_uuid(uuid)
             if v_doc:
-                # We let exceptions bubble up to the worker, unless they are handled AI-retries
+                # The document is already locked to PROCESSING_S1 or S2 at this point
                 try:
                     success = self.process_virtual_document(v_doc)
                     if success:
                         processed_count += 1
                 except Exception as e:
                     print(f"[Canonizer] Error processing {uuid}: {e}")
-                    # Don't crash loop on single doc error
         return processed_count
+
+    def _atomic_transition(self, v_doc: VirtualDocument, allowed_old: List[str], target_status: str) -> bool:
+        """
+        Atomically transitions the document status in the DB.
+        Prevents race conditions between background and GUI threads.
+        """
+        cursor = self.db.connection.cursor()
+        placeholders = ",".join(["?"] * len(allowed_old))
+        sql = f"UPDATE virtual_documents SET status = ? WHERE uuid = ? AND status IN ({placeholders})"
+        cursor.execute(sql, [target_status, v_doc.uuid] + allowed_old)
+        self.db.connection.commit()
+        
+        if cursor.rowcount > 0:
+            v_doc.status = target_status
+            return True
+        return False
 
     def process_virtual_document(self, v_doc: VirtualDocument) -> bool:
         """
@@ -123,15 +146,14 @@ class CanonizerService:
         if not pages_text:
              pages_text = [full_text]
 
-        # --- PIPELINE STATE MACHINE ---
+        # Entrance Gate for Resumption / Start
         status = v_doc.status
-        is_stage2_only = status in ['STAGE2_PENDING', 'PROC_S1_5', 'PROC_S2']
+        is_stage2_resumption = status in ['STAGE2_PENDING', 'PROCESSING_S1_5', 'PROCESSING_S2']
         detected_entities = []
         is_hybrid = False
 
-        if is_stage2_only:
-             # Resume from split candidates already stored in semantic_data or from v_doc directly
-             print(f"[Canonizer] Resuming from {status}. Skipping Classification.")
+        if is_stage2_resumption:
+             print(f"[AI] Pipeline [RESUME] -> Stage 2 (Status: {status})")
              split_candidates = [{
                  "types": v_doc.type_tags or ["OTHER"],
                  "pages": list(range(1, len(pages_text) + 1)),
@@ -139,17 +161,33 @@ class CanonizerService:
                  "direction": v_doc.semantic_data.get("direction") if v_doc.semantic_data else None,
                  "tenant_context": v_doc.semantic_data.get("tenant_context") if v_doc.semantic_data else None
              }]
-        else:
+             # Restore detected_entities for context in Stage 2
+             detected_entities = [{"doc_types": split_candidates[0]["types"]}]
+        if not is_stage2_resumption:
+            # --- START STAGE 1 ---
+            print(f"[AI] Stage 1.1 (Classification) [START] -> Mode: {scan_strategy}, Pages: {total_pages}")
+            # Gate: Only ONE thread can start the process.
+            if status in ['NEW', 'READY_FOR_PIPELINE']:
+                if not self._atomic_transition(v_doc, ['NEW', 'READY_FOR_PIPELINE'], 'PROCESSING_S1'):
+                     print(f"[Canonizer] Failed atomic lock for S1. Skipping.")
+                     return False
+            elif status == 'PROCESSING_S1':
+                 # This document is already being handled. 
+                 # If we are the worker that locked it, we are fine. 
+                 # But how to distinguish? 
+                 # For now, if it's ALREADY in PROCESSING_S1 and we didn't just transition it,
+                 # we risk double-processing if we continue.
+                 # Let's check a local cache of 'locked_by_me' if we want to be perfect.
+                 pass
+
             # 2. AI Analysis (Stage 1: Classification & Split)
-            v_doc.status = "PROC_S1"
-            self.logical_repo.save(v_doc)
-            
             priv_json = self.config.get_private_profile_json()
             bus_json = self.config.get_business_profile_json()
             priv_id = IdentityProfile.model_validate_json(priv_json) if priv_json else None
             bus_id = IdentityProfile.model_validate_json(bus_json) if bus_json else None
 
             struct_res = self.analyzer.run_stage_1_adaptive(pages_text, priv_id, bus_id)
+            print(f"[AI] Stage 1.1 (Classification) [DONE]")
 
             # --- CRITICAL FIX: Handle AI Failure (None) ---
             if struct_res is None:
@@ -256,12 +294,12 @@ class CanonizerService:
             if idx < len(detected_entities):
                  target_doc.semantic_data = detected_entities[idx]
 
-            # Initial Save after Split
+            # Transition to Stage 2 Readiness
             if target_doc.status != "PROCESSED":
                 target_doc.status = "STAGE2_PENDING"
             self.logical_repo.save(target_doc)
 
-            print(f"  [Split Loop] Processing Candidate {idx+1}/{len(split_candidates)}: Pages {c_pages}")
+            # print(f"  [Split Loop] Candidate {idx+1}/{len(split_candidates)}: Pages {c_pages}")
             entity_pages = [pages_text[p-1] for p in c_pages if 0 <= p-1 < len(pages_text)]
             entity_text = "\n\n".join(entity_pages)
 
@@ -290,8 +328,8 @@ class CanonizerService:
                          target_doc.semantic_data = {}
                     target_doc.semantic_data["visual_audit"] = audit_res
                     
-                    # Update status to indicate Audit is done
-                    target_doc.status = "PROC_S1_5"
+                    # Atomic transition would be overkill here for sequential loop, but let's keep status updated
+                    target_doc.status = "PROCESSING_S1_5"
                     self.logical_repo.save(target_doc)
 
                     # Arbiter Logic
@@ -309,8 +347,15 @@ class CanonizerService:
                             entity_text = cleaned_text
 
             # [STAGE 2] Semantic Extraction
-            target_doc.status = "PROC_S2"
-            self.logical_repo.save(target_doc)
+            # Gate: Only transition to PROCESSING_S2 if we are currently in a valid preceding state
+            if target_doc.status in ['STAGE2_PENDING', 'PROCESSING_S1_5']:
+                if not self._atomic_transition(target_doc, ['STAGE2_PENDING', 'PROCESSING_S1_5'], 'PROCESSING_S2'):
+                    continue
+            elif target_doc.status == 'PROCESSING_S2':
+                # Resuming or already locked
+                pass
+            else:
+                continue
 
             s1_context = {"detected_entities": [{"doc_types": c_types}]}
             # ... run_stage_2 ...

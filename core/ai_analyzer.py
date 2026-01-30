@@ -158,8 +158,10 @@ class AIAnalyzer:
         if total_pages == 0: return {}
 
         # --- PHASE A: PRE-FLIGHT ---
+        print(f"[AI] Stage 1.0 (Pre-Flight) [START] -> Analyzing {total_pages} pages...")
         pre_flight_pages = pages_text[:3]
         pre_flight_res = self.ask_type_check(pre_flight_pages)
+        print(f"[AI] Stage 1.0 (Pre-Flight) [DONE]")
 
         primary_type = pre_flight_res.get("primary_type", "OTHER")
         is_stack_suspicion = pre_flight_res.get("looks_like_stack", False)
@@ -1038,24 +1040,26 @@ TASK:
         json_str = json_str.replace("\x00", "") 
 
         try:
-            # We try to find the shortest valid JSON object starting from 'start'
-            # Using a simple brace counter would be more robust, 
-            # but let's try to be smart about JSONDecodeError 'Extra data'
             res_json = None
             current_end = end
             
             while current_end > start:
                 try:
-                    res_json = json.loads(txt[start:current_end+1])
-                    break # Success!
+                    # strict=False allows control characters like newlines in strings
+                    res_json = json.loads(txt[start:current_end+1], strict=False)
+                    break 
                 except json.JSONDecodeError as e:
                     if "Extra data" in str(e):
-                        # The JSON ended earlier than 'current_end'
-                        # Let's find the previous '}'
                         current_end = txt.rfind('}', start, current_end)
                         if current_end == -1: break
+                    elif any(m in str(e) for m in ["Expecting ',' delimiter", "Expecting ':' delimiter"]):
+                        # Log line/col to help debug unescaped quotes
+                        line_no = getattr(e, 'lineno', 0)
+                        col_no = getattr(e, 'colno', 0)
+                        print(f"[AI] JSON Syntax Error at L{line_no},C{col_no} for {stage_label}")
+                        raise e
                     else:
-                        raise e # Real error
+                        raise e
             
             if res_json is not None:
                 print(f"[AI] {stage_label} -> Success")
@@ -1598,7 +1602,7 @@ Return ONLY valid JSON.
             sig_data = stage_1_5_result["signatures"]
 
         if types_to_extract:
-            print(f"[AI] Stage 2 -> Extracting: {', '.join(types_to_extract)} from {len(raw_ocr_pages)} pages")
+            print(f"[AI] Stage 2 (Extraction) [START] -> Types: {', '.join(types_to_extract)}, Vision: {bool(pdf_path)}")
 
         for doc_type in types_to_extract:
             schema = self.get_target_schema(doc_type)
@@ -1640,8 +1644,9 @@ Return ONLY valid JSON.
                         final_semantic_data["bodies"][key] = value
 
             except Exception as e:
-                print(f"[Stage 2] Extraction Error ({doc_type}): {e}")
+                print(f"[AI] Stage 2 Error ({doc_type}): {e}")
 
+        print(f"[AI] Stage 2 (Extraction) [DONE]")
         return final_semantic_data
 
     def generate_smart_filename(self, semantic_data: Dict, doc_types: List[str]) -> str:
