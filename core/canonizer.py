@@ -245,6 +245,7 @@ class CanonizerService:
             if idx < len(detected_entities):
                  target_doc.semantic_data = detected_entities[idx]
 
+            print(f"  [Split Loop] Processing Candidate {idx+1}/{len(split_candidates)}: Pages {c_pages} -> Source Index {new_source_pages}")
             entity_text = self._extract_range_text(pages_text, c_pages)
 
             # [STAGE 1.5] Visual Audit

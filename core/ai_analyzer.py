@@ -1537,7 +1537,7 @@ Additionally, check if other bodies apply (**Auto-Discovery**).
 - **Dates:** ISO 8601 (YYYY-MM-DD).
 - **Numbers:** Float (10.50). No thousand separators.
 - **Currency:** ISO Code (EUR, USD).
-- **Empty Fields:** OMIT any keys that have no values (null, empty strings, or empty lists). Do NOT return them in your JSON response.
+- **Empty Fields:** OMIT any keys that have no values. If a field or list is empty or null, DO NOT include the key in your JSON. (Example: No 'phones' if no phones found).
 
 ### 6. TARGET OUTPUT (JSON SCHEMA)
 {target_schema_json}
