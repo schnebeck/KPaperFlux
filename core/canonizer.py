@@ -90,6 +90,8 @@ class CanonizerService:
                 except Exception as e:
                     print(f"[Canonizer] CRITICAL ERROR processing {uuid}:")
                     traceback.print_exc()
+                    if isinstance(e, (NameError, AttributeError, SyntaxError, TypeError, ValueError)):
+                        raise e # Stop the worker
         return processed_count
 
     def _atomic_transition(self, v_doc: VirtualDocument, allowed_old: List[str], target_status: str) -> bool:

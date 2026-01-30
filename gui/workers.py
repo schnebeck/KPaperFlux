@@ -267,7 +267,13 @@ class AIQueueWorker(QThread):
                         self.doc_updated.emit(uuid, updated_doc)
 
                 except Exception as e:
-                    print(f"AI Queue Error {uuid}: {e}")
+                    print(f"[AIQueue] ERROR processing {uuid}:")
+                    traceback.print_exc()
+                    # If it's a developer error (not a rate limit/network error), stop the queue
+                    if isinstance(e, (NameError, AttributeError, SyntaxError, TypeError, ValueError)):
+                        self.fatal_error.emit("Developer Error in AI Pipe", f"A code error occurred:\n\n{e}")
+                        self.is_running = False
+                        break
 
                 self.processed_count += 1
                 self.queue.task_done()

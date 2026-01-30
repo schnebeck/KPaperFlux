@@ -140,12 +140,12 @@ class AIAnalyzer:
 
         ### TASK
         Return a JSON object:
-        {
+        {{
           "primary_type": "MANUAL | DATASHEET | BOOK | CATALOG | INVOICE | LETTER | OTHER",
           "is_hybrid_suspicion": true | false, // True if first page suggests multiple roles (e.g. 'Invoice & Delivery Note')
           "looks_like_stack": true | false, // True if multiple different documents seem stuck together
           "confidence": 0.0-1.0
-        }
+        }}
         """
         result = self._generate_json(prompt, stage_label="Stage 1.0 (Pre-Flight)")
         return result or {}
