@@ -6,92 +6,92 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![License](https://img.shields.io/badge/License-MIT-purple)
 
-**KPaperFlux** ist nicht einfach nur ein weiteres DMS. Es ist ein intelligenter **Dokumenten-Veredler**. Anstatt Dokumente nur abzulegen, versteht, repariert und strukturiert KPaperFlux den Inhalt mithilfe modernster KI.
+**KPaperFlux** is not just another DMS. It is an intelligent **document refiner**. Instead of simply archiving documents, KPaperFlux understands, repairs, and structures content using state-of-the-art AI.
 
-Es wurde speziell für **Power-User** und **Linux-Enthusiasten** entwickelt, die maximale Kontrolle über ihre Daten haben wollen, aber nicht auf den Komfort von Cloud-KI verzichten möchten.
+Designed specifically for **Power Users** and **Linux Enthusiasts** who demand maximum control over their data without sacrificing the convenience of cloud AI.
 
 ---
 
 ## 🔥 Key Features
 
 ### 🧠 Adaptive AI Pipeline (The "Brain")
-KPaperFlux nutzt eine mehrstufige, intelligente Analyse-Pipeline, um Dokumente zu verstehen:
-*   **Stage 1 - Der "Pre-Flight":** Entscheidet in Millisekunden, ob es sich um ein Buch, eine Rechnung oder einen Stapel Dokumente handelt.
-*   **Stage 1.5 - Visual Auditor (X-Ray Mode):** Ein forensisches Modul, das Stempel, Notizen und Unterschriften visuell vom Originaltext trennt.
-    *   *Feature:* Erkennt handschriftliche "Bezahlt"-Vermerke oder Kontierungsstempel und extrahiert deren Daten separat.
-*   **Stage 2 - Semantische Extraktion:** Extrahiert strukturierte JSON-Daten (Sender, Datum, Line Items) mit einem Schema, das selbst DigiKey-Rechnungen mit 50+ Positionen versteht.
+KPaperFlux employs a multi-stage, intelligent analysis pipeline to understand documents:
+*   **Stage 1 - "Pre-Flight":** Decides in milliseconds whether the input is a book, an invoice, or a stack of documents.
+*   **Stage 1.5 - Visual Auditor (X-Ray Mode):** A forensic module that visually separates stamps, notes, and signatures from the original text.
+    *   *Feature:* Detects handwritten "Paid" notes or accounting stamps and extracts their data separately.
+*   **Stage 2 - Semantic Extraction:** Extracts structured JSON data (Sender, Date, Line Items) using a schema capable of understanding complex documents like DigiKey invoices with 50+ line items.
 
-### ⚡ Performance & Token-Effizienz
-*   **Sandwich-Mode:** Bei großen Handbüchern werden nur Anfang und Ende gescannt, um KI-Kosten zu sparen.
-*   **Header-Scan:** Bei Dokumentenstapeln analysiert das System nur die Kopfbereiche.
-*   **Flash-Optimierung:** Nutzt dynamisch das 1M Context Window von Gemini 2.x für komplexe Analysen.
+### ⚡ Performance & Token Efficiency
+*   **Sandwich Mode:** For large manuals, only the start and end are scanned to save AI costs.
+*   **Header Scan:** For document stacks, the system analyzes only the header regions.
+*   **Flash Optimization:** Dynamically leverages the 1M Context Window of Gemini 2.x for complex analyses.
 
 ### 🛡️ Hybrid Workflow
-*   **SANE Integration:** Direkte Ansteuerung von Scannern unter Linux.
-*   **Drag & Drop:** Einfaches Importieren von PDFs.
-*   **Metadata Editor:** Ein mächtiger Editor, um die KI-Ergebnisse zu verifizieren und zu korrigieren.
+*   **SANE Integration:** Direct control of scanners under Linux.
+*   **Drag & Drop:** Easy import of PDF files.
+*   **Metadata Editor:** A powerful editor to verify and correct AI results.
 
 ---
 
-## 🛠️ Technologie-Stack
+## 🛠️ Technology Stack
 
 *   **Core:** Python 3.12+
-*   **GUI:** PyQt6 (Modernes, responsives Interface)
+*   **GUI:** PyQt6 (Modern, responsive interface)
 *   **AI Engine:** Google Generative AI (Gemini 2.5 Flash)
-*   **PDF Engine:** PyMuPDF (fitz) für rasend schnelles Rendering
-*   **Database:** SQLite (lokal, schnell, serverless)
+*   **PDF Engine:** PyMuPDF (fitz) for high-performance rendering
+*   **Database:** SQLite (local, fast, serverless)
 
 ---
 
 ## 🚀 Installation & Setup
 
-### Voraussetzungen
-*   Linux (getestet auf Ubuntu/Debian/Fedora)
-*   Python 3.10 oder höher
-*   Ein Google AI Studio API Key (Kostenlos verfügbar)
+### Requirements
+*   Linux (tested on Ubuntu/Debian/Fedora)
+*   Python 3.10 or higher
+*   A Google AI Studio API Key (Free tier available)
 
 ### Quick Start
 
 ```bash
-# 1. Repository klonen
+# 1. Clone repository
 git clone https://github.com/schnebeck/KPaperFlux.git
 cd KPaperFlux
 
-# 2. Virtuelle Umgebung erstellen
+# 2. Create virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
-# 3. Abhängigkeiten installieren
+# 3. Install dependencies
 pip install -r requirements.txt
 ```
 
-### Konfiguration
-Erstelle die Datei `~/.config/kpaperflux/KPaperFlux.conf`:
+### Configuration
+Create the file `~/.config/kpaperflux/KPaperFlux.conf`:
 
 ```ini
 [General]
 debug_mode=true
 
 [AI]
-api_key=DEIN_GEMINI_API_KEY_HIER
+api_key=YOUR_GEMINI_API_KEY_HERE
 gemini_model=gemini-2.5-flash
 ```
 
 ---
 
-## 📚 Entwicklung
+## 📚 Development
 
-KPaperFlux folgt strengen **Clean Code** und **TDD** (Test Driven Development) Prinzipien.
-Entwickler finden detaillierte Dokumentation im Ordner `devel/`:
+KPaperFlux follows strict **Clean Code** and **TDD** (Test Driven Development) principles.
+Developers can find detailed documentation in the `devel/` folder:
 
-*   `Agenten-Framework.md`: Unsere Philosophie für AI-gestützte Entwicklung.
-*   `TDD_Strategie_KPaperFlux.md`: Wie wir testen (PyTest, Mocks).
+*   `Agenten-Framework.md`: Our philosophy for AI-assisted development.
+*   `TDD_Strategie_KPaperFlux.md`: How we test (PyTest, Mocks).
 
 ---
 
 ## 🤝 Contributing
 
-Contributions sind willkommen! Bitte erstelle Issues für Bugs oder Feature-Requests.
+Contributions are welcome! Please create issues for bugs or feature requests.
 
 ---
 
