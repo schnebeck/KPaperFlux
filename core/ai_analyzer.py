@@ -1006,7 +1006,7 @@ TASK:
             
         try:
             res_json = json.loads(txt)
-            print(f"\n=== [STAGE 1/GENERIC AI RESPONSE] ===\n{json.dumps(res_json, indent=2)}\n===================================\n")
+            print(f"\n=== [{stage_label} RESPONSE] ===\n{json.dumps(res_json, indent=2)}\n===================================\n")
             return res_json
         except:
             print("Failed to parse JSON")
