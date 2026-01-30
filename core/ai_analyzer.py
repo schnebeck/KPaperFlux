@@ -1440,7 +1440,15 @@ TASK:
             # Backward compatibility / fallback
             raw_ocr_pages = [raw_ocr_pages]
 
-        # 1. Text Merging (Arbiter Logic)
+        # 1. Safety Net: Page Limit for Stage 2
+        # Gemini's output limit is approx 8k tokens. Generating repaired_text for > 15 pages 
+        # would likely hit this limit and truncate the JSON response.
+        MAX_PAGES_STAGE2 = 15
+        if len(raw_ocr_pages) > MAX_PAGES_STAGE2:
+            print(f"[Stage 2] WARNING: Document has {len(raw_ocr_pages)} pages. Truncating to {MAX_PAGES_STAGE2} for semantic extraction to avoid output token limits.")
+            raw_ocr_pages = raw_ocr_pages[:MAX_PAGES_STAGE2]
+
+        # 2. Text Merging (Arbiter Logic)
         best_text = self.assemble_best_text_source(raw_ocr_pages, stage_1_5_result)
 
         # 2. Image Prep (Vision Support)
