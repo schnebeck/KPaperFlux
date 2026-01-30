@@ -170,7 +170,12 @@ class MetadataEditorWidget(QWidget):
         general_layout.addRow(self.tr("Pages:"), self.page_count_lbl)
 
         self.status_combo = QComboBox()
-        self.status_combo.addItems(["NEW", "PROCESSING", "PROCESSED", "ERROR"])
+        self.status_combo.addItems([
+            "NEW", "READY_FOR_PIPELINE", 
+            "PROCESSING", "PROCESSING_S1", "PROCESSING_S1_5", "PROCESSING_S2",
+            "STAGE1_HOLD", "STAGE1_5_HOLD", "STAGE2_HOLD",
+            "PROCESSED", "ERROR"
+        ])
         general_layout.addRow(self.tr("Status:"), self.status_combo)
 
         self.export_filename_edit = QLineEdit()

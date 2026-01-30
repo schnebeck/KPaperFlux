@@ -24,7 +24,7 @@ from core.config import AppConfig
 from core.integrity import IntegrityManager
 
 # GUI Imports
-from gui.workers import AIQueueWorker, ImportWorker, MainLoopWorker, SimilarityWorker, ReprocessWorker
+from gui.workers import ImportWorker, MainLoopWorker, SimilarityWorker, ReprocessWorker
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
@@ -219,20 +219,10 @@ class MainWindow(QMainWindow):
         if self.db_manager and hasattr(self, 'list_widget') and isinstance(self.list_widget, DocumentListWidget):
             self.list_widget.refresh_list()
 
-        # Start AI Worker
         if self.pipeline:
-             self.ai_worker = AIQueueWorker(self.pipeline)
-             self.ai_worker.doc_updated.connect(self._on_ai_doc_updated)
-             self.ai_worker.status_changed.connect(self._on_ai_status_changed)
-             self.ai_worker.start()
-
-             # Phase 107 Update: Connect AI individual worker errors too
-             if hasattr(self.ai_worker, 'fatal_error'):
-                 self.ai_worker.fatal_error.connect(self._on_fatal_pipeline_error)
-
              self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
-             # Connect to refresh list when documents are processed
-             self.main_loop_worker.documents_processed.connect(self.list_widget.refresh_list)
+             self.main_loop_worker.documents_processed.connect(self._on_pipeline_documents_processed)
+             self.main_loop_worker.status_changed.connect(self._on_ai_status_changed)
              self.main_loop_worker.fatal_error.connect(self._on_fatal_pipeline_error)
              self.main_loop_worker.start()
 
@@ -544,6 +534,39 @@ class MainWindow(QMainWindow):
 
         return None
 
+    def _on_pipeline_documents_processed(self):
+        """Unified handler for background pipeline completions."""
+        if hasattr(self, 'list_widget'):
+            self.list_widget.refresh_list()
+        
+        # Phase 107: Auto-refresh editor if something is selected
+        self._refresh_current_editor_selection()
+        
+        # Refresh Stats
+        if hasattr(self, "dashboard_widget"):
+             self.dashboard_widget.refresh_stats()
+
+    def _refresh_current_editor_selection(self):
+        """Re-fetches and updates the content of the metadata editor for current selection."""
+        if not hasattr(self, 'list_widget') or not hasattr(self, 'editor_widget') or not self.db_manager:
+            return
+            
+        # Only refresh if editor is actually open/visible 
+        if not self.editor_widget.isVisible():
+            return
+
+        uuids = self.list_widget.get_selected_uuids()
+        if not uuids:
+            return
+
+        docs = []
+        for uuid in uuids:
+            d = self.db_manager.get_document_by_uuid(uuid)
+            if d: docs.append(d)
+
+        if docs:
+            self.editor_widget.display_documents(docs)
+
     def _on_document_selected(self, uuids: list[str]):
         """Callback when selection changes in document list."""
         if not uuids:
@@ -781,12 +804,10 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'dashboard_widget') and self.dashboard_widget:
             self.dashboard_widget.refresh_stats()
 
-        # Async: Queue for AI Analysis
-        if hasattr(self, 'ai_worker') and self.ai_worker and processed_uuids:
-            for uid in processed_uuids:
-                self.ai_worker.add_task(uid)
+        # Phase 107 Update: We NO LONGER add tasks manually to ai_worker.
+        # The MainLoopWorker will pick up 'NEW' documents automatically.
 
-        show_selectable_message_box(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nAI Analysis queued.", icon=QMessageBox.Icon.Information)
+        show_selectable_message_box(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nProcessing will continue in background.", icon=QMessageBox.Icon.Information)
 
     def start_import_process(self, files: list[str], move_source: bool = False):
         """
@@ -1202,10 +1223,8 @@ class MainWindow(QMainWindow):
 
                   if d:
                       print(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
-                      # Queue for Background AI (Stage 1)
-                      if hasattr(self, 'ai_worker') and self.ai_worker:
-                           self.ai_worker.add_task(uid)
-                           queued_count += 1
+                      # Note: MainLoopWorker will pick this up via status 'NEW'
+                      queued_count += 1
                   else:
                       print(f"[DEBUG] Import Finished: UUID={uid} NOT FOUND in DB!")
 
@@ -1216,7 +1235,7 @@ class MainWindow(QMainWindow):
 
              if not error_msg and not splitter_opened:
                   show_selectable_message_box(self, self.tr("Import Finished"),
-                                               self.tr(f"Imported {len(imported_uuids)} documents.\n{queued_count} queued for AI analysis."),
+                                               self.tr(f"Imported {len(imported_uuids)} documents.\nBackground processing started."),
                                                icon=QMessageBox.Icon.Information)
 
         if hasattr(self, "dashboard_widget"):
@@ -1225,10 +1244,6 @@ class MainWindow(QMainWindow):
         if hasattr(self, "filter_tree_widget"):
              self.filter_tree_widget.load_tree()
 
-    def _on_ai_doc_updated(self, uuid, doc):
-        """Called when AI finishes a doc in background."""
-        if self.list_widget:
-             self.list_widget.update_document_item(doc)
 
     def _on_ai_status_changed(self, msg):
         self.statusBar().showMessage(msg)
@@ -1420,9 +1435,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent):
         """Handle window close."""
         if hasattr(self, 'ai_worker') and self.ai_worker: self.ai_worker.stop()
-        if hasattr(self, 'main_loop_worker') and self.main_loop_worker: self.main_loop_worker.stop()
-
         # Cancel background workers to kill subprocesses
+        if hasattr(self, 'main_loop_worker') and self.main_loop_worker: self.main_loop_worker.stop()
         if hasattr(self, 'import_worker') and self.import_worker: self.import_worker.cancel()
         if hasattr(self, 'batch_worker') and self.batch_worker: self.batch_worker.cancel()
         if hasattr(self, 'reprocess_worker') and self.reprocess_worker: self.reprocess_worker.cancel()

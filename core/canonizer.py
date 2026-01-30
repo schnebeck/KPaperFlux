@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/canonizer.py
+Version:        1.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity (Gemini 3pro)
+Description:    Canonization service that orchestrates the document processing
+                pipeline, including splitting, visual auditing, and extraction.
+------------------------------------------------------------------------------
+"""
 from typing import List, Optional
 from core.database import DatabaseManager
 from core.document import Document
@@ -155,6 +166,7 @@ class CanonizerService:
         is_stage2_resumption = status in ['STAGE2_PENDING', 'PROCESSING_S1_5', 'PROCESSING_S2']
         detected_entities = []
         is_hybrid = False
+        locked_by_me = False
 
         if is_stage2_resumption:
              print(f"[AI] Pipeline [RESUME] -> Stage 2 (Status: {status})")
@@ -175,14 +187,14 @@ class CanonizerService:
                 if not self._atomic_transition(v_doc, ['NEW', 'READY_FOR_PIPELINE'], 'PROCESSING_S1'):
                      print(f"[Canonizer] Failed atomic lock for S1. Skipping.")
                      return False
+                locked_by_me = True
             elif status == 'PROCESSING_S1':
-                 # This document is already being handled. 
-                 # If we are the worker that locked it, we are fine. 
-                 # But how to distinguish? 
-                 # For now, if it's ALREADY in PROCESSING_S1 and we didn't just transition it,
-                 # we risk double-processing if we continue.
-                 # Let's check a local cache of 'locked_by_me' if we want to be perfect.
-                 pass
+                 # This might happen if process_pending_documents pre-locked it
+                 locked_by_me = True
+            elif status.startswith('PROCESSING_'):
+                 # This document is already being handled by another thread/worker.
+                 print(f"[Canonizer] Document {v_doc.uuid[:8]} is already {status}. Skipping to avoid overlap.")
+                 return False
 
             # 2. AI Analysis (Stage 1: Classification & Split)
             priv_json = self.config.get_private_profile_json()
@@ -193,11 +205,11 @@ class CanonizerService:
             struct_res = self.analyzer.run_stage_1_adaptive(pages_text, priv_id, bus_id)
             print(f"[AI] Stage 1.1 (Classification) [DONE]")
 
-            # --- CRITICAL FIX: Handle AI Failure (None) ---
+            # --- CRITICAL FIX: Handle AI Failure (None) -> Set HOLD ---
             if struct_res is None:
-                print(f"[Canonizer] Stage 1.1 AI Analysis returned None (Rate Limit/Timeout). Aborting process for {v_doc.uuid}.")
-                # Return False ensures the document status is NOT updated to PROCESSED
-                # It will remain NEW and be retried later.
+                print(f"[Canonizer] Stage 1.1 AI Analysis failed after all retries. Setting STAGE1_HOLD for {v_doc.uuid}.")
+                v_doc.status = "STAGE1_HOLD"
+                self.logical_repo.save(v_doc)
                 return False
             # ----------------------------------------------
 
@@ -322,7 +334,9 @@ class CanonizerService:
                 # Let's be strict for now to ensure data quality.
                 if audit_res is None and self.visual_auditor.is_ai_enabled():
                      # Only abort if audit was attempted but failed technically
-                     print(f"[Canonizer] Stage 1.5 AI Failed. Aborting.")
+                     print(f"[Canonizer] Stage 1.5 AI Failed. Setting STAGE1_5_HOLD for {target_doc.uuid}.")
+                     target_doc.status = "STAGE1_5_HOLD"
+                     self.logical_repo.save(target_doc)
                      return False
 
                 if audit_res:
@@ -350,14 +364,17 @@ class CanonizerService:
 
             # [STAGE 2] Semantic Extraction
             # Gate: Only transition to PROCESSING_S2 if we are currently in a valid preceding state
+            # If it's ALREADY PROCESSING_S2, and we are NOT the one who set it (locked_by_me), skip.
             if target_doc.status in ['STAGE2_PENDING', 'PROCESSING_S1_5', 'PROCESSING_S1']:
                 if not self._atomic_transition(target_doc, ['STAGE2_PENDING', 'PROCESSING_S1_5', 'PROCESSING_S1'], 'PROCESSING_S2'):
+                    print(f"[Canonizer] Failed atomic lock for S2. Skipping.")
                     continue
+                locked_by_me = True # We own this now
             elif target_doc.status == 'PROCESSING_S2':
-                # Already locked/resuming
-                pass
-            else:
-                 # This might happen if it was already PROCESSED by another thread
+                 # Already locked by this loop or process_pending_documents
+                 locked_by_me = True
+            elif target_doc.status.startswith('PROCESSING_') and not locked_by_me:
+                 print(f"[Canonizer] Document {target_doc.uuid[:8]} already in {target_doc.status}. Skipping.")
                  continue
 
             s1_context = {"detected_entities": [{"doc_types": c_types}]}
@@ -370,13 +387,13 @@ class CanonizerService:
                 pdf_path=pf.file_path if pf else None
             )
 
-            # --- CRITICAL FIX: Handle Stage 2 Failure ---
-            # run_stage_2 currently returns a Dict even on error (empty dict).
-            # If we want to be strict, we'd need to check emptiness or change analyzer.
-            # Assuming Stage 2 is "best effort", we proceed.
-            # BUT if we want retry on transient errors, AIAnalyzer.run_stage_2 needs to propagate None.
-            # For now, let's assume if 'bodies' is empty and text is long, something is wrong?
-            # Or trust the internal retries of AIAnalyzer.
+            # --- CRITICAL FIX: Handle Stage 2 Failure (AI Return None) -> Set HOLD ---
+            if semantic_extraction is None:
+                print(f"[Canonizer] Stage 2 AI Analysis failed after all retries. Setting STAGE2_HOLD for {target_doc.uuid}.")
+                target_doc.status = "STAGE2_HOLD"
+                self.logical_repo.save(target_doc)
+                return False
+            # -------------------------------------------------------------
 
             target_doc.semantic_data.update(semantic_extraction)
 

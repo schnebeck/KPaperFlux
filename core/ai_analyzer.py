@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/ai_analyzer.py
+Version:        1.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity (Gemini 3pro)
+Description:    Intelligence Layer for semantic document analysis and extraction.
+                Handles Google Gemini API interaction and adaptive scan modes.
+------------------------------------------------------------------------------
+"""
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 import datetime
@@ -241,21 +252,29 @@ class AIAnalyzer:
             self._wait_for_cooldown()
 
             try:
+                # Use provided config if any
+                req_config = None
+                call_contents = contents
+                if isinstance(contents, dict) and 'config' in contents:
+                    req_config = contents['config']
+                    call_contents = contents['contents']
+
                 response = self.client.models.generate_content(
                     model=self.model_name,
-                    contents=contents
+                    contents=call_contents,
+                    config=req_config
                 )
 
                 # Success: Decrease Adaptive Delay (Multiplicative Decrease)
                 if AIAnalyzer._adaptive_delay > 0:
-                     old_delay = AIAnalyzer._adaptive_delay
-                     AIAnalyzer._adaptive_delay = max(0.0, AIAnalyzer._adaptive_delay * 0.5)
-                     if AIAnalyzer._adaptive_delay < 0.1: AIAnalyzer._adaptive_delay = 0.0
-                     print(f"AI Success (Attempt {attempt+1}/{self.MAX_RETRIES}). Decreasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+                    old_delay = AIAnalyzer._adaptive_delay
+                    AIAnalyzer._adaptive_delay = max(0.0, AIAnalyzer._adaptive_delay * 0.5)
+                    if AIAnalyzer._adaptive_delay < 0.1: AIAnalyzer._adaptive_delay = 0.0
+                    print(f"AI Success (Attempt {attempt+1}/{self.MAX_RETRIES}). Decreasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
                 else:
-                     # Just log success if it was first or subsequent attempt
-                     if attempt > 0:
-                         print(f"AI Success after {attempt+1} attempts.")
+                    # Just log success if it was first or subsequent attempt
+                    if attempt > 0:
+                        print(f"AI Success after {attempt+1} attempts.")
 
                 return response
 
@@ -282,7 +301,7 @@ class AIAnalyzer:
                     # Ensure we respect the adaptive delay if it's higher
                     backoff = 2 * (2 ** attempt) + random.uniform(0, 1)
                     delay = max(backoff, AIAnalyzer._adaptive_delay)
-                    print(f"AI 429 Error. Backing off for {delay:.1f}s (Attempt {attempt+1}/{self.MAX_RETRIES})")
+                    print(f"[{attempt+1}/{self.MAX_RETRIES}] AI 429 (Rate Limit). Backing off for {delay:.1f}s (Adaptation: {AIAnalyzer._adaptive_delay:.1f}s)")
 
                     # Set Cooldown
                     AIAnalyzer._cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=delay)
@@ -998,8 +1017,32 @@ TASK:
         return errors
 
     def _generate_json(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Any:
-        """Helper to call Gemini with Retry and parse JSON."""
-        self._print_debug_prompt(stage_label, prompt)
+        """
+        High-level helper that handles both API retries and logical JSON retries.
+        If JSON is malformed or truncated, it tries a second time with a hint.
+        """
+        max_logical_retries = 2
+        current_attempt = 1
+        
+        while current_attempt <= max_logical_retries:
+            res = self._generate_json_raw(prompt, stage_label, images)
+            if res is not None:
+                return res
+            
+            # If we are here, parsing failed despite all internal repairs
+            if current_attempt < max_logical_retries:
+                print(f"[AI] Logical Retry {current_attempt}/{max_logical_retries} for {stage_label} due to JSON Error.")
+                # We could append a hint, but usually just retrying fixes transient hallucination/truncation
+                current_attempt += 1
+                time.sleep(1) # Small pause
+            else:
+                break
+        
+        return None
+
+    def _generate_json_raw(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Any:
+        """Internal helper to call Gemini and perform repair-based parsing."""
+        # self._print_debug_prompt(stage_label, prompt) # Moved to high level if needed
 
         contents = [prompt]
         if images:
@@ -1008,15 +1051,25 @@ TASK:
             else:
                 contents.append(images)
 
-        # print(f"\n--- [DEBUG AI PROMPT START] ---\n{prompt}\n--- [DEBUG AI PROMPT END] ---\n")
+        # Force JSON via API if supported
+        full_payload = {
+            'contents': contents,
+            'config': types.GenerateContentConfig(
+                response_mime_type='application/json',
+                max_output_tokens=8192,
+                temperature=0.1 # Low temperature for strict extraction
+            )
+        }
 
-        response = self._generate_with_retry(contents)
+        response = self._generate_with_retry(full_payload)
 
         if not response or not response.candidates:
             return None
             
         candidate = response.candidates[0]
-        if candidate.finish_reason == "MAX_TOKENS":
+        is_truncated = candidate.finish_reason == "MAX_TOKENS"
+        
+        if is_truncated:
             print(f"⚠️ [AI] WARNING: Response for {stage_label} was TRUNCATED due to output token limit!")
         elif candidate.finish_reason != "STOP" and candidate.finish_reason is not None:
              print(f"⚠️ [AI] WARNING: Response for {stage_label} finished with reason: {candidate.finish_reason}")
@@ -1027,51 +1080,94 @@ TASK:
             print(f"[AI] Error: Could not access response text: {e}")
             return None
 
-        txt = response.text
-        # Robust JSON extraction: Find the first '{' and the last '}'
-        start = txt.find('{')
-        end = txt.rfind('}')
-
-        if start == -1 or end == -1:
-            print(f"[AI] Error: No JSON object found in response for {stage_label}")
-            return None
-
-        json_str = txt[start:end+1]
-        
         # Clean control characters (null bytes, etc.) that break JSON
-        json_str = json_str.replace("\x00", "") 
+        txt = txt.replace("\x00", "") 
+
+        # Robust JSON extraction: Find the first '{' 
+        start = txt.find('{')
+        if start == -1: return None
+
+        def attempt_repair(s: str) -> str:
+            """Heuristic JSON repair for common AI mistakes."""
+            # 1. Remove trailing commas before closing braces/brackets
+            s = re.sub(r',\s*([\]}])', r'\1', s)
+            # 2. Fix missing commas between fields: "}\s*\n\s*\"" -> "},\n\""
+            s = re.sub(r'}\s*\n\s*"', r'},\n"', s)
+            s = re.sub(r'\]\s*\n\s*"', r'],\n"', s)
+            return s
 
         try:
             res_json = None
-            current_end = end
+            current_json = None
             
-            while current_end > start:
+            # Tiered Parse Attempt
+            for step in range(4):
                 try:
-                    # strict=False allows control characters like newlines in strings
-                    res_json = json.loads(txt[start:current_end+1], strict=False)
+                    if step == 0:
+                        # Attempt 0: Find last '}'
+                        end = txt.rfind('}')
+                        if end == -1: continue
+                        current_json = txt[start:end+1]
+                    elif step == 1:
+                        # Attempt 1: Balanced Braces (Ignore trailing text)
+                        depth = 0
+                        balanced_end = -1
+                        for idx, char in enumerate(txt[start:]):
+                            if char == '{': depth += 1
+                            elif char == '}': 
+                                depth -= 1
+                                if depth == 0:
+                                    balanced_end = start + idx
+                                    break
+                        if balanced_end != -1:
+                            current_json = txt[start:balanced_end+1]
+                        else: continue
+                    elif step == 2:
+                        # Attempt 2: Heuristic Repair
+                        if not current_json: continue
+                        current_json = attempt_repair(current_json)
+                    elif step == 3:
+                        # Attempt 3: Try to fix truncated JSON by adding closing braces
+                        if not current_json: continue
+                        depth = 0
+                        for char in current_json:
+                            if char == '{': depth += 1
+                            elif char == '}': depth -= 1
+                        if depth > 0:
+                             current_json += ("}" * depth)
+                        else: continue
+
+                    if not current_json: continue
+                    res_json = json.loads(current_json, strict=False)
                     break 
                 except json.JSONDecodeError as e:
-                    if "Extra data" in str(e):
-                        current_end = txt.rfind('}', start, current_end)
-                        if current_end == -1: break
-                    elif any(m in str(e) for m in ["Expecting ',' delimiter", "Expecting ':' delimiter"]):
-                        # Log line/col to help debug unescaped quotes
-                        line_no = getattr(e, 'lineno', 0)
-                        col_no = getattr(e, 'colno', 0)
-                        print(f"[AI] JSON Syntax Error at L{line_no},C{col_no} for {stage_label}")
-                        raise e
-                    else:
-                        raise e
+                    if step < 3: continue 
+                    
+                    line_no = getattr(e, 'lineno', 0)
+                    col_no = getattr(e, 'colno', 0)
+                    print(f"[AI] JSON Syntax Error at L{line_no},C{col_no} for {stage_label}")
+                    raise e
             
             if res_json is not None:
-                print(f"[AI] {stage_label} -> Success")
+                # If it was truncated but we repaired it, we check if it's usable.
+                # If Stage 2 returned empty bodies despite being truncated, we treat it as a failure to trigger retry.
+                if is_truncated and "bodies" in res_json and not res_json["bodies"]:
+                     print(f"[AI] Truncated response produced empty result. Forcing retry.")
+                     return None
                 return res_json
             else:
-                print(f"[AI] Failed to find valid JSON in response for {stage_label}")
                 return None
         except Exception as e:
+            # Propagate the syntax error details
             print(f"[AI] Failed to parse JSON for {stage_label}: {e}")
-            print(f"[AI] Raw start: {txt[:200]}...")
+            if hasattr(e, 'lineno'):
+                 print(f"[AI] Syntax Detail: Line {e.lineno}, Col {e.colno}")
+            
+            if hasattr(e, 'pos') and current_json:
+                err_pos = e.pos
+                snippet = current_json[max(0, err_pos-40):min(len(current_json), err_pos+40)]
+                print(f"[AI] Error Context: ... {snippet} ...")
+
             return None
 
     # ==============================================================================
@@ -1557,7 +1653,7 @@ Analyze the image to find the **Geometric Master-Plan**:
 
 ### 2. MISSION: FULL-TEXT PATTERN SCANNING
 Apply the blueprint found on Page 1 to the **ENTIRE RAW OCR TEXT** (all pages provided below):
-- **Think Out Loud:** Use the `reasoning` field in the JSON to explain what you are doing. "Plaudere" ein bisschen darüber, welche Muster du im Raw-OCR erkennst, ob du die Tabellenfortsetzung auf Seite 2 gefunden hast und warum du bestimmte Werte so zugeordnet hast.
+- **Think Out Loud:** Use the `reasoning` field in the JSON to explain what you are doing. Briefly explain which patterns you recognize in the raw OCR, if you found table continuations on subsequent pages, and why you assigned certain values.
 - **Pattern Matching:** Search the raw OCR stream for content that matches the geometric structure from Page 1.
 - **Consistency:** Use the image to 'calibrate' your reading of the raw OCR.
 - **Table Expansion:** If a table continues on Page 2 or Page 3, use the identified layout from Page 1 to extract and append every single row into the semantic list.
@@ -1584,7 +1680,11 @@ These data points have ALREADY been processed and mapped to the system.
   1. **Seitenunabhängigkeit:** Scan ALL pages. Do not stop after Page 1.
   2. **Ignore Stamp Noise:** These anchors are already handled. Strictly ignore their text content and do NOT include or reference them in your JSON response or reasoning.
   3. **Visual Supremacy:** If Raw OCR and Image/Reasoning conflict, the Image and your Logic are the source of truth. Correct OCR errors in your output JSON.
-  4. **Auto-Discovery:** Fill mandatory fields for {doc_type}, but also fill 'finance_body', 'legal_body', etc., if the text provides patterns for them.
+  4. **Target Specificity & Compliance:** 
+     - Focus PRIMARILY on extracting fields relevant to `{doc_type}`. 
+     - **MANDATORY:** You MUST provide the specific body key defined in the schema (e.g. `finance_body` for Invoices, `career_body` for Certificates). 
+     - If the document is hybrid and contains other data, you may fill multiple body keys.
+     - **BEWARE:** Do NOT return generic data under a wrong key. Ensure the category names match the TARGET SCHEMA exactly.
   5. **Strict Omission:** Do NOT return keys with null or empty values. Omit them entirely from the JSON.
 
 ### 5. TARGET SCHEMA
@@ -1625,32 +1725,44 @@ Return ONLY valid JSON.
                 target_schema_json=json.dumps(schema, indent=2),
                 long_doc_hint=long_doc_hint
             )
-
             try:
-                # Merge images_payload into contents for _generate_json
                 extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {doc_type}", images=images_payload)
-                
-                if not extraction: continue
+                if extraction:
+                    found_keys = []
+                    for key, value in extraction.items():
+                        if key.endswith("_body") or key in ["internal_routing", "verification", "travel_body"]:
+                            final_semantic_data["bodies"][key] = value
+                            found_keys.append(key)
+                    
+                    if not found_keys:
+                         print(f"[AI] STAGE 2: {doc_type} -> Success (But NO body-data found!)")
+                    else:
+                         print(f"[AI] STAGE 2: {doc_type} -> Success (Found: {', '.join(found_keys)})")
 
-                if not final_semantic_data["meta_header"]:
-                    final_semantic_data["meta_header"] = extraction.get("meta_header", {})
+                    if not final_semantic_data["meta_header"]:
+                        final_semantic_data["meta_header"] = extraction.get("meta_header", {})
 
-                if "reasoning" in extraction:
-                    final_semantic_data["reasoning"] = extraction["reasoning"]
+                    if "reasoning" in extraction:
+                        final_semantic_data["reasoning"] = extraction["reasoning"]
 
-                if extraction.get("repaired_text"):
-                    # Only take the first non-empty repair, or longest
-                    if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
-                        final_semantic_data["repaired_text"] = extraction["repaired_text"]
-
-                for key, value in extraction.items():
-                    if key.endswith("_body") or key in ["internal_routing", "verification", "travel_body"]:
-                        final_semantic_data["bodies"][key] = value
-
+                    if extraction.get("repaired_text"):
+                        if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
+                            final_semantic_data["repaired_text"] = extraction["repaired_text"]
+                else:
+                    print(f"[AI] STAGE 2: {doc_type} -> FAILED (JSON Error)")
             except Exception as e:
                 print(f"[AI] Stage 2 Error ({doc_type}): {e}")
 
-        print(f"[AI] Stage 2 (Extraction) [DONE]")
+        # Final Validation: Did we get anything useful?
+        bodies_count = len(final_semantic_data.get("bodies", {}))
+        has_meta = len(final_semantic_data.get("meta_header", {})) > 0
+        
+        if bodies_count == 0 and not has_meta:
+             print(f"[AI] Stage 2 (Extraction) [DONE] -> FAILED (No data extracted)")
+             return None
+
+        cat_str = "category" if bodies_count == 1 else "categories"
+        print(f"[AI] Stage 2 (Extraction) [DONE] -> Success ({bodies_count} {cat_str}: {', '.join(final_semantic_data['bodies'].keys())})")
         return final_semantic_data
 
     def generate_smart_filename(self, semantic_data: Dict, doc_types: List[str]) -> str:
