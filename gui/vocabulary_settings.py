@@ -1,8 +1,8 @@
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, 
+from PyQt6.QtWidgets import (    QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, 
     QLabel, QGroupBox, QLineEdit, QTableWidget, QTableWidgetItem,
     QHeaderView, QInputDialog, QMessageBox, QComboBox
 )
+from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt
 from core.vocabulary import VocabularyManager
 
@@ -154,7 +154,7 @@ class VocabularySettingsWidget(QWidget):
         # Target must be from types
         types = self.vocab.get_all_types()
         if not types:
-            QMessageBox.warning(self, self.tr("Error"), self.tr("Define types first."))
+            show_selectable_message_box(self, self.tr("Error"), self.tr("Define types first.", icon=QMessageBox.Icon.Warning))
             return
             
         alias, ok = QInputDialog.getText(self, self.tr("Add Alias"), self.tr("Alias (e.g. Rechnung):"))
@@ -188,7 +188,7 @@ class VocabularySettingsWidget(QWidget):
     def _add_tag_alias(self):
         tags = self.vocab.get_all_tags()
         if not tags:
-            QMessageBox.warning(self, self.tr("Error"), self.tr("Define tags first."))
+            show_selectable_message_box(self, self.tr("Error"), self.tr("Define tags first.", icon=QMessageBox.Icon.Warning))
             return
             
         alias, ok = QInputDialog.getText(self, self.tr("Add Alias"), self.tr("Alias (e.g. Wichtig):"))

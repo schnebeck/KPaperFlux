@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QCheckBox, QFileDialog, QProgressBar, QMessageBox)
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,                              QLabel, QCheckBox, QFileDialog, QProgressBar, QMessageBox)
+from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from core.exporter import DocumentExporter
 
@@ -108,8 +108,8 @@ class ExportDialog(QDialog):
     def on_finished(self, success, error_msg):
         self.btn_cancel.setEnabled(True)
         if success:
-            QMessageBox.information(self, self.tr("Success"), self.tr("Export completed successfully."))
+            show_selectable_message_box(self, self.tr("Success"), self.tr("Export completed successfully.", icon=QMessageBox.Icon.Information))
             self.accept()
         else:
-            QMessageBox.critical(self, self.tr("Error"), self.tr(f"Export failed:\n{error_msg}"))
+            show_selectable_message_box(self, self.tr("Error"), self.tr(f"Export failed:\n{error_msg}", icon=QMessageBox.Icon.Critical))
             self.btn_export.setEnabled(True)

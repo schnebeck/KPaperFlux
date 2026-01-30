@@ -1,4 +1,3 @@
-
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, 
                              QPushButton, QLabel, QCheckBox, QComboBox, QDialogButtonBox, QMessageBox)
 from PyQt6.QtCore import Qt

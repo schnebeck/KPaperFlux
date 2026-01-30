@@ -1,4 +1,3 @@
-
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QMessageBox, QTabWidget, QCheckBox, QComboBox, QDateEdit,
@@ -8,12 +7,15 @@ import json
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate
 from core.document import Document
 from core.database import DatabaseManager
-from gui.utils import format_datetime
-from gui.widgets.multi_select_combo import MultiSelectComboBox
-from gui.widgets.tag_input import TagInputWidget
 from core.models.canonical_entity import DocType
 
+# GUI Imports
+from gui.utils import format_datetime, show_selectable_message_box
+from gui.widgets.multi_select_combo import MultiSelectComboBox
+from gui.widgets.tag_input import TagInputWidget
+
 class MetadataEditorWidget(QWidget):
+
     """
     Simplified Widget to edit virtual document metadata for Stage 0/1.
     """
@@ -24,16 +26,16 @@ class MetadataEditorWidget(QWidget):
         self.db_manager = db_manager
         self.current_uuids = []
         self.doc = None
-        
+
         self._init_ui()
-        
+
     def set_db_manager(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Lock Checkbox
         self.chk_locked = QCheckBox("Locked (Immutable)")
         self.chk_locked.clicked.connect(self.on_lock_clicked)
@@ -41,36 +43,36 @@ class MetadataEditorWidget(QWidget):
 
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
-        
+
         # --- Tab 1: General ---
         self.general_scroll = QScrollArea()
         self.general_scroll.setWidgetResizable(True)
         self.general_content = QWidget()
         self.general_scroll.setWidget(self.general_content)
-        
+
         general_layout = QFormLayout(self.general_content)
-        
+
         self.uuid_lbl = QLabel()
         self.uuid_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         general_layout.addRow("UUID:", self.uuid_lbl)
-        
+
         self.created_at_lbl = QLabel()
         general_layout.addRow(self.tr("Created At:"), self.created_at_lbl)
-        
+
         self.page_count_lbl = QLabel()
         general_layout.addRow(self.tr("Pages:"), self.page_count_lbl)
-        
+
         self.status_combo = QComboBox()
         self.status_combo.addItems(["NEW", "PROCESSING", "PROCESSED", "ERROR"])
         general_layout.addRow(self.tr("Status:"), self.status_combo)
-        
+
         self.export_filename_edit = QLineEdit()
         general_layout.addRow(self.tr("Export Name:"), self.export_filename_edit)
-        
+
         self.tags_edit = TagInputWidget()
         self.tags_edit.setToolTip(self.tr("Custom Tags: Enter keywords, separated by commas or Enter."))
         general_layout.addRow(self.tr("Tags:"), self.tags_edit)
-        
+
         self.tab_widget.addTab(self.general_scroll, self.tr("General"))
 
         # --- Tab 2: Analysis & AI Core ---
@@ -112,11 +114,11 @@ class MetadataEditorWidget(QWidget):
         analysis_layout.addRow(self.tr("AI Reasoning:"), self.reasoning_view)
 
         self.tab_widget.addTab(self.analysis_scroll, self.tr("Analysis"))
-        
+
         # --- Tab: Stamps (Stage 1.5) - Phase 105 ---
         self.stamps_tab = QWidget()
         stamps_layout = QVBoxLayout(self.stamps_tab)
-        
+
         self.stamps_table = QTableWidget()
         self.stamps_table.setColumnCount(4)
         self.stamps_table.setHorizontalHeaderLabels([
@@ -124,7 +126,7 @@ class MetadataEditorWidget(QWidget):
         ])
         self.stamps_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         stamps_layout.addWidget(self.stamps_table)
-        
+
         stamps_btn_layout = QHBoxLayout()
         self.btn_add_stamp = QPushButton(self.tr("Add Stamp"))
         self.btn_add_stamp.clicked.connect(self._add_stamp_row)
@@ -134,7 +136,7 @@ class MetadataEditorWidget(QWidget):
         stamps_btn_layout.addWidget(self.btn_remove_stamp)
         stamps_btn_layout.addStretch()
         stamps_layout.addLayout(stamps_btn_layout)
-        
+
         # Hide by default, shown in display_document
         self.tab_widget.addTab(self.stamps_tab, self.tr("Stamps"))
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.stamps_tab), False)
@@ -142,7 +144,7 @@ class MetadataEditorWidget(QWidget):
         # --- Tab 2: Source Mapping (Component List) ---
         self.source_tab = QWidget()
         source_layout = QVBoxLayout(self.source_tab)
-        
+
         self.source_viewer = QTextEdit()
         self.source_viewer.setReadOnly(True)
         # Monospace for JSON/Structure
@@ -150,23 +152,23 @@ class MetadataEditorWidget(QWidget):
         font.setFamily("Monospace")
         font.setStyleHint(font.StyleHint.Monospace)
         self.source_viewer.setFont(font)
-        
+
         source_layout.addWidget(QLabel(self.tr("Physical Source Components:")))
         source_layout.addWidget(self.source_viewer)
-        
+
         self.tab_widget.addTab(self.source_tab, self.tr("Source Mapping"))
 
         # --- Tab 3: Raw Semantic Data ---
         self.semantic_tab = QWidget()
         semantic_layout = QVBoxLayout(self.semantic_tab)
-        
+
         self.semantic_viewer = QTextEdit()
         self.semantic_viewer.setReadOnly(True)
         self.semantic_viewer.setFont(font)
-        
+
         semantic_layout.addWidget(QLabel(self.tr("Raw Virtual Document Storage:")))
         semantic_layout.addWidget(self.semantic_viewer)
-        
+
         semantic_layout.addWidget(QLabel(self.tr("Cached Full Text:")))
         self.full_text_viewer = QTextEdit()
         self.full_text_viewer.setReadOnly(True)
@@ -192,14 +194,14 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.setEnabled(not checked)
 
     def display_documents(self, docs: list[Document]):
-        self.doc = None 
+        self.doc = None
         self.current_uuids = [d.uuid for d in docs]
-        
+
         if not docs:
             self.clear()
             return
-            
-        self.setEnabled(True)    
+
+        self.setEnabled(True)
         if len(docs) == 1:
             self.display_document(docs[0])
             return
@@ -221,7 +223,7 @@ class MetadataEditorWidget(QWidget):
         self.created_at_lbl.setText("-")
         pages = sum((d.page_count or 0) for d in docs)
         self.page_count_lbl.setText(f"Total: {pages}")
-        
+
         statuses = {getattr(d, "status", "NEW") for d in docs}
         if len(statuses) == 1:
             # Use status_combo for batch display as well
@@ -234,21 +236,21 @@ class MetadataEditorWidget(QWidget):
         else:
             self.status_combo.setCurrentIndex(-1) # No selection
             self.status_combo.setPlaceholderText("<Multiple Values>")
-            
+
         self.export_filename_edit.clear()
         self.export_filename_edit.setPlaceholderText("<Multiple Values>")
-        
+
         self.source_viewer.setPlainText(f"{len(docs)} documents selected.")
         self.semantic_viewer.setPlainText("-")
 
     def display_document(self, doc: Document):
         self.current_uuids = [doc.uuid]
         self.doc = doc
-        
+
         with QSignalBlocker(self.chk_locked):
              self.chk_locked.setChecked(doc.locked)
         self.toggle_lock(doc.locked)
- 
+
         self.uuid_lbl.setText(doc.uuid)
         self.created_at_lbl.setText(format_datetime(doc.created_at) or "-")
         self.page_count_lbl.setText(str(doc.page_count) if doc.page_count is not None else "-")
@@ -261,45 +263,45 @@ class MetadataEditorWidget(QWidget):
             self.status_combo.setCurrentText(stat)
 
         self.export_filename_edit.setText(doc.original_filename or "")
-        
+
         # Phase 106: Display User Tags from the dedicated 'tags' column
         user_tags = getattr(doc, "tags", []) or []
         if isinstance(user_tags, list):
             self.tags_edit.setTags(user_tags)
         else:
             self.tags_edit.setText(str(user_tags))
-        
+
         # AI / Analysis Fields
         sd = doc.semantic_data or {}
-        
+
         # Doc Types (Dynamic via Enum)
         dt = sd.get("doc_types", [])
         if not dt and getattr(doc, 'doc_type', None):
             # Legacy field compat
             dt = doc.doc_type if isinstance(doc.doc_type, list) else [doc.doc_type]
         self.doc_types_combo.setCheckedItems(dt)
-        
+
         # Directions & Context (Dynamic via standard values)
         # Note: We keep these UNKNOWN by default if nothing found
         # They will grow as the system evolves.
         self.direction_combo.setCurrentText(sd.get("direction", "UNKNOWN"))
         self.context_combo.setCurrentText(sd.get("tenant_context", "UNKNOWN"))
         self.reasoning_view.setText(sd.get("reasoning", ""))
-        
+
         # Stage 1.5 Stamps (Phase 105 Fix)
         # Check both direct 'layer_stamps' and nested 'visual_audit'
         audit_data = sd.get("visual_audit") or sd
         stamps = audit_data.get("layer_stamps") or audit_data.get("stamps") or []
-        
+
         self.stamps_table.setRowCount(0)
         idx_stamps = self.tab_widget.indexOf(self.stamps_tab)
-        
+
         if stamps:
             self.tab_widget.setTabVisible(idx_stamps, True)
             for s in stamps:
                 # A stamp block can have multiple fields (form_fields) or just raw_content
                 s_type = s.get("type", "STAMP")
-                
+
                 # Check for nested form fields (Forensic Auditor Output)
                 fields = s.get("form_fields", [])
                 if fields:
@@ -308,7 +310,7 @@ class MetadataEditorWidget(QWidget):
                         self.stamps_table.insertRow(row)
                         label = f.get("label", "")
                         val = f.get("normalized_value") or f.get("raw_value") or ""
-                        
+
                         self.stamps_table.setItem(row, 0, QTableWidgetItem(f"{s_type}: {label}"))
                         self.stamps_table.setItem(row, 1, QTableWidgetItem(str(val)))
                         self.stamps_table.setItem(row, 2, QTableWidgetItem(str(s.get("page", 1))))
@@ -326,7 +328,7 @@ class MetadataEditorWidget(QWidget):
 
         # Extracted Data
         self.sender_edit.setText(doc.sender or sd.get("sender", ""))
-        
+
         # Date Handling
         doc_date = doc.doc_date or sd.get("doc_date")
         if doc_date:
@@ -357,7 +359,7 @@ class MetadataEditorWidget(QWidget):
 
         # Full Text & Semantic Data
         self.full_text_viewer.setPlainText(getattr(doc, "text_content", "")) # Document object uses 'text_content'
-        
+
         # Display raw semantic data (AI Results) for debugging
         if hasattr(doc, "semantic_data") and doc.semantic_data:
             self.semantic_viewer.setPlainText(json.dumps(doc.semantic_data, indent=2, ensure_ascii=False))
@@ -393,19 +395,19 @@ class MetadataEditorWidget(QWidget):
         self.reasoning_view.clear()
         self.source_viewer.clear()
         self.semantic_viewer.clear()
-        self.setEnabled(False) 
+        self.setEnabled(False)
 
     def save_changes(self):
         if not self.current_uuids or not self.db_manager:
             return
         # 1. Base Metadata
         custom_tags = self.tags_edit.getTags()
-        
+
         # 2. Get Structured Data
         doc_types = self.doc_types_combo.getCheckedItems()
         direction = self.direction_combo.currentText()
         context = self.context_combo.currentText()
-        
+
         # 3. Reconstruct full type_tags (System + Custom)
         final_tags = list(doc_types) # Start with doc types
         if direction != "UNKNOWN" and direction not in final_tags:
@@ -414,12 +416,12 @@ class MetadataEditorWidget(QWidget):
             ctx_tag = f"CTX_{context}"
             if ctx_tag not in final_tags:
                 final_tags.append(ctx_tag)
-        
+
         # Append Custom Tags
         for ct in custom_tags:
             if ct not in final_tags:
                 final_tags.append(ct)
-        
+
         updates = {
             "status": self.status_combo.currentText(),
             "export_filename": self.export_filename_edit.text().strip(),
@@ -434,7 +436,23 @@ class MetadataEditorWidget(QWidget):
         sd["direction"] = direction
         sd["tenant_context"] = context
         sd["reasoning"] = self.reasoning_view.toPlainText().strip()
-        
+
+        # Phase 107: Automatic Pruning of mismatched semantic bodies
+        # Logic: If doc_types changed, remove bodies that don't belong to any of the NEW types.
+        mapping = {
+            "INVOICE": "finance_body", "RECEIPT": "finance_body", "ORDER_CONFIRMATION": "finance_body",
+            "DUNNING": "finance_body", "BANK_STATEMENT": "ledger_body", "CONTRACT": "legal_body",
+            "OFFICIAL_LETTER": "legal_body", "PAYSLIP": "hr_body", "MEDICAL_DOCUMENT": "health_body",
+            "UTILITY_BILL": "finance_body", "EXPENSE_REPORT": "travel_body"
+        }
+        if "bodies" in sd:
+            allowed_bodies = {mapping.get(dt.upper()) for dt in doc_types if mapping.get(dt.upper())}
+            # Keep bodies that are either allowed OR not in our known mapping (to avoid accidental data loss of custom bodies)
+            new_bodies = {k: v for k, v in sd["bodies"].items() if k in allowed_bodies or k not in mapping.values()}
+            if len(new_bodies) != len(sd["bodies"]):
+                print(f"[Phase 107] Pruned semantic bodies due to type change: {list(sd['bodies'].keys())} -> {list(new_bodies.keys())}")
+                sd["bodies"] = new_bodies
+
         # 3. Stamps Persistence (Phase 105 Fix: Handle hierarchy & overwriting)
         stamps_list = []
         for r in range(self.stamps_table.rowCount()):
@@ -444,16 +462,16 @@ class MetadataEditorWidget(QWidget):
             try:
                 conf_val = float(self.stamps_table.item(r, 3).text())
             except: conf_val = 1.0
-            
+
             raw_type = self.stamps_table.item(r, 0).text()
             val = self.stamps_table.item(r, 1).text()
-            
+
             # Un-flatten: "TYPE: Label" -> type=TYPE, form_field={label: Label, value: val}
             if ":" in raw_type:
                 parts = [p.strip() for p in raw_type.split(":", 1)]
                 s_type = parts[0]
                 label = parts[1]
-                
+
                 # Check if we already have a block for this type on this page
                 # (Simplification: treat each row as its own block for now, or group by type/page)
                 stamps_list.append({
@@ -472,7 +490,7 @@ class MetadataEditorWidget(QWidget):
                     "page": page_val,
                     "confidence": conf_val
                 })
-        
+
         # Persist as 'layer_stamps' inside visual_audit for consistency with filters
         if stamps_list or "visual_audit" in sd:
             if "visual_audit" not in sd: sd["visual_audit"] = {}
@@ -480,21 +498,21 @@ class MetadataEditorWidget(QWidget):
             sd["visual_audit"]["layer_stamps"] = stamps_list
             sd["visual_audit"]["stamps"] = stamps_list
             # Also check if it exists at root (Phase 105 AI compatibility)
-            if "layer_stamps" in sd: 
+            if "layer_stamps" in sd:
                 sd["layer_stamps"] = stamps_list
-        
+
         # Update flat document fields as well (Redundancy for filtering)
         updates["sender"] = self.sender_edit.text().strip()
         updates["amount"] = self.amount_edit.text().strip()
-        
+
         if self.date_edit.date().year() > 2000:
              updates["doc_date"] = self.date_edit.date().toString(Qt.DateFormat.ISODate)
-        
+
         updates["semantic_data"] = sd
-        
+
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)
              self.db_manager.touch_last_used(uuid)
-             
+
         self.metadata_saved.emit()
-        QMessageBox.information(self, self.tr("Saved"), self.tr("Changes saved to Database."))
+        show_selectable_message_box(self, self.tr("Saved"), self.tr("Changes saved to Database."), icon=QMessageBox.Icon.Information)

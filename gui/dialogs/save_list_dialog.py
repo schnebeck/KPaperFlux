@@ -1,4 +1,5 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QCheckBox, QDialogButtonBox, QMessageBox
+from gui.utils import show_selectable_message_box
 
 class SaveListDialog(QDialog):
     def __init__(self, parent=None, has_selection=False):
@@ -32,7 +33,7 @@ class SaveListDialog(QDialog):
         
     def validate_and_accept(self):
         if not self.input_name.text().strip():
-             QMessageBox.warning(self, self.tr("Error"), self.tr("Please enter a name."))
+             show_selectable_message_box(self, self.tr("Error"), self.tr("Please enter a name.", icon=QMessageBox.Icon.Warning))
              return
         self.accept()
         

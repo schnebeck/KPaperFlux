@@ -1,8 +1,8 @@
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
+from PyQt6.QtWidgets import (    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
     QSpinBox, QPushButton, QProgressBar, QMessageBox, QCheckBox,
     QStackedWidget, QWidget, QFormLayout, QFrame
 )
+from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer, QSettings
 from PyQt6.QtGui import QPixmap, QIcon
 from typing import Optional, List, Tuple
@@ -323,7 +323,7 @@ class ScannerDialog(QDialog):
         self.discovery_running = False
         self.loading_label.setText(self.tr("Fehler bei der Suche"))
         self.search_progress.setVisible(False)
-        QMessageBox.warning(self, self.tr("Suche fehlgeschlagen"), msg)
+        show_selectable_message_box(self, self.tr("Suche fehlgeschlagen"), msg, icon=QMessageBox.Icon.Warning)
         if self.stack.currentIndex() == 0:
              # Try to show settings anyway if we have cached data
              if self.device_combo.count() > 0:
@@ -367,7 +367,7 @@ class ScannerDialog(QDialog):
     def on_scan_error(self, msg):
         self.scan_progress.setVisible(False)
         self.scan_btn.setEnabled(True)
-        QMessageBox.critical(self, self.tr("Fehler"), msg)
+        show_selectable_message_box(self, self.tr("Fehler"), msg, icon=QMessageBox.Icon.Critical)
         
     def get_scanned_file(self) -> Optional[str]:
         return self.scanned_file

@@ -1,49 +1,67 @@
 from typing import Optional
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog,
     QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox, QStatusBar,
     QStackedWidget, QToolBar, QAbstractItemView, QProgressDialog
 )
 from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent, QKeySequence, QShortcut
-from PyQt6.QtCore import Qt, QSettings, QSize
+from PyQt6.QtCore import Qt, QSettings, QSize, QCoreApplication, QTimer
 import platform
 import os
 import sys
 import tempfile
-from core.importer import PreFlightImporter
-import PyQt6.QtCore
 import shutil
+import json
+from pathlib import Path
+
+# Core Imports
+from core.importer import PreFlightImporter
 from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager
 from core.stamper import DocumentStamper
 from core.filter_tree import FilterTree, NodeType
-import json
-from pathlib import Path
+from core.config import AppConfig
+from core.integrity import IntegrityManager
+
+# GUI Imports
 from gui.workers import AIQueueWorker, ImportWorker, MainLoopWorker, SimilarityWorker, ReprocessWorker
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
+from gui.dashboard import DashboardWidget
 from gui.advanced_filter import AdvancedFilterWidget
 from gui.settings_dialog import SettingsDialog
+from gui.splitter_dialog import SplitterDialog
+from gui.scanner_dialog import ScannerDialog
+from gui.duplicate_dialog import DuplicateFinderDialog
+from gui.maintenance_dialog import MaintenanceDialog
+from gui.stamper_dialog import StamperDialog
+from gui.batch_tag_dialog import BatchTagDialog
+from gui.tag_manager import TagManagerDialog
+from gui.utils import (
+    format_datetime,
+    format_date,
+    show_selectable_message_box
+)
 
 class MergeConfirmDialog(QDialog):
     def __init__(self, count, parent=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Confirm Merge"))
         layout = QVBoxLayout(self)
-        
+
         label = QLabel(self.tr(f"Merge {count} documents into a new combined entry?"))
         layout.addWidget(label)
-        
+
         self.check_keep = QCheckBox(self.tr("Keep original documents"))
         self.check_keep.setChecked(True)
         layout.addWidget(self.check_keep)
-        
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-        
+
     def keep_originals(self):
         return self.check_keep.isChecked()
 
@@ -55,7 +73,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.pipeline = pipeline
         self.db_manager = db_manager
-        
+
         # If pipeline is provided but db_manager checks, try to extract db from pipeline
         if self.pipeline and not self.db_manager:
             self.db_manager = self.pipeline.db
@@ -66,16 +84,16 @@ class MainWindow(QMainWindow):
         self.resize(1000, 700)
         self.setAcceptDrops(True)
         self.pending_selection = []
-        
+
         # Phase 105: Selection Tracking
         self._dashboard_selections = {} # query_str -> uuid
-        
+
         self.filter_config_path = Path("filter_tree.json").resolve()
-        
+
         self.create_menu_bar()
-        self.create_tool_bar() 
+        self.create_tool_bar()
         self.setup_shortcuts()
-        
+
         # --- Global Models ---
         self.filter_tree = FilterTree()
         self.load_filter_tree()
@@ -83,36 +101,35 @@ class MainWindow(QMainWindow):
         # Central Widget is now a Stacked Widget
         self.central_stack = QStackedWidget()
         self.setCentralWidget(self.central_stack)
-        
+
         # --- Page 0: Dashboard (Home) ---
-        from gui.dashboard import DashboardWidget
         self.dashboard_widget = DashboardWidget(self.db_manager, filter_tree=self.filter_tree)
         self.dashboard_widget.navigation_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.dashboard_widget)
-        
+
         # --- Page 1: Explorer (Splitter) ---
         self.explorer_widget = QWidget()
         explorer_layout = QVBoxLayout(self.explorer_widget)
         explorer_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Main Splitter (Left Pane | Right Pane) -- Re-parented to explorer_layout
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         explorer_layout.addWidget(self.main_splitter)
-        
+
         self.central_stack.addWidget(self.explorer_widget)
         self.central_stack.setCurrentIndex(0) # Start with Dashboard
-        
+
         # --- Left Pane (Filter | List | Editor) ---
         self.left_pane_splitter = QSplitter(Qt.Orientation.Vertical)
-        
+
         # 1. Unified Filter Controller (Tabs: Suche | Ansicht | Auto-Tagging)
         self.advanced_filter = AdvancedFilterWidget(
-            db_manager=self.db_manager, 
+            db_manager=self.db_manager,
             filter_tree=self.filter_tree,
             save_callback=self.save_filter_tree
         )
         self.left_pane_splitter.addWidget(self.advanced_filter)
-        
+
         if self.db_manager:
             self.list_widget = DocumentListWidget(self.db_manager, filter_tree=self.filter_tree)
             self.list_widget.document_selected.connect(self._on_document_selected)
@@ -126,50 +143,51 @@ class MainWindow(QMainWindow):
             self.list_widget.document_count_changed.connect(self.update_status_bar)
             self.list_widget.save_list_requested.connect(self.save_static_list)
             self.list_widget.apply_rule_requested.connect(self._on_rule_apply_requested)
-              
+
             # Connect Filter
-            # IMPORTANT: Connect local handler FIRST so current_search_text is updated 
+            # IMPORTANT: Connect local handler FIRST so current_search_text is updated
             # BEFORE the list refreshes and triggers selection logic.
-            self.advanced_filter.filter_changed.connect(self._on_filter_changed) 
+            self.advanced_filter.filter_changed.connect(self._on_filter_changed)
             self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
-            
+
             self.advanced_filter.trash_mode_changed.connect(self.set_trash_mode)
-              
+
             # Phase 92: Trash Actions
             self.list_widget.restore_requested.connect(self.restore_documents_slot)
             self.list_widget.purge_requested.connect(self.purge_documents_slot)
+            self.list_widget.stage2_requested.connect(self.run_stage_2_selected_slot)
             self.list_widget.active_filter_changed.connect(self._on_view_filter_changed)
-              
+
             # Phase 105: Active Filter Precedence
             self.advanced_filter.chk_active.toggled.connect(self.list_widget.set_advanced_filter_active)
             # Synchronize initial state
             self.list_widget.advanced_filter_active = self.advanced_filter.chk_active.isChecked()
-              
+
             # Phase 106: Rule Application Scope
             self.advanced_filter.request_apply_rule.connect(self._on_rule_apply_requested)
             self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
-              
+
             self.left_pane_splitter.addWidget(self.list_widget)
 
             # --- FIX: Metadata Editor (Unten links) ---
             # Dieser Block fehlte oder war unvollständig, was zum Absturz führte.
             self.editor_widget = MetadataEditorWidget(self.db_manager)
-            
+
             # Connect Editor Signals
             self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
             if hasattr(self, 'dashboard_widget'):
                  self.editor_widget.metadata_saved.connect(self.dashboard_widget.refresh_stats)
             # Phase 105: Ensure Rule Editor stays in sync
             self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
-                 
+
             self.left_pane_splitter.addWidget(self.editor_widget)
             self.editor_widget.setVisible(False)
             # ------------------------------------------
-        
+
         # Add Left Pane to Main Splitter
         self.main_splitter.addWidget(self.left_pane_splitter)
-        
-        
+
+
         # --- Right Pane (PDF Viewer) ---
         self.pdf_viewer = PdfViewerWidget(self.pipeline)
         self.pdf_viewer.stamp_requested.connect(self.stamp_document_slot)
@@ -181,22 +199,22 @@ class MainWindow(QMainWindow):
             self.pdf_viewer.document_changed.connect(self.list_widget.refresh_list)
         self.pdf_viewer.split_requested.connect(self.open_splitter_dialog_slot)
         self.main_splitter.addWidget(self.pdf_viewer)
-        
+
         # Set Initial Sizes
         # Left Pane: 10% Filter, 60% List, 30% Editor
         self.left_pane_splitter.setSizes([70, 420, 210])
         self.left_pane_splitter.setCollapsible(0, False) # Keep filter visible
-        
+
         # Main Splitter: Left 40%, Right 60%
         self.main_splitter.setSizes([400, 600])
         self.main_splitter.setCollapsible(1, True) # Allow shrinking viewer
-        self.main_splitter.setHandleWidth(4) 
+        self.main_splitter.setHandleWidth(4)
 
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage(self.tr("Ready"))
-        
+
         self.read_settings()
-        
+
         # Initial Refresh
         if self.db_manager and hasattr(self, 'list_widget') and isinstance(self.list_widget, DocumentListWidget):
             self.list_widget.refresh_list()
@@ -207,11 +225,15 @@ class MainWindow(QMainWindow):
              self.ai_worker.doc_updated.connect(self._on_ai_doc_updated)
              self.ai_worker.status_changed.connect(self._on_ai_status_changed)
              self.ai_worker.start()
-             
-             # Start Main Loop Worker (Stage 1)
+
+             # Phase 107 Update: Connect AI individual worker errors too
+             if hasattr(self.ai_worker, 'fatal_error'):
+                 self.ai_worker.fatal_error.connect(self._on_fatal_pipeline_error)
+
              self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
              # Connect to refresh list when documents are processed
              self.main_loop_worker.documents_processed.connect(self.list_widget.refresh_list)
+             self.main_loop_worker.fatal_error.connect(self._on_fatal_pipeline_error)
              self.main_loop_worker.start()
 
     def _on_rule_apply_requested(self, rule, scope):
@@ -220,14 +242,14 @@ class MainWindow(QMainWindow):
         if scope == "SELECTED":
             uuids = self.list_widget.get_selected_uuids()
             if not uuids:
-                QMessageBox.warning(self, self.tr("Apply Rule"), self.tr("No documents selected."))
+                show_selectable_message_box(self, self.tr("Apply Rule"), self.tr("No documents selected."), icon=QMessageBox.Icon.Warning)
                 return
         elif scope == "FILTERED":
             uuids = self.list_widget.get_all_uuids_in_view()
             if not uuids:
-                QMessageBox.warning(self, self.tr("Apply Rule"), self.tr("Current list is empty."))
+                show_selectable_message_box(self, self.tr("Apply Rule"), self.tr("Current list is empty."), icon=QMessageBox.Icon.Warning)
                 return
-        
+
         # Call the actual worker logic in the filter widget
         self.advanced_filter.run_batch_tagging(rule, uuids)
 
@@ -248,13 +270,13 @@ class MainWindow(QMainWindow):
                 print(f"[DEBUG] Loaded {len(self.filter_tree.root.children)} root items.")
             except Exception as e:
                 print(f"[ERROR] Error loading filter tree: {e}")
-        
+
         # Phase 92: Ensure Trash Node exists
         root = self.filter_tree.root
         trash_exists = any(child.node_type == NodeType.TRASH for child in root.children)
         if not trash_exists:
             self.filter_tree.add_trash(root)
-            
+
         # Check for Legacy Filters (QSettings) and migrate
         self.migrate_legacy_filters()
 
@@ -272,14 +294,14 @@ class MainWindow(QMainWindow):
                         for name, query in legacy_map.items():
                             self.filter_tree.add_filter(folder, name, query)
                             count += 1
-                        
+
                         print(f"Migrated {count} legacy filters.")
-                        
+
                 # Clean up "Dead Files"
                 settings.remove("saved_filters")
                 settings.sync()
                 print("Legacy filter config removed.")
-                
+
             except Exception as e:
                 print(f"Migration error: {e}")
 
@@ -297,40 +319,40 @@ class MainWindow(QMainWindow):
 
     def create_menu_bar(self):
         menubar = self.menuBar()
-        
+
         # -- File Menu --
         file_menu = menubar.addMenu(self.tr("&File"))
-        
+
         action_import = QAction(self.tr("&Import Document"), self)
         action_import.setShortcut("Ctrl+O")
         action_import.triggered.connect(self.import_document_slot)
         file_menu.addAction(action_import)
-        
+
         action_scan = QAction(self.tr("&Scan..."), self)
         action_scan.setShortcut("Ctrl+S")
         action_scan.triggered.connect(self.open_scanner_slot)
         file_menu.addAction(action_scan)
-        
+
         action_print = QAction(self.tr("&Print"), self)
         action_print.setShortcut("Ctrl+P")
         action_print.setEnabled(False) # Placeholder
         file_menu.addAction(action_print)
-        
+
         file_menu.addSeparator()
-        
+
         action_delete = QAction(self.tr("&Delete Selected"), self)
         action_delete.setShortcut("Del")
         action_delete.triggered.connect(self.delete_selected_slot)
         file_menu.addAction(action_delete)
-        
+
         file_menu.addSeparator()
-        
+
         action_export = QAction(self.tr("Export shown List..."), self)
         action_export.triggered.connect(self.export_visible_documents_slot)
         file_menu.addAction(action_export)
 
         file_menu.addSeparator()
-        
+
         action_exit = QAction(self.tr("E&xit"), self)
         action_exit.setShortcut("Ctrl+Q")
         action_exit.triggered.connect(self.close)
@@ -338,26 +360,26 @@ class MainWindow(QMainWindow):
 
 
         view_menu = menubar.addMenu(self.tr("&View"))
-        
+
         action_refresh = QAction(self.tr("&Refresh List"), self)
         action_refresh.setShortcut("F5")
         action_refresh.triggered.connect(self.refresh_list_slot)
         view_menu.addAction(action_refresh)
-        
+
         action_extra = QAction(self.tr("Show Extra Data"), self)
         action_extra.setShortcut("Ctrl+E")
         action_extra.setCheckable(True)
         action_extra.setChecked(True) # Default Checked?
         action_extra.triggered.connect(self.toggle_editor_visibility)
         view_menu.addAction(action_extra)
-        
+
         # -- Maintenance Menu --
         maintenance_menu = menubar.addMenu(self.tr("&Maintenance"))
-        
+
         orphans_action = QAction(self.tr("Check Integrity (Orphans/Ghosts)"), self)
         orphans_action.triggered.connect(self.open_maintenance_slot)
         maintenance_menu.addAction(orphans_action)
-        
+
         duplicates_action = QAction(self.tr("Find Duplicates"), self)
         duplicates_action.triggered.connect(self.find_duplicates_slot)
         maintenance_menu.addAction(duplicates_action)
@@ -368,74 +390,91 @@ class MainWindow(QMainWindow):
 
         # -- Tools Menu --
         tools_menu = menubar.addMenu(self.tr("&Tools"))
-        
+
         purge_all_action = QAction(self.tr("Purge All Data (Reset)"), self)
         purge_all_action.triggered.connect(self.purge_data_slot)
         tools_menu.addAction(purge_all_action)
 
         # -- Debug Menu (Phase 102) --
         debug_menu = menubar.addMenu(self.tr("&Debug"))
-        
+
         debug_orphans = QAction(self.tr("Show Orphaned Vault Files"), self)
         debug_orphans.triggered.connect(self._debug_show_orphans_slot)
         debug_menu.addAction(debug_orphans)
-        
+
         prune_orphans = QAction(self.tr("Prune Orphaned Vault Files (Console)"), self)
         prune_orphans.triggered.connect(self._debug_prune_orphans_slot)
         debug_menu.addAction(prune_orphans)
-        
+
         debug_menu.addSeparator()
-        
+
         debug_broken = QAction(self.tr("Show Broken Entity References"), self)
         debug_broken.triggered.connect(self._debug_show_broken_slot)
         debug_menu.addAction(debug_broken)
-        
+
         prune_broken = QAction(self.tr("Prune Broken Entity References (Console)"), self)
         prune_broken.triggered.connect(self._debug_prune_broken_slot)
         debug_menu.addAction(prune_broken)
-        
+
         debug_menu.addSeparator()
-        
+
         debug_dedup = QAction(self.tr("Deduplicate Vault (Inhaltsbasiert)"), self)
         debug_dedup.triggered.connect(self._debug_deduplicate_vault_slot)
         debug_menu.addAction(debug_dedup)
 
         # -- Config Menu --
         config_menu = menubar.addMenu(self.tr("&Config"))
-        
+
         action_settings = QAction(self.tr("&Settings..."), self)
         action_settings.triggered.connect(self.open_settings_slot)
         config_menu.addAction(action_settings)
-        
+
+        # -- Semantic Data Menu (Phase 107) --
+        self.semantic_menu = menubar.addMenu(self.tr("&Semantic Data"))
+
+        missing_semantic_action = QAction(self.tr("List Missing"), self)
+        missing_semantic_action.triggered.connect(self.list_missing_semantic_data_slot)
+        self.semantic_menu.addAction(missing_semantic_action)
+
+        mismatched_semantic_action = QAction(self.tr("List Mismatched"), self)
+        mismatched_semantic_action.triggered.connect(self.list_mismatched_semantic_data_slot)
+        self.semantic_menu.addAction(mismatched_semantic_action)
+
+        self.semantic_menu.addSeparator()
+
+        run_stage2_selected = QAction(self.tr("Run Extraction (Selected)"), self)
+        run_stage2_selected.triggered.connect(self.run_stage_2_selected_slot)
+        self.semantic_menu.addAction(run_stage2_selected)
+
+        run_stage2_missing = QAction(self.tr("Process empty Documents"), self)
+        run_stage2_missing.triggered.connect(self.run_stage_2_all_missing_slot)
+        self.semantic_menu.addAction(run_stage2_missing)
+
         # -- Help Menu --
         help_menu = menubar.addMenu(self.tr("&Help"))
-        
+
         action_about = QAction(self.tr("&About"), self)
         action_about.triggered.connect(self.show_about_dialog)
         help_menu.addAction(action_about)
 
     # --- Debug Handlers ---
     def _debug_show_orphans_slot(self):
-        from core.integrity import IntegrityManager
         mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
         mgr.show_orphaned_vault_files()
 
     def _debug_show_broken_slot(self):
-        from core.integrity import IntegrityManager
         mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
         mgr.show_broken_entity_references()
 
     def _debug_prune_orphans_slot(self):
         msg = "Permanently delete ALL files in the vault that are NOT referenced by any entity? Check console for progress."
-        if QMessageBox.warning(self, "Prune Vault", msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
-            from core.integrity import IntegrityManager
+        if show_selectable_message_box(self, "Prune Vault", msg, icon=QMessageBox.Icon.Warning, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
             mgr.prune_orphaned_vault_files()
 
     def _debug_prune_broken_slot(self):
         msg = "Permanently delete ALL database entries (entities) that point to missing files? Check console for progress."
-        if QMessageBox.warning(self, "Prune Database", msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
-            from core.integrity import IntegrityManager
+        if show_selectable_message_box(self, "Prune Database", msg, icon=QMessageBox.Icon.Warning, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
             mgr.prune_broken_entity_references()
             if self.list_widget:
@@ -446,11 +485,11 @@ class MainWindow(QMainWindow):
                "STEP 1: Delete newer duplicate files from Vault.\n"
                "STEP 2: Remove ALL entities from the list that pointed to these files.\n\n"
                "This is DESTRUCTIVE. Continue?")
-        reply = QMessageBox.question(self, "Physical Deduplication", msg,
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
+        reply = show_selectable_message_box(self, "Physical Deduplication", msg,
+                                           icon=QMessageBox.Icon.Question,
+                                           buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
         if reply == QMessageBox.StandardButton.Yes:
-            from core.integrity import IntegrityManager
             mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
             mgr.deduplicate_vault()
             if self.list_widget:
@@ -462,7 +501,7 @@ class MainWindow(QMainWindow):
         text = criteria.get('_meta_fulltext')
         if text is None:
              text = criteria.get('fulltext', '')
-             
+
         self.current_search_text = text
         print(f"[DEBUG] MainWindow updated current_search_text to: '{self.current_search_text}'")
 
@@ -474,25 +513,25 @@ class MainWindow(QMainWindow):
         """
         if not self.db_manager or not self.db_manager.connection:
             return None
-            
+
         cursor = self.db_manager.connection.cursor()
-        
+
         # 1. Get Source Mapping
         cursor.execute("SELECT source_mapping FROM virtual_documents WHERE uuid = ?", (doc_uuid,))
         row = cursor.fetchone()
         if not row or not row[0]:
             # Fallback: check legacy (uuid.pdf in vault) - but vault path is configurable
             return None
-            
+
         try:
             mapping = json.loads(row[0])
             if not mapping: return None
-            
+
             # 2. Get First Source
             first_seg = mapping[0]
             file_uuid = first_seg.get("file_uuid")
             if not file_uuid: return None
-            
+
             # 3. Get Physical File Path
             cursor.execute("SELECT file_path FROM physical_files WHERE uuid = ?", (file_uuid,))
             f_row = cursor.fetchone()
@@ -502,7 +541,7 @@ class MainWindow(QMainWindow):
                     return path
         except Exception as e:
             print(f"Error resolving PDF path for {doc_uuid}: {e}")
-            
+
         return None
 
     def _on_document_selected(self, uuids: list[str]):
@@ -517,7 +556,7 @@ class MainWindow(QMainWindow):
         for uuid in uuids:
              d = self.db_manager.get_document_by_uuid(uuid)
              if d: docs.append(d)
-        
+
         if not docs:
              return
 
@@ -535,11 +574,11 @@ class MainWindow(QMainWindow):
                  if hits:
                      target_index = hits[0] # 0-based
                      print(f"[Search-Hit-Debug] Term: '{self.current_search_text}', UUID: '{uuid}', Found on Pages: {hits} -> Jumping to {target_index}")
-             
+
              self.pdf_viewer.load_document(path, jump_to_index=target_index)
         else:
              print(f"Error: Could not resolve PDF path for {uuid}")
-                 
+
         # Update Info Panel
         if hasattr(self, 'info_panel') and self.info_panel:
             self.info_panel.load_document(primary_doc)
@@ -549,9 +588,9 @@ class MainWindow(QMainWindow):
             print(f"[DEBUG] Ensuring Editor Visible. Current: {self.editor_widget.isVisible()}")
             self.editor_widget.setVisible(True)
             self.editor_widget.display_documents(docs)
-            
+
             # Robust Status Sync (Case Insensitive)
-            doc = primary_doc 
+            doc = primary_doc
             stat = (doc.status or "NEW").upper()
             idx = self.editor_widget.status_combo.findText(stat)
             if idx >= 0:
@@ -567,7 +606,7 @@ class MainWindow(QMainWindow):
             print("[DEBUG] PDF Viewer collapsed! Forcing expand.")
             total = sum(main_sizes)
             self.main_splitter.setSizes([int(total*0.4), int(total*0.6)])
-            
+
         # 2. Left Pane Splitter (Filter | List | Editor)
         sizes = self.left_pane_splitter.sizes()
         if sizes and sizes[2] == 0:
@@ -581,7 +620,7 @@ class MainWindow(QMainWindow):
             if not self.pdf_viewer.isVisible():
                 print(f"[DEBUG] Ensuring Viewer Visible.")
                 self.pdf_viewer.setVisible(True)
-            
+
             if docs:
                 # Show first doc as reference (works for single and batch)
                 self.pdf_viewer.load_document(docs[0].uuid, uuid=docs[0].uuid)
@@ -598,7 +637,7 @@ class MainWindow(QMainWindow):
             if uuids:
                 self.delete_document_slot(uuids)
             else:
-                 QMessageBox.information(self, self.tr("Info"), self.tr("Please select documents to delete."))
+                show_selectable_message_box(self, self.tr("Info"), self.tr("Please select documents to delete."), icon=QMessageBox.Icon.Information)
 
     def delete_document_slot(self, uuids):
         """
@@ -607,35 +646,36 @@ class MainWindow(QMainWindow):
         """
         if not isinstance(uuids, list):
             uuids = [uuids]
-            
+
         if not uuids:
             return
 
         count = len(uuids)
         msg = self.tr("Are you sure you want to delete this item?") if count == 1 else self.tr(f"Are you sure you want to delete {count} items?")
-        
-        reply = QMessageBox.question(self, self.tr("Confirm Delete"), 
-                                   msg,
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
+
+        reply = show_selectable_message_box(self, self.tr("Confirm Delete"),
+                                     msg,
+                                     icon=QMessageBox.Icon.Question,
+                                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
         if reply == QMessageBox.StandardButton.Yes:
             if self.db_manager and self.pipeline:
                 deleted_count = 0
                 is_trash_mode = getattr(self.list_widget, 'is_trash_mode', False)
-                
+
                 for uuid in uuids:
                     # 0. If in Trash Mode, Purge Immediately
                     if is_trash_mode:
                         if self.db_manager.purge_entity(uuid):
                              deleted_count += 1
                         continue
-                        
+
                     # 1. Try Deleting as Entity (Smart Delete)
                     # This removes the semantic row. If it was the last one, it trashes the source doc.
                     if self.db_manager.delete_entity(uuid):
                         deleted_count += 1
                         continue
-                        
+
                     # 2. Fallback: Deleting a Source Doc (e.g. from Trash or Inbox if raw)
                     doc = self.db_manager.get_document_by_uuid(uuid)
                     if doc:
@@ -646,25 +686,25 @@ class MainWindow(QMainWindow):
                         else:
                              self.db_manager.mark_documents_deleted([uuid])
                         deleted_count += 1
-                            
+
                 self.list_widget.refresh_list()
                 self.editor_widget.clear()
                 self.pdf_viewer.clear()
-                
+
                 # Refresh Stats
                 if hasattr(self, "dashboard_widget"):
                      self.dashboard_widget.refresh_stats()
                 if hasattr(self, "filter_tree_widget"):
                      self.filter_tree_widget.load_tree()
-                
+
                 if count > 1:
-                    QMessageBox.information(self, self.tr("Deleted"), self.tr(f"Deleted {deleted_count} items."))
-                    
+                    show_selectable_message_box(self, self.tr("Deleted"), self.tr(f"Deleted {deleted_count} items."), icon=QMessageBox.Icon.Information)
+
     def reprocess_document_slot(self, uuids: list):
         """Re-run pipeline for list of documents."""
         if not self.pipeline:
             return
-            
+
         # Phase 98: Resolve Entity UUIDs to Source UUIDs
         # Pipeline expects physical document UUIDs.
         source_uuids = set()
@@ -672,12 +712,10 @@ class MainWindow(QMainWindow):
             # v28.2: Soft Reset instead of Purge.
             self.db_manager.reset_document_for_reanalysis(u)
             source_uuids.add(u)
-                 
+
         start_uuids = list(source_uuids)
         if not start_uuids: return
 
-        from PyQt6.QtWidgets import QProgressDialog
-        
         count = len(start_uuids)
 
         progress = QProgressDialog(self.tr("Reprocessing..."), self.tr("Cancel"), 0, count, self)
@@ -685,18 +723,17 @@ class MainWindow(QMainWindow):
         progress.setMinimumDuration(0) # Show immediately
         progress.forceShow() # Ensure visibility
         progress.setValue(0)
-        
+
         # Ensure it paints
-        from PyQt6.QtCore import QCoreApplication
         QCoreApplication.processEvents()
 
         uuid_to_restore = None
         if hasattr(self, 'pdf_viewer') and self.pdf_viewer.current_uuid in start_uuids:
              uuid_to_restore = self.pdf_viewer.current_uuid
              self.pdf_viewer.clear()
-             
+
         self.reprocess_worker = ReprocessWorker(self.pipeline, start_uuids)
-        
+
         # Connect Signals
         self.reprocess_worker.progress.connect(
             lambda i, uid: (
@@ -704,24 +741,24 @@ class MainWindow(QMainWindow):
                 progress.setValue(i)
             )
         )
-        
+
         self.reprocess_worker.finished.connect(
             lambda success, total, processed_uuids: self._on_reprocess_finished(success, total, processed_uuids, uuids, progress, uuid_to_restore)
         )
-        
+
         progress.canceled.connect(self.reprocess_worker.cancel)
-        
+
         self.reprocess_worker.start()
 
     def _on_reprocess_finished(self, success_count, total, processed_uuids, original_uuids, progress_dialog, uuid_to_restore=None):
         progress_dialog.close()
-        
+
         # Safe Thread Cleanup
         if hasattr(self, 'reprocess_worker') and self.reprocess_worker:
             self.reprocess_worker.wait() # Ensure it's fully done
             self.reprocess_worker.deleteLater() # Schedule deletion
             self.reprocess_worker = None # Clear ref
-        
+
         # Refresh Editor logic
         if hasattr(self, 'editor_widget') and self.editor_widget:
             intersect = set(processed_uuids) & set(self.editor_widget.current_uuids)
@@ -732,24 +769,24 @@ class MainWindow(QMainWindow):
                      if d: docs_to_refresh.append(d)
                  if docs_to_refresh:
                      self.editor_widget.display_documents(docs_to_refresh)
-                     
+
         # Refresh List First (this typically clears selection and viewer)
         self.list_widget.refresh_list()
-        
+
         # Restore Selection
         if uuid_to_restore and uuid_to_restore in processed_uuids:
              self.list_widget.select_document(uuid_to_restore)
-        
+
         # Trigger Dashboard Refresh
         if hasattr(self, 'dashboard_widget') and self.dashboard_widget:
             self.dashboard_widget.refresh_stats()
-             
+
         # Async: Queue for AI Analysis
         if hasattr(self, 'ai_worker') and self.ai_worker and processed_uuids:
             for uid in processed_uuids:
                 self.ai_worker.add_task(uid)
-                
-        QMessageBox.information(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nAI Analysis queued.")
+
+        show_selectable_message_box(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nAI Analysis queued.", icon=QMessageBox.Icon.Information)
 
     def start_import_process(self, files: list[str], move_source: bool = False):
         """
@@ -763,54 +800,49 @@ class MainWindow(QMainWindow):
         # Phase 9: Pre-Flight Check
         # We process files one by one via Dialog to get Instructions
         import_items = []
-        
-        from gui.splitter_dialog import SplitterDialog
-        
+
         pdf_files = [f for f in files if f.lower().endswith(".pdf")]
         other_files = [f for f in files if not f.lower().endswith(".pdf")]
-        
+
         # 1. Handle PDFs via Batch Assistant
         if pdf_files:
             dialog = SplitterDialog(self.pipeline, self)
             dialog.load_for_batch_import(pdf_files)
-            
+
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 instrs = dialog.import_instructions
                 # New Logic: If instructions is a LIST of DOCS, we need a "Batch Mode" in ImportWorker.
-                
+
                 # For now, let's pass a special item to ImportWorker if it's a batch.
                 import_items.append(("BATCH", instrs))
             else:
                 print("PDF Import cancelled by user.")
-                
+
         # 2. Handle non-PDFs (Direct)
         for fpath in other_files:
             import_items.append((fpath, None))
-                 
+
         if not import_items:
              print("No files to import (User cancelled all).")
              return
 
         is_batch = any(item[0] == "BATCH" for item in import_items if isinstance(item, tuple))
         count = len(import_items)
-        
+
         # Progress Dialog
-        from PyQt6.QtWidgets import QProgressDialog
-        from PyQt6.QtCore import QCoreApplication
-        
         progress = QProgressDialog(self.tr("Initializing Import..."), self.tr("Cancel"), 0, count, self)
         progress.setWindowTitle(self.tr("Importing..."))
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.setValue(0)
-        
+
         # Force Render
         progress.show()
         QCoreApplication.processEvents()
-        
+
         # Worker Setup
         self.import_worker = ImportWorker(self.pipeline, import_items, move_source=move_source)
-        
+
         # Signals
         self.import_worker.progress.connect(
             lambda i, fname: (
@@ -818,13 +850,13 @@ class MainWindow(QMainWindow):
                 progress.setValue(i)
             )
         )
-        
+
         self.import_worker.finished.connect(
             lambda s, t, uuids, err: self._on_import_finished(s, t, uuids, err, progress, skip_splitter=is_batch)
         )
-        
+
         progress.canceled.connect(self.import_worker.cancel)
-        
+
         self.import_worker.start()
 
     def import_document_slot(self):
@@ -832,14 +864,13 @@ class MainWindow(QMainWindow):
         files, _ = QFileDialog.getOpenFileNames(
             self, self.tr("Select Documents"), "", self.tr("PDF Files (*.pdf);;All Files (*)")
         )
-        
+
         if files:
             # Default to Copy (move_source=False) for menu import
             self.start_import_process(files, move_source=False)
-        
+
     def open_scanner_slot(self):
         """Open scanner dialog and process result."""
-        from gui.scanner_dialog import ScannerDialog
         dialog = ScannerDialog(self)
         if dialog.exec():
             path = dialog.get_scanned_file()
@@ -856,17 +887,107 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(self)
         dialog.settings_changed.connect(self.on_settings_changed)
         dialog.exec()
-        
+
     def on_settings_changed(self):
-        pass
+        self.list_widget.refresh_list()
+
+    # --- Stage 2: Semantic Data Management Slots ---
+
+    def list_missing_semantic_data_slot(self):
+        """Query DB for documents lacking semantic data and display them."""
+        docs = self.db_manager.get_documents_missing_semantic_data()
+        count = len(docs)
+        if count == 0:
+            show_selectable_message_box(self, self.tr("Semantic Data"), self.tr("All documents have semantic data."), icon=QMessageBox.Icon.Information)
+            return
+
+        self.central_stack.setCurrentIndex(1) # Explorer View
+
+        uuids = [d.uuid for d in docs]
+        query = {"field": "uuid", "op": "in", "value": uuids}
+        self.list_widget.apply_advanced_filter(query, label="Semantic Data > Missing")
+        self.statusBar().showMessage(self.tr(f"Showing {count} documents missing semantic data."))
+
+    def list_mismatched_semantic_data_slot(self):
+        """Query DB for documents with mismatched data."""
+        docs = self.db_manager.get_documents_mismatched_semantic_data()
+        count = len(docs)
+        if count == 0:
+            show_selectable_message_box(self, self.tr("Semantic Data"), self.tr("No data mismatches found."), icon=QMessageBox.Icon.Information)
+            return
+
+        self.central_stack.setCurrentIndex(1) # Explorer View
+
+        uuids = [d.uuid for d in docs]
+        query = {"field": "uuid", "op": "in", "value": uuids}
+        self.list_widget.apply_advanced_filter(query, label="Semantic Data > Mismatched")
+        self.statusBar().showMessage(self.tr(f"Showing {count} documents with data mismatches."))
+
+    def run_stage_2_selected_slot(self, uuids: list[str] = None):
+        """Manually trigger Stage 2 for selected documents."""
+        if not uuids:
+            uuids = self.list_widget.get_selected_uuids()
+
+        if not uuids:
+            show_selectable_message_box(self, self.tr("Action required"), self.tr("Please select at least one document."), icon=QMessageBox.Icon.Warning)
+            return
+
+        # Phase 107: Smart routing
+        to_shortcut = []
+        to_full = []
+
+        # We need to check current status. List widget has objects or we ask DB.
+        for uid in uuids:
+            doc = self.db_manager.get_document_by_uuid(uid)
+            if doc and doc.status in ('PROCESSED', 'ERROR_AI') and doc.type_tags:
+                to_shortcut.append(uid)
+            else:
+                to_full.append(uid)
+
+        if to_shortcut:
+            self.db_manager.queue_for_semantic_extraction(to_shortcut)
+        if to_full:
+            self.reprocess_document_slot(to_full)
+
+        self.statusBar().showMessage(self.tr(f"Queued {len(uuids)} documents for extraction."))
+
+    def run_stage_2_all_missing_slot(self):
+        """Find all documents with empty semantic data and trigger processing."""
+        docs = self.db_manager.get_documents_missing_semantic_data()
+        if not docs:
+            show_selectable_message_box(self, self.tr("Semantic Data"), self.tr("No empty documents found."), icon=QMessageBox.Icon.Information)
+            return
+
+        uuids = [d.uuid for d in docs]
+        confirm = show_selectable_message_box(self, self.tr("Process empty Documents"),
+                                             self.tr(f"Start semantic extraction for {len(uuids)} documents without details?"),
+                                             icon=QMessageBox.Icon.Question,
+                                             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if confirm == QMessageBox.StandardButton.Yes:
+            to_shortcut = []
+            to_full = []
+            for uid in uuids:
+                # Optimized check: docs are already loaded in 'docs' list
+                match = next((d for d in docs if d.uuid == uid), None)
+                if match and match.status in ('PROCESSED', 'ERROR_AI') and match.type_tags:
+                    to_shortcut.append(uid)
+                else:
+                    to_full.append(uid)
+
+            if to_shortcut:
+                self.db_manager.queue_for_semantic_extraction(to_shortcut)
+            if to_full:
+                self.reprocess_document_slot(to_full)
+
+            self.statusBar().showMessage(self.tr(f"Queued {len(uuids)} documents for background extraction."))
 
     def merge_documents_slot(self, uuids: list[str]):
         """Handle merge request."""
         if not self.pipeline:
             return
-            
+
         dlg = MergeConfirmDialog(len(uuids), self)
-        
+
         if dlg.exec() == QDialog.DialogCode.Accepted:
             try:
                 keep_originals = dlg.keep_originals()
@@ -877,23 +998,23 @@ class MainWindow(QMainWindow):
                          # Delete originals (Stage 0/1)
                          for uid in uuids:
                              self.pipeline.delete_entity(uid)
-                    
+
                     self.statusBar().showMessage(self.tr("Documents merged successfully."))
                     self.list_widget.refresh_list()
                 else:
-                    QMessageBox.warning(self, self.tr("Error"), self.tr("Merge failed."))
+                    show_selectable_message_box(self, self.tr("Error"), self.tr("Merge failed."), icon=QMessageBox.Icon.Warning)
             except Exception as e:
                 import traceback
                 print(f"[ERROR] Merge error: {e}")
                 traceback.print_exc()
-                QMessageBox.critical(self, self.tr("Error"), self.tr(f"Merge error: {e}"))
+                show_selectable_message_box(self, self.tr("Error"), self.tr(f"Merge error: {e}"), icon=QMessageBox.Icon.Critical)
 
     def show_about_dialog(self):
         """Show the About dialog with system info."""
         qt_version = PyQt6.QtCore.QT_VERSION_STR
         py_version = sys.version.split()[0]
         platform_info = platform.system() + " " + platform.release()
-        
+
         # Try to get KDE version
         kde_version = os.environ.get('KDE_FULL_SESSION', self.tr("Unknown"))
         if kde_version == 'true':
@@ -934,7 +1055,7 @@ class MainWindow(QMainWindow):
 
         # Create Worker
         worker = SimilarityWorker(self.db_manager, self.pipeline.vault)
-        
+
         # Track worker for safety
         self._current_sim_worker = worker
 
@@ -949,15 +1070,14 @@ class MainWindow(QMainWindow):
         def on_finished(duplicates):
             progress.close()
             self._current_sim_worker = None
-            
-            if not duplicates:
-                 QMessageBox.information(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."))
-                 return
 
-            from gui.duplicate_dialog import DuplicateFinderDialog
+            if not duplicates:
+                show_selectable_message_box(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."), icon=QMessageBox.Icon.Information)
+                return
+
             dialog = DuplicateFinderDialog(duplicates, self.db_manager, self)
             dialog.exec()
-            
+
             if self.list_widget:
                 self.list_widget.refresh_list()
 
@@ -970,16 +1090,13 @@ class MainWindow(QMainWindow):
 
     def open_maintenance_slot(self):
         """Open Maintenance Dialog."""
-        from gui.maintenance_dialog import MaintenanceDialog
-        from core.integrity import IntegrityManager
-        
         if not self.pipeline or not self.db_manager:
             return
-            
+
         mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
         dialog = MaintenanceDialog(self, mgr, self.pipeline)
         dialog.exec()
-        
+
         if self.list_widget:
             self.list_widget.refresh_list()
 
@@ -987,12 +1104,12 @@ class MainWindow(QMainWindow):
         """Handle Drag Enter: Check for valid files (PDF, Images, ZIP)."""
         if event.mimeData().hasUrls():
             convertible_exts = PreFlightImporter.ALLOWED_EXTENSIONS.union({'.zip'})
-            
+
             for url in event.mimeData().urls():
                 path = url.toLocalFile()
                 _, ext = os.path.splitext(path)
                 ext = ext.lower()
-                
+
                 if path.endswith('.pdf') or ext in convertible_exts:
                     event.acceptProposedAction()
                     return
@@ -1004,21 +1121,21 @@ class MainWindow(QMainWindow):
         if event.mimeData().hasUrls():
             temp_dir = tempfile.gettempdir()
             convertible_exts = PreFlightImporter.ALLOWED_EXTENSIONS.union({'.zip'})
-            
+
             for url in event.mimeData().urls():
                 path = url.toLocalFile()
                 if not os.path.exists(path): continue
-                
+
                 _, ext = os.path.splitext(path)
                 ext = ext.lower()
-                
+
                 if ext == '.pdf':
                     files.append(path)
                 elif ext in convertible_exts:
                     # Conversion
                     base_name = os.path.basename(path)
                     temp_pdf_path = os.path.join(temp_dir, f"KPaperFlux_{base_name}.pdf")
-                    
+
                     self.setCursor(Qt.CursorShape.WaitCursor)
                     try:
                         print(f"[Importer] Converting {path} -> {temp_pdf_path}...")
@@ -1029,7 +1146,7 @@ class MainWindow(QMainWindow):
                             print(f"[Importer] Failed to convert: {path}")
                     finally:
                         self.setCursor(Qt.CursorShape.ArrowCursor)
-        
+
         if files:
             self.handle_dropped_files(files)
             event.acceptProposedAction()
@@ -1044,45 +1161,45 @@ class MainWindow(QMainWindow):
         # Custom Dialog for Options
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("Import Dropped Files"))
-        
+
         layout = QVBoxLayout(dialog)
         layout.addWidget(QLabel(self.tr(f"Import {len(files)} files into KPaperFlux?")))
-        
+
         chk_move = QCheckBox(self.tr("Move files to Vault (Delete source)"))
         layout.addWidget(chk_move)
-        
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
-        
+
         if dialog.exec() == QDialog.DialogCode.Accepted:
             move_source = chk_move.isChecked()
             self.start_import_process(files, move_source=move_source)
 
     def _on_import_finished(self, success_count, total, imported_uuids, error_msg, progress_dialog, skip_splitter=False):
         progress_dialog.close()
-        
+
         if hasattr(self, 'import_worker') and self.import_worker:
             self.import_worker.wait() # Ensure finished
             self.import_worker.deleteLater()
             self.import_worker = None
-        
+
         if error_msg:
              print(f"[ERROR] Import Finished with error: {error_msg}")
-             QMessageBox.critical(self, self.tr("Import Error"), error_msg)
-             
+             show_selectable_message_box(self, self.tr("Import Error"), error_msg, icon=QMessageBox.Icon.Critical)
+
         # Refresh List
         if self.list_widget:
             self.list_widget.refresh_list()
-            
+
         if self.pipeline and imported_uuids:
              splitter_opened = False
              queued_count = 0
-             
+
              for uid in imported_uuids:
                   d = self.db_manager.get_document_by_uuid(uid)
-                  
+
                   if d:
                       print(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
                       # Queue for Background AI (Stage 1)
@@ -1096,14 +1213,15 @@ class MainWindow(QMainWindow):
                       if not splitter_opened:
                           self.open_splitter_dialog_slot(uid)
                           splitter_opened = True
-             
+
              if not error_msg and not splitter_opened:
-                  QMessageBox.information(self, self.tr("Import Finished"), 
-                                        self.tr(f"Imported {len(imported_uuids)} documents.\n{queued_count} queued for AI analysis."))
-                 
+                  show_selectable_message_box(self, self.tr("Import Finished"),
+                                               self.tr(f"Imported {len(imported_uuids)} documents.\n{queued_count} queued for AI analysis."),
+                                               icon=QMessageBox.Icon.Information)
+
         if hasattr(self, "dashboard_widget"):
              self.dashboard_widget.refresh_stats()
-             
+
         if hasattr(self, "filter_tree_widget"):
              self.filter_tree_widget.load_tree()
 
@@ -1114,48 +1232,48 @@ class MainWindow(QMainWindow):
 
     def _on_ai_status_changed(self, msg):
         self.statusBar().showMessage(msg)
-            
+
     def export_documents_slot(self, uuids: list[str]):
         """Export selected documents via ListWidget dialog."""
         if not uuids or not self.list_widget:
             return
-            
+
         docs = []
         for u in uuids:
             doc = self.db_manager.get_document_by_uuid(u)
             if doc:
                 docs.append(doc)
-                
+
         if docs:
             self.list_widget.open_export_dialog(docs)
 
     def export_visible_documents_slot(self):
         """Export all currently visible documents."""
         if not self.list_widget: return
-        
+
         docs = self.list_widget.get_visible_documents()
         if not docs:
-            QMessageBox.information(self, self.tr("Export"), self.tr("No documents visible to export."))
+            show_selectable_message_box(self, self.tr("Export"), self.tr("No documents visible to export."), icon=QMessageBox.Icon.Information)
             return
-            
+
         self.list_widget.open_export_dialog(docs)
 
     def stamp_document_slot(self, uuid_or_list):
         """Stamp a document (or multiple)."""
         if not self.pipeline:
             return
-            
+
         if isinstance(uuid_or_list, list):
             uuids = uuid_or_list
         else:
             uuids = [uuid_or_list]
-            
+
         if not uuids:
             return
-            
+
         target_uuid = uuids[0]
         src_path = self.pipeline.vault.get_file_path(target_uuid)
-        
+
         # Fallback for Virtual Entities
         if not src_path or not os.path.exists(src_path) or src_path == "/dev/null":
              if self.db_manager:
@@ -1164,27 +1282,26 @@ class MainWindow(QMainWindow):
                       phys_uuid = mapping[0].get("file_uuid")
                       if phys_uuid:
                           src_path = self.pipeline.vault.get_file_path(phys_uuid)
-        
+
         if not src_path or not os.path.exists(src_path):
-            QMessageBox.warning(self, self.tr("Error"), self.tr(f"Could not locate physical file for UUID: {target_uuid}"))
+            show_selectable_message_box(self, self.tr("Error"), self.tr(f"Could not locate physical file for UUID: {target_uuid}"), icon=QMessageBox.Icon.Warning)
             return
 
-        from gui.stamper_dialog import StamperDialog
         dialog = StamperDialog(self)
-        
+
         stamper = DocumentStamper()
         existing_stamps = stamper.get_stamps(src_path)
-        
+
         dialog.populate_stamps(existing_stamps)
-        
+
         if dialog.exec():
             action, text, pos, color, rotation, remove_id = dialog.get_data()
             try:
                 successful_count = 0
-                
+
                 if action == "remove":
                     if len(uuids) > 1:
-                        QMessageBox.warning(self, self.tr("Batch Operation"), self.tr("Removing stamps is only supported for single documents."))
+                        show_selectable_message_box(self, self.tr("Batch Operation"), self.tr("Removing stamps is only supported for single documents."), icon=QMessageBox.Icon.Warning)
                         uuids = [target_uuid]
 
                     removed = stamper.remove_stamp(src_path, stamp_id=remove_id)
@@ -1194,7 +1311,7 @@ class MainWindow(QMainWindow):
                     # APPLY BATCH
                     for uid in uuids:
                         fpath = self.pipeline.vault.get_file_path(uid)
-                        
+
                         # Fallback for Virtual
                         if not fpath or not os.path.exists(fpath) or fpath == "/dev/null":
                              if self.db_manager:
@@ -1203,101 +1320,99 @@ class MainWindow(QMainWindow):
                                       phys_uuid = mapping[0].get("file_uuid")
                                       if phys_uuid:
                                           fpath = self.pipeline.vault.get_file_path(phys_uuid)
-                                          
+
                         if not fpath or not os.path.exists(fpath):
                             print(f"[Stamper] Failed to resolve path for {uid}")
                             continue
-                            
+
                         base, ext = os.path.splitext(fpath)
                         tmp_path = f"{base}_stamped{ext}"
-                        
+
                         stamper.apply_stamp(fpath, tmp_path, text, position=pos, color=color, rotation=rotation)
                         shutil.move(tmp_path, fpath)
                         successful_count += 1
-                
+
                 msg = ""
                 if action == "remove":
                      msg = self.tr("Stamp removed.")
                 else:
                      msg = self.tr(f"Stamp applied to {successful_count} document(s).")
-                     
-                QMessageBox.information(self, self.tr("Success"), msg)
-                
+
+                show_selectable_message_box(self, self.tr("Success"), msg, icon=QMessageBox.Icon.Information)
+
                 self.list_widget.document_selected.emit([target_uuid])
-                
+
             except Exception as e:
-                QMessageBox.critical(self, self.tr("Error"), self.tr(f"Stamping operation failed: {e}"))
+                show_selectable_message_box(self, self.tr("Error"), self.tr(f"Stamping operation failed: {e}"), icon=QMessageBox.Icon.Critical)
 
     def manage_tags_slot(self, uuids: list[str]):
         """Open dialog to add/remove tags for selected documents."""
         if not uuids: return
-        
-        from gui.batch_tag_dialog import BatchTagDialog
-        
+
         available_tags = []
         if self.db_manager:
             available_tags = list(self.db_manager.get_all_tags_with_counts().keys())
-            
+
         common_tags = None
         if uuids:
              first_doc = self.db_manager.get_document_by_uuid(uuids[0])
              if first_doc:
                  # Phase 102/105: Use tags (User) separately from type_tags (System)
                  common_tags = set(first_doc.tags or [])
-                 
+
                  for i in range(1, len(uuids)):
                      doc = self.db_manager.get_document_by_uuid(uuids[i])
                      if doc:
                          doc_tags = set(doc.tags or [])
                          common_tags = common_tags.intersection(doc_tags)
-        
+
         available_tags.sort(key=lambda x: x.lower())
         common_tags_list = sorted(list(common_tags), key=lambda x: x.lower()) if common_tags else []
-            
+
         dialog = BatchTagDialog(available_tags, common_tags_list, self)
         if dialog.exec():
             add_tags, remove_tags = dialog.get_data()
-            
+
             count = 0
             for uuid in uuids:
                 doc = self.db_manager.get_document_by_uuid(uuid)
                 if not doc: continue
-                
+
                 current_tags_list = doc.tags or []
-                
+
                 # Create new list
                 new_tags = [t for t in current_tags_list]
-                
+
                 for t in add_tags:
                     if t not in new_tags:
                         new_tags.append(t)
-                        
+
                 new_tags = [t for t in new_tags if t not in remove_tags]
-                
+
                 if new_tags != current_tags_list:
                     # Update DB using User tags
                     success = self.db_manager.update_document_metadata(uuid, {'tags': new_tags})
                     if success:
                         count += 1
-                    
+
             if count > 0:
                 self.list_widget.refresh_list()
-                QMessageBox.information(self, self.tr("Tags Updated"), self.tr(f"Updated tags for {count} documents."))
+                show_selectable_message_box(self, self.tr("Tags Updated"), self.tr(f"Updated tags for {count} documents."), icon=QMessageBox.Icon.Information)
 
     def toggle_editor_visibility(self, checked: bool):
         """Toggle the visibility of the metadata editor widget."""
         if hasattr(self, 'editor_widget'):
             self.editor_widget.setVisible(checked)
-        
+
     def update_status_bar(self, visible_count: int, total_count: int):
         """Update status bar with document counts."""
         self.statusBar().showMessage(self.tr(f"Documents: {visible_count} (Total: {total_count})"))
-        
+
         if visible_count == 0:
             if hasattr(self, 'pdf_viewer'):
                 self.pdf_viewer.clear()
             self.pending_selection = []
-        
+
         if visible_count > 0 and hasattr(self, 'pending_selection') and self.pending_selection:
              self.list_widget.select_rows_by_uuids(self.pending_selection)
              self.pending_selection = []
@@ -1306,12 +1421,12 @@ class MainWindow(QMainWindow):
         """Handle window close."""
         if hasattr(self, 'ai_worker') and self.ai_worker: self.ai_worker.stop()
         if hasattr(self, 'main_loop_worker') and self.main_loop_worker: self.main_loop_worker.stop()
-        
+
         # Cancel background workers to kill subprocesses
         if hasattr(self, 'import_worker') and self.import_worker: self.import_worker.cancel()
         if hasattr(self, 'batch_worker') and self.batch_worker: self.batch_worker.cancel()
         if hasattr(self, 'reprocess_worker') and self.reprocess_worker: self.reprocess_worker.cancel()
-        
+
         self.write_settings()
         self.save_filter_tree()
         super().closeEvent(event)
@@ -1322,39 +1437,39 @@ class MainWindow(QMainWindow):
         settings.setValue("windowState", self.saveState())
         settings.setValue("mainSplitter", self.main_splitter.saveState())
         settings.setValue("leftPaneSplitter", self.left_pane_splitter.saveState())
-        
+
         if hasattr(self, 'list_widget') and hasattr(self.list_widget, 'save_state'):
             self.list_widget.save_state()
-        
+
         if hasattr(self.list_widget, 'get_selected_uuids'):
              settings.setValue("selectedUUIDs", self.list_widget.get_selected_uuids())
-        
+
     def read_settings(self):
         settings = QSettings("KPaperFlux", "MainWindow")
         geometry = settings.value("geometry")
         if geometry:
             self.restoreGeometry(geometry)
-            
+
         state = settings.value("windowState")
         if state:
             self.restoreState(state)
-            
+
         main_splitter = settings.value("mainSplitter")
         if main_splitter:
             self.main_splitter.restoreState(main_splitter)
-            
+
         left_splitter = settings.value("leftPaneSplitter")
         if left_splitter:
              self.left_pane_splitter.restoreState(left_splitter)
-             
+
              sizes = self.left_pane_splitter.sizes()
              if len(sizes) >= 3 and sizes[2] < 50:
                  total = sum(sizes) if sum(sizes) > 0 else 700
                  self.left_pane_splitter.setSizes([70, int(total*0.6), int(total*0.3)])
-            
+
         if hasattr(self, 'list_widget') and hasattr(self.list_widget, 'restore_state'):
             self.list_widget.restore_state()
-            
+
         self.pending_selection = settings.value("selectedUUIDs", [])
         if not isinstance(self.pending_selection, list):
              self.pending_selection = []
@@ -1363,7 +1478,7 @@ class MainWindow(QMainWindow):
         """Save a static list of UUIDs as a filter."""
         if not self.filter_tree:
              return
-             
+
         filter_data = {
             'operator': 'AND',
             'conditions': [
@@ -1374,11 +1489,11 @@ class MainWindow(QMainWindow):
                 }
             ]
         }
-        
+
         self.filter_tree.add_filter(self.filter_tree.root, name, filter_data)
         self.save_filter_tree()
         self.advanced_filter.load_known_filters()
-        
+
         self.statusBar().showMessage(self.tr(f"List '{name}' saved with {len(uuids)} items."), 3000)
 
     def set_trash_mode(self, enabled: bool):
@@ -1395,46 +1510,42 @@ class MainWindow(QMainWindow):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
-            QMessageBox.information(self, self.tr("Restored"), self.tr(f"Restored {count} document(s)."))
-            
+            show_selectable_message_box(self, self.tr("Restored"), self.tr(f"Restored {count} document(s)."), icon=QMessageBox.Icon.Information)
+
     def purge_data_slot(self):
         """
         Handle 'Purge All Data' request.
         """
-        reply = QMessageBox.critical(
-            self,
-            self.tr("Confirm Global Purge"),
-            self.tr("DANGER: This will delete ALL documents, files, and database entries.\n\n"
-                    "This action cannot be undone.\n\n"
-                    "Are you completely sure you want to reset the system?"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        
+        reply = show_selectable_message_box(self, self.tr("Confirm Global Purge"),
+                                     self.tr("DANGER: This will delete ALL documents, files, and database entries.\n\n"
+                                             "This action cannot be undone.\n\n"
+                                             "Are you completely sure you want to reset the system?"),
+                                     icon=QMessageBox.Icon.Critical,
+                                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
         if reply == QMessageBox.StandardButton.Yes:
-            from core.config import AppConfig
             config = AppConfig()
             vault_path = config.get_vault_path()
-            
+
             success = self.db_manager.purge_all_data(vault_path)
-            
+
             if success:
-                self.list_widget.refresh_list() 
+                self.list_widget.refresh_list()
                 if hasattr(self, 'editor_widget'): self.editor_widget.clear()
                 if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
-                
+
                 if hasattr(self, "dashboard_widget"):
                     self.dashboard_widget.refresh_stats()
-                
+
                 if hasattr(self, "filter_tree_widget"):
-                    self.filter_tree_widget.load_tree() 
+                    self.filter_tree_widget.load_tree()
 
                 if hasattr(self, "filter_input"):
                     self.filter_input.clear()
-                
-                QMessageBox.information(self, self.tr("Success"), self.tr("System has been reset."))
+
+                show_selectable_message_box(self, self.tr("Success"), self.tr("System has been reset."), icon=QMessageBox.Icon.Information)
             else:
-                QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to purge data. Check logs."))
+                show_selectable_message_box(self, self.tr("Error"), self.tr("Failed to purge data. Check logs."), icon=QMessageBox.Icon.Warning)
 
     def purge_documents_slot(self, uuids: list[str]):
         count = 0
@@ -1443,12 +1554,11 @@ class MainWindow(QMainWindow):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
-            QMessageBox.information(self, self.tr("Deleted"), self.tr(f"Permanently deleted {count} document(s)."))
+            show_selectable_message_box(self, self.tr("Deleted"), self.tr(f"Permanently deleted {count} document(s)."), icon=QMessageBox.Icon.Information)
 
     def navigate_to_list_filter(self, payload: dict):
         """Switch to Explorer View and apply filter."""
-        from PyQt6.QtCore import QCoreApplication, QTimer
-        
+
         # New payload can be just query (legacy) or dict with metadata
         if "query" in payload:
             filter_query = payload["query"]
@@ -1457,12 +1567,19 @@ class MainWindow(QMainWindow):
 
         self.central_stack.setCurrentIndex(1) # Explorer
         QCoreApplication.processEvents()
-        
+
         q_str = json.dumps(filter_query, sort_keys=True)
         target_uuid = self._dashboard_selections.get("DASH:" + q_str)
         self.list_widget.target_uuid_to_restore = target_uuid
         self.list_widget.current_dashboard_query = filter_query
-        
+
+        # Phase 107: Breadcrumb Support for Dashboard
+        label = payload.get("name") or payload.get("label")
+        if label:
+            self.list_widget.view_context = f"Dashboard > {label}"
+        else:
+            self.list_widget.view_context = "Dashboard View"
+
         if self.advanced_filter.chk_active.isChecked():
              self.advanced_filter.chk_active.setChecked(False)
 
@@ -1477,7 +1594,7 @@ class MainWindow(QMainWindow):
             else:
                 query = self.list_widget.current_dashboard_query or {}
                 key = "DASH:" + json.dumps(query, sort_keys=True)
-            
+
             self._dashboard_selections[key] = uuid
         except:
             pass
@@ -1495,7 +1612,7 @@ class MainWindow(QMainWindow):
 
             self.advanced_filter.blockSignals(True)
             self.advanced_filter.load_from_object(filter_query)
-            
+
             # Sync the Combo Box if possible
             if filter_id:
                 # Find the node in the tree and select it in combo
@@ -1514,10 +1631,10 @@ class MainWindow(QMainWindow):
                         self.advanced_filter.combo_filters.setCurrentIndex(i)
                         break
 
-            self.advanced_filter.chk_active.setChecked(False) 
-            self.list_widget.advanced_filter_active = False 
+            self.advanced_filter.chk_active.setChecked(False)
+            self.list_widget.advanced_filter_active = False
             self.advanced_filter.blockSignals(False)
-            
+
             self.list_widget.refresh_list(force_select_first=True)
             self.list_widget.tree.setFocus()
 
@@ -1525,11 +1642,10 @@ class MainWindow(QMainWindow):
         """Open Splitter Dialog for specific UUID."""
         print(f"[DEBUG] open_splitter_dialog_slot called for UUID: {uuid}")
         if not uuid or not self.pipeline: return
-        
-        from gui.splitter_dialog import SplitterDialog
+
         dialog = SplitterDialog(self.pipeline, self)
         dialog.load_document(uuid)
-        
+
         if dialog.exec():
              instructions = dialog.import_instructions
              if instructions is not None:
@@ -1540,19 +1656,19 @@ class MainWindow(QMainWindow):
                       else:
                           new_uuids = self.pipeline.apply_restructure_instructions(uuid, instructions)
                           self.statusBar().showMessage(self.tr(f"Document updated ({len(new_uuids)} parts)."))
-                          
+
                       self.list_widget.refresh_list()
                       if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
                       if hasattr(self, 'editor_widget'): self.editor_widget.clear()
-                      
+
                       if hasattr(self, "dashboard_widget"):
                           self.dashboard_widget.refresh_stats()
-                          
+
                   except Exception as e:
                        import traceback
                        print(f"[ERROR] Failed to apply structural changes: {e}")
                        traceback.print_exc()
-                       QMessageBox.critical(self, self.tr("Error"), f"Failed to apply structural changes: {e}")
+                       show_selectable_message_box(self, self.tr("Error"), f"Failed to apply structural changes: {e}", icon=QMessageBox.Icon.Critical)
 
     def go_home_slot(self):
         """Switch to Dashboard."""
@@ -1565,19 +1681,19 @@ class MainWindow(QMainWindow):
         toolbar.setIconSize(QSize(24, 24))
         toolbar.setMovable(False)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
-        
+
         action_home = QAction(self.tr("Dashboard"), self)
         action_home.triggered.connect(self.go_home_slot)
         toolbar.addAction(action_home)
-        
+
         toolbar.addSeparator()
-        
+
         action_list = QAction(self.tr("Documents"), self)
         action_list.triggered.connect(lambda: self.central_stack.setCurrentIndex(1))
         toolbar.addAction(action_list)
-        
+
         toolbar.addSeparator()
-        
+
         self.action_toggle_filter = QAction("🔍 " + self.tr("Filter"), self)
         self.action_toggle_filter.setCheckable(True)
         self.action_toggle_filter.setChecked(True)
@@ -1589,19 +1705,19 @@ class MainWindow(QMainWindow):
         """Initialize global keyboard shortcuts."""
         self.shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
         self.shortcut_save.activated.connect(lambda: self.editor_widget.save_changes())
-        
+
         self.shortcut_search = QShortcut(QKeySequence("Ctrl+F"), self)
         if hasattr(self, "advanced_filter"):
             def focus_search():
                 if not self.advanced_filter.isVisible():
                     self._toggle_filter_view(True)
-                self.advanced_filter.tabs.setCurrentIndex(0) 
+                self.advanced_filter.tabs.setCurrentIndex(0)
                 self.advanced_filter.txt_smart_search.setFocus()
             self.shortcut_search.activated.connect(focus_search)
 
         self.shortcut_home = QShortcut(QKeySequence("Ctrl+H"), self)
         self.shortcut_home.activated.connect(self.go_home_slot)
-        
+
         self.shortcut_home_alt = QShortcut(QKeySequence("Alt+Home"), self)
         self.shortcut_home_alt.activated.connect(self.go_home_slot)
 
@@ -1614,14 +1730,17 @@ class MainWindow(QMainWindow):
 
     def open_tag_manager_slot(self):
         """Open the Tag Manager dialog."""
-        from gui.tag_manager import TagManagerDialog
         dlg = TagManagerDialog(self.db_manager, parent=self)
         dlg.exec()
         self.list_widget.refresh_list()
-        
+
     def _on_view_filter_changed(self, filter_data):
         """Called when a Saved View loads a filter."""
         if self.advanced_filter:
             self.advanced_filter.load_from_object(filter_data)
             self.advanced_filter.apply_advanced_filter()
 
+    def _on_fatal_pipeline_error(self, title, message):
+        """Called when a background worker hits a logic error."""
+        show_selectable_message_box(self, title, message, icon=QMessageBox.Icon.Critical)
+        self.statusBar().showMessage(self.tr("Pipeline STOPPED due to fatal error."))

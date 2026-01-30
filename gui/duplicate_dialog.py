@@ -115,7 +115,7 @@ class DuplicateFinderDialog(QDialog):
             self.pair_list.addItem(item)
             
         if self.pair_list.count() == 0:
-            QMessageBox.information(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."))
+            show_selectable_message_box(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."), icon=QMessageBox.Icon.Information)
             self.close()
             
     def _on_pair_selected(self):
@@ -193,7 +193,7 @@ class DuplicateFinderDialog(QDialog):
         if not items: return
         
         msg = self.tr(f"Wirklich {len(items)} Dubletten löschen?")
-        if QMessageBox.question(self, self.tr("Bestätigen"), msg) != QMessageBox.StandardButton.Yes:
+        if show_selectable_message_box(self, self.tr("Bestätigen"), msg, icon=QMessageBox.Icon.Question, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return
             
         success_count = 0
@@ -212,8 +212,7 @@ class DuplicateFinderDialog(QDialog):
                 error_count += 1
                 
         if error_count > 0:
-            QMessageBox.warning(self, self.tr("Fehler"), self.tr(f"{error_count} Dokumente konnten nicht gelöscht werden."))
+            show_selectable_message_box(self, self.tr("Fehler"), self.tr(f"{error_count} Dokumente konnten nicht gelöscht werden."), icon=QMessageBox.Icon.Warning)
         
         if self.pair_list.count() == 0:
             self.close()
-

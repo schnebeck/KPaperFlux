@@ -1,5 +1,4 @@
-
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QComboBox, QSpinBox, QColorDialog)
 from PyQt6.QtCore import Qt
 
@@ -10,30 +9,34 @@ class DashboardEntryDialog(QDialog):
         self.setMinimumWidth(300)
         self.filter_tree = filter_tree
         self.entry_data = entry_data or {}
-        
+
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        
+
         # Name
         layout.addWidget(QLabel("Display Title:"))
         self.edit_title = QLineEdit(self.entry_data.get("title", ""))
         self.edit_title.setPlaceholderText("e.g. My Invoices")
         layout.addWidget(self.edit_title)
-        
+
         # Filter Selection
         layout.addWidget(QLabel("Linked Filter Rule:"))
         self.combo_filter = QComboBox()
-        self.filters = self.filter_tree.get_all_filters()
-        
+        # Ensure we have filters
+        if hasattr(self.filter_tree, 'get_all_filters'):
+            self.filters = self.filter_tree.get_all_filters()
+        else:
+            self.filters = []
+
         # Add Presets first
         self.combo_filter.addItem("--- Choose Filter ---", None)
         self.combo_filter.addItem("Inbox (NEW)", {"type": "preset", "id": "NEW"})
         self.combo_filter.addItem("Total Documents", {"type": "preset", "id": "ALL"})
         self.combo_filter.addItem("Processed Documents", {"type": "preset", "id": "PROCESSED"})
         # self.combo_filter.addItem("--- Custom Filters ---", None) # Optional separator
-        
+
         current_idx = 0
         preset_id = self.entry_data.get("preset_id")
         filter_id = self.entry_data.get("filter_id")
@@ -50,10 +53,10 @@ class DashboardEntryDialog(QDialog):
             self.combo_filter.addItem(f"Filter: {f.name}", {"type": "filter", "id": f.id})
             if filter_id == f.id:
                 current_idx = self.combo_filter.count() - 1
-                
+
         self.combo_filter.setCurrentIndex(current_idx)
         layout.addWidget(self.combo_filter)
-        
+
         # Color
         layout.addWidget(QLabel("Color Theme:"))
         self.btn_color = QPushButton()
@@ -61,9 +64,9 @@ class DashboardEntryDialog(QDialog):
         self.btn_color.setStyleSheet(f"background-color: {self.current_color}; min-height: 30px; border-radius: 4px;")
         self.btn_color.clicked.connect(self.choose_color)
         layout.addWidget(self.btn_color)
-        
+
         layout.addSpacing(10)
-        
+
         # Buttons
         btns = QHBoxLayout()
         btn_ok = QPushButton("Save View")
@@ -76,7 +79,7 @@ class DashboardEntryDialog(QDialog):
         layout.addLayout(btns)
 
     def choose_color(self):
-        from PyQt6.QtWidgets import QColorDialog
+        # Import removed here as it is already at the top
         color = QColorDialog.getColor(Qt.GlobalColor.blue, self)
         if color.isValid():
             self.current_color = color.name()

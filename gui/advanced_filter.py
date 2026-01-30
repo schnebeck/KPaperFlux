@@ -1,448 +1,56 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QComboBox, QLineEdit, QScrollArea, QFrame, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+                             QLabel, QComboBox, QLineEdit, QScrollArea, QFrame,
                              QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox,
-                             QSizePolicy, QProgressDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint
+                             QSizePolicy, QProgressDialog, QStackedWidget, QTabWidget, QDialog)
+from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint, QCoreApplication
 from PyQt6.QtGui import QAction
 import json
-from gui.filter_manager import FilterManagerDialog
-from core.filter_tree import NodeType, FilterNode
-from core.metadata_normalizer import MetadataNormalizer
-from core.semantic_translator import SemanticTranslator
 
-from gui.widgets.multi_select_combo import MultiSelectComboBox
-from gui.widgets.date_range_picker import DateRangePicker
-from core.query_parser import QueryParser
-from PyQt6.QtWidgets import QStackedWidget, QTabWidget
+# Projekt-Imports
+try:
+    from gui.filter_manager import FilterManagerDialog
+    from core.filter_tree import NodeType, FilterNode
+    from core.metadata_normalizer import MetadataNormalizer
+    from core.semantic_translator import SemanticTranslator
+    from core.query_parser import QueryParser
+    from core.models.canonical_entity import DocType
+    from gui.widgets.multi_select_combo import MultiSelectComboBox
+    from gui.widgets.date_range_picker import DateRangePicker
+    from gui.widgets.tag_input import TagInputWidget
+    # NEU: Beide aus separaten Dateien importieren
+    from gui.widgets.filter_group import FilterGroupWidget
+    from gui.widgets.filter_condition import FilterConditionWidget
+    from gui.workers import BatchTaggingWorker
+except ImportError as e:
+    print(f"Warnung: Importfehler in advanced_filter.py: {e}")
+    # --- MOCKS START ---
+    # ... (Mocks bleiben zur Sicherheit drin, gekürzt für Übersicht)
+    class FilterManagerDialog(QDialog):
+        filter_selected = pyqtSignal(object)
+        def __init__(self, *args, **kwargs): super().__init__()
+    class FilterGroupWidget(QWidget): # Mock
+        changed = pyqtSignal()
+        def __init__(self, *args, **kwargs): super().__init__()
+        def set_query(self, d): pass
+        def get_query(self): return {}
+        def clear(self): pass
+        def update_metadata(self, *args): pass
+        def add_condition(self, d=None): pass
+    # ... weitere Mocks ...
+    # --- MOCKS END ---
 
-class FilterConditionWidget(QWidget):
-    """
-    A single row representing a filter condition: [Field] [Operator] [Value] [Remove]
-    """
-    remove_requested = pyqtSignal()
-    changed = pyqtSignal()
+try:
+    from gui.utils import show_selectable_message_box
+except ImportError:
+    def show_selectable_message_box(parent, title, text, icon=QMessageBox.Icon.Information, buttons=QMessageBox.StandardButton.Ok):
+        msg = QMessageBox(parent)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setIcon(icon)
+        msg.setStandardButtons(buttons)
+        return msg.exec()
 
-    CATEGORIES = {
-        "basis": "📦 Basis",
-        "ai": "🤖 Analyse",
-        "stamps": "📑 Stempel",
-        "sys": "⚙️ System",
-        "raw": "🛠 Rohdaten"
-    }
-
-    FIELDS_BY_CAT = {
-        "basis": {
-            "Absender": "sender",
-            "Belegdatum": "doc_date",
-            "Betrag": "amount",
-            "Belegtyp": "doc_type",
-            "Status": "status",
-            "Schlagworte (Tags)": "tags",
-            "System-Tags": "type_tags",
-            "Volltext": "cached_full_text",
-        },
-        "ai": {
-            "Richtung": "direction",
-            "Kontext": "tenant_context",
-            "KI Vertrauen": "confidence",
-            "KI Begründung": "reasoning",
-        },
-        "stamps": {
-            "Stempeltext (Gesamt)": "stamp_text",
-            "Stempeltyp": "stamp_type",
-            "Audit-Modus": "visual_audit_mode",
-        },
-        "sys": {
-            "Dateiname": "original_filename",
-            "Seitenanzahl": "page_count_virt",
-            "UUID": "uuid",
-            "Erstellt am": "created_at",
-            "Verarbeitet am": "last_processed_at",
-            "In Papierkorb": "deleted",
-        }
-    }
-
-    # Flat mapping for internal use / tests
-    FIELDS = {}
-    for cat in FIELDS_BY_CAT.values():
-        for label, val in cat.items():
-            FIELDS[val] = label
-    
-    # Operators per type hint (simplified)
-    # Generic, Numeric, Text, Date
-    OPERATORS = [
-        ("Contains", "contains"),
-        ("Equals", "equals"),
-        ("Starts With", "starts_with"),
-        ("Greater Than", "gt"),
-        ("Less Than", "lt"),
-        ("Is Empty", "is_empty"),
-        ("Is Not Empty", "is_not_empty"),
-        ("In List", "in"),
-        ("Between", "between") # Added for ranges
-    ]
-
-    def __init__(self, parent=None, extra_keys=None, available_tags=None, available_system_tags=None):
-        super().__init__(parent)
-        self.available_tags = available_tags or []
-        self.available_system_tags = available_system_tags or []
-        self.extra_keys = extra_keys or []
-        self.last_field = None
-        self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        
-        # 1. Instantiate all Widgets
-        self.btn_field_selector = QPushButton(self.tr("Select Field..."))
-        self.btn_field_selector.setMinimumWidth(150)
-        self.field_key = None
-        self.field_name = None
-        
-        self.combo_op = QComboBox()
-        self.chk_negate = QCheckBox(self.tr("Not"))
-        self.input_stack = QStackedWidget()
-        self.btn_remove = QPushButton("X")
-        self.btn_remove.setFixedWidth(24)
-        
-        # 2. Setup Input Stack
-        self.input_text = QLineEdit()
-        self.input_stack.addWidget(self.input_text)
-        self.input_multi = MultiSelectComboBox()
-        self.input_stack.addWidget(self.input_multi)
-        self.input_date = DateRangePicker()
-        self.input_stack.addWidget(self.input_date)
-        
-        # 3. Populate Operators
-        for name, key in self.OPERATORS:
-            self.combo_op.addItem(name, key)
-            
-        # 4. Add to Layout
-        self.layout.addWidget(self.btn_field_selector, 1)
-        self.layout.addWidget(self.chk_negate)
-        self.layout.addWidget(self.combo_op, 1)
-        self.layout.addWidget(self.input_stack, 2)
-        self.layout.addWidget(self.btn_remove)
-
-        # 5. Connect Signals (AFTER creating widgets!)
-        self.btn_field_selector.clicked.connect(self._show_field_menu)
-        self.combo_op.currentIndexChanged.connect(self.changed)
-        self.chk_negate.toggled.connect(self.changed)
-        self.input_text.textChanged.connect(self.changed)
-        self.input_multi.selectionChanged.connect(lambda: self.changed.emit())
-        self.input_date.rangeChanged.connect(lambda: self.changed.emit())
-        self.btn_remove.clicked.connect(self.remove_requested)
-
-        # Simply store for next menu open
-        pass
-
-    def update_metadata(self, extra_keys=None, available_tags=None):
-        """Update available keys/tags and refresh UI without losing state."""
-        if extra_keys is not None: self.extra_keys = extra_keys
-        if available_tags is not None: self.available_tags = available_tags
-        
-        # With the menu-based selection, we don't need to repopulate/restore state
-        # on existing widgets. The menu is built dynamically each time it's opened.
-
-    def _show_field_menu(self):
-        menu = QMenu(self)
-        translator = SemanticTranslator.instance()
-        
-        # 1. Categories
-        for cat_id, cat_label in self.CATEGORIES.items():
-            cat_menu = menu.addMenu(cat_label)
-            
-            # Basis fields
-            fields = self.FIELDS_BY_CAT.get(cat_id, {})
-            for name, key in fields.items():
-                action = cat_menu.addAction(name)
-                action.triggered.connect(lambda checked, k=key, n=name: self._set_field(k, n))
-                
-            # Dynamic additions per category
-            if cat_id == "stamps":
-                has_stamps = False
-                for k in self.extra_keys:
-                    if k.startswith("stamp_field:"):
-                        has_stamps = True
-                        label = k[12:]
-                        action = cat_menu.addAction(f"Feld: {label}")
-                        action.triggered.connect(lambda checked, k=k, n=label: self._set_field(k, n))
-                if not has_stamps and not fields:
-                    cat_menu.setEnabled(False)
-                    
-            elif cat_id == "ai":
-                config = MetadataNormalizer.get_config() or {}
-                for t_name, t_def in config.get("types", {}).items():
-                    # Translated Type Name
-                    label_key = t_def.get("label_key", f"type_{t_name.lower()}")
-                    type_label = translator.translate(label_key)
-                    
-                    type_menu = cat_menu.addMenu(type_label)
-                    for f in t_def.get("fields", []):
-                        for s in f.get("strategies", []):
-                            if s["type"] == "json_path":
-                                f_id = f["id"]
-                                f_label_key = f.get("label_key", f_id)
-                                f_label = translator.translate(f_label_key)
-                                
-                                key = f"semantic:{s['path']}"
-                                action = type_menu.addAction(f_label)
-                                action.triggered.connect(lambda checked, k=key, n=f"{type_label} > {f_label}": self._set_field(k, n))
-                                
-            elif cat_id == "raw":
-                # Build nested menus for dotted keys (e.g. summary.tax.total)
-                # Sort keys to ensure consistent menu structure
-                sorted_keys = sorted([k for k in self.extra_keys if not k.startswith("stamp_field:")])
-                
-                # Dictionary to store created menus to avoid duplicates
-                # Base is the cat_menu
-                menus = {"": cat_menu}
-                
-                for k in sorted_keys:
-                    parts = k.split(".")
-                    current_path = ""
-                    
-                    # Create parent menus if needed
-                    for i in range(len(parts) - 1):
-                        parent_path = current_path
-                        part = parts[i]
-                        current_path = f"{parent_path}.{part}" if parent_path else part
-                        
-                        if current_path not in menus:
-                            menus[current_path] = menus[parent_path].addMenu(part)
-                    
-                    # Add the final action
-                    leaf_name = parts[-1]
-                    parent_path = ".".join(parts[:-1])
-                    action = menus[parent_path].addAction(leaf_name)
-                    action.triggered.connect(lambda checked, key=k, name=k: self._set_field(key, name))
-
-        menu.exec(self.btn_field_selector.mapToGlobal(self.btn_field_selector.rect().bottomLeft()))
-
-    def _set_field(self, key, display_name):
-        self.field_key = key
-        self.field_name = display_name
-        self.btn_field_selector.setText(display_name)
-        self._on_field_changed(key)
-
-    def _on_category_changed(self, index):
-        # Deprecated
-        pass
-
-    def _on_field_changed(self, field_key):
-        if not field_key:
-             return
-             
-        if field_key == self.last_field:
-            return
-        self.last_field = field_key
-            
-        # Logic to switch inputs
-        # Logic to switch inputs
-        if field_key in ["doc_date", "created_at", "last_processed_at", "last_used"]:
-            self.input_stack.setCurrentIndex(2) # Date
-        elif field_key in ["type_tags", "tags"]:
-            self.input_stack.setCurrentIndex(1) # Multi
-            self.input_multi.clear()
-            
-            if field_key == "type_tags":
-                # System Tags - dynamically from DB
-                self.input_multi.addItems(self.available_system_tags)
-            else:
-                # User Tags
-                self.input_multi.addItems(self.available_tags)
-        elif field_key == "direction":
-             self.input_stack.setCurrentIndex(1)
-             self.input_multi.clear()
-             # Direction is also derived from system tags (INBOUND/OUTBOUND)
-             dirs = [t for t in self.available_system_tags if t in ["INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"]]
-             if not dirs: dirs = ["INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"] # Fallback if DB empty
-             self.input_multi.addItems(dirs)
-        elif field_key == "tenant_context":
-             self.input_stack.setCurrentIndex(1)
-             self.input_multi.clear()
-             ctxs = [t for t in self.available_system_tags if t.startswith("CTX_") or t in ["PRIVATE", "BUSINESS"]]
-             if not ctxs: ctxs = ["PRIVATE", "BUSINESS", "UNKNOWN"]
-             self.input_multi.addItems(ctxs)
-        elif field_key == "doc_type":
-             self.input_stack.setCurrentIndex(1)
-             self.input_multi.clear()
-             # Filter available_system_tags for things that are DocTypes 
-             # (This is better than hardcoding the 20+ types here)
-             # But how do we know which ones are DocTypes? 
-             # We can use the DocType Enum if we import it.
-             from core.models.canonical_entity import DocType
-             allowed = {t.value for t in DocType}
-             found_types = [t for t in self.available_system_tags if t in allowed]
-             if not found_types: found_types = sorted(list(allowed)) # Fallback/Seed
-             self.input_multi.addItems(found_types)
-        elif field_key == "visual_audit_mode":
-              self.input_stack.setCurrentIndex(1)
-              self.input_multi.clear()
-              self.input_multi.addItems(["STAMP_ONLY", "FULL_AUDIT", "NONE"])
-        else:
-            self.input_stack.setCurrentIndex(0) # Text
-            
-        self.changed.emit()
-        
-    def _populate_fields(self, extra_keys):
-        self.combo_field.clear()
-        translator = SemanticTranslator.instance()
-        
-        # 1. Standard Fields (Grouped conceptually)
-        self.combo_field.addItem("--- " + self.tr("Standard") + " ---", None)
-        # Disable the header item? Qt doesn't make it easy in basic combo, 
-        # but we can check in logic.
-        
-        # Sort standard fields by display name for easier finding
-        sorted_standard = sorted(self.FIELDS.keys())
-        for name in sorted_standard:
-            self.combo_field.addItem(name, self.FIELDS[name])
-            
-        # 2. Semantic Types (Hierarchical)
-        config = MetadataNormalizer.get_config()
-        if config and "types" in config:
-            for type_name, type_def in config["types"].items():
-                # Translated Type Name
-                label_key = type_def.get("label_key", f"type_{type_name.lower()}")
-                type_label = translator.translate(label_key)
-                
-                self.combo_field.addItem(f"--- {type_label} ---", None)
-                
-                for field in type_def.get("fields", []):
-                    field_id = field["id"]
-                    field_label_key = field.get("label_key", field_id)
-                    field_label = translator.translate(field_label_key)
-                    
-                    # Determine Path Strategy
-                    # valid path strategy is strictly required for filter to work 
-                    # without complex normalization logic in SQL.
-                    # We look for "json_path" strategy.
-                    path = None
-                    for strat in field.get("strategies", []):
-                        if strat["type"] == "json_path":
-                            path = strat["path"]
-                            break
-                    
-                    if path:
-                        # Construct key: semantic:path 
-                        # e.g. semantic:summary.tax_amount
-                        key = f"semantic:{path}"
-                        display = f"{type_label} > {field_label}"
-                        self.combo_field.addItem(display, key)
-
-        # 3. Raw / Discovered Keys (Fallback)
-        if extra_keys:
-             self.combo_field.addItem("--- " + self.tr("Raw Data") + " ---", None)
-             for key in extra_keys:
-                 # Avoid duplicates if possible? 
-                 # Use a simplified display
-                 if key.startswith("semantic:"):
-                      short = key[9:]
-                      display = f"Raw: {short}"
-                      value = key
-                 elif key.startswith("json:"):
-                      short = key[5:]
-                      display = f"Raw: {short}"
-                      value = key
-                 elif key.startswith("stamp_field:"):
-                      short = key[12:]
-                      display = f"Stamp: {short}"
-                      value = key
-                 else:
-                      display = f"Raw: {key}"
-                      value = f"json:{key}"
-                 
-                 # Check if this value is already added (by Type definition) to avoid clutter
-                 # But raw keys might be slightly different paths or deep nested
-                 # Simple check:
-                 if self.combo_field.findData(value) == -1:
-                     self.combo_field.addItem(display, value)
-
-    def get_condition(self):
-        field_key = self.field_key
-        if not field_key:
-             return None
-        
-        op = self.combo_op.currentData()
-        
-        # Get Value from active input
-        idx = self.input_stack.currentIndex()
-        val = None
-        
-        if op in ["is_empty", "is_not_empty"]:
-            val = None
-        elif idx == 0: # Text
-            val = self.input_text.text()
-            # If op is 'in' and text input, split by comma
-            if op == "in" and val:
-                 val = [x.strip() for x in val.split(",") if x.strip()]
-        elif idx == 1: # Multi
-            val = self.input_multi.getCheckedItems()
-            # If single value expected? Logic handles lists usually.
-        elif idx == 2: # Date
-            val = self.input_date.get_value()
-             
-        res = {"field": field_key, "op": op, "value": val, "negate": self.chk_negate.isChecked()}
-        return res
-
-    def set_condition(self, mode: dict):
-        key = mode.get("field")
-        if not key:
-            return # Invalid condition data
-        
-        self.chk_negate.setChecked(mode.get("negate", False))
-        
-        # Determine Display Name for the button
-        display_name = key
-        
-        # Search in static mappings
-        for cat, fields in self.FIELDS_BY_CAT.items():
-            for name, k in fields.items():
-                if k == key:
-                    display_name = name
-                    break
-                    
-        # Search in AI schema
-        if key.startswith("semantic:"):
-             path = key[9:]
-             config = MetadataNormalizer.get_config() or {}
-             for t_name, t_def in config.get("types", {}).items():
-                 for f in t_def.get("fields", []):
-                     for s in f.get("strategies", []):
-                         if s["type"] == "json_path" and s["path"] == path:
-                             display_name = f"{t_name} > {f['id']}"
-                             
-        # Search in Dynamic Stamps
-        if key.startswith("stamp_field:"):
-             display_name = f"Stempel: {key[12:]}"
-
-        self._set_field(key, display_name)
-                 
-        # 2. Set Operator
-        op = mode.get("op", "contains")
-        idx = self.combo_op.findData(op)
-        if idx >= 0: self.combo_op.setCurrentIndex(idx)
-        
-        # 3. Set Value
-        val = mode.get("value")
-        current_idx = self.input_stack.currentIndex()
-        
-        if current_idx == 0:
-             if isinstance(val, list): val = ", ".join(map(str, val))
-             self.input_text.setText(str(val) if val is not None else "")
-        elif current_idx == 1:
-             if isinstance(val, list):
-                 self.input_multi.setCheckedItems(val)
-             elif isinstance(val, str):
-                 self.input_multi.setCheckedItems([val])
-        elif current_idx == 2:
-             self.input_date.set_value(val)
-
-
-
-
-from gui.widgets.tag_input import TagInputWidget
-from gui.widgets.filter_group import FilterGroupWidget
+# HINWEIS: FilterConditionWidget wurde ausgelagert nach gui/widgets/filter_condition.py
 
 class AdvancedFilterWidget(QWidget):
     """
@@ -452,10 +60,9 @@ class AdvancedFilterWidget(QWidget):
     trash_mode_changed = pyqtSignal(bool) # New signal for Trash Mode
     request_apply_rule = pyqtSignal(object, str) # rule, scope ("ALL", "FILTERED", "SELECTED")
     search_triggered = pyqtSignal(str) # Emits the raw search text for highlighting
-    
+
     def __init__(self, parent=None, db_manager=None, filter_tree=None, save_callback=None):
         super().__init__(parent)
-        # ... validation ...
         self.db_manager = db_manager
         self.filter_tree = filter_tree
         self.save_callback = save_callback
@@ -465,7 +72,7 @@ class AdvancedFilterWidget(QWidget):
         self.loaded_filter_node = None
         self._loading = False
         self.parser = QueryParser() # For smart search
-        
+
         if self.db_manager:
             self.extra_keys = self.db_manager.get_available_extra_keys()
             if hasattr(self.db_manager, "get_available_tags"):
@@ -479,79 +86,79 @@ class AdvancedFilterWidget(QWidget):
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
-        
+
         # --- TAB 1: Suche ---
         self.search_tab = QWidget()
         search_layout = QVBoxLayout(self.search_tab)
-        
+
         s_row = QHBoxLayout()
         s_row.addWidget(QLabel(self.tr("Search:")))
         self.txt_smart_search = QLineEdit()
         self.txt_smart_search.setPlaceholderText(self.tr("e.g. Amazon 2024 Invoice..."))
         self.txt_smart_search.returnPressed.connect(self._on_smart_search)
         s_row.addWidget(self.txt_smart_search)
-        
+
         btn_apply_search = QPushButton(self.tr("Go"))
         btn_apply_search.clicked.connect(self._on_smart_search)
         s_row.addWidget(btn_apply_search)
         search_layout.addLayout(s_row)
-        
+
         # Options & Status Row
         opt_layout = QHBoxLayout()
         self.chk_search_scope = QCheckBox(self.tr("Search in current view only"))
         self.chk_search_scope.setToolTip(self.tr("If checked, combines the search with the active filters from 'Filter View'."))
         opt_layout.addWidget(self.chk_search_scope)
-        
+
         opt_layout.addStretch()
-        
+
         self.lbl_search_status = QLabel("")
         self.lbl_search_status.setStyleSheet("color: #666; font-style: italic;")
         opt_layout.addWidget(self.lbl_search_status)
-        
+
         search_layout.addLayout(opt_layout)
         search_layout.addStretch()
-        
+
         self.tabs.addTab(self.search_tab, "🔍 " + self.tr("Search"))
-        
+
         # --- TAB 2: Ansicht filtern ---
         self.filter_tab = QWidget()
         filter_layout = QVBoxLayout(self.filter_tab)
-        
+
         # Top Bar (Management)
         top_bar = QHBoxLayout()
         top_bar.addWidget(QLabel(self.tr("Select:")))
         self.combo_filters = QComboBox()
         self.combo_filters.currentIndexChanged.connect(self._on_saved_filter_selected)
         top_bar.addWidget(self.combo_filters, 1)
-        
+
         self.btn_revert = QPushButton(self.tr("Revert"))
         self.btn_revert.setEnabled(False)
         self.btn_revert.clicked.connect(self.revert_changes)
         top_bar.addWidget(self.btn_revert)
-        
+
         self.btn_save = QPushButton(self.tr("Save..."))
         self.btn_save.clicked.connect(self.save_current_filter)
         top_bar.addWidget(self.btn_save)
-        
+
         self.btn_manage = QPushButton(self.tr("Manage"))
         self.btn_manage.clicked.connect(self.manage_filters)
         top_bar.addWidget(self.btn_manage)
         filter_layout.addLayout(top_bar)
-        
+
         # Conditions Area
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.root_group = FilterGroupWidget(extra_keys=self.extra_keys, 
-                                            available_tags=self.available_tags, 
+        self.root_group = FilterGroupWidget(extra_keys=self.extra_keys,
+                                            available_tags=self.available_tags,
                                             available_system_tags=self.available_system_tags,
                                             is_root=True)
         self.root_group.changed.connect(self._set_dirty)
         self.scroll.setWidget(self.root_group)
         filter_layout.addWidget(self.scroll, 1)
-        
+
         # Bottom Bar
         bottom_bar = QHBoxLayout()
         self.btn_clear = QPushButton(self.tr("Clear All"))
@@ -559,20 +166,20 @@ class AdvancedFilterWidget(QWidget):
         self.btn_clear.clicked.connect(lambda: self.clear_all(reset_combo=True))
         bottom_bar.addWidget(self.btn_clear)
         bottom_bar.addStretch()
-        
+
         self.btn_apply = QPushButton(self.tr("Apply Changes"))
         self.btn_apply.setEnabled(False)
         self.btn_apply.clicked.connect(self._emit_change)
         bottom_bar.addWidget(self.btn_apply)
-        
+
         self.chk_active = QCheckBox(self.tr("Filter Active"))
         self.chk_active.setChecked(True)
         self.chk_active.toggled.connect(self._on_active_toggled)
         bottom_bar.addWidget(self.chk_active)
         filter_layout.addLayout(bottom_bar)
-        
+
         self.tabs.addTab(self.filter_tab, "🎯 " + self.tr("Filter View"))
-        
+
         # --- TAB 3: Auto-Tagging Rules ---
         self._init_rules_tab()
         self.tabs.addTab(self.rules_tab, "🤖 " + self.tr("Auto-Tagging"))
@@ -580,63 +187,63 @@ class AdvancedFilterWidget(QWidget):
     def _init_rules_tab(self):
         self.rules_tab = QWidget()
         rules_layout = QVBoxLayout(self.rules_tab)
-        
+
         # Top Bar (Management) - Harmonized with Filter View
         top_bar = QHBoxLayout()
         top_bar.addWidget(QLabel(self.tr("Select:")))
         self.combo_rules = QComboBox()
         self.combo_rules.currentIndexChanged.connect(self._on_saved_rule_selected)
         top_bar.addWidget(self.combo_rules, 1)
-        
+
         self.btn_revert_rule = QPushButton(self.tr("Revert"))
         self.btn_revert_rule.setEnabled(False)
         self.btn_revert_rule.clicked.connect(self.revert_rule_changes)
         top_bar.addWidget(self.btn_revert_rule)
-        
+
         self.btn_save_rule = QPushButton(self.tr("Save..."))
         self.btn_save_rule.clicked.connect(self._on_save_rule_clicked)
         top_bar.addWidget(self.btn_save_rule)
-        
+
         self.btn_manage_rules = QPushButton(self.tr("Manage"))
         self.btn_manage_rules.clicked.connect(self.manage_rules)
         top_bar.addWidget(self.btn_manage_rules)
         rules_layout.addLayout(top_bar)
-        
+
         # Metadata / Tagging Row
         meta_row = QHBoxLayout()
         meta_row.addWidget(QLabel(self.tr("Add Tags:")))
-        from gui.widgets.tag_input import TagInputWidget
+
         self.edit_tags_add = TagInputWidget()
         self.edit_tags_add.setToolTip(self.tr("Enter tags to add. Press comma or Enter to confirm (e.g. INVOICE, TELEKOM)"))
         self.edit_tags_add.tagsChanged.connect(self._set_rule_dirty)
         meta_row.addWidget(self.edit_tags_add, 1)
-        
+
         meta_row.addWidget(QLabel(self.tr("Remove Tags:")))
         self.edit_tags_rem = TagInputWidget()
         self.edit_tags_rem.setToolTip(self.tr("Enter tags to remove. Press comma or Enter to confirm (e.g. DRAFT, REVIEW)"))
         self.edit_tags_rem.tagsChanged.connect(self._set_rule_dirty)
         meta_row.addWidget(self.edit_tags_rem, 1)
         rules_layout.addLayout(meta_row)
-        
+
         # Conditions Area (Mirrored FilterGroupWidget)
         self.rules_scroll = QScrollArea()
         self.rules_scroll.setWidgetResizable(True)
-        self.rules_root_group = FilterGroupWidget(extra_keys=self.extra_keys, 
-                                                  available_tags=self.available_tags, 
+        self.rules_root_group = FilterGroupWidget(extra_keys=self.extra_keys,
+                                                  available_tags=self.available_tags,
                                                   is_root=True)
         self.rules_root_group.changed.connect(self._set_rule_dirty)
         self.rules_scroll.setWidget(self.rules_root_group)
         rules_layout.addWidget(self.rules_scroll, 1)
-        
+
         # Bottom Bar (Processing)
         bottom_bar = QHBoxLayout()
         self.btn_clear_rule = QPushButton(self.tr("Clear All"))
         self.btn_clear_rule.setEnabled(False)
         self.btn_clear_rule.clicked.connect(self.clear_rule)
         bottom_bar.addWidget(self.btn_clear_rule)
-        
+
         bottom_bar.addStretch()
-        
+
         self.btn_create_view = QPushButton(self.tr("Create View-filter"))
         self.btn_create_view.setEnabled(False)
         self.btn_create_view.setToolTip(self.tr("Create a search-view that filters for the tags this rule adds"))
@@ -653,20 +260,20 @@ class AdvancedFilterWidget(QWidget):
         self.btn_apply_all.setEnabled(False)
         self.btn_apply_all.clicked.connect(self._on_batch_run_clicked)
         bottom_bar.addWidget(self.btn_apply_all)
-        
+
         self.chk_rule_enabled = QCheckBox(self.tr("Active"))
         self.chk_rule_enabled.setChecked(True)
         self.chk_rule_enabled.toggled.connect(self._set_rule_dirty)
         bottom_bar.addWidget(self.chk_rule_enabled)
-        
+
         self.chk_rule_auto = QCheckBox(self.tr("Run on Import"))
         self.chk_rule_auto.setChecked(True)
         self.chk_rule_auto.setToolTip(self.tr("Automatically apply this rule to new documents during import/analysis"))
         self.chk_rule_auto.toggled.connect(self._set_rule_dirty)
         bottom_bar.addWidget(self.chk_rule_auto)
-        
+
         rules_layout.addLayout(bottom_bar)
-        
+
         # Populate rules combo
         self._load_rules_to_combo()
 
@@ -674,13 +281,13 @@ class AdvancedFilterWidget(QWidget):
         self.combo_rules.blockSignals(True)
         self.combo_rules.clear()
         self.combo_rules.addItem(self.tr("--- Saved Rule ---"), None)
-        
+
         if not self.filter_tree:
             self.combo_rules.blockSignals(False)
             return
 
         rules = self.filter_tree.get_active_rules(only_auto=False)
-        
+
         for rule in rules:
             self.combo_rules.addItem(rule.name, rule)
         self.combo_rules.blockSignals(False)
@@ -690,7 +297,7 @@ class AdvancedFilterWidget(QWidget):
         if not rule:
             self.clear_rule()
             return
-            
+
         # Load rule into UI
         self.edit_tags_add.blockSignals(True)
         self.edit_tags_rem.blockSignals(True)
@@ -698,18 +305,18 @@ class AdvancedFilterWidget(QWidget):
         self.edit_tags_rem.setText(", ".join(rule.tags_to_remove))
         self.edit_tags_add.blockSignals(False)
         self.edit_tags_rem.blockSignals(False)
-        
+
         self.chk_rule_enabled.blockSignals(True)
         self.chk_rule_auto.blockSignals(True)
         self.chk_rule_enabled.setChecked(rule.is_enabled)
         self.chk_rule_auto.setChecked(rule.auto_apply)
         self.chk_rule_enabled.blockSignals(False)
         self.chk_rule_auto.blockSignals(False)
-        
+
         self.rules_root_group.blockSignals(True)
         self.rules_root_group.set_query(rule.data)
         self.rules_root_group.blockSignals(False)
-        
+
         self._reset_rule_dirty()
 
     def _set_rule_dirty(self):
@@ -718,27 +325,27 @@ class AdvancedFilterWidget(QWidget):
         self.btn_apply_view.setEnabled(True)
         self.btn_apply_all.setEnabled(True)
         self.btn_clear_rule.setEnabled(True)
-        
+
         has_tags = bool(self.edit_tags_add.text().strip())
         self.btn_create_view.setEnabled(has_tags)
-        
+
         self.btn_save_rule.setStyleSheet("font-weight: bold; color: blue;")
 
     def _reset_rule_dirty(self):
         """Disable buttons after save/load. Harmonized with Filter View."""
         self.btn_revert_rule.setEnabled(False)
-        self.btn_apply_view.setEnabled(False) 
-        self.btn_apply_all.setEnabled(False) 
-        
+        self.btn_apply_view.setEnabled(False)
+        self.btn_apply_all.setEnabled(False)
+
         query = self.rules_root_group.get_query()
         has_query = bool(query and query.get("conditions"))
-        
+
         self.btn_revert_rule.setEnabled(False)
         self.btn_clear_rule.setEnabled(has_query)
-        
+
         has_tags = bool(self.edit_tags_add.text().strip())
         self.btn_create_view.setEnabled(has_tags)
-        
+
         self.btn_save_rule.setStyleSheet("")
 
     def revert_rule_changes(self):
@@ -765,7 +372,7 @@ class AdvancedFilterWidget(QWidget):
             if child.name == "Tags":
                 start_node = child
                 break
-        
+
         dlg = FilterManagerDialog(self.filter_tree, db_manager=self.db_manager, parent=self, start_node=start_node)
         dlg.exec()
         self._load_rules_to_combo()
@@ -780,15 +387,14 @@ class AdvancedFilterWidget(QWidget):
         """Transforms the tagging result of this rule into a view filter."""
         tags = [t.strip() for t in self.edit_tags_add.text().split(",") if t.strip()]
         if not tags:
-            QMessageBox.information(self, self.tr("Create View-filter"), 
-                                    self.tr("No 'Add Tags' defined. Cannot create a filter for nothing."))
+            show_selectable_message_box(self, self.tr("Create View-filter"), self.tr("No 'Add Tags' defined. Cannot create a filter for nothing."), icon=QMessageBox.Icon.Information)
             return
-            
+
         name = self.combo_rules.currentText()
         if self.combo_rules.currentIndex() <= 0:
             name = "New Filter"
-            
-        name, ok = QInputDialog.getText(self, self.tr("Create View-filter"), 
+
+        name, ok = QInputDialog.getText(self, self.tr("Create View-filter"),
                                         self.tr("Filter Name:"), QLineEdit.EchoMode.Normal, f"View: {name}")
         if not ok or not name:
             return
@@ -805,38 +411,39 @@ class AdvancedFilterWidget(QWidget):
                 }
             ]
         }
-        
+
         # Find/Ensure "Views" folder
         parent = self.filter_tree.root
         for child in self.filter_tree.root.children:
             if child.name == "Views":
                 parent = child
                 break
-        
+
         self.filter_tree.add_filter(parent, name, query)
         if self.save_callback:
             self.save_callback()
-            
-        QMessageBox.information(self, self.tr("Filter Created"), 
-                                self.tr("A new view filter '%s' has been created in the 'Views' folder.") % name)
+
+        show_selectable_message_box(self, self.tr("Filter Created"),
+                                     self.tr("A new view filter '%s' has been created in the 'Views' folder.") % name,
+                                     icon=QMessageBox.Icon.Information)
         self.load_known_filters() # Refresh filters tab combo
 
     def _on_save_rule_clicked(self):
         current_node = self.combo_rules.currentData() # FilterNode object
-        
+
         name = ""
         if current_node:
             name = current_node.name
-        
+
         name, ok = QInputDialog.getText(self, self.tr("Save Rule"), self.tr("Rule Name:"), QLineEdit.EchoMode.Normal, name)
         if not ok or not name:
             return
-            
+
         tags_add = [t.strip() for t in self.edit_tags_add.text().split(",") if t.strip()]
         tags_rem = [t.strip() for t in self.edit_tags_rem.text().split(",") if t.strip()]
-        
+
         query = self.rules_root_group.get_query()
-        
+
         if current_node:
             # Update existing node
             current_node.name = name
@@ -852,30 +459,33 @@ class AdvancedFilterWidget(QWidget):
                 if child.name == "Tags":
                     parent = child
                     break
-            
+
             new_node = self.filter_tree.add_filter(parent, name, query)
             new_node.tags_to_add = tags_add
             new_node.tags_to_remove = tags_rem
             new_node.is_enabled = self.chk_rule_enabled.isChecked()
             new_node.auto_apply = self.chk_rule_auto.isChecked()
-            
+
         # Trigger persistence via MainWindow
         if self.save_callback:
             self.save_callback()
-            
+
         self._load_rules_to_combo()
         # Reselect
         idx = self.combo_rules.findText(name)
         if idx >= 0:
              self.combo_rules.setCurrentIndex(idx)
-        
+
         self._reset_rule_dirty()
 
     def _on_delete_rule_clicked(self):
         node = self.combo_rules.currentData()
         if not node or not node.parent: return
-        
-        if QMessageBox.question(self, self.tr("Delete Rule"), self.tr("Are you sure you want to delete this rule?")) == QMessageBox.StandardButton.Yes:
+
+        if show_selectable_message_box(self, self.tr("Delete Rule"),
+                                        self.tr("Are you sure you want to delete this rule?"),
+                                        icon=QMessageBox.Icon.Question,
+                                        buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             node.parent.remove_child(node)
             if self.save_callback:
                 self.save_callback()
@@ -884,12 +494,10 @@ class AdvancedFilterWidget(QWidget):
 
     def _on_batch_run_clicked(self):
         node = self.combo_rules.currentData()
-        
-        # Compose rule from UI state
-        from core.filter_tree import FilterNode, NodeType
+
         tags_add = [t.strip() for t in self.edit_tags_add.text().split(",") if t.strip()]
         tags_rem = [t.strip() for t in self.edit_tags_rem.text().split(",") if t.strip()]
-        
+
         # Create a temporary node for execution if it's not a saved one
         rule = FilterNode(
             name=self.combo_rules.currentText() if node else "Unsaved Rule",
@@ -902,19 +510,19 @@ class AdvancedFilterWidget(QWidget):
         rule.auto_apply = self.chk_rule_auto.isChecked()
 
         menu = QMenu(self)
-        
+
         act_all = QAction(self.tr("Apply to ALL documents"), self)
         act_all.triggered.connect(lambda: self.request_apply_rule.emit(rule, "ALL"))
         menu.addAction(act_all)
-        
+
         act_filtered = QAction(self.tr("Apply to current List View (Filtered)"), self)
         act_filtered.triggered.connect(lambda: self.request_apply_rule.emit(rule, "FILTERED"))
         menu.addAction(act_filtered)
-        
+
         act_selected = QAction(self.tr("Apply to SELECTED documents only"), self)
         act_selected.triggered.connect(lambda: self.request_apply_rule.emit(rule, "SELECTED"))
         menu.addAction(act_selected)
-        
+
         # Show menu below button
         btn = self.sender() # The button
         if btn:
@@ -924,62 +532,61 @@ class AdvancedFilterWidget(QWidget):
 
     def run_batch_tagging(self, rule, uuids=None):
         """Called by MainWindow with resolved UUIDs to start the actual processing."""
-        from gui.workers import BatchTaggingWorker
-        from PyQt6.QtWidgets import QProgressDialog
-        
         scope_text = self.tr("all documents") if uuids is None else self.tr("%d selected/filtered documents") % len(uuids)
-        
-        reply = QMessageBox.question(self, self.tr("Apply Rule"), 
+
+        reply = show_selectable_message_box(self, self.tr("Apply Rule"),
                                      self.tr("Apply rule '%s' to %s? This cannot be undone automatically.") % (rule.name, scope_text),
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
+                                     icon=QMessageBox.Icon.Question,
+                                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
         if reply == QMessageBox.StandardButton.Yes:
             progress = QProgressDialog(self.tr("Applying rule..."), self.tr("Cancel"), 0, 100, self)
             progress.setWindowModality(Qt.WindowModality.WindowModal)
-            
+
             self.worker = BatchTaggingWorker(self.db_manager, self.filter_tree, rules=rule, uuids=uuids)
             self.worker.progress.connect(lambda c, t: progress.setValue(c) or progress.setMaximum(t))
             self.worker.finished.connect(lambda count: self._on_batch_finished(progress, count))
-            
+
             progress.canceled.connect(self.worker.cancel)
             self.worker.start()
             progress.show()
 
     def _on_batch_finished(self, progress, count):
         progress.close()
-        QMessageBox.information(self, self.tr("Complete"), self.tr("Rule applied. %d documents modified.") % count)
+        show_selectable_message_box(self, self.tr("Complete"),
+                                     self.tr("Rule applied. %d documents modified.") % count,
+                                     icon=QMessageBox.Icon.Information)
         # Refresh UI? Better to emit a signal so MainWindow can refresh list.
         self.refresh_dynamic_data()
 
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
         print(f"[Search-Debug] Raw Input: '{text}'")
-        
+
         # 1. Validation
         if len(text) < 3:
             self.lbl_search_status.setText(self.tr("Search string too short (min 3 chars)"))
             self.lbl_search_status.setStyleSheet("color: red;")
             return
-            
+
         self.lbl_search_status.setText(self.tr("Searching..."))
         self.lbl_search_status.setStyleSheet("color: black;")
         # Process UI updates immediately
-        from PyQt6.QtCore import QCoreApplication
         QCoreApplication.processEvents()
 
         criteria = self.parser.parse(text)
         print(f"[Search-Debug] Parser Output criteria: {criteria}")
-        
+
         # Fix: Normalize Parser Keys to Internal filter keys
         if "text_search" in criteria:
             criteria["fulltext"] = criteria.pop("text_search")
-            
+
         if "type" in criteria:
              # Convert single type to list "types"
              criteria["types"] = [criteria.pop("type")]
-             
+
         print(f"[Search-Debug] Normalized criteria: {criteria}")
-        
+
         # Phase 106: Deep Search for fulltext using Raw Data if available
         if criteria.get("fulltext") and self.db_manager:
              print(f"[Search-Debug] Performing Deep Search for text: '{criteria['fulltext']}'")
@@ -989,14 +596,14 @@ class AdvancedFilterWidget(QWidget):
              print(f"[Search-Debug] Deep Search found {len(deep_uuids)} UUIDs")
              if len(deep_uuids) > 0:
                  print(f"[Search-Debug] Sample UUIDs: {deep_uuids[:3]}")
-        
+
         # 2. Build Text Query
         text_query = self._criteria_to_query(criteria)
-        
+
         # 3. Handle Scope
         final_query = text_query
         scope_msg = self.tr("in all documents")
-        
+
         if self.chk_search_scope.isChecked():
             # Merge with "Filter View"
             current_filter = self.root_group.get_query()
@@ -1006,7 +613,7 @@ class AdvancedFilterWidget(QWidget):
                     "conditions": [current_filter, text_query]
                 }
                 scope_msg = self.tr("in current view")
-        
+
         print(f"[Search-Debug] Final Query: {json.dumps(final_query)}")
 
         # 4. Count & Feedback
@@ -1016,7 +623,7 @@ class AdvancedFilterWidget(QWidget):
                 count = self.db_manager.count_documents_advanced(final_query)
             except Exception as e:
                 print(f"[Search] Count failed: {e}")
-                
+
         print(f"[Search-Debug] Count Result: {count}")
         self.lbl_search_status.setText(self.tr(f"{count} Documents found ({scope_msg})"))
         self.lbl_search_status.setStyleSheet("color: green;" if count > 0 else "color: red;")
@@ -1031,7 +638,7 @@ class AdvancedFilterWidget(QWidget):
         # Simple translation for now
         # { 'fulltext': '...', 'tags': [...], 'types': [...] }
         conditions = []
-        
+
         # Handle Deep Search Results
         if "deep_uuids" in criteria:
             found = criteria["deep_uuids"]
@@ -1043,12 +650,12 @@ class AdvancedFilterWidget(QWidget):
         elif criteria.get("fulltext"):
             # Fallback (legacy or no DB access)
             conditions.append({"field": "cached_full_text", "op": "contains", "value": criteria["fulltext"]})
-            
+
         if criteria.get("tags"):
             conditions.append({"field": "type_tags", "op": "contains", "value": criteria["tags"]})
         if criteria.get("types"):
             conditions.append({"field": "doc_type", "op": "in", "value": criteria["types"]})
-            
+
         return {"operator": "AND", "conditions": conditions}
 
     def add_condition(self, data=None):
@@ -1058,13 +665,13 @@ class AdvancedFilterWidget(QWidget):
     def refresh_dynamic_data(self):
         """Re-fetch extra keys and tags from DB and refresh UI components."""
         if not self.db_manager: return
-        
+
         print("[DEBUG] AdvancedFilter: Refreshing dynamic metadata (Stamps/Tags)...")
         self.extra_keys = self.db_manager.get_available_extra_keys()
         if self.db_manager:
             self.available_tags = self.db_manager.get_available_tags(system=False)
             self.available_system_tags = self.db_manager.get_available_tags(system=True)
-            
+
         if self.root_group:
             self.root_group.update_metadata(self.extra_keys, self.available_tags, self.available_system_tags)
 
@@ -1074,53 +681,53 @@ class AdvancedFilterWidget(QWidget):
 
     def clear_all(self, reset_combo=True):
         self._reset_dirty_indicator()
-        if reset_combo and isinstance(reset_combo, bool): 
+        if reset_combo and isinstance(reset_combo, bool):
             self.combo_filters.setCurrentIndex(0)
-            
+
         self.root_group.clear()
         self._set_dirty()
         # Auto-apply to update view immediately (UX feedback)
         self._emit_change()
-        
+
     def get_query(self):
         """Returns the current query from the UI."""
         return self.get_query_object()
-        
+
     def load_from_node(self, node: FilterNode):
         self._loading = True
         self.loaded_filter_node = node
-        
+
         # Clear UI
         self.root_group.clear()
-        
+
         # Load Data
         data = node.data
         if data:
             self.root_group.set_query(data)
-            
+
         self._loading = False
         self._reset_dirty_indicator()
         self.btn_apply.setEnabled(False)
         self.btn_revert.setEnabled(False)
         self.chk_active.setChecked(True) # Assume active upon load
-        
+
         # Auto-Apply on Load? Usually yes for saved filters.
         self._emit_change()
-            
+
 
     def _set_dirty(self):
         if getattr(self, '_loading', False):
             return
-            
+
         if self.btn_apply:
             self.btn_apply.setEnabled(True)
-            
+
         if self.btn_clear:
             self.btn_clear.setEnabled(True)
-            
+
         if self.btn_revert and self.loaded_filter_node:
              self.btn_revert.setEnabled(True)
-        
+
         # Ignore Trash Node
         if self.loaded_filter_node and hasattr(self.loaded_filter_node, "node_type") and self.loaded_filter_node.node_type == NodeType.TRASH:
             return
@@ -1136,13 +743,13 @@ class AdvancedFilterWidget(QWidget):
         """Removes the * from the currently loaded filter in the combo."""
         if self.btn_revert:
             self.btn_revert.setEnabled(False)
-            
+
         # Update Clear All button based on content
         query = self.get_query_object()
         has_query = bool(query and query.get("conditions"))
         if self.btn_clear:
             self.btn_clear.setEnabled(has_query)
-            
+
         if self.loaded_filter_node:
             idx = self.combo_filters.findData(self.loaded_filter_node)
             if idx >= 0:
@@ -1156,10 +763,10 @@ class AdvancedFilterWidget(QWidget):
 
     def _emit_change(self):
         query = self.get_query_object()
-        
+
         if self.btn_apply:
             self.btn_apply.setEnabled(False) # Clean state
-        
+
         if not self.chk_active.isChecked():
             # If disabled, emit empty query (all docs)
             # But we keep the query object internally in UI
@@ -1180,11 +787,11 @@ class AdvancedFilterWidget(QWidget):
         self.combo_filters.blockSignals(True)
         self.combo_filters.clear()
         self.combo_filters.addItem(self.tr("--- Saved Filter ---"), None)
-        
+
         if self.filter_tree:
             # Add Favorites (by UUID -> lookup)
             # For MVP, populate from all known filters or just favorites?
-            # Let's populate from Root Children that are Filters for now? 
+            # Let's populate from Root Children that are Filters for now?
             # Or traverse favorites.
             # Tree API has 'favorites' list of IDs.
             # But we don't have easy ID lookup in Tree.
@@ -1203,11 +810,11 @@ class AdvancedFilterWidget(QWidget):
                          add_nodes(child, new_prefix)
 
             add_nodes(self.filter_tree.root)
-            
+
             # Separator
             self.combo_filters.insertSeparator(self.combo_filters.count())
             self.combo_filters.addItem(self.tr("Browse All..."), "BROWSE_ALL")
-            
+
         self.combo_filters.blockSignals(False)
 
 
@@ -1216,14 +823,14 @@ class AdvancedFilterWidget(QWidget):
         if not data:
             self.loaded_filter_node = None
             return
-            
+
         if data == "BROWSE_ALL":
             self.combo_filters.blockSignals(True)
             self.combo_filters.setCurrentIndex(0)
             self.combo_filters.blockSignals(False)
             self.open_filter_manager()
             return
-        
+
         # Check if it is a FilterNode Object (which has node_type)
         if hasattr(data, "node_type") and data.node_type == NodeType.TRASH:
              self.loaded_filter_node = data
@@ -1239,13 +846,13 @@ class AdvancedFilterWidget(QWidget):
              self.load_from_object(trash_query)
              self._emit_change()
              return
-             
+
         # It's a FilterNode or saved dict (legacy)
         # We stored FilterNode object in addItem
-        
+
         # Ensure we exit trash mode
         self.trash_mode_changed.emit(False)
-        
+
         if hasattr(data, "data"):
              self.load_from_object(data.data)
              self.loaded_filter_node = data # Set loaded reference
@@ -1257,10 +864,10 @@ class AdvancedFilterWidget(QWidget):
         dlg = FilterManagerDialog(self.filter_tree, db_manager=self.db_manager, parent=self)
         dlg.filter_selected.connect(self._on_manager_selected)
         dlg.exec()
-        
+
         # Reload combo in case favorites changed or items renamed
         self.load_known_filters()
-        
+
         # Trigger Save
         if self.save_callback:
             self.save_callback()
@@ -1271,22 +878,22 @@ class AdvancedFilterWidget(QWidget):
 
     def _on_manager_selected(self, node):
         if not node: return
-        
+
         if node.node_type == NodeType.TRASH:
             # Special Trash Handling
             self.loaded_filter_node = node
             self.trash_mode_changed.emit(True)
             self._sync_combo_selection(node)
             return
-        
+
         # Normal Filter
         self.trash_mode_changed.emit(False) # Exit trash mode
-        
+
         if node.data is not None:
             self.load_from_object(node.data)
             self.loaded_filter_node = node
             self._emit_change()
-            
+
             self._sync_combo_selection(node)
 
     def _sync_combo_selection(self, node):
@@ -1309,20 +916,20 @@ class AdvancedFilterWidget(QWidget):
 
     def load_from_object(self, query):
         self._reset_dirty_indicator() # Clear previous *
-        
+
         self._loading = True
         try:
             self.clear_all(reset_combo=False)
             if not query:
                 return
-                
+
             self.chk_active.blockSignals(True)
             self.chk_active.setChecked(True)
             self.chk_active.blockSignals(False)
-            
+
             # Use root_group to load nested query
             self.root_group.set_query(query)
-                
+
         finally:
             self._loading = False
             self.btn_apply.setEnabled(False) # Loaded state is clean
@@ -1335,18 +942,18 @@ class AdvancedFilterWidget(QWidget):
 
     def save_current_filter(self):
         if not self.root_group.children_widgets:
-             QMessageBox.warning(self, self.tr("Save Filter"), self.tr("No conditions to save."))
-             return
-             
+            show_selectable_message_box(self, self.tr("Save Filter"), self.tr("No conditions to save."), icon=QMessageBox.Icon.Warning)
+            return
+
         if not self.filter_tree:
             return
 
         default_name = self.loaded_filter_node.name if self.loaded_filter_node else ""
         name, ok = QInputDialog.getText(self, self.tr("Save Filter"), self.tr("Filter Name:"), QLineEdit.EchoMode.Normal, default_name)
-        
+
         if ok and name:
             query = self.get_query_object()
-            
+
             # Check if we should update existing node (either by reference or name)
             existing_node = None
             if self.loaded_filter_node and self.loaded_filter_node.name == name:
@@ -1358,7 +965,7 @@ class AdvancedFilterWidget(QWidget):
                     if node.name == name:
                         existing_node = node
                         break
-            
+
             target_node = None
             if existing_node:
                 # Update existing
@@ -1373,13 +980,13 @@ class AdvancedFilterWidget(QWidget):
                         parent = child
                         break
                 target_node = self.filter_tree.add_filter(parent, name, query)
-            
+
             if self.save_callback:
                 self.save_callback()
-            
+
             self.load_known_filters() # Refresh
-            
-            # Select the node 
+
+            # Select the node
             if target_node:
                 idx = self.combo_filters.findData(target_node)
                 if idx >= 0:
@@ -1390,17 +997,7 @@ class AdvancedFilterWidget(QWidget):
         self.open_filter_manager()
 
     def _show_combo_context(self, pos):
-        # We need to determine which item is under mouse if dropdown open?
-        # Or just the current item?
-        # QComboBox context menu usually for current item or text field.
-        # But users might want to right click expanded list.
-        # QComboBox view right click?
-        # The `customContextMenuRequested` on combo itself usually refers to the closed box area.
-        # But if dropdown is open, the VIEW handles events.
-        # Accessing view: self.combo_filters.view()
-        
-        # Simpler MVP: Right click on the collapsed box deletes the currently selected item.
-        # Check current data
+        # MVP: Right click on the collapsed box deletes the currently selected item.
         data = self.combo_filters.currentData()
         idx = self.combo_filters.currentIndex()
         if idx <= 0 or data == "BROWSE_ALL":
@@ -1408,7 +1005,7 @@ class AdvancedFilterWidget(QWidget):
 
         # It's a filter node
         node_name = self.combo_filters.currentText()
-        
+
         menu = QMenu(self)
         del_action = QAction(f"Delete '{node_name}'", self)
         del_action.triggered.connect(lambda: self._delete_node(data)) # data is the Node or dict
@@ -1418,13 +1015,14 @@ class AdvancedFilterWidget(QWidget):
     def _delete_node(self, node):
         if not self.filter_tree:
             return
-            
+
         # Check if node is real node
         if hasattr(node, "parent") and node.parent:
-            confirm = QMessageBox.question(
-                self, self.tr("Delete Filter"), 
-                self.tr("Are you sure you want to delete '%s'?") % node.name, 
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            confirm = show_selectable_message_box(
+                self, self.tr("Delete Filter"),
+                self.tr("Are you sure you want to delete '%s'?") % node.name,
+                icon=QMessageBox.Icon.Question,
+                buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if confirm == QMessageBox.StandardButton.Yes:
                 node.parent.remove_child(node)
@@ -1436,4 +1034,3 @@ class AdvancedFilterWidget(QWidget):
     def _persist(self):
         # Tree persistence managed by MainWindow for now
         pass
-

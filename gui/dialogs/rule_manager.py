@@ -9,8 +9,8 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from core.database import DatabaseManager
 from core.filter_tree import FilterTree, FilterNode, NodeType
 from gui.widgets.filter_group import FilterGroupWidget
-
 class RuleEditorDialog(QDialog):
+
     """
     Phase 106: Editor for a single Auto-Tagging Rule.
     Now works with FilterNode objects from the FilterTree.
@@ -195,7 +195,8 @@ class RuleManagerWidget(QWidget):
             if child.name == "Auto-Tagging Rules":
                 return child
         # Not found? Create it
-        from core.filter_tree import NodeType
+        
+from core.filter_tree import NodeType
         folder = FilterNode("Auto-Tagging Rules", NodeType.FOLDER)
         self.filter_tree.root.add_child(folder)
         return folder
@@ -217,7 +218,7 @@ class RuleManagerWidget(QWidget):
             self.load_rules()
 
     def on_delete_rule(self, node: FilterNode):
-        if QMessageBox.question(self, "Delete Rule", f"Are you sure you want to delete '{node.name}'?") == QMessageBox.StandardButton.Yes:
+        if show_selectable_message_box(self, "Delete Rule", f"Are you sure you want to delete '{node.name}'?", icon=QMessageBox.Icon.Question) == QMessageBox.StandardButton.Yes:
             if node.parent:
                 node.parent.remove_child(node)
                 self._notify_change()
@@ -235,11 +236,13 @@ class RuleManagerWidget(QWidget):
 
     def on_apply_all(self):
         """Retroactive tagging: Batch process all documents in background."""
-        reply = QMessageBox.question(self, "Apply All Rules", 
+        reply = show_selectable_message_box(self, "Apply All Rules", 
                                      "This will scan the entire database and apply all enabled tagging rules to every document. Continue?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                     icon=QMessageBox.Icon.Question,
+                                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            from gui.workers import BatchTaggingWorker
+            
+from gui.workers import BatchTaggingWorker
             
             self.progress = QProgressDialog("Applying rules to database...", "Cancel", 0, 100, self)
             self.progress.setWindowModality(Qt.WindowModality.WindowModal)
@@ -260,8 +263,8 @@ class RuleManagerWidget(QWidget):
 
     def _on_worker_finished(self, modified_count):
         self.progress.close()
-        QMessageBox.information(self, "Auto-Tagging Complete", 
-                                f"Finished processing database.\n\n{modified_count} documents were modified.")
+        show_selectable_message_box(self, "Auto-Tagging Complete", 
+                                f"Finished processing database.\n\n{modified_count} documents were modified.", icon=QMessageBox.Icon.Information)
 
 class RuleManagerDialog(QDialog):
     def __init__(self, db_manager: DatabaseManager, filter_tree: FilterTree, parent=None):

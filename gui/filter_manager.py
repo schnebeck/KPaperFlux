@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem, 
-                             QWidget, QLineEdit, QPushButton, QSplitter, QLabel, QMessageBox, QMenu,
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,                              QWidget, QLineEdit, QPushButton, QSplitter, QLabel, QMessageBox, QMenu,
                              QInputDialog, QTextEdit, QStyle)
+from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon
 from core.filter_tree import FilterTree, NodeType, FilterNode
@@ -399,7 +399,7 @@ class FilterManagerDialog(QDialog):
         if not node:
             return
             
-        confirm = QMessageBox.question(self, "Delete", f"Delete '{node.name}'?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        confirm = show_selectable_message_box(self, "Delete", f"Delete '{node.name}'?", icon=QMessageBox.Icon.Question, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if confirm == QMessageBox.StandardButton.Yes:
             if node.parent:
                 node.parent.remove_child(node)
@@ -457,4 +457,4 @@ class FilterManagerDialog(QDialog):
                 
             except ValueError as e:
                 # e.g. "Cannot move node into its own child"
-                QMessageBox.warning(self, "Move Failed", str(e))
+                show_selectable_message_box(self, "Move Failed", str(e), icon=QMessageBox.Icon.Warning)

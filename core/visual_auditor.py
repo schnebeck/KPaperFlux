@@ -409,11 +409,11 @@ class VisualAuditor:
             contents.append(img)
             
         # 5. Call AI
-        # print(f"\n=== [DEBUG] STAGE 1.5 AUDIT PROMPT ({audit_mode}) ===\n")
-        # print(system_prompt) 
-        
-        # Upgrade: Use robust retry handler
-        response = self.ai._generate_with_retry(contents)
+        try:
+            response = self.ai._generate_with_retry(contents)
+        except Exception as e:
+            print(f"[VisualAuditor] AI Call Failed: {e}")
+            return {"meta_mode": audit_mode, "error": str(e)}
         
         if response and response.text:
             txt = response.text

@@ -4,14 +4,14 @@ from PyQt6.QtWidgets import (
     QPushButton, QScrollArea, QMessageBox
 )
 from PyQt6.QtCore import Qt
-from core.document import Document
-from core.database import DatabaseManager
+from core.models.virtual_document import VirtualDocumentfrom core.database import DatabaseManager
 from core.vault import DocumentVault
 from gui.pdf_viewer import PdfViewerWidget
 from gui.widgets.tag_input import TagInputWidget
 from decimal import Decimal
 
 class DocumentDetailWidget(QWidget):
+
     """
     Split view: PDF Viewer (Left) + Editable Metadata Form (Right).
     """
@@ -165,6 +165,6 @@ class DocumentDetailWidget(QWidget):
         
         success = self.db_manager.update_document_metadata(self.current_uuid, updates)
         if success:
-            QMessageBox.information(self, self.tr("Success"), self.tr("Metadata saved."))
+            show_selectable_message_box(self, self.tr("Success"), self.tr("Metadata saved."), icon=QMessageBox.Icon.Information)
         else:
-            QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to save changes."))
+            show_selectable_message_box(self, self.tr("Error"), self.tr("Failed to save changes."), icon=QMessageBox.Icon.Warning)

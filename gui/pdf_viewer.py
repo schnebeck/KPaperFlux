@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QSpinBox, QFrame, QMessageBox, QFileDialog, QSizePolicy,
     QLineEdit
 )
+from gui.utils import show_selectable_message_box
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPdfWidgets import QPdfView
 from PyQt6.QtCore import QUrl, Qt, QPointF, pyqtSignal, QSettings, QTemporaryFile, QTimer, pyqtSlot
@@ -12,6 +13,9 @@ import fitz
 import os
 import shutil
 import tempfile
+import json
+
+from core.models.virtual import SourceReference
 
 class PdfViewerWidget(QWidget):
     """
@@ -26,33 +30,33 @@ class PdfViewerWidget(QWidget):
     delete_requested = pyqtSignal(str)
     split_requested = pyqtSignal(str)
     document_changed = pyqtSignal()
-    
+
     def __init__(self, pipeline=None, parent=None):
         super().__init__(parent)
         self.pipeline = pipeline
         self.current_uuid = None
-        
+
         # State
         self.temp_pdf_path = None
         self.current_pages_data = [] # List of {file_path, page_index, rotation}
         self.highlight_text = "" # Global search text to highlight
         self.doc_search_text = "" # Local search text to highlight
-        
+
         # Phase 106: Deferred Navigation (Wait for Ready)
         self._pending_page_index = -1
         self._jump_timer = QTimer(self)
         self._jump_timer.setSingleShot(True)
         self._jump_timer.timeout.connect(self._execute_deferred_jump)
-        
+
         # UI Components
         self.document = QPdfDocument(self)
         self.view = QPdfView(self)
         self.view.setDocument(self.document)
         self.view.setPageMode(QPdfView.PageMode.SinglePage)
-        
+
         # Style: White Background for document area
         self.view.setStyleSheet("background-color: white; border: none;")
-        
+
         self._init_ui()
         self.restore_zoom_state()
         self._pending_refresh = False
@@ -64,69 +68,69 @@ class PdfViewerWidget(QWidget):
             print("[PdfViewer] Detected gray canvas on show. Forcing refresh.")
             self._refresh_preview()
             self._pending_refresh = False
-        
+
     def _init_ui(self):
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
-        
+
         # Toolbar
         self.toolbar = QWidget()
         self.toolbar.setStyleSheet("background: #f0f0f0; border-bottom: 1px solid #ccc;")
         self.toolbar_layout = QHBoxLayout(self.toolbar)
         self.toolbar_layout.setContentsMargins(10, 5, 10, 5)
-        
+
         # --- Group 1: Navigation ---
         self.btn_prev = QPushButton("⟵")
         self.btn_prev.setFixedSize(30,30)
         self.btn_prev.clicked.connect(self.prev_page)
-        
+
         self.spin_page = QSpinBox()
         self.spin_page.setFixedSize(60, 30)
         self.spin_page.setKeyboardTracking(False)
         self.spin_page.valueChanged.connect(self.jump_to_page)
-        
+
         self.lbl_total = QLabel("/ 0")
-        
+
         self.btn_next = QPushButton("⟶")
         self.btn_next.setFixedSize(30,30)
         self.btn_next.clicked.connect(self.next_page)
-        
+
         # --- Group 2: Zoom ---
         self.btn_zoom_out = QPushButton("-")
         self.btn_zoom_out.setFixedSize(30, 30)
         self.btn_zoom_out.clicked.connect(self.zoom_out)
-        
+
         self.lbl_zoom = QLabel("100%")
         self.lbl_zoom.setFixedWidth(40)
         self.lbl_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         self.btn_zoom_in = QPushButton("+")
         self.btn_zoom_in.setFixedSize(30, 30)
         self.btn_zoom_in.clicked.connect(self.zoom_in)
-        
+
         self.btn_fit = QPushButton("Fit")
         self.btn_fit.setCheckable(True)
         self.btn_fit.setFixedSize(50, 30)
         self.btn_fit.clicked.connect(self.toggle_fit)
-        
+
         # --- Group 3: Stage 0 Actions ---
         self.btn_rotate = QPushButton("↻")
         self.btn_rotate.setFixedSize(35, 30)
         self.btn_rotate.setToolTip("Rotate Page")
         self.btn_rotate.clicked.connect(self.rotate_current_page)
-        
+
         self.btn_delete = QPushButton("✕")
         self.btn_delete.setFixedSize(35, 30)
         self.btn_delete.setToolTip("Delete Page")
         self.btn_delete.clicked.connect(self.delete_current_page)
         self.btn_delete.setStyleSheet("background: #ffeeee; color: #cc0000;")
-        
+
         self.btn_split = QPushButton("✂")
         self.btn_split.setFixedSize(35, 30)
         self.btn_split.setToolTip(self.tr("Edit Document"))
         self.btn_split.clicked.connect(self.on_split_clicked)
-        
+
         self.btn_save = QPushButton("💾 Save *")
         self.btn_save.setFixedSize(80, 30)
         self.btn_save.clicked.connect(self.save_changes)
@@ -138,49 +142,49 @@ class PdfViewerWidget(QWidget):
         self.toolbar_layout.addWidget(self.spin_page)
         self.toolbar_layout.addWidget(self.lbl_total)
         self.toolbar_layout.addWidget(self.btn_next)
-        
+
         self._add_separator()
-        
+
         self.toolbar_layout.addWidget(self.btn_zoom_out)
         self.toolbar_layout.addWidget(self.lbl_zoom)
         self.toolbar_layout.addWidget(self.btn_zoom_in)
         self.toolbar_layout.addWidget(self.btn_fit)
-        
+
         self._add_separator()
-        
+
         self.toolbar_layout.addWidget(self.btn_rotate)
         self.toolbar_layout.addWidget(self.btn_delete)
         self.toolbar_layout.addWidget(self.btn_split)
-        
+
         self._add_separator()
-        
+
         # --- Group 4: In-Doc Search ---
         self.btn_show_search = QPushButton("🔍")
         self.btn_show_search.setFixedSize(35, 30)
         self.btn_show_search.setToolTip(self.tr("Find in document (Ctrl+F)"))
         self.btn_show_search.clicked.connect(self.show_search_bar)
         self.toolbar_layout.addWidget(self.btn_show_search)
-        
+
         # Ensure toolbar doesn't prevent shrinking
         self.toolbar.setMinimumWidth(0)
         self.toolbar_layout.setStretch(12, 1) # Add stretch after buttons
-        
+
         self.toolbar_layout.addStretch()
         self.toolbar_layout.addWidget(self.btn_save)
-        
+
         self.main_layout.addWidget(self.toolbar)
         self.main_layout.addWidget(self.view)
-        
+
         # Connect Signals
         self.view.zoomFactorChanged.connect(self.update_zoom_label)
         self.nav = self.view.pageNavigator()
         self.nav.currentPageChanged.connect(self.on_page_changed)
         self.document.statusChanged.connect(self.on_document_status)
-        
+
         self.enable_controls(False)
         self.btn_split.setVisible(False)
         self.restore_zoom_state()
-        
+
         # Phase 106: Search Overlay
         self._init_search_overlay()
         QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self.show_search_bar)
@@ -195,22 +199,22 @@ class PdfViewerWidget(QWidget):
     def load_document(self, file_path_or_uuid, uuid: str = None, initial_page: int = 1, jump_to_index: int = -1):
         """Standard entry point from MainWindow."""
         self.clear()
-        
+
         # Store deferred jump target
         self._pending_page_index = jump_to_index
-        
+
         if not self.isVisible():
             self._pending_refresh = True
-        
+
         # Detach to prevent transient errors during load (Fix for 'invalid nullptr')
-        
+
         if uuid:
             self.current_uuid = uuid
         else:
             # If it's a string and NOT an existing path, assume it's a UUID
             if isinstance(file_path_or_uuid, str) and not os.path.exists(file_path_or_uuid):
                 self.current_uuid = file_path_or_uuid
-                
+
         if self.pipeline and self.current_uuid:
             if not self._load_from_entity(self.current_uuid):
                 # Fallback: Try loading as physical file from vault
@@ -225,12 +229,12 @@ class PdfViewerWidget(QWidget):
         v_doc = self.pipeline.logical_repo.get_by_uuid(entity_uuid)
         if not v_doc or not v_doc.source_mapping:
             return False
-            
+
         self.current_pages_data = []
         for ref in v_doc.source_mapping:
             phys_path = self.pipeline.vault.get_file_path(ref.file_uuid)
             if not phys_path: continue
-            
+
             for p_num in ref.pages:
                 self.current_pages_data.append({
                     "file_path": phys_path,
@@ -238,7 +242,7 @@ class PdfViewerWidget(QWidget):
                     "page_index": p_num - 1,
                     "rotation": getattr(ref, 'rotation', 0)
                 })
-        
+
         self._refresh_preview()
         return True
 
@@ -279,28 +283,28 @@ class PdfViewerWidget(QWidget):
         if not self.current_pages_data:
             self.clear()
             return
-            
+
         # 1. Create Preview PDF using fitz
         try:
             preview_doc = fitz.open()
             for pg in self.current_pages_data:
                 src = fitz.open(pg["file_path"])
                 preview_doc.insert_pdf(src, from_page=pg["page_index"], to_page=pg["page_index"])
-                
+
                 # Apply Rotation to the LAST page added
                 new_page = preview_doc[-1]
                 if pg["rotation"] != 0:
                     new_page.set_rotation(pg["rotation"])
                 src.close()
-            
+
             # 1.5 Apply Highlights (v29.x)
             search_terms = []
             if self.highlight_text: search_terms.extend(self.highlight_text.split())
             if self.doc_search_text: search_terms.append(self.doc_search_text)
-            
+
             # Clean up short terms to avoid highlighting every 'e' or 'a'
             search_terms = [t for t in search_terms if len(t) > 2]
-            
+
             if search_terms:
                 # print(f"[PDF-Search] Scanning current document for terms: {search_terms}")
                 found_total = 0
@@ -323,18 +327,18 @@ class PdfViewerWidget(QWidget):
             os.close(fd)
             preview_doc.save(temp_path)
             preview_doc.close()
-            
+
             # 2. Load into QPdfView
             # QtPdf locks the file, so we must be careful with previous temp files
             self._swap_pdf_document(temp_path)
-            
-            # Cleanup old temp file after swap? 
+
+            # Cleanup old temp file after swap?
             # Note: We keep the PATH to the CURRENT temp file to delete it later
             if self.temp_pdf_path and os.path.exists(self.temp_pdf_path):
                  try: os.remove(self.temp_pdf_path)
                  except: pass
             self.temp_pdf_path = temp_path
-            
+
         except Exception as e:
             print(f"Error refreshing preview: {e}")
             self._pending_refresh = True
@@ -345,12 +349,12 @@ class PdfViewerWidget(QWidget):
         self.view.setDocument(None)
         if self.document:
             self.document.deleteLater()
-            
+
         self.document = QPdfDocument(self)
         self.document.statusChanged.connect(self.on_document_status)
         self.view.setDocument(self.document)
         self.document.load(path)
-        
+
         # Re-acquire navigator
         self.nav = self.view.pageNavigator()
         self.nav.currentPageChanged.connect(self.on_page_changed)
@@ -358,26 +362,26 @@ class PdfViewerWidget(QWidget):
     def on_document_status(self, status):
         if status == QPdfDocument.Status.Ready:
             # Re-attach logic removed
-            
+
             self.enable_controls(True)
             self.update_zoom_label(self.view.zoomFactor())
-            
+
             count = self.document.pageCount()
             self.lbl_total.setText(f"/ {count}")
-            
+
             self.spin_page.blockSignals(True)
             self.spin_page.setRange(1, count)
-            
+
             # Initial SpinBox State
             curr = self.nav.currentPage()
             self.spin_page.setValue(curr + 1)
             self.spin_page.blockSignals(False)
-            
+
             self.restore_zoom_state()
-            
+
             # Show/Hide split
             self.btn_split.setVisible(count > 1)
-            
+
             # Navigate if pending (Delayed to allow Viewport Init)
             if self._pending_page_index >= 0 and self._pending_page_index < count:
                 self._retry_jump_target = self._pending_page_index  # Capture safely
@@ -391,7 +395,7 @@ class PdfViewerWidget(QWidget):
         """Execute the jump after delay."""
         # Use captured target
         idx = getattr(self, '_retry_jump_target', -1)
-        
+
         try:
             if idx >= 0 and idx < self.document.pageCount():
                 self.nav.jump(idx, QPointF(), self.nav.currentZoom())
@@ -401,7 +405,7 @@ class PdfViewerWidget(QWidget):
             print(f"[PdfViewer] JUMP ERROR: {e}")
 
     def enable_controls(self, enabled: bool):
-        for btn in [self.btn_prev, self.btn_next, self.btn_zoom_in, self.btn_zoom_out, 
+        for btn in [self.btn_prev, self.btn_next, self.btn_zoom_in, self.btn_zoom_out,
                     self.btn_fit, self.btn_rotate, self.btn_delete, self.spin_page]:
             btn.setEnabled(enabled)
 
@@ -412,18 +416,19 @@ class PdfViewerWidget(QWidget):
             self.current_pages_data[idx]["rotation"] = (self.current_pages_data[idx]["rotation"] + 90) % 360
             self.btn_save.setVisible(True)
             self._refresh_preview()
-            
+
     def delete_current_page(self):
         idx = self.nav.currentPage()
         if 0 <= idx < len(self.current_pages_data):
             if len(self.current_pages_data) <= 1:
-                QMessageBox.warning(self, self.tr("Warning"), self.tr("Cannot delete the last page. Delete the entire document from the list instead."))
+                show_selectable_message_box(self, self.tr("Warning"), self.tr("Cannot delete the last page. Delete the entire document from the list instead."), icon=QMessageBox.Icon.Warning)
                 return
-            
-            res = QMessageBox.question(self, self.tr("Confirm Deletion"), 
+
+            res = show_selectable_message_box(self, self.tr("Confirm Deletion"),
                                      self.tr("Are you sure you want to remove this page from the document?"),
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            
+                                     icon=QMessageBox.Icon.Question,
+                                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
             if res == QMessageBox.StandardButton.Yes:
                 self.current_pages_data.pop(idx)
                 self.btn_save.setVisible(True)
@@ -441,29 +446,29 @@ class PdfViewerWidget(QWidget):
             }
         """)
         self.search_bar.setFixedSize(220, 36)
-        
+
         layout = QHBoxLayout(self.search_bar)
         layout.setContentsMargins(10, 2, 5, 2)
         layout.setSpacing(5)
-        
+
         lbl_icon = QLabel("🔍")
         lbl_icon.setStyleSheet("color: #666;")
         layout.addWidget(lbl_icon)
-        
+
         self.edit_search = QLineEdit()
         self.edit_search.setPlaceholderText(self.tr("Find in document..."))
         self.edit_search.setFrame(False)
         self.edit_search.setStyleSheet("background: transparent; font-size: 13px;")
         self.edit_search.returnPressed.connect(self._on_local_search_triggered)
         layout.addWidget(self.edit_search)
-        
+
         self.btn_close_search = QPushButton("✕")
         self.btn_close_search.setFixedSize(24, 24)
         self.btn_close_search.setFlat(True)
         self.btn_close_search.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_close_search.clicked.connect(self.hide_search_bar)
         layout.addWidget(self.btn_close_search)
-        
+
         self.search_bar.hide()
 
     def show_search_bar(self):
@@ -494,19 +499,18 @@ class PdfViewerWidget(QWidget):
     def save_changes(self):
         if not self.pipeline or not self.current_uuid:
             return
-            
-        from core.models.virtual import SourceReference
+
         new_mapping = []
-        
+
         current_file_uuid = None
         current_rot = -1
         current_pages = []
-        
+
         for pg in self.current_pages_data:
             f_uuid = pg["file_uuid"]
             p_num = pg["page_index"] + 1
             rot = pg["rotation"]
-            
+
             if f_uuid != current_file_uuid or rot != current_rot:
                 if current_pages:
                     new_mapping.append(SourceReference(current_file_uuid, current_pages, current_rot))
@@ -515,17 +519,17 @@ class PdfViewerWidget(QWidget):
                 current_pages = [p_num]
             else:
                 current_pages.append(p_num)
-                
+
         if current_pages:
             new_mapping.append(SourceReference(current_file_uuid, current_pages, current_rot))
-            
+
         try:
             self.pipeline.update_entity_structure(self.current_uuid, new_mapping)
             self.btn_save.setVisible(False)
             self.document_changed.emit() # Notify parent to refresh list
             self.statusBar_msg(self.tr("Document changes saved successfully."))
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+            show_selectable_message_box(self, "Error", f"Failed to save: {e}", icon=QMessageBox.Icon.Critical)
 
     # --- Zoom / Nav ---
     def prev_page(self):
@@ -604,7 +608,7 @@ class PdfViewerWidget(QWidget):
         self.enable_controls(False)
         self.btn_save.setVisible(False)
         self.btn_split.setVisible(False)
-        
+
         if self.temp_pdf_path and os.path.exists(self.temp_pdf_path):
              try: os.remove(self.temp_pdf_path)
              except: pass

@@ -123,7 +123,9 @@ class DatabaseManager:
             return cursor.fetchone() is not None
         except Exception as e:
             print(f"[DB] Error in matches_condition: {e}")
-            return False
+            import traceback
+            traceback.print_exc()
+            raise
 
 
 
@@ -203,6 +205,17 @@ class DatabaseManager:
         """
         with self.connection:
             self.connection.execute(sql, (uuid,))
+
+    def queue_for_semantic_extraction(self, uuids: list[str]):
+        """Phase 107: Queue documents for Stage 2 processing skip Stage 1."""
+        sql = """
+            UPDATE virtual_documents 
+            SET status = 'STAGE2_PENDING'
+            WHERE uuid = ? AND deleted = 0
+        """
+        with self.connection:
+            for uid in uuids:
+                self.connection.execute(sql, (uid,))
 
     def get_deleted_documents(self) -> List[Document]:
         """
@@ -609,6 +622,118 @@ class DatabaseManager:
             self.connection.execute(sql_ent, (uuid,))
             
         return self.connection.total_changes > 0
+
+    # --- Stage 2 Maintenance Functions ---
+
+    def get_documents_missing_semantic_data(self) -> List[Document]:
+        """
+        Fetch documents where status is 'PROCESSED' but semantic_data is missing or empty.
+        Excluded deleted and immutable documents.
+        """
+        sql = """
+            SELECT uuid, source_mapping, status, 
+                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
+                   page_count_virt, created_at, is_immutable, type_tags,
+                   cached_full_text, last_used, last_processed_at,
+                   semantic_data,
+                   sender, doc_date, amount, tags
+            FROM virtual_documents
+            WHERE deleted = 0 
+              AND is_immutable = 0
+              AND (semantic_data IS NULL OR semantic_data = '{}' OR json_extract(semantic_data, '$.bodies') IS NULL OR json_extract(semantic_data, '$.bodies') = '{}')
+            ORDER BY created_at DESC
+        """
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        return [self._row_to_doc(row) for row in rows]
+
+    def get_documents_mismatched_semantic_data(self) -> List[Document]:
+        """
+        Fetch documents where semantic_data contents do not align with current type_tags.
+        Logic: If a tag like 'INVOICE' is present, we expect a 'finance_body' in semantic_data['bodies'].
+        """
+        # We'll fetch all processed docs and filter in Python for complex logic
+        # Or we can try some JSON SQL
+        
+        # Heuristic: 
+        # INVOICE -> bodies.finance_body
+        # CONTRACT -> bodies.legal_body
+        # BANK_STATEMENT -> bodies.ledger_body
+        # PAYSLIP -> bodies.hr_body
+        # MEDICAL_DOCUMENT -> bodies.health_body
+        
+        sql = """
+            SELECT uuid, source_mapping, status, 
+                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
+                   page_count_virt, created_at, is_immutable, type_tags,
+                   cached_full_text, last_used, last_processed_at,
+                   semantic_data,
+                   sender, doc_date, amount, tags
+            FROM virtual_documents
+            WHERE status = 'PROCESSED' 
+              AND semantic_data IS NOT NULL 
+              AND deleted = 0
+              AND is_immutable = 0
+        """
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        
+        all_docs = [self._row_to_doc(row) for row in rows]
+        mismatched = []
+        
+        for doc in all_docs:
+            if not doc.type_tags or not doc.semantic_data:
+                continue
+                
+            bodies = doc.semantic_data.get("bodies", {})
+            if not bodies:
+                continue # If no bodies at all, it's 'Missing', not 'Mismatched'
+                
+            tags = [t.upper() for t in doc.type_tags]
+            
+            # Simplified Mismatch Logic
+            is_mismatch = False
+            
+            mapping = {
+                "INVOICE": "finance_body",
+                "RECEIPT": "finance_body",
+                "ORDER_CONFIRMATION": "finance_body",
+                "DUNNING": "finance_body",
+                "BANK_STATEMENT": "ledger_body",
+                "CONTRACT": "legal_body",
+                "OFFICIAL_LETTER": "legal_body",
+                "PAYSLIP": "hr_body",
+                "MEDICAL_DOCUMENT": "health_body",
+                "UTILITY_BILL": "finance_body",
+                "EXPENSE_REPORT": "travel_body"
+            }
+            
+            # Check if any tag requires a body that is missing
+            for tag, body_key in mapping.items():
+                if tag in tags and body_key not in bodies:
+                    is_mismatch = True
+                    break
+            
+            # OR Check if semantic data has bodies for tags that are NOT present
+            # (e.g. tag changed from INVOICE to CONTRACT, but finance_body remains)
+            if not is_mismatch:
+                for body_key in bodies.keys():
+                    # Find tags that would justify this body
+                    found_reason = False
+                    for tag, mapped_body in mapping.items():
+                        if mapped_body == body_key and tag in tags:
+                            found_reason = True
+                            break
+                    if not found_reason and body_key in ["finance_body", "ledger_body", "legal_body", "hr_body", "health_body", "travel_body"]:
+                        is_mismatch = True
+                        break
+            
+            if is_mismatch:
+                mismatched.append(doc)
+                
+        return mismatched
 
     def close(self):
         """Close the database connection."""
