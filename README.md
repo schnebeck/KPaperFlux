@@ -46,9 +46,12 @@ KPaperFlux employs a multi-stage, intelligent analysis pipeline to understand do
 ## 🚀 Installation & Setup
 
 ### Requirements
-*   Linux (tested on Ubuntu/Debian/Fedora)
-*   Python 3.10 or higher
-*   A Google AI Studio API Key (Free tier available)
+*   **OS:** Linux (tested on Ubuntu/Debian/Fedora/Arch)
+*   **Python:** 3.10 or higher
+*   **Scanner Drivers:** For modern network scanners (AirPrint/eSCL/WSD), we strongly recommend **`sane-airscan`**.
+    *   *Ubuntu/Debian:* `sudo apt install sane-airscan`
+    *   *Fedora:* `sudo dnf install sane-airscan`
+*   **AI Access:** A Google AI Studio API Key.
 
 ### Quick Start
 
@@ -64,6 +67,13 @@ source venv/bin/activate
 # 3. Install dependencies
 pip install -r requirements.txt
 ```
+
+### 🔑 Getting your API Key
+KPaperFlux requires a Google Gemini API Key. The "Free Tier" is sufficient for personal use.
+1.  Visit [Google AI Studio](https://aistudio.google.com/app/apikey).
+2.  Log in with your Google Account.
+3.  Click **"Create API key"** (Create key in new project).
+4.  Copy the key string (starts with `AIza...`).
 
 ### Configuration
 Create the file `~/.config/kpaperflux/KPaperFlux.conf`:
