@@ -351,7 +351,7 @@ class CanonizerService:
             if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
                  self.logical_repo.save(target_doc)
 
-        print(f"[Canonizer] Stage 1 Analysis Complete for {v_doc.uuid}.")
+        print(f"[Canonizer] Full Analysis (Stage 2) Complete for {v_doc.uuid}.")
         return True
 
     def _extract_range_text(self, pages_text: List[str], target_indices: List[int]) -> str:
