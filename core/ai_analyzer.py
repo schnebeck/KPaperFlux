@@ -1103,6 +1103,7 @@ TASK:
         # --- GROUP 1: FINANCE & TRANSACTIONAL ---
         if dt in ["INVOICE", "RECEIPT", "CREDIT_NOTE", "CASH_EXPENSE"]:
             return {
+                "reasoning": "String (Explain your pattern matching logic here: Why did you pick these fields? Did you find the table rows on Page 2? Any ambiguities?)",
                 "meta_header": base_header,
                 "finance_body": {
                     "invoice_number": "String",
@@ -1143,6 +1144,7 @@ TASK:
 
         elif dt == "DUNNING":
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "finance_body": {
                     "total_due": "Number (Float)",
@@ -1157,6 +1159,7 @@ TASK:
         # --- GROUP 2: TRADE & COMMERCE ---
         elif dt in ["QUOTE", "ORDER", "ORDER_CONFIRMATION"]:
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "trade_body": {
                     "document_number": "String (Offer/Order No)",
@@ -1178,6 +1181,7 @@ TASK:
             
         elif dt == "DELIVERY_NOTE":
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "logistics_body": {
                     "delivery_number": "String",
@@ -1202,6 +1206,7 @@ TASK:
         # --- GROUP 3: CONTRACTS & LEGAL ---
         elif dt in ["CONTRACT", "INSURANCE_POLICY", "APPLICATION"]:
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "legal_body": {
                     "contract_id": "String",
@@ -1222,6 +1227,7 @@ TASK:
 
         elif dt in ["LEGAL_CORRESPONDENCE", "OFFICIAL_LETTER"]:
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "legal_body": {
                     "our_reference": "String (Unser Zeichen)",
@@ -1235,6 +1241,7 @@ TASK:
         # --- GROUP 4: HR & HEALTH ---
         elif dt == "PAYSLIP":
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "hr_body": {
                     "employee_id": "String",
@@ -1249,6 +1256,7 @@ TASK:
 
         elif dt in ["SICK_NOTE", "MEDICAL_DOCUMENT"]:
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "health_body": {
                     "patient": self.get_party_schema(),
@@ -1283,6 +1291,7 @@ TASK:
         # --- GROUP 5: TRAVEL ---
         elif dt in ["TRAVEL_REQUEST", "EXPENSE_REPORT"]:
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "travel_body": {
                     "traveler": self.get_party_schema(),
@@ -1305,6 +1314,7 @@ TASK:
         # --- GROUP 6: BANKING & TAX ---
         elif dt == "BANK_STATEMENT":
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "ledger_body": {
                     "account_info": self.get_bank_account_schema(),
@@ -1327,6 +1337,7 @@ TASK:
 
         elif dt in ["TAX_ASSESSMENT", "UTILITY_BILL"]:
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "finance_body": {
                     "assessment_year": "YYYY",
@@ -1339,6 +1350,7 @@ TASK:
         # --- GROUP 7: TECHNICAL & ASSETS ---
         elif dt == "VEHICLE_REGISTRATION":
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "asset_body": {
                     "vin": "String",
@@ -1352,6 +1364,7 @@ TASK:
 
         elif dt in ["DATASHEET", "MANUAL", "TECHNICAL_DOC"]:
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "technical_body": {
                     "product_name": "String",
@@ -1364,6 +1377,7 @@ TASK:
 
         elif dt == "CERTIFICATE":
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "career_body": {
                     "title": "String",
@@ -1378,6 +1392,7 @@ TASK:
         # Fallback
         else:
             return {
+                "reasoning": "String (Chain of Thought: Explain your pattern scanning results here.)",
                 "meta_header": base_header,
                 "generic_body": {
                     "subject": "String",
@@ -1503,6 +1518,7 @@ Analyze the image to find the **Geometric Master-Plan**:
 
 ### 2. MISSION: FULL-TEXT PATTERN SCANNING
 Apply the blueprint found on Page 1 to the **ENTIRE DOCUMENT TEXT** (all pages provided below):
+- **Think Out Loud:** Use the `reasoning` field in the JSON to explain what you are doing. "Plaudere" ein bisschen darüber, welche Muster du erkennst, ob du die Tabellenfortsetzung auf Seite 2 gefunden hast und warum du bestimmte Werte so zugeordnet hast.
 - **Pattern Matching:** Search the entire text stream for content that matches the geometric structure from Page 1.
 - **Table Expansion:** If a table continues on Page 2 or Page 3, use the identified layout from Page 1 to extract and append every single row into the semantic list.
 - **Universal Extraction:** Your results must be seitenunabhängig (page-independent). Consolidate all data into one coherent structure.
@@ -1567,6 +1583,9 @@ Return ONLY valid JSON.
 
                 if not final_semantic_data["meta_header"]:
                     final_semantic_data["meta_header"] = extraction.get("meta_header", {})
+
+                if "reasoning" in extraction:
+                    final_semantic_data["reasoning"] = extraction["reasoning"]
 
                 for key, value in extraction.items():
                     if key.endswith("_body") or key in ["internal_routing", "verification", "travel_body"]:
