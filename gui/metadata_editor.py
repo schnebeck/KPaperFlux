@@ -1,8 +1,7 @@
-from typing import Dict, List, Optional, Any
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QMessageBox, QTabWidget, QCheckBox, QComboBox, QDateEdit,
-    QTableWidget, QTableWidgetItem, QHeaderView
+    QTableWidget, QTableWidgetItem, QHeaderView, QDialog
 )
 import json
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate
@@ -14,6 +13,112 @@ from core.models.canonical_entity import DocType
 from gui.utils import format_datetime, show_selectable_message_box
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.tag_input import TagInputWidget
+
+class NestedTableDialog(QDialog):
+    """Dialog for editing lists of objects (tables in tables)."""
+    def __init__(self, data: List[Any], title: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setMinimumSize(900, 500)
+        self.data = data
+        self.__init_ui()
+
+    def __init_ui(self):
+        layout = QVBoxLayout(self)
+        self.table = QTableWidget()
+        
+        # Determine columns from keys
+        items_list = self.data if isinstance(self.data, list) else []
+        keys = []
+        for item in items_list:
+            if isinstance(item, dict):
+                for k in item.keys():
+                    if k not in keys: keys.append(k)
+        
+        if not keys: keys = ["Value"]
+        
+        self.table.setColumnCount(len(keys))
+        self.table.setHorizontalHeaderLabels(keys)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        
+        self.table.setRowCount(len(items_list))
+        for r, item in enumerate(items_list):
+            for c, key in enumerate(keys):
+                val = ""
+                if isinstance(item, dict):
+                    val = item.get(key, "")
+                else:
+                    val = item if c == 0 else ""
+                
+                if isinstance(val, (dict, list)):
+                    val = json.dumps(val, ensure_ascii=False)
+                
+                self.table.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
+        
+        layout.addWidget(self.table)
+        
+        # Action Buttons
+        btn_layout = QHBoxLayout()
+        add_btn = QPushButton("Add Row")
+        add_btn.clicked.connect(self._add_row)
+        remove_btn = QPushButton("Remove Row")
+        remove_btn.clicked.connect(self._remove_row)
+        
+        save_btn = QPushButton("Save / Apply")
+        save_btn.setStyleSheet("font-weight: bold; background-color: #e1f5fe;")
+        save_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        
+        btn_layout.addWidget(add_btn)
+        btn_layout.addWidget(remove_btn)
+        btn_layout.addStretch()
+        btn_layout.addWidget(save_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+    def _add_row(self):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+
+    def _remove_row(self):
+        indices = sorted({idx.row() for idx in self.table.selectedIndexes()}, reverse=True)
+        for row in indices:
+            self.table.removeRow(row)
+
+    def get_data(self) -> List[Any]:
+        out = []
+        cols = self.table.columnCount()
+        keys = [self.table.horizontalHeaderItem(c).text() for c in range(cols)]
+        
+        for r in range(self.table.rowCount()):
+            if cols == 1 and keys[0] == "Value":
+                it = self.table.item(r, 0)
+                val_text = it.text() if it else ""
+                out.append(self._parse_value(val_text))
+            else:
+                item_dict = {}
+                for c in range(cols):
+                    it = self.table.item(r, c)
+                    val_text = it.text() if it else ""
+                    item_dict[keys[c]] = self._parse_value(val_text)
+                out.append(item_dict)
+        return out
+
+    def _parse_value(self, text: str) -> Any:
+        try:
+            val_clean = text.strip()
+            if val_clean.startswith(("[", "{")):
+                return json.loads(val_clean)
+            if val_clean.lower() == "true": return True
+            if val_clean.lower() == "false": return False
+            if not val_clean: return None
+            if "." in val_clean and val_clean.replace(".", "", 1).replace("-","",1).isdigit():
+                return float(val_clean)
+            if val_clean.isdigit() or (val_clean.startswith("-") and val_clean[1:].isdigit()):
+                return int(val_clean)
+        except: pass
+        return text
 
 class MetadataEditorWidget(QWidget):
 
@@ -422,6 +527,34 @@ class MetadataEditorWidget(QWidget):
         for row in indices:
             self.semantic_table.removeRow(row)
 
+    def _make_nested_editor_callback(self, key_path, initial_json, row):
+        def callback():
+            try:
+                # Always get LATEST json from the item (it might have been edited before)
+                it = self.semantic_table.item(row, 2)
+                current_json = it.text() if it else initial_json
+                
+                data = json.loads(current_json)
+                dlg = NestedTableDialog(data, f"Edit List: {key_path}", self)
+                if dlg.exec():
+                    new_data = dlg.get_data()
+                    new_json = json.dumps(new_data, ensure_ascii=False)
+                    
+                    # Update background item (which save_changes reads)
+                    if it:
+                        it.setText(new_json)
+                    
+                    # Update Button Text
+                    btn = self.semantic_table.cellWidget(row, 2)
+                    if isinstance(btn, QPushButton):
+                        btn.setText(f"Open Table ({len(new_data)} items)")
+                    
+                    # Mark as dirty?
+                    self.save_btn.setEnabled(True)
+            except Exception as e:
+                show_selectable_message_box(self, "Error", f"Could not open nested editor: {e}")
+        return callback
+
     def _populate_semantic_table(self, sd: Dict):
         """Flat representation of bodies & meta_header for the table."""
         self.semantic_table.setRowCount(0)
@@ -441,7 +574,12 @@ class MetadataEditorWidget(QWidget):
                     if isinstance(v, dict):
                         traverse(v, section, key_path)
                     elif isinstance(v, list):
-                        if not v: # Empty list
+                        # Detect if this list should be a "Table" (nested editor)
+                        # Rule: list of dicts or more than 3 elements (for readability)
+                        is_complex = any(isinstance(x, dict) for x in v)
+                        if is_complex or (len(v) > 3 and all(not isinstance(x, (dict, list)) for x in v)):
+                             rows.append((section, key_path, json.dumps(v, ensure_ascii=False), "NESTED_TABLE"))
+                        elif not v: # Empty list
                              rows.append((section, key_path, "[]"))
                         else:
                             for idx, item in enumerate(v):
@@ -451,7 +589,6 @@ class MetadataEditorWidget(QWidget):
             elif isinstance(data, (str, int, float, bool)) or data is None:
                 rows.append((section, prefix, str(data) if data is not None else ""))
             else:
-                # Fallback for unexpected types
                 rows.append((section, prefix, json.dumps(data, ensure_ascii=False)))
 
         # 1. Known Main Sections
@@ -475,7 +612,12 @@ class MetadataEditorWidget(QWidget):
 
         if rows:
             self.tab_widget.setTabVisible(idx_tab, True)
-            for sec, key, val in rows:
+            for item in rows:
+                sec = item[0]
+                key_path = item[1]
+                val = item[2]
+                type_hint = item[3] if len(item) > 3 else None
+
                 row = self.semantic_table.rowCount()
                 self.semantic_table.insertRow(row)
                 
@@ -483,7 +625,7 @@ class MetadataEditorWidget(QWidget):
                 it_sec.setFlags(it_sec.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 it_sec.setBackground(Qt.GlobalColor.lightGray)
                 
-                it_key = QTableWidgetItem(key)
+                it_key = QTableWidgetItem(key_path)
                 # it_key should be editable if it's "Custom" or if we want to allow renaming?
                 # Usually keys are fixed by AI, but for manual entries it's better to allow editing.
                 if sec == "Custom":
@@ -493,7 +635,23 @@ class MetadataEditorWidget(QWidget):
                 
                 self.semantic_table.setItem(row, 0, it_sec)
                 self.semantic_table.setItem(row, 1, it_key)
-                self.semantic_table.setItem(row, 2, QTableWidgetItem(val))
+
+                if type_hint == "NESTED_TABLE":
+                    data_obj = json.loads(val)
+                    btn = QPushButton(f"Open Table ({len(data_obj)} items)")
+                    # Connect with closure capturing current row and key
+                    btn.clicked.connect(self._make_nested_editor_callback(key_path, val, row))
+                    self.semantic_table.setCellWidget(row, 2, btn)
+                    
+                    # Store data in a hidden way as well for save_changes
+                    it_val = QTableWidgetItem(val)
+                    it_val.setFlags(it_val.flags() & ~Qt.ItemFlag.ItemIsEditable) # Make the underlying item non-editable
+                    self.semantic_table.setItem(row, 2, it_val)
+                else:
+                    it_val = QTableWidgetItem(val)
+                    self.semantic_table.setItem(row, 2, it_val)
+
+            self.semantic_table.resizeRowsToContents()
         else:
             self.tab_widget.setTabVisible(idx_tab, False)
 
