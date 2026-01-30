@@ -83,6 +83,7 @@ class SettingsDialog(QDialog):
         form.addRow(self.tr("OCR Binary:"), h_ocr)
 
         # Gemini Model
+        model_layout = QHBoxLayout()
         self.combo_model = QComboBox()
         self.combo_model.setEditable(True) # Allow custom models
         self.combo_model.addItems([
@@ -92,7 +93,17 @@ class SettingsDialog(QDialog):
             "gemini-1.5-pro",
             "gemini-pro"
         ])
-        form.addRow(self.tr("Gemini Model:"), self.combo_model)
+        
+        self.btn_refresh_models = QPushButton()
+        self.btn_refresh_models.setToolTip(self.tr("Refresh Gemini Model List"))
+        self.btn_refresh_models.setFixedSize(30, 30)
+        self.btn_refresh_models.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_BrowserReload))
+        self.btn_refresh_models.clicked.connect(self._refresh_models)
+        
+        model_layout.addWidget(self.combo_model, 1)
+        model_layout.addWidget(self.btn_refresh_models)
+        
+        form.addRow(self.tr("Gemini Model:"), model_layout)
 
         # API Key
         self.edit_api_key = QLineEdit()
@@ -182,6 +193,38 @@ class SettingsDialog(QDialog):
         # Trigger signal
         self.settings_changed.emit()
         self.accept()
+
+    def _refresh_models(self):
+        """Dynamic fetch of available Gemini models."""
+        api_key = self.edit_api_key.text().strip()
+        if not api_key:
+            show_selectable_message_box(self, self.tr("Missing API Key"), self.tr("Please enter an API Key first."), icon=QMessageBox.Icon.Warning)
+            return
+
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        self.btn_refresh_models.setEnabled(False)
+        try:
+            # We use a temporary analyzer to list models
+            analyzer = AIAnalyzer(api_key)
+            models = analyzer.list_models()
+            
+            if models:
+                current_model = self.combo_model.currentText()
+                self.combo_model.clear()
+                self.combo_model.addItems(models)
+                # Recover selection if it was in the new list
+                idx = self.combo_model.findText(current_model)
+                if idx >= 0:
+                    self.combo_model.setCurrentIndex(idx)
+                else:
+                    self.combo_model.setCurrentText(current_model)
+            else:
+                show_selectable_message_box(self, self.tr("Refresh Failed"), self.tr("Could not fetch models. Check your API Key and connection."), icon=QMessageBox.Icon.Warning)
+        except Exception as e:
+            show_selectable_message_box(self, self.tr("Error"), f"Failed to list models: {e}", icon=QMessageBox.Icon.Critical)
+        finally:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.btn_refresh_models.setEnabled(True)
 
     def _analyze_signature(self, id_type: str):
         """

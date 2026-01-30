@@ -81,6 +81,26 @@ class AIAnalyzer:
         self.client = genai.Client(api_key=self.api_key)
         self.model_name = model_name
 
+    def list_models(self) -> List[str]:
+        """
+        Fetches available models from the Google GenAI API.
+        Filters for models with generateContent support.
+        """
+        try:
+            models = []
+            for m in self.client.models.list():
+                # Filter for models that support generating content
+                if 'generateContent' in m.supported_methods:
+                    # Clean name (remove 'models/' prefix if present)
+                    name = m.name
+                    if name.startswith("models/"):
+                        name = name[7:]
+                    models.append(name)
+            return sorted(models)
+        except Exception as e:
+            print(f"[AIAnalyzer] Error listing models: {e}")
+            return []
+
     @staticmethod
     def extract_headers_footers(ocr_pages: List[str], header_ratio=0.15, footer_ratio=0.10) -> List[str]:
         """
