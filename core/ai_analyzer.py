@@ -164,7 +164,7 @@ class AIAnalyzer:
         primary_type = pre_flight_res.get("primary_type", "OTHER")
         is_stack_suspicion = pre_flight_res.get("looks_like_stack", False)
 
-        print(f"[STAGE 1] Pre-Flight: {total_pages} Pages. Type: {primary_type}. Stack: {is_stack_suspicion}")
+        print(f"[AI] Stage 1.0 (Pre-Flight) -> {total_pages} Pages. Type: {primary_type}. Stack: {is_stack_suspicion}")
 
         # --- PHASE B: ROUTING ---
         scan_strategy = "FULL_READ_MODE"
@@ -189,7 +189,7 @@ class AIAnalyzer:
             scan_strategy = "FULL_READ_MODE"
             final_pages_to_scan = pages_text
 
-        print(f"[STAGE 1] Selected Strategy: {scan_strategy} ({len(final_pages_to_scan)} pages prepared)")
+        # print(f"[AI] Selected Strategy: {scan_strategy} ({len(final_pages_to_scan)} pages prepared)")
 
         # --- PHASE C: EXECUTION ---
         return self.classify_structure(final_pages_to_scan, private_id, business_id, mode=scan_strategy)
@@ -1038,9 +1038,31 @@ TASK:
         json_str = json_str.replace("\x00", "") 
 
         try:
-            res_json = json.loads(json_str)
-            print(f"[AI] {stage_label} -> Success (JSON parsed)")
-            return res_json
+            # We try to find the shortest valid JSON object starting from 'start'
+            # Using a simple brace counter would be more robust, 
+            # but let's try to be smart about JSONDecodeError 'Extra data'
+            res_json = None
+            current_end = end
+            
+            while current_end > start:
+                try:
+                    res_json = json.loads(txt[start:current_end+1])
+                    break # Success!
+                except json.JSONDecodeError as e:
+                    if "Extra data" in str(e):
+                        # The JSON ended earlier than 'current_end'
+                        # Let's find the previous '}'
+                        current_end = txt.rfind('}', start, current_end)
+                        if current_end == -1: break
+                    else:
+                        raise e # Real error
+            
+            if res_json is not None:
+                print(f"[AI] {stage_label} -> Success")
+                return res_json
+            else:
+                print(f"[AI] Failed to find valid JSON in response for {stage_label}")
+                return None
         except Exception as e:
             print(f"[AI] Failed to parse JSON for {stage_label}: {e}")
             print(f"[AI] Raw start: {txt[:200]}...")

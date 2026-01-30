@@ -62,9 +62,18 @@ class CanonizerService:
         cursor.execute(query, (limit,))
         rows = cursor.fetchall()
 
+        # Phase 110: Immediate Lock
+        # To prevent race conditions from concurrent GUI threads/workers,
+        # we immediately mark these documents as 'PROCESSING'.
+        uuids = [row[0] for row in rows]
+        if uuids:
+            placeholders = ",".join(["?"] * len(uuids))
+            cursor.execute(f"UPDATE virtual_documents SET status = 'PROCESSING' WHERE uuid IN ({placeholders})", uuids)
+            self.db.connection.commit()
+            print(f"[Canonizer] Locked {len(uuids)} documents for processing.")
+
         processed_count = 0
-        for row in rows:
-            uuid = row[0]
+        for uuid in uuids:
             v_doc = self.logical_repo.get_by_uuid(uuid)
             if v_doc:
                 # We let exceptions bubble up to the worker, unless they are handled AI-retries
