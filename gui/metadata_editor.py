@@ -142,22 +142,32 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.addTab(self.stamps_tab, self.tr("Stamps"))
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.stamps_tab), False)
 
-        # --- Tab: Detailed Data (Phase 110) ---
-        self.details_tab = QWidget()
-        details_layout = QVBoxLayout(self.details_tab)
+        # --- Tab: Semantic Data (Phase 110) ---
+        self.semantic_data_tab = QWidget()
+        semantic_data_layout = QVBoxLayout(self.semantic_data_tab)
 
-        self.details_table = QTableWidget()
-        self.details_table.setColumnCount(3)
-        self.details_table.setHorizontalHeaderLabels([
+        self.semantic_table = QTableWidget()
+        self.semantic_table.setColumnCount(3)
+        self.semantic_table.setHorizontalHeaderLabels([
             self.tr("Section"), self.tr("Field"), self.tr("Value")
         ])
-        self.details_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.details_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.details_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        details_layout.addWidget(self.details_table)
+        self.semantic_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.semantic_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.semantic_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        semantic_data_layout.addWidget(self.semantic_table)
 
-        self.tab_widget.addTab(self.details_tab, self.tr("Detailed Data"))
-        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.details_tab), False)
+        semantic_btn_layout = QHBoxLayout()
+        self.btn_add_semantic = QPushButton(self.tr("Add Entry"))
+        self.btn_add_semantic.clicked.connect(self._add_semantic_row)
+        self.btn_remove_semantic = QPushButton(self.tr("Remove Selected"))
+        self.btn_remove_semantic.clicked.connect(self._remove_selected_semantic)
+        semantic_btn_layout.addWidget(self.btn_add_semantic)
+        semantic_btn_layout.addWidget(self.btn_remove_semantic)
+        semantic_btn_layout.addStretch()
+        semantic_data_layout.addLayout(semantic_btn_layout)
+
+        self.tab_widget.addTab(self.semantic_data_tab, self.tr("Semantic Data"))
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.semantic_data_tab), False)
 
         # --- Tab 2: Source Mapping (Component List) ---
         self.source_tab = QWidget()
@@ -344,8 +354,8 @@ class MetadataEditorWidget(QWidget):
         else:
             self.tab_widget.setTabVisible(idx_stamps, False)
 
-        # Detailed Semantic Data (Phase 110)
-        self._populate_details_table(sd)
+        # Semantic Data Table (Phase 110)
+        self._populate_semantic_table(sd)
 
         # Extracted Data
         self.sender_edit.setText(doc.sender or sd.get("sender", ""))
@@ -400,11 +410,25 @@ class MetadataEditorWidget(QWidget):
         for row in indices:
             self.stamps_table.removeRow(row)
 
-    def _populate_details_table(self, sd: Dict):
+    def _add_semantic_row(self):
+        row = self.semantic_table.rowCount()
+        self.semantic_table.insertRow(row)
+        self.semantic_table.setItem(row, 0, QTableWidgetItem("Custom"))
+        self.semantic_table.setItem(row, 1, QTableWidgetItem(""))
+        self.semantic_table.setItem(row, 2, QTableWidgetItem(""))
+
+    def _remove_selected_semantic(self):
+        indices = sorted({idx.row() for idx in self.semantic_table.selectedIndexes()}, reverse=True)
+        for row in indices:
+            self.semantic_table.removeRow(row)
+
+    def _populate_semantic_table(self, sd: Dict):
         """Flat representation of bodies & meta_header for the table."""
-        self.details_table.setRowCount(0)
+        self.semantic_table.setRowCount(0)
+        idx_tab = self.tab_widget.indexOf(self.semantic_data_tab)
+        
         if not sd:
-            self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.details_tab), False)
+            self.tab_widget.setTabVisible(idx_tab, False)
             return
 
         rows = []
@@ -425,28 +449,35 @@ class MetadataEditorWidget(QWidget):
         # Only show if there are actual bodies or header
         if "meta_header" in sd:
              traverse(sd["meta_header"], "Meta")
+        if "custom_fields" in sd:
+             traverse(sd["custom_fields"], "Custom")
         if "bodies" in sd:
             for body_name, body_data in sd["bodies"].items():
                 traverse(body_data, body_name.replace("_body", "").capitalize())
 
         if rows:
-            self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.details_tab), True)
+            self.tab_widget.setTabVisible(idx_tab, True)
             for sec, key, val in rows:
-                row = self.details_table.rowCount()
-                self.details_table.insertRow(row)
+                row = self.semantic_table.rowCount()
+                self.semantic_table.insertRow(row)
                 
                 it_sec = QTableWidgetItem(sec)
                 it_sec.setFlags(it_sec.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 it_sec.setBackground(Qt.GlobalColor.lightGray)
                 
                 it_key = QTableWidgetItem(key)
-                it_key.setFlags(it_key.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                # it_key should be editable if it's "Custom" or if we want to allow renaming?
+                # Usually keys are fixed by AI, but for manual entries it's better to allow editing.
+                if sec == "Custom":
+                    it_key.setFlags(it_key.flags() | Qt.ItemFlag.ItemIsEditable)
+                else:
+                    it_key.setFlags(it_key.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 
-                self.details_table.setItem(row, 0, it_sec)
-                self.details_table.setItem(row, 1, it_key)
-                self.details_table.setItem(row, 2, QTableWidgetItem(val))
+                self.semantic_table.setItem(row, 0, it_sec)
+                self.semantic_table.setItem(row, 1, it_key)
+                self.semantic_table.setItem(row, 2, QTableWidgetItem(val))
         else:
-            self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.details_tab), False)
+            self.tab_widget.setTabVisible(idx_tab, False)
 
     def clear(self):
         self.current_uuids = []
@@ -570,23 +601,40 @@ class MetadataEditorWidget(QWidget):
             if "layer_stamps" in sd:
                 sd["layer_stamps"] = stamps_list
 
-        # 4. Detailed Table Sync (Phase 110)
+        # 4. Semantic Table Sync (Phase 110)
         # We read changes back into sd. We only update leaf values or JSON blocks.
-        for r in range(self.details_table.rowCount()):
-            section = self.details_table.item(r, 0).text()
-            field = self.details_table.item(r, 1).text()
-            val_text = self.details_table.item(r, 2).text()
+        if "custom_fields" not in sd: sd["custom_fields"] = {} 
+
+        for r in range(self.semantic_table.rowCount()):
+            item_sec = self.semantic_table.item(r, 0)
+            item_key = self.semantic_table.item(r, 1)
+            item_val = self.semantic_table.item(r, 2)
+            if not item_sec or not item_key or not item_val: continue
+
+            section = item_sec.text()
+            field = item_key.text().strip()
+            val_text = item_val.text()
+            if not field: continue
             
             # Map back to target dict
             target = None
             if section == "Meta":
-                target = sd.get("meta_header")
+                if "meta_header" not in sd: sd["meta_header"] = {}
+                target = sd["meta_header"]
+            elif section == "Custom":
+                if "custom_fields" not in sd: sd["custom_fields"] = {}
+                target = sd["custom_fields"]
             else:
                 body_key = section.lower() + "_body"
-                if "bodies" in sd and body_key in sd["bodies"]:
+                if "bodies" not in sd: sd["bodies"] = {}
+                if body_key in sd["bodies"]:
                     target = sd["bodies"][body_key]
-                elif "bodies" in sd and section.lower() in sd["bodies"]: # fallback
+                elif section.lower() in sd["bodies"]: # fallback
                     target = sd["bodies"][section.lower()]
+                else:
+                    # New body or entry
+                    sd["bodies"][body_key] = {}
+                    target = sd["bodies"][body_key]
             
             if target is not None:
                 # Type conversion attempt
