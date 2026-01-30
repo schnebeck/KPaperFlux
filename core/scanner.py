@@ -130,9 +130,7 @@ class SaneScanner(ScannerDriver):
         # 2. Geometry / Page Size
         geom_args = []
         if page_format == 'A4':
-            # We scan slightly more (315mm) to catch overlong pages, 
-            # then crop to 297mm in software as requested.
-            geom_args = ['-x', '210mm', '-y', '315mm']
+            geom_args = ['-x', '210mm', '-y', '297mm']
         elif page_format == 'Letter':
             geom_args = ['-x', '215.9mm', '-y', '279.4mm']
         elif page_format == 'Legal':
