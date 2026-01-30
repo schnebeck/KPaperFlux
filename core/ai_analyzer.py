@@ -89,8 +89,8 @@ class AIAnalyzer:
         models = []
         for m in self.client.models.list():
             # Filter for models that support generating content
-            # Note: In the new SDK, supported_methods is a list of strings
-            if hasattr(m, 'supported_methods') and 'generateContent' in m.supported_methods:
+            # Note: In the google-genai SDK 2.0, this is 'supported_actions'
+            if hasattr(m, 'supported_actions') and 'generateContent' in m.supported_actions:
                 name = m.name
                 if name.startswith("models/"):
                     name = name[7:]
