@@ -292,7 +292,8 @@ class CanonizerService:
             semantic_extraction = self.analyzer.run_stage_2(
                 raw_ocr_text=entity_text,
                 stage_1_result=s1_context,
-                stage_1_5_result=audit_res
+                stage_1_5_result=audit_res,
+                pdf_path=pf.file_path if pf else None
             )
 
             # --- CRITICAL FIX: Handle Stage 2 Failure ---
@@ -305,10 +306,33 @@ class CanonizerService:
 
             target_doc.semantic_data.update(semantic_extraction)
 
+            # --- PHASE 105: Populate Filter Columns ---
             header = semantic_extraction.get("meta_header", {})
+            bodies = semantic_extraction.get("bodies", {})
+
+            # 1. Date
             if header.get("doc_date"):
-                    try:
-                        datetime.fromisoformat(header["doc_date"])
+                target_doc.doc_date = header["doc_date"]
+
+            # 2. Sender
+            sender_obj = header.get("sender", {})
+            if isinstance(sender_obj, dict):
+                target_doc.sender = sender_obj.get("name")
+            elif isinstance(sender_obj, str):
+                target_doc.sender = sender_obj
+
+            # 3. Amount (Heuristic from bodies)
+            if "finance_body" in bodies:
+                fb = bodies["finance_body"]
+                # In order of preference: Gross > Net > Total Due
+                amt = fb.get("total_gross") or fb.get("total_net") or fb.get("total_due") or fb.get("total_amount")
+                if amt is not None:
+                    try: target_doc.amount = float(amt)
+                    except: pass
+            elif "ledger_body" in bodies:
+                lb = bodies["ledger_body"]
+                if lb.get("end_balance") is not None:
+                    try: target_doc.amount = float(lb["end_balance"])
                     except: pass
 
             smart_name = self.analyzer.generate_smart_filename(

@@ -3,7 +3,8 @@ from dataclasses import dataclass, field
 import datetime
 import json
 import re
-from decimal import Decimal
+import base64
+import fitz  # PyMuPDF
 from decimal import Decimal
 import time
 import random
@@ -999,20 +1000,86 @@ TASK:
             print("Failed to parse JSON")
             return None
 
+    # ==============================================================================
+    # STAGE 2: SCHEMA HELPERS (Reusable Components)
+    # ==============================================================================
+
+    @staticmethod
+    def get_address_schema() -> Dict:
+        return {
+            "raw_string": "String (Full address line as fallback)",
+            "street": "String",
+            "house_number": "String",
+            "zip_code": "String",
+            "city": "String",
+            "state_province": "String",
+            "country": "String (ISO Code if possible, e.g. DE)"
+        }
+
+    @staticmethod
+    def get_contact_schema() -> Dict:
+        return {
+            "phones": ["String (List of phone numbers)"],
+            "emails": ["String (List of email addresses)"],
+            "websites": ["String (List of URLs)"],
+            "contact_person": "String (Name of specific person)"
+        }
+
+    @classmethod
+    def get_party_schema(cls) -> Dict:
+        """Detailed structure for Sender/Recipient."""
+        return {
+            "name": "String (Official Company Name or Person Name)",
+            "address": cls.get_address_schema(),
+            "contact": cls.get_contact_schema(),
+            "identifiers": {
+                "vat_id": "String (USt-IdNr)",
+                "tax_id": "String (Steuernummer)",
+                "commercial_register": "String (HRB/HRA Number + Court)",
+                "customer_id": "String (My ID at this company)",
+                "creditor_id": "String (Gläubiger-ID)",
+                "personnel_number": "String (Personalnummer)",
+                "insurance_id": "String (Versichertennummer)"
+            }
+        }
+
+    @staticmethod
+    def get_bank_account_schema() -> Dict:
+        return {
+            "bank_name": "String",
+            "account_holder": "String",
+            "iban": "String",
+            "bic": "String",
+            "sort_code": "String (BLZ - optional)"
+        }
+
+    # ==============================================================================
+    # STAGE 2: SCHEMA REGISTRY
+    # ==============================================================================
+
     def get_target_schema(self, doc_type: str) -> Dict:
         """
         Phase 2.1: Schema Registry.
-        Returns the JSON schema that the AI should populate for this document type.
+        Detailed polymorph schemas for each document type.
         """
-        # BASIS: Common Header (always present)
+        dt = doc_type.upper()
+        
+        # BASIS: Common Header (immer dabei)
         base_header = {
             "doc_date": "YYYY-MM-DD (Date written on document)",
-            "sender_name": "String",
-            "recipient_name": "String",
-            "summary": "String (1 sentence content summary)"
+            "summary": "String (1 sentence content summary)",
+            
+            # Granular Parties
+            "sender": self.get_party_schema(),
+            "recipient": self.get_party_schema(),
+            
+            # Life Context
+            "subject_context": {
+                "entity_name": "String (e.g. 'Sommerurlaub 2025', 'Lego Set', 'Python Kurs', 'Wintermantel')",
+                "entity_type": "SELF | FAMILY | PET | ASSET | PROPERTY | VEHICLE | HOBBY | PROJECT | BUSINESS | HEALTH | HOLIDAY | JOURNEY | FOOD | TOY | DEVICE | DEVELOPMENT | SERVICE | CLOTHING | CLEANING | COSMETIC | GIFT | OTHER",
+                "relation": "String (e.g. 'Owner', 'Participant', 'Consumer', 'Buyer')"
+            }
         }
-
-        dt = doc_type.upper()
 
         # --- GROUP 1: FINANCE & TRANSACTIONAL ---
         if dt in ["INVOICE", "RECEIPT", "CREDIT_NOTE", "CASH_EXPENSE"]:
@@ -1020,20 +1087,38 @@ TASK:
                 "meta_header": base_header,
                 "finance_body": {
                     "invoice_number": "String",
+                    "order_number": "String",
                     "total_net": "Number (Float)",
                     "total_tax": "Number (Float)",
                     "total_gross": "Number (Float)",
                     "currency": "EUR | USD | ...",
+                    
+                    # Detailed Bank Info
+                    "payment_accounts": [self.get_bank_account_schema()],
+                    
                     "payment_details": {
-                        "iban": "String",
-                        "bic": "String",
-                        "reference": "String (payment reference)"
-                    }
+                        "reference": "String (Verwendungszweck)",
+                        "due_date": "YYYY-MM-DD",
+                        "payment_terms": "String (e.g. '14 days net')"
+                    },
+                    
+                    "line_items": [
+                        {
+                            "pos_no": "String",
+                            "description": "String",
+                            "article_id": "String (SKU/EAN)",
+                            "quantity": "Number",
+                            "unit": "String (pcs, kg, h)",
+                            "unit_price": "Number",
+                            "tax_rate": "Number",
+                            "total_price": "Number"
+                        }
+                    ]
                 },
                 "internal_routing": {
-                    "project_code": "String (from Stamp 'Cost Center')",
-                    "received_at": "YYYY-MM-DD (from Stamp 'Received')",
-                    "verified_by": "String (from Stamp 'Processor')"
+                    "project_code": "String (from Stamp 'Kostenstelle')",
+                    "received_at": "YYYY-MM-DD (from Stamp 'Eingang')",
+                    "verified_by": "String (from Stamp 'Bearbeiter')"
                 }
             }
 
@@ -1042,10 +1127,11 @@ TASK:
                 "meta_header": base_header,
                 "finance_body": {
                     "total_due": "Number (Float)",
-                    "dunning_level": "String (e.g. '1st reminder')",
+                    "dunning_level": "String (e.g. '1. Mahnung')",
                     "original_invoice_ref": "String",
                     "fees": "Number",
-                    "deadline": "YYYY-MM-DD"
+                    "deadline": "YYYY-MM-DD",
+                    "payment_accounts": [self.get_bank_account_schema()]
                 }
             }
 
@@ -1057,11 +1143,20 @@ TASK:
                     "document_number": "String (Offer/Order No)",
                     "valid_until": "YYYY-MM-DD",
                     "total_amount": "Number",
-                    "terms_of_payment": "String"
-                },
-                "line_items_summary": ["String (List of main products/services)"]
+                    "terms_of_payment": "String",
+                    "line_items": [
+                        {
+                            "pos_no": "String",
+                            "description": "String",
+                            "article_id": "String",
+                            "quantity": "Number",
+                            "unit_price": "Number",
+                            "total_price": "Number"
+                        }
+                    ]
+                }
             }
-
+            
         elif dt == "DELIVERY_NOTE":
             return {
                 "meta_header": base_header,
@@ -1070,7 +1165,18 @@ TASK:
                     "order_reference": "String",
                     "shipping_date": "YYYY-MM-DD",
                     "carrier": "String",
-                    "weight_kg": "Number"
+                    "tracking_number": "String",
+                    "weight_kg": "Number",
+                    "delivered_items": [
+                        {
+                            "pos_no": "String",
+                            "description": "String",
+                            "article_id": "String",
+                            "quantity_ordered": "Number",
+                            "quantity_delivered": "Number",
+                            "unit": "String"
+                        }
+                    ]
                 }
             }
 
@@ -1080,13 +1186,14 @@ TASK:
                 "meta_header": base_header,
                 "legal_body": {
                     "contract_id": "String",
-                    "contract_partners": ["String", "String"],
+                    "contract_partners": [self.get_party_schema()], 
                     "start_date": "YYYY-MM-DD",
                     "end_date": "YYYY-MM-DD | null (if indefinite)",
                     "cancellation_period": "String (e.g. '3 months to year end')",
+                    "renewal_clause": "String",
                     "cost_recurring": {
                         "amount": "Number",
-                        "interval": "MONTHLY | YEARLY"
+                        "interval": "MONTHLY | YEARLY | QUARTERLY"
                     }
                 },
                 "verification": {
@@ -1098,9 +1205,10 @@ TASK:
             return {
                 "meta_header": base_header,
                 "legal_body": {
-                    "our_reference": "String (Our Reference)",
-                    "your_reference": "String (Your Reference / Case Number)",
+                    "our_reference": "String (Unser Zeichen)",
+                    "your_reference": "String (Ihr Zeichen/Aktenzeichen)",
                     "subject": "String",
+                    "court_file_number": "String (Aktenzeichen Gericht)",
                     "deadlines": [{"reason": "String", "date": "YYYY-MM-DD"}]
                 }
             }
@@ -1114,7 +1222,9 @@ TASK:
                     "period": "YYYY-MM",
                     "net_salary": "Number",
                     "gross_salary": "Number",
-                    "payout_date": "YYYY-MM-DD"
+                    "payout_date": "YYYY-MM-DD",
+                    "tax_class": "String",
+                    "social_security_id": "String"
                 }
             }
 
@@ -1122,14 +1232,32 @@ TASK:
             return {
                 "meta_header": base_header,
                 "health_body": {
-                    "patient_name": "String",
-                    "doctor_name": "String",
-                    "type": "INITIAL | FOLLOW_UP",
+                    "patient": self.get_party_schema(),
+                    "provider": self.get_party_schema(), # Doctor/Clinic
+                    "type": "INITIAL | FOLLOW_UP | PRESCRIPTION | LETTER",
                     "incapacity_period": {
                         "start": "YYYY-MM-DD",
-                        "end": "YYYY-MM-DD"
+                        "end": "YYYY-MM-DD",
+                        "estimated_return": "YYYY-MM-DD"
                     },
-                    "insurance_provider": "String"
+                    "insurance_provider": "String",
+                    "diagnoses_icd": [
+                        {
+                            "icd_code": "String (e.g. J06.9)",
+                            "description": "String",
+                            "certainty": "String"
+                        }
+                    ],
+                    "medication_plan": [
+                        {
+                            "name": "String",
+                            "pzn": "String",
+                            "dosage": "String",
+                            "form": "String",
+                            "instructions": "String",
+                            "prescribed_amount": "String"
+                        }
+                    ]
                 }
             }
 
@@ -1138,11 +1266,20 @@ TASK:
             return {
                 "meta_header": base_header,
                 "travel_body": {
-                    "traveler": "String",
+                    "traveler": self.get_party_schema(),
                     "destination": "String",
                     "start_date": "YYYY-MM-DD",
                     "end_date": "YYYY-MM-DD",
-                    "total_cost": "Number"
+                    "total_cost": "Number",
+                    "expenses": [
+                        {
+                            "date": "YYYY-MM-DD",
+                            "category": "String (Hotel, Meal, Transport)",
+                            "description": "String",
+                            "amount": "Number",
+                            "currency": "String"
+                        }
+                    ]
                 }
             }
 
@@ -1151,12 +1288,21 @@ TASK:
             return {
                 "meta_header": base_header,
                 "ledger_body": {
-                    "account_iban": "String",
+                    "account_info": self.get_bank_account_schema(),
                     "statement_number": "String",
                     "period_start": "YYYY-MM-DD",
                     "period_end": "YYYY-MM-DD",
                     "start_balance": "Number",
-                    "end_balance": "Number"
+                    "end_balance": "Number",
+                    "transactions": [
+                        {
+                            "date": "YYYY-MM-DD",
+                            "counterparty_name": "String",
+                            "description": "String",
+                            "amount": "Number (negative for debit)",
+                            "category": "String"
+                        }
+                    ]
                 }
             }
 
@@ -1166,7 +1312,8 @@ TASK:
                 "finance_body": {
                     "assessment_year": "YYYY",
                     "total_amount": "Number (Positive=Payment, Negative=Refund)",
-                    "due_date": "YYYY-MM-DD"
+                    "due_date": "YYYY-MM-DD",
+                    "tax_id": "String"
                 }
             }
 
@@ -1178,7 +1325,9 @@ TASK:
                     "vin": "String",
                     "license_plate": "String",
                     "vehicle_model": "String",
-                    "first_registration": "YYYY-MM-DD"
+                    "manufacturer": "String",
+                    "first_registration": "YYYY-MM-DD",
+                    "owner": self.get_party_schema()
                 }
             }
 
@@ -1189,7 +1338,8 @@ TASK:
                     "product_name": "String",
                     "model_number": "String",
                     "version": "String",
-                    "manufacturer": "String"
+                    "manufacturer": "String",
+                    "specs": [{"label": "String", "value": "String"}]
                 }
             }
 
@@ -1199,12 +1349,14 @@ TASK:
                 "career_body": {
                     "title": "String",
                     "issued_by": "String",
+                    "recipient": "String",
                     "date_issued": "YYYY-MM-DD",
-                    "grade": "String"
+                    "grade": "String",
+                    "expiry_date": "YYYY-MM-DD"
                 }
             }
 
-        # Fallback for notes etc.
+        # Fallback
         else:
             return {
                 "meta_header": base_header,
@@ -1249,71 +1401,115 @@ TASK:
 """
         return combined_text
 
-    def run_stage_2(self, raw_ocr_text: str, stage_1_result: Dict, stage_1_5_result: Dict) -> Dict:
+    def get_page_image_payload(self, pdf_path: str, page_index: int = 0) -> Optional[Dict]:
+        """
+        Renders a PDF page as a Base64 image for Vision AI.
+        """
+        try:
+            doc = fitz.open(pdf_path)
+            if page_index >= doc.page_count:
+                return None
+                
+            page = doc.load_page(page_index)
+            # 150-200 DPI is usually sufficient for structure recognition
+            pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0)) 
+            img_bytes = pix.tobytes("png")
+            b64 = base64.b64encode(img_bytes).decode("utf-8")
+            
+            return {
+                "base64": b64,
+                "label": "FIRST_PAGE_VISUAL_CONTEXT",
+                "page_index": page_index
+            }
+        except Exception as e:
+            print(f"[Stage 2] Image generation failed: {e}")
+            return None
+
+    def run_stage_2(self, raw_ocr_text: str, stage_1_result: Dict, stage_1_5_result: Dict, pdf_path: Optional[str] = None) -> Dict:
         """
         Phase 2.3: Semantic Extraction Pipeline.
-        Executes extracting for each detected type and consolidates result.
+        Executes extraction for each detected type and consolidates result.
+        Now supports Vision Context if pdf_path is provided.
         """
         print(f"--- [AIAnalyzer] STARTING STAGE 2 SEMANTIC EXTRACTION ---")
 
         # 1. Text Merging (Arbiter Logic)
         best_text = self.assemble_best_text_source(raw_ocr_text, stage_1_5_result)
 
-        # 2. Extract Types from Stage 1 result for current entity
-        # Note: In the actual pipeline, this is called PER ENTITY.
-        # But for compatibility with user script, we accept stage_1_result.
+        # 2. Image Prep (Vision Support)
+        images_payload = []
+        if pdf_path:
+            img_data = self.get_page_image_payload(pdf_path, 0)
+            if img_data:
+                # In Gemini API (genai), we need to convert base64 back to bytes or use a specific format
+                # But _generate_json expect images as PIL or Dict? 
+                # Let's check _generate_json implementation. It takes 'image'.
+                # Actually, my _generate_with_retry takes 'contents'.
+                
+                # We'll use the bytes directly for the Gemini client
+                try:
+                    doc = fitz.open(pdf_path)
+                    page = doc.load_page(0)
+                    pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+                    img_bytes = pix.tobytes("png")
+                    images_payload.append({"mime_type": "image/png", "data": img_bytes})
+                    print("[Stage 2] Vision Context enabled (Page 1).")
+                except Exception as e:
+                    print(f"[Stage 2] Vision prep failed: {e}")
 
-        # V2.0 logic often has detected_entities as a list.
+        # 3. Extract Types
         detected_entities = stage_1_result.get("detected_entities", [])
         if not detected_entities:
-            # Maybe it's a flat structure (legacy)
             types_to_extract = stage_1_result.get("doc_types", ["OTHER"])
         else:
-            # Use types from the primary entity
             primary = detected_entities[0]
             types_to_extract = primary.get("doc_types", ["OTHER"])
 
-        # Filter helper tags and deduplicate
         types_to_extract = list(set([t for t in types_to_extract if t not in ["INBOUND", "OUTBOUND", "INTERNAL", "CTX_PRIVATE", "CTX_BUSINESS", "UNKNOWN"]]))
         if not types_to_extract:
             types_to_extract = ["OTHER"]
 
-        # 3. Prepare Stamps from Stage 1.5
+        # 4. Prepare Stamps
         stamps_list = []
         if stage_1_5_result:
             stamps_list = stage_1_5_result.get("layer_stamps", [])
         stamps_json_str = json.dumps(stamps_list, indent=2, ensure_ascii=False)
 
-        # 4. Consolidated Result Container
+        # 5. Consolidated Result
         final_semantic_data = {
             "meta_header": {},
             "bodies": {}
         }
 
-        # 5. Extraction Loop
         PROMPT_TEMPLATE = """
-You are a Semantic Data Extractor.
+You are a Semantic Data Extractor for a Life Management System.
 Your goal is to extract structured data for the document type: **{doc_type}**.
 
-### INPUT SOURCE 1: DOCUMENT TEXT
+### 1. INPUT DATA
+
+**A. VISUAL CONTEXT (IMAGE):**
+(If provided) Use the image to understand the layout and geometric relationships.
+**Pattern Recognition Rule:** Apply the visual structure found on Page 1 to interpret the raw text stream.
+
+**B. DOCUMENT TEXT:**
 {document_text}
 
-### INPUT SOURCE 2: DETECTED STAMPS (FORM DATA)
+**C. STAMP DATA (Validated Meta-Data):**
 The visual audit identified the following structured data (Stamps/Handwriting).
 **Use these values with high priority** to fill metadata fields like 'received_at', 'project_code' or 'verified_by'.
 >>> {stamps_json} <<<
 
-### INSTRUCTION
+### 2. INSTRUCTION
 Extract data into the target JSON schema.
-1. **Content Fields:** Extract Invoice No, Amounts, Dates from DOCUMENT TEXT.
-   - *Conflict Resolution:* If 'Page 1 Cleaned' differs from 'Raw OCR', trust 'Page 1 Cleaned'.
-2. **Metadata Fields:** Extract Project IDs, Verifiers from STAMP DATA.
-   - Look at the `label` in the stamp data to map to the correct schema field.
-   - Example: Stamp Label "Cost Center" (Value "10") -> Schema Field `project_code`.
-3. **Normalization:** - Dates must be ISO 8601 (YYYY-MM-DD).
-   - Amounts must be Float (10.50). Convert from strings if necessary.
+1. **Address Splitting:** Split addresses into street, house_number, zip_code, city, country.
+2. **Contact Info:** Extract all phones, emails, and websites into lists.
+3. **Registry/Tax:** Look for VAT IDs, Tax IDs and Commercial Register numbers.
+4. **Metadata Fields:** Extract Project IDs, Verifiers from STAMP DATA (match labels).
+5. **Normalization:** - Dates must be ISO 8601 (YYYY-MM-DD).
+   - Amounts must be Float (10.50). 
+   - Empty fields must be `null` or empty lists `[]`.
 
-### TARGET SCHEMA (JSON)
+### 3. TARGET SCHEMA (JSON)
 {target_schema_json}
 
 Return ONLY the valid JSON.
@@ -1321,31 +1517,30 @@ Return ONLY the valid JSON.
 
         for doc_type in types_to_extract:
             print(f"[Stage 2] Processing Type: {doc_type}")
-
-            # A. Schema
             schema = self.get_target_schema(doc_type)
-
-            # B. Prompt
+            
+            # Context Limit
+            limit = 6000 if doc_type in ["TECHNICAL_DOC", "MANUAL"] else 14000
+            
             prompt = PROMPT_TEMPLATE.format(
                 doc_type=doc_type,
-                document_text=best_text[:20000], # flash has high context, but keep it reasonable
+                document_text=best_text[:limit],
                 stamps_json=stamps_json_str,
                 target_schema_json=json.dumps(schema, indent=2)
             )
 
-            # C. AI Call
             try:
-                extraction = self._generate_json(prompt, stage_label=f"STAGE 2 EXTRACTION ({doc_type})")
+                # Merge images_payload into contents for _generate_json
+                image = images_payload[0] if images_payload else None
+                extraction = self._generate_json(prompt, stage_label=f"STAGE 2 EXTRACTION ({doc_type})", image=image)
+                
                 if not extraction: continue
 
-                # D. Merge Logic
-                # Header from the first successful pass
                 if not final_semantic_data["meta_header"]:
                     final_semantic_data["meta_header"] = extraction.get("meta_header", {})
 
-                # Bodies (finance_body, legal_body, etc.)
                 for key, value in extraction.items():
-                    if key.endswith("_body") or key in ["internal_routing", "verification", "line_items_summary"]:
+                    if key.endswith("_body") or key in ["internal_routing", "verification", "travel_body"]:
                         final_semantic_data["bodies"][key] = value
 
             except Exception as e:
@@ -1359,46 +1554,49 @@ Return ONLY the valid JSON.
         Generates a human-readable filename based on extracted data.
         Pattern: YYYY-MM-DD__ENTITY__TYPE.pdf
         """
-
-        # 1. Date (WHEN)
+        
+        # 1. Date (WANN)
         date_str = "0000-00-00"
         meta = semantic_data.get("meta_header", {})
         if meta.get("doc_date"):
             date_str = meta["doc_date"]
-
-        # 2. Entity (WHO/WHAT)
+        
+        # 2. Entity (WER/WAS)
         entity_name = "Unknown"
-        bodies = semantic_data.get("bodies", {})
+        
+        # Priority 1: Context Entity Name
+        if meta.get("subject_context") and meta["subject_context"].get("entity_name"):
+            entity_name = meta["subject_context"]["entity_name"]
+        else:
+            # Priority 2: Structured Sender Name
+            sender = meta.get("sender", {})
+            if isinstance(sender, dict):
+                entity_name = sender.get("name") or "Unknown"
+            elif isinstance(sender, str):
+                entity_name = sender  # Fallback for old/flat formats
+                
+            # Priority 3: Check Bodies for specific partners/patients
+            if entity_name == "Unknown":
+                bodies = semantic_data.get("bodies", {})
+                if "legal_body" in bodies:
+                    partners = bodies["legal_body"].get("contract_partners", [])
+                    if partners and isinstance(partners[0], dict):
+                        entity_name = partners[0].get("name")
+                elif "health_body" in bodies:
+                     patient = bodies["health_body"].get("patient")
+                     if isinstance(patient, dict):
+                         entity_name = patient.get("name")
 
-        # Strategy: Prioritize Sender > Partner > Context
-        if "finance_body" in bodies:
-            entity_name = meta.get("sender_name") or "Invoice"
-        elif "legal_body" in bodies:
-            # Try finding a contract partner in legal body, else sender
-            partners = bodies["legal_body"].get("contract_partners", [])
-            if partners:
-                entity_name = partners[0]
-            else:
-                entity_name = meta.get("sender_name") or "Contract"
-        elif "health_body" in bodies:
-            entity_name = bodies["health_body"].get("patient_name") or "Health"
-        elif meta.get("sender_name"):
-            entity_name = meta["sender_name"]
-
-        # Clean Entity Name (Remove spaces, dots, slashes)
+        # Clean Entity Name
         if entity_name:
             entity_name = re.sub(r'[\s\./\\:]+', '_', entity_name)
             entity_name = re.sub(r'__+', '_', entity_name)
-            # Remove trailing underscores from cleaning
             entity_name = entity_name.strip('_')
 
-        # 3. Type (WHAT)
-        # Filter out system tags
+        # 3. Type (WAS)
         clean_types = [t for t in doc_types if t not in ["INBOUND", "OUTBOUND", "INTERNAL", "CTX_PRIVATE", "CTX_BUSINESS", "UNKNOWN"]]
         type_str = "-".join(clean_types[:2]) if clean_types else "DOC"
 
-        # Assemble
         filename = f"{date_str}__{entity_name}__{type_str}.pdf"
-
-        # Final sanitize to be filesystem safe
+        # Final sanitize
         return re.sub(r'[^\w\-.@]', '_', filename)
