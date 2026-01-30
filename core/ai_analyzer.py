@@ -1409,15 +1409,7 @@ TASK:
             return raw_ocr_full
 
         # Build hybrid text:
-        # Page 1 = AI Clean Text
-        # Remaining = Raw OCR context
-        combined_text = f"""
-=== PAGE 1 (AI CLEANED / VERIFIED) ===
-{clean_page_1}
-
-=== RAW OCR CONTEXT (FULL DOCUMENT) ===
-{raw_ocr_full}
-"""
+        combined_text = f"=== PAGE 1 (AI CLEANED / VERIFIED) ===\n{clean_page_1}\n\n=== FULL DOCUMENT CONTENT (RAW OCR) ===\n{raw_ocr_full}"
         return combined_text
 
     def get_page_image_payload(self, pdf_path: str, page_index: int = 0) -> Optional[Dict]:
@@ -1507,8 +1499,8 @@ Your goal is to extract structured data from the provided document text into a s
 
 **A. VISUAL CONTEXT (IMAGE of FIRST PAGE):**
 You are provided with an image of the document's start.
-- **Geometric Grounding:** Use this image to understand the layout (e.g. "Invoice Number is top right", "Table headers are aligned").
-- **Pattern Rule:** Apply the visual structure found on Page 1 to interpret the raw text stream.
+- **Geometric Grounding:** Use this image to understand the layout and style (e.g. table headers, logo styles).
+- **Multi-Page Context:** Treat the image as the FIRST PAGE. Continue your extraction through the entire provided text stream, which contains subsequent pages if available.
 
 **B. DOCUMENT TEXT (Repaired OCR):**
 {document_text}
@@ -1545,7 +1537,7 @@ Additionally, check if other bodies apply (**Auto-Discovery**).
 - **Dates:** ISO 8601 (YYYY-MM-DD).
 - **Numbers:** Float (10.50). No thousand separators.
 - **Currency:** ISO Code (EUR, USD).
-- **Empty Fields:** Use `null`.
+- **Empty Fields:** OMIT any keys that have no values (null, empty strings, or empty lists). Do NOT return them in your JSON response.
 
 ### 6. TARGET OUTPUT (JSON SCHEMA)
 {target_schema_json}
@@ -1567,8 +1559,8 @@ Return ONLY valid JSON.
             print(f"[Stage 2] Processing Type: {doc_type}")
             schema = self.get_target_schema(doc_type)
             
-            # Context Limit
-            limit = 6000 if doc_type in ["TECHNICAL_DOC", "MANUAL"] else 14000
+            # Context Limit: Gemini handles large contexts easily. 100k chars is safe.
+            limit = 100000
             
             prompt = PROMPT_TEMPLATE.format(
                 doc_type=doc_type,
