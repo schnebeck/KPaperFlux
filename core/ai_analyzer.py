@@ -9,6 +9,7 @@ from decimal import Decimal
 import time
 import random
 from google import genai
+from google.genai import types
 from google.genai.errors import ClientError
 from core.models.canonical_entity import (
     DocType, InvoiceData, LogisticsData, BankStatementData,
@@ -1469,7 +1470,7 @@ TASK:
                 # Use the already rendered image from get_page_image_payload
                 try:
                     img_bytes = base64.b64decode(img_data["base64"])
-                    images_payload.append({"mime_type": "image/png", "data": img_bytes})
+                    images_payload.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
                     print("[Stage 2] Vision Context enabled (Page 1).")
                 except Exception as e:
                     print(f"[Stage 2] Vision prep failed: {e}")
