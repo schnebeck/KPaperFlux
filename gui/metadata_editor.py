@@ -27,7 +27,7 @@ class NestedTableDialog(QDialog):
     def __init_ui(self):
         layout = QVBoxLayout(self)
         self.table = QTableWidget()
-        
+
         # Determine columns from keys
         items_list = self.data if isinstance(self.data, list) else []
         keys = []
@@ -35,13 +35,13 @@ class NestedTableDialog(QDialog):
             if isinstance(item, dict):
                 for k in item.keys():
                     if k not in keys: keys.append(k)
-        
+
         if not keys: keys = ["Value"]
-        
+
         self.table.setColumnCount(len(keys))
         self.table.setHorizontalHeaderLabels(keys)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        
+
         self.table.setRowCount(len(items_list))
         for r, item in enumerate(items_list):
             for c, key in enumerate(keys):
@@ -50,27 +50,27 @@ class NestedTableDialog(QDialog):
                     val = item.get(key, "")
                 else:
                     val = item if c == 0 else ""
-                
+
                 if isinstance(val, (dict, list)):
                     val = json.dumps(val, ensure_ascii=False)
-                
+
                 self.table.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
-        
+
         layout.addWidget(self.table)
-        
+
         # Action Buttons
         btn_layout = QHBoxLayout()
         add_btn = QPushButton("Add Row")
         add_btn.clicked.connect(self._add_row)
         remove_btn = QPushButton("Remove Row")
         remove_btn.clicked.connect(self._remove_row)
-        
+
         save_btn = QPushButton("Save / Apply")
         save_btn.setStyleSheet("font-weight: bold; background-color: #e1f5fe;")
         save_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        
+
         btn_layout.addWidget(add_btn)
         btn_layout.addWidget(remove_btn)
         btn_layout.addStretch()
@@ -91,7 +91,7 @@ class NestedTableDialog(QDialog):
         out = []
         cols = self.table.columnCount()
         keys = [self.table.horizontalHeaderItem(c).text() for c in range(cols)]
-        
+
         for r in range(self.table.rowCount()):
             if cols == 1 and keys[0] == "Value":
                 it = self.table.item(r, 0)
@@ -171,7 +171,7 @@ class MetadataEditorWidget(QWidget):
 
         self.status_combo = QComboBox()
         self.status_combo.addItems([
-            "NEW", "READY_FOR_PIPELINE", 
+            "NEW", "READY_FOR_PIPELINE",
             "PROCESSING", "PROCESSING_S1", "PROCESSING_S1_5", "PROCESSING_S2",
             "STAGE1_HOLD", "STAGE1_5_HOLD", "STAGE2_HOLD",
             "PROCESSED", "ERROR"
@@ -221,9 +221,7 @@ class MetadataEditorWidget(QWidget):
         self.amount_edit.setPlaceholderText("0.00")
         analysis_layout.addRow(self.tr("Amount:"), self.amount_edit)
 
-        self.reasoning_view = QTextEdit()
-        self.reasoning_view.setMaximumHeight(80)
-        analysis_layout.addRow(self.tr("AI Reasoning:"), self.reasoning_view)
+        # Reasoning field removed to save space/tokens in AI output
 
         self.tab_widget.addTab(self.analysis_scroll, self.tr("Analysis"))
 
@@ -425,7 +423,6 @@ class MetadataEditorWidget(QWidget):
         # They will grow as the system evolves.
         self.direction_combo.setCurrentText(sd.get("direction", "UNKNOWN"))
         self.context_combo.setCurrentText(sd.get("tenant_context", "UNKNOWN"))
-        self.reasoning_view.setText(sd.get("reasoning", ""))
 
         # Stage 1.5 Stamps (Phase 105 Fix)
         # Check both direct 'layer_stamps' and nested 'visual_audit'
@@ -539,22 +536,22 @@ class MetadataEditorWidget(QWidget):
                 # Always get LATEST json from the item (it might have been edited before)
                 it = self.semantic_table.item(row, 2)
                 current_json = it.text() if it else initial_json
-                
+
                 data = json.loads(current_json)
                 dlg = NestedTableDialog(data, f"Edit List: {key_path}", self)
                 if dlg.exec():
                     new_data = dlg.get_data()
                     new_json = json.dumps(new_data, ensure_ascii=False)
-                    
+
                     # Update background item (which save_changes reads)
                     if it:
                         it.setText(new_json)
-                    
+
                     # Update Button Text
                     btn = self.semantic_table.cellWidget(row, 2)
                     if isinstance(btn, QPushButton):
                         btn.setText(f"Open Table ({len(new_data)} items)")
-                    
+
                     # Mark as dirty?
                     self.save_btn.setEnabled(True)
             except Exception as e:
@@ -565,13 +562,13 @@ class MetadataEditorWidget(QWidget):
         """Flat representation of bodies & meta_header for the table."""
         self.semantic_table.setRowCount(0)
         idx_tab = self.tab_widget.indexOf(self.semantic_data_tab)
-        
+
         if not sd:
             self.tab_widget.setTabVisible(idx_tab, False)
             return
 
         rows = []
-        
+
         # Helper to traverse and flatten
         def traverse(data, section, prefix=""):
             if isinstance(data, dict):
@@ -599,17 +596,17 @@ class MetadataEditorWidget(QWidget):
 
         # 1. Known Main Sections
         if "meta_header" in sd:
-             traverse(sd["meta_header"], "Meta")
+            traverse(sd["meta_header"], "Meta")
         if "custom_fields" in sd:
-             traverse(sd["custom_fields"], "Custom")
-        
+            traverse(sd["custom_fields"], "Custom")
+
         # 2. Bodies (Phase 107/110)
-        handled_keys = {"meta_header", "custom_fields", "bodies", "visual_audit", "layer_stamps", "summary", "doc_types", "direction", "tenant_context", "reasoning"}
-        
+        handled_keys = {"meta_header", "custom_fields", "bodies", "visual_audit", "layer_stamps", "summary", "doc_types", "direction", "tenant_context"}
+
         if "bodies" in sd and isinstance(sd["bodies"], dict):
             for body_name, body_data in sd["bodies"].items():
                 traverse(body_data, body_name.replace("_body", "").capitalize())
-        
+
         # 3. Catch-all for any other keys (like internal_routing or root-level finance_body)
         for k, v in sd.items():
             if k not in handled_keys:
@@ -626,11 +623,11 @@ class MetadataEditorWidget(QWidget):
 
                 row = self.semantic_table.rowCount()
                 self.semantic_table.insertRow(row)
-                
+
                 it_sec = QTableWidgetItem(sec)
                 it_sec.setFlags(it_sec.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 it_sec.setBackground(Qt.GlobalColor.lightGray)
-                
+
                 it_key = QTableWidgetItem(key_path)
                 # it_key should be editable if it's "Custom" or if we want to allow renaming?
                 # Usually keys are fixed by AI, but for manual entries it's better to allow editing.
@@ -638,7 +635,7 @@ class MetadataEditorWidget(QWidget):
                     it_key.setFlags(it_key.flags() | Qt.ItemFlag.ItemIsEditable)
                 else:
                     it_key.setFlags(it_key.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                
+
                 self.semantic_table.setItem(row, 0, it_sec)
                 self.semantic_table.setItem(row, 1, it_key)
 
@@ -648,7 +645,7 @@ class MetadataEditorWidget(QWidget):
                     # Connect with closure capturing current row and key
                     btn.clicked.connect(self._make_nested_editor_callback(key_path, val, row))
                     self.semantic_table.setCellWidget(row, 2, btn)
-                    
+
                     # Store data in a hidden way as well for save_changes
                     it_val = QTableWidgetItem(val)
                     it_val.setFlags(it_val.flags() & ~Qt.ItemFlag.ItemIsEditable) # Make the underlying item non-editable
@@ -674,7 +671,6 @@ class MetadataEditorWidget(QWidget):
         self.context_combo.setCurrentIndex(2) # UNKNOWN
         self.sender_edit.clear()
         self.amount_edit.clear()
-        self.reasoning_view.clear()
         self.source_viewer.clear()
         self.semantic_viewer.clear()
         self.setEnabled(False)
@@ -717,7 +713,6 @@ class MetadataEditorWidget(QWidget):
         sd["doc_types"] = doc_types
         sd["direction"] = direction
         sd["tenant_context"] = context
-        sd["reasoning"] = self.reasoning_view.toPlainText().strip()
 
         # Phase 107: Automatic Pruning of mismatched semantic bodies
         # Logic: If doc_types changed, remove bodies that don't belong to any of the NEW types.
@@ -785,7 +780,7 @@ class MetadataEditorWidget(QWidget):
 
         # 4. Semantic Table Sync (Phase 110)
         # We read changes back into sd. We reconstruct nested structures from dotted keys.
-        if "custom_fields" not in sd: sd["custom_fields"] = {} 
+        if "custom_fields" not in sd: sd["custom_fields"] = {}
 
         for r in range(self.semantic_table.rowCount()):
             item_sec = self.semantic_table.item(r, 0)
@@ -797,7 +792,7 @@ class MetadataEditorWidget(QWidget):
             field_path = item_key.text().strip()
             val_text = item_val.text()
             if not field_path: continue
-            
+
             # Map back to target dict
             root = sd
             if section == "Meta":
@@ -828,7 +823,7 @@ class MetadataEditorWidget(QWidget):
             for i, part in enumerate(parts[:-1]):
                 # If part is numeric, we might be inside a list?
                 # For simplicity, if Target is a list and part is digit, use index
-                # If Target is dict, use key. 
+                # If Target is dict, use key.
                 if part.isdigit():
                     idx = int(part)
                     if isinstance(target, list):
@@ -862,7 +857,7 @@ class MetadataEditorWidget(QWidget):
                     typed_val = int(val_text)
             except:
                 pass
-            
+
             if isinstance(target, list) and last_key.isdigit():
                 idx = int(last_key)
                 while len(target) <= idx: target.append(None)

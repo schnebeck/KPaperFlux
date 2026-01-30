@@ -1,12 +1,19 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/workers.py
+Version:        1.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity (Gemini 3pro)
+Description:    PyQt6 worker threads for background processing (AI Queue, 
+                Import, Reprocessing, Tagging).
+------------------------------------------------------------------------------
+"""
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer
 import traceback
-import queue
 import time
-from pathlib import Path
-
 # Core Imports
 from core.pipeline import PipelineProcessor
-from core.document import Document
 from core.ai_analyzer import AIAnalyzer
 from core.rules_engine import RulesEngine
 from core.repositories.logical_repo import LogicalRepository
@@ -198,95 +205,6 @@ class ReprocessWorker(QThread):
     def cancel(self):
         self.is_cancelled = True
 
-class AIQueueWorker(QThread):
-    """
-    Worker thread that continuously processes documents from a queue for AI Analysis.
-    Decouples import from AI rate limits.
-    """
-    doc_updated = pyqtSignal(str, Document) # uuid, updated_doc
-    status_changed = pyqtSignal(str) # "Idle", "Processing...", "Cooldown..."
-    fatal_error = pyqtSignal(str, str) # title, message
-
-    def __init__(self, pipeline: PipelineProcessor):
-        super().__init__()
-        self.pipeline = pipeline
-        self.queue = queue.Queue() # Items: (uuid, file_path)
-        self.is_running = True
-        self.total_added = 0
-        self.processed_count = 0
-
-    def add_task(self, uuid: str):
-        """Add a document to the AI processing queue."""
-        self.queue.put(uuid)
-        self.total_added += 1
-
-    def run(self):
-        while self.is_running:
-            try:
-                # Get with timeout to allow checking is_running
-                try:
-                    uuid = self.queue.get(timeout=1.0)
-                except queue.Empty:
-                    if self.queue.qsize() == 0:
-                        self.status_changed.emit("AI: Idle")
-                        # Reset counters on idle
-                        self.total_added = 0
-                        self.processed_count = 0
-                    continue
-
-                # Calculate Progress
-                current_idx = self.processed_count + 1
-                percent = int((current_idx / self.total_added) * 100) if self.total_added > 0 else 0
-
-                delay = AIAnalyzer.get_adaptive_delay()
-                # Format: "AI: Processing {uuid} (3/10 - 33%). Delay: {delay}s"
-                msg = f"AI: Processing {uuid[:8]}... ({current_idx}/{self.total_added} - {percent}%)"
-
-                if delay > 0:
-                    msg += f", Delaytime: {delay:.1f}sec."
-
-                self.status_changed.emit(msg)
-
-                # Fetch Doc
-                doc = self.pipeline.db.get_document_by_uuid(uuid)
-                if not doc:
-                    self.queue.task_done()
-                    continue
-
-                # Find path
-                path = self.pipeline.vault.get_file_path(doc.uuid)
-
-                # Run AI
-                try:
-                    self.pipeline._run_ai_analysis(doc, path)
-
-                    # Relaod updated Doc from DB (V2 Entity -> V1 DTO)
-                    # Do NOT save the stale 'doc' back!
-                    updated_doc = self.pipeline.db.get_document_by_uuid(uuid)
-                    if updated_doc:
-                        self.doc_updated.emit(uuid, updated_doc)
-
-                except Exception as e:
-                    print(f"[AIQueue] ERROR processing {uuid}:")
-                    traceback.print_exc()
-                    # If it's a developer error (not a rate limit/network error), stop the queue
-                    if isinstance(e, (NameError, AttributeError, SyntaxError, TypeError, ValueError)):
-                        self.fatal_error.emit("Developer Error in AI Pipe", f"A code error occurred:\n\n{e}")
-                        self.is_running = False
-                        break
-
-                self.processed_count += 1
-                self.queue.task_done()
-
-            except Exception as e:
-                error_details = traceback.format_exc()
-                print(f"[AIQueue] FATAL ERROR: {e}\n{error_details}")
-                self.fatal_error.emit("AI Background Error", f"A fatal error occurred in the AI processing queue:\n\n{e}\n\nThe queue has been stopped for safety.")
-                self.is_running = False
-                break
-
-    def stop(self):
-        self.is_running = False
 
 class MainLoopWorker(QThread):
     """

@@ -126,15 +126,13 @@ Your goal is to separate the document into two distinct layers (Document Text vs
 
   "integrity": {
     "is_type_match": Boolean,
-    "suggested_types": ["String"], // Only if is_type_match is False
-    "reasoning": "String"
+    "suggested_types": ["String"] // Only if is_type_match is False
   },
 
   "arbiter_decision": {
     "raw_ocr_quality_score": Integer (0-100),
     "ai_vision_quality_score": Integer (0-100),
-    "primary_source_recommendation": "RAW_OCR | AI_VISION",
-    "reasoning": "String"
+    "primary_source_recommendation": "RAW_OCR | AI_VISION"
   }
 }
 """
@@ -201,8 +199,7 @@ Your goal is to audit the document structure, extract overlays (forms/stamps), a
   ],
   "integrity": {
     "is_type_match": Boolean,
-    "suggested_types": ["String"],
-    "reasoning": "String"
+    "suggested_types": ["String"]
   },
   "signatures": {
     "has_signature": Boolean,
@@ -213,8 +210,7 @@ Your goal is to audit the document structure, extract overlays (forms/stamps), a
   "arbiter_decision": {
     "raw_ocr_quality_score": Integer,
     "ai_vision_quality_score": Integer,
-    "primary_source_recommendation": "RAW_OCR | AI_VISION",
-    "reasoning": "String"
+    "primary_source_recommendation": "RAW_OCR | AI_VISION"
   }
 }
 """

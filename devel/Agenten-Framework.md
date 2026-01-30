@@ -6,8 +6,8 @@ Kontext: Python/Qt Desktop App Entwicklung mit AI-Unterstützung.
 
 ## **1\. Die Antigravity Direktive**
 
-Als Agent ist deine Aufgabe die Erstellung von **Clean Code** unter strikter Einhaltung von TDD.  
-**Regel:** Lese immer zuerst KPaperFlux\_Spezifikation.md und TDD\_Strategie\_KPaperFlux.md, bevor du einen Task beginnst.
+Als Agent ist deine Aufgabe die Erstellung von **Clean Code** unter strikter Einhaltung von TDD.
+**Regel:** Lese immer zuerst KPaperFlux\_Spezifikation.md, System\_Prompt\_Python\_Agent.md und TDD\_Strategie\_KPaperFlux.md, bevor du einen Task beginnst.
 Ändere niemals diese Anweisungsdateien.
 
 ## **2\. Der Workflow (Loop)**

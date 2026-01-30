@@ -934,8 +934,7 @@ Return ONLY a valid JSON object.
       "page_indices": [1],
       "direction": "INBOUND | OUTBOUND | INTERNAL | UNKNOWN",
       "tenant_context": "PRIVATE | BUSINESS | UNKNOWN",
-      "confidence": 0.99,
-      "reasoning": "Billing address matches 'Max Mustermann' (Private). Delivery address to 'ACME Corp' is ignored."
+      "confidence": 0.99
     }}
   ]
 }}
@@ -1149,11 +1148,12 @@ TASK:
                     raise e
             
             if res_json is not None:
-                # If it was truncated but we repaired it, we check if it's usable.
-                # If Stage 2 returned empty bodies despite being truncated, we treat it as a failure to trigger retry.
-                if is_truncated and "bodies" in res_json and not res_json["bodies"]:
-                     print(f"[AI] Truncated response produced empty result. Forcing retry.")
-                     return None
+                # Phase 107: Strict Truncation Handling
+                # If the AI response was truncated, the data is incomplete.
+                # Even if we "repaired" the JSON structure, significant content is missing.
+                if is_truncated:
+                    print(f"[AI] Response for {stage_label} was truncated. Treating as None to trigger potential retry.")
+                    return None
                 return res_json
             else:
                 return None
@@ -1227,7 +1227,7 @@ TASK:
     # STAGE 2: SCHEMA REGISTRY
     # ==============================================================================
 
-    def get_target_schema(self, doc_type: str) -> Dict:
+    def get_target_schema(self, doc_type: str, include_repair: bool = True) -> Dict:
         """
         Phase 2.1: Schema Registry.
         Detailed polymorph schemas for each document type.
@@ -1533,8 +1533,8 @@ TASK:
             }
 
         # Ensure Common Root Fields
-        schema["reasoning"] = "String (Chain of Thought: Explain your pattern scanning and matching logic)"
-        schema["repaired_text"] = "String (The FULL, corrected, and plausible text of ALL pages. Use === PAGE X === separators.)"
+        if include_repair:
+             schema["repaired_text"] = "String (The FULL, corrected, and plausible text of ALL pages. Use === PAGE X === separators.)"
         
         return schema
 
@@ -1637,7 +1637,6 @@ TASK:
         final_semantic_data = {
             "meta_header": {},
             "bodies": {},
-            "reasoning": "",
             "repaired_text": ""
         }
 
@@ -1653,14 +1652,11 @@ Analyze the image to find the **Geometric Master-Plan**:
 
 ### 2. MISSION: FULL-TEXT PATTERN SCANNING
 Apply the blueprint found on Page 1 to the **ENTIRE RAW OCR TEXT** (all pages provided below):
-- **Think Out Loud:** Use the `reasoning` field in the JSON to explain what you are doing. Briefly explain which patterns you recognize in the raw OCR, if you found table continuations on subsequent pages, and why you assigned certain values.
 - **Pattern Matching:** Search the raw OCR stream for content that matches the geometric structure from Page 1.
 - **Consistency:** Use the image to 'calibrate' your reading of the raw OCR.
 - **Table Expansion:** If a table continues on Page 2 or Page 3, use the identified layout from Page 1 to extract and append every single row into the semantic list.
 - **Intelligent Repair:** If you detect obvious errors or noise in the raw OCR (e.g. 'St1ck' instead of 'Stick', or '1nd' instead of 'and'), especially on Page 1 where you have the image, use your visual and logical understanding to REPAIR the text and extract the CORRECT values.
-- **Full Text Repair (HYBRID):** In addition to the JSON fields, you MUST provide the field `repaired_text`. 
-  {long_doc_hint}
-  Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separators. This text will be used for future indexing and searching.
+{repair_mission}
 
 ### 3. INPUT DATA
 **A. VISUAL CONTEXT:** (Image of Page 1)
@@ -1672,14 +1668,14 @@ Apply the blueprint found on Page 1 to the **ENTIRE RAW OCR TEXT** (all pages pr
 These data points have ALREADY been processed and mapped to the system. 
 >>> STAMPS: {stamps_json} <<<
 >>> SIGNATURES: {signature_json} <<<
-*Instruction:* STICKLY IGNORE these in your analysis. DO NOT re-extract them, DO NOT mention them in your summary or reasoning. They are provided as context ONLY to avoid misinterpreting stamp noise as document content.
+*Instruction:* STICKLY IGNORE these in your analysis. DO NOT re-extract them, DO NOT mention them in your summary or analysis. They are provided as context ONLY to avoid misinterpreting stamp noise as document content.
 
 ### 4. EXTRACTION TARGET: {doc_type}
 - **Identity Context:** {user_identity}
 - **Rules:**
-  1. **Seitenunabhängigkeit:** Scan ALL pages. Do not stop after Page 1.
-  2. **Ignore Stamp Noise:** These anchors are already handled. Strictly ignore their text content and do NOT include or reference them in your JSON response or reasoning.
-  3. **Visual Supremacy:** If Raw OCR and Image/Reasoning conflict, the Image and your Logic are the source of truth. Correct OCR errors in your output JSON.
+  1. **Page Independence:** Scan ALL pages. Do not stop after Page 1.
+  2. **Ignore Stamp Noise:** These anchors are already handled. Strictly ignore their text content and do NOT include or reference them in your JSON response.
+  3. **Visual Supremacy:** If Raw OCR and Image conflict, the Image and your Logic are the source of truth. Correct OCR errors in your output JSON.
   4. **Target Specificity & Compliance:** 
      - Focus PRIMARILY on extracting fields relevant to `{doc_type}`. 
      - **MANDATORY:** You MUST provide the specific body key defined in the schema (e.g. `finance_body` for Invoices, `career_body` for Certificates). 
@@ -1706,16 +1702,26 @@ Return ONLY valid JSON.
         if types_to_extract:
             print(f"[AI] Stage 2 (Extraction) [START] -> Types: {', '.join(types_to_extract)}, Vision: {bool(pdf_path)}")
 
-        for doc_type in types_to_extract:
-            schema = self.get_target_schema(doc_type)
+        for i, doc_type in enumerate(types_to_extract):
+            include_repair = (i == 0)
+            schema = self.get_target_schema(doc_type, include_repair=include_repair)
             
             # Context Limit: Gemini handles large contexts easily. 100k chars is safe.
             limit = 100000
             
             long_doc_hint = ""
-            if is_long_document:
+            if is_long_document and include_repair:
                 long_doc_hint = "CAUTION: This document is long (>10 pages). Please focus on repairing ONLY the first 10 pages in the `repaired_text` field to avoid output truncation. Ensure ALL semantic data (like transactions) are still extracted regardless of length!"
 
+            prompt_repair_instruction = ""
+            if include_repair:
+                prompt_repair_instruction = f"""
+### 2.1 MISSION: FULL TEXT REPAIR (HYBRID)
+In addition to the JSON fields, you MUST provide the field `repaired_text`. 
+{long_doc_hint}
+Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separators. This text will be used for future indexing and searching.
+"""
+            
             prompt = PROMPT_TEMPLATE.format(
                 doc_type=doc_type,
                 document_text=best_text[:limit],
@@ -1723,7 +1729,7 @@ Return ONLY valid JSON.
                 signature_json=json.dumps(sig_data),
                 user_identity=user_identity,
                 target_schema_json=json.dumps(schema, indent=2),
-                long_doc_hint=long_doc_hint
+                repair_mission=prompt_repair_instruction
             )
             try:
                 extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {doc_type}", images=images_payload)
@@ -1742,16 +1748,15 @@ Return ONLY valid JSON.
                     if not final_semantic_data["meta_header"]:
                         final_semantic_data["meta_header"] = extraction.get("meta_header", {})
 
-                    if "reasoning" in extraction:
-                        final_semantic_data["reasoning"] = extraction["reasoning"]
-
                     if extraction.get("repaired_text"):
                         if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
                             final_semantic_data["repaired_text"] = extraction["repaired_text"]
                 else:
-                    print(f"[AI] STAGE 2: {doc_type} -> FAILED (JSON Error)")
+                    print(f"[AI] STAGE 2: {doc_type} -> FAILED (JSON Error or Truncation after retries)")
+                    return None
             except Exception as e:
                 print(f"[AI] Stage 2 Error ({doc_type}): {e}")
+                return None
 
         # Final Validation: Did we get anything useful?
         bodies_count = len(final_semantic_data.get("bodies", {}))
