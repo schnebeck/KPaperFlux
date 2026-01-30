@@ -16,6 +16,7 @@ from core.models.canonical_entity import (
     InsuranceData, VehicleData, MedicalData, LegalMetaData
 )
 from core.models.identity import IdentityProfile
+from core.config import AppConfig
 
 @dataclass
 class AIAnalysisResult:
@@ -80,6 +81,7 @@ class AIAnalyzer:
         self.api_key = api_key
         self.client = genai.Client(api_key=self.api_key)
         self.model_name = model_name
+        self.config = AppConfig()
 
     def list_models(self) -> List[str]:
         """
