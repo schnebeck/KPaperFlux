@@ -13,6 +13,7 @@ from core.rules_engine import RulesEngine
 import uuid
 import json
 from datetime import datetime
+import traceback
 
 class CanonizerService:
     """
@@ -87,7 +88,8 @@ class CanonizerService:
                     if success:
                         processed_count += 1
                 except Exception as e:
-                    print(f"[Canonizer] Error processing {uuid}: {e}")
+                    print(f"[Canonizer] CRITICAL ERROR processing {uuid}:")
+                    traceback.print_exc()
         return processed_count
 
     def _atomic_transition(self, v_doc: VirtualDocument, allowed_old: List[str], target_status: str) -> bool:
@@ -165,7 +167,7 @@ class CanonizerService:
              detected_entities = [{"doc_types": split_candidates[0]["types"]}]
         if not is_stage2_resumption:
             # --- START STAGE 1 ---
-            print(f"[AI] Stage 1.1 (Classification) [START] -> Mode: {scan_strategy}, Pages: {total_pages}")
+            print(f"[AI] Stage 1.1 (Classification) [START] -> Pages: {len(pages_text)}")
             # Gate: Only ONE thread can start the process.
             if status in ['NEW', 'READY_FOR_PIPELINE']:
                 if not self._atomic_transition(v_doc, ['NEW', 'READY_FOR_PIPELINE'], 'PROCESSING_S1'):

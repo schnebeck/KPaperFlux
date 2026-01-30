@@ -1493,7 +1493,7 @@ TASK:
         is_long_document = len(raw_ocr_pages) > 10
         
         if len(raw_ocr_pages) > MAX_PAGES_STAGE2:
-            print(f"[Stage 2] WARNING: Document has {len(raw_ocr_pages)} pages. Truncating to {MAX_PAGES_STAGE2} for semantic extraction.")
+            print(f"[AI] Stage 2 -> WARNING: Document has {len(raw_ocr_pages)} pages. Truncating to {MAX_PAGES_STAGE2} for scanning.")
             raw_ocr_pages = raw_ocr_pages[:MAX_PAGES_STAGE2]
 
         # 2. Text Merging (Arbiter Logic)
@@ -1513,9 +1513,9 @@ TASK:
                 try:
                     img_bytes = base64.b64decode(img_data["base64"])
                     images_payload.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
-                    print("[Stage 2] Vision Context enabled (Page 1).")
+                    print("[AI] Stage 2 -> Vision context enabled (Page 1)")
                 except Exception as e:
-                    print(f"[Stage 2] Vision prep failed: {e}")
+                    print(f"[AI] Stage 2 -> Vision prep failed: {e}")
 
         # 3. Extract Types
         detected_entities = stage_1_result.get("detected_entities", [])
