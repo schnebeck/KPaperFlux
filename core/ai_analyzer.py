@@ -991,32 +991,57 @@ TASK:
 
         return errors
 
-    def _generate_json(self, prompt: str, stage_label: str = "AI REQUEST", image=None) -> Any:
+    def _generate_json(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Any:
         """Helper to call Gemini with Retry and parse JSON."""
         self._print_debug_prompt(stage_label, prompt)
 
         contents = [prompt]
-        if image: contents.append(image)
+        if images:
+            if isinstance(images, list):
+                contents.extend(images)
+            else:
+                contents.append(images)
 
         # print(f"\n--- [DEBUG AI PROMPT START] ---\n{prompt}\n--- [DEBUG AI PROMPT END] ---\n")
 
         response = self._generate_with_retry(contents)
 
-        if not response or not response.text:
+        if not response or not response.candidates:
+            return None
+            
+        candidate = response.candidates[0]
+        if candidate.finish_reason == "MAX_TOKENS":
+            print(f"⚠️ [AI] WARNING: Response for {stage_label} was TRUNCATED due to output token limit!")
+        elif candidate.finish_reason != "STOP" and candidate.finish_reason is not None:
+             print(f"⚠️ [AI] WARNING: Response for {stage_label} finished with reason: {candidate.finish_reason}")
+
+        try:
+            txt = response.text
+        except Exception as e:
+            print(f"[AI] Error: Could not access response text: {e}")
             return None
 
         txt = response.text
-        if "```json" in txt:
-            txt = txt.replace("```json", "").replace("```", "")
-        elif "```" in txt:
-            txt = txt.replace("```", "")
+        # Robust JSON extraction: Find the first '{' and the last '}'
+        start = txt.find('{')
+        end = txt.rfind('}')
+
+        if start == -1 or end == -1:
+            print(f"[AI] Error: No JSON object found in response for {stage_label}")
+            return None
+
+        json_str = txt[start:end+1]
+        
+        # Clean control characters (null bytes, etc.) that break JSON
+        json_str = json_str.replace("\x00", "") 
 
         try:
-            res_json = json.loads(txt)
+            res_json = json.loads(json_str)
             print(f"\n=== [{stage_label} RESPONSE] ===\n{json.dumps(res_json, indent=2)}\n===================================\n")
             return res_json
-        except:
-            print("Failed to parse JSON")
+        except Exception as e:
+            print(f"[AI] Failed to parse JSON for {stage_label}: {e}")
+            print(f"[AI] Raw start: {txt[:200]}...")
             return None
 
     # ==============================================================================
@@ -1578,8 +1603,7 @@ Return ONLY valid JSON.
 
             try:
                 # Merge images_payload into contents for _generate_json
-                image = images_payload[0] if images_payload else None
-                extraction = self._generate_json(prompt, stage_label=f"STAGE 2 EXTRACTION ({doc_type})", image=image)
+                extraction = self._generate_json(prompt, stage_label=f"STAGE 2 EXTRACTION ({doc_type})", images=images_payload)
                 
                 if not extraction: continue
 

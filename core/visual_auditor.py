@@ -409,24 +409,9 @@ class VisualAuditor:
             contents.append(img)
             
         # 5. Call AI
-        try:
-            response = self.ai._generate_with_retry(contents)
-        except Exception as e:
-            print(f"[VisualAuditor] AI Call Failed: {e}")
-            return {"meta_mode": audit_mode, "error": str(e)}
-        
-        if response and response.text:
-            txt = response.text
-            if "```json" in txt:
-                txt = txt.replace("```json", "").replace("```", "")
-            
-            try:
-                res_json = json.loads(txt)
-                res_json["meta_mode"] = audit_mode
-                print("\n=== [STAGE 1.5 AUDIT RESULT] ===")
-                print(json.dumps(res_json, indent=2))
-                return res_json
-            except json.JSONDecodeError:
-                print(f"Stage 1.5 Invalid JSON: {txt[:200]}...")
+        res_json = self.ai._generate_json(system_prompt, stage_label=f"STAGE 1.5 AUDIT ({audit_mode})", images=contents[1:])
+        if res_json:
+            res_json["meta_mode"] = audit_mode
+            return res_json
             
         return {}
