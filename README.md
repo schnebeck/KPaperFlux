@@ -1,10 +1,18 @@
-# KPaperFlux 🚀
-> **Next-Generation Hybrid Document Management System for Linux**  
-> *Powered by Google Gemini 2.5 Flash & Python/Qt6*
-
-![Status](https://img.shields.io/badge/Status-Active_Development-green)
-![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![License](https://img.shields.io/badge/License-MIT-purple)
+<div align="center">
+  <img src="resources/icon.png" alt="KPaperFlux Logo" width="128" height="128">
+  <h1 align="center">KPaperFlux</h1>
+  <p align="center">
+    <strong>Next-Generation Hybrid Document Management System for Linux</strong><br>
+    <em>Powered by Google Gemini 2.5 Flash & Python/Qt6</em>
+  </p>
+  <p align="center">
+    <a href="LICENSE">
+      <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
+    </a>
+    <img src="https://img.shields.io/badge/Status-Active_Development-green" alt="Status">
+    <img src="https://img.shields.io/badge/Python-3.10+-blue" alt="Python">
+  </p>
+</div>
 
 **KPaperFlux** is not just another DMS. It is an intelligent **document refiner**. Instead of simply archiving documents, KPaperFlux understands, repairs, and structures content using state-of-the-art AI.
 
@@ -106,3 +114,7 @@ Contributions are welcome! Please create issues for bugs or feature requests.
 ---
 
 *(c) 2025-2026 Thorsten Schnebeck & The Antigravity Agent Team*
+
+## License
+
+This project is licensed under the terms of the **GNU General Public License v3.0**. See the [LICENSE](LICENSE) file for details.
