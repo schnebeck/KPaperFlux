@@ -1492,54 +1492,41 @@ TASK:
         }
 
         PROMPT_TEMPLATE = """
-You are a Semantic Data Extractor for a Life Management System.
-Your goal is to extract structured data from the provided document text into a standardized JSON format.
+You are a 'Structural Pattern Interpreter' for document digitisation.
+Your goal is to transform visual layout patterns into a page-independent, universal semantic JSON structure.
 
-### 1. INPUT DATA
+### 1. THE VISION BLUEPRINT (IMAGE of FIRST PAGE)
+Analyze the image to find the **Geometric Master-Plan**:
+- Locate where the 'Sender', 'Recipient', and 'Tables' are placed.
+- Understand the **visual grammar**: How are table rows delimited? Which columns contain what data?
+- This visual blueprint is your KEY to interpreting the raw text stream correctly.
 
-**A. VISUAL CONTEXT (IMAGE of FIRST PAGE):**
-You are provided with an image of the document's start.
-- **Geometric Grounding:** Use this image to understand the layout and style (e.g. table headers, logo styles).
-- **Multi-Page Context:** Treat the image as the FIRST PAGE. Continue your extraction through the entire provided text stream, which contains subsequent pages if available.
+### 2. MISSION: FULL-TEXT PATTERN SCANNING
+Apply the blueprint found on Page 1 to the **ENTIRE DOCUMENT TEXT** (all pages provided below):
+- **Pattern Matching:** Search the entire text stream for content that matches the geometric structure from Page 1.
+- **Table Expansion:** If a table continues on Page 2 or Page 3, use the identified layout from Page 1 to extract and append every single row into the semantic list.
+- **Universal Extraction:** Your results must be seitenunabhängig (page-independent). Consolidate all data into one coherent structure.
 
-**B. DOCUMENT TEXT (Repaired OCR):**
+### 3. INPUT DATA
+**A. VISUAL CONTEXT:** (Image of Page 1)
+
+**B. DOCUMENT TEXT (RAW OCR of ALL PAGES):**
 {document_text}
 
-**C. STAMP DATA (Validated Meta-Data):**
->>> {stamps_json} <<<
+**C. PRE-VERIFIED ANCHORS (STAMPS & SIGNATURES):**
+Use these as ground truth. Map them to fields like 'received_at' or 'is_signed'.
+>>> STAMPS: {stamps_json} <<<
+>>> SIGNATURES: {signature_json} <<<
 
-**D. SIGNATURE DATA (Visual Verification):**
->>> {signature_json} <<<
+### 4. EXTRACTION TARGET: {doc_type}
+- **Identity Context:** {user_identity}
+- **Rules:**
+  1. **Seitenunabhängigkeit:** Scan ALL pages. Do not stop after Page 1.
+  2. **Ignore Stamp Noise:** Do not let the text found in stamps (STAMP DATA) confuse your text analysis.
+  3. **Auto-Discovery:** Fill mandatory fields for {doc_type}, but also fill 'finance_body', 'legal_body', etc., if the text provides patterns for them.
+  4. **Strict Omission:** Do NOT return keys with null or empty values. Omit them entirely from the JSON.
 
-### 2. CONTEXT
-- **Target DocType:** {doc_type} (This defines the MANDATORY body to be extracted in this pass).
-- **User Identity:** {user_identity}
-
-### 3. EXTRACTION RULES (POLYMORPHIC)
-Analyze the text. Fill the **MANDATORY** body for the Target DocType.
-Additionally, check if other bodies apply (**Auto-Discovery**).
-
-- **finance_body:** IF the document contains costs, prices, taxes, or bank details.
-- **legal_body:** IF the document contains contract terms, deadlines, warranties, or laws.
-- **asset_body:** IF the document references a specific physical object (Car VIN, Real Estate ID, Serial Number).
-- **health_body:** IF the document contains medical diagnoses, medications, or patient info.
-- **career_body:** IF the document relates to employment, salary, or education.
-
-**Constraint:** If a body is NOT relevant, set it to `null`. Do not invent data.
-
-### 4. PRIORITY & DE-DUPLICATION (CRITICAL)
-- **Visual Supremacy:** Data provided in **STAMP DATA** and **SIGNATURE DATA** is considered **VERIFIED FACT**.
-  - **Action:** Map these values DIRECTLY to their target fields (e.g., Stamp 'Eingang' -> `internal_routing.received_at`, Signature 'True' -> `verification.is_signed`).
-  - **No Duplication:** Do **NOT** re-extract this information as generic text, notes, or description if it is already mapped.
-  - **Override:** If OCR text contradicts the Visual Data, trust the **Visual Data**.
-
-### 5. DATA NORMALIZATION (STRICT)
-- **Dates:** ISO 8601 (YYYY-MM-DD).
-- **Numbers:** Float (10.50). No thousand separators.
-- **Currency:** ISO Code (EUR, USD).
-- **Empty Fields:** OMIT any keys that have no values. If a field or list is empty or null, DO NOT include the key in your JSON. (Example: No 'phones' if no phones found).
-
-### 6. TARGET OUTPUT (JSON SCHEMA)
+### 5. TARGET SCHEMA
 {target_schema_json}
 
 Return ONLY valid JSON.
