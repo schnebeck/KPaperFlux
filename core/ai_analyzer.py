@@ -10,7 +10,7 @@ Description:    Intelligence Layer for semantic document analysis and extraction
                 and structured data extraction using Pydantic schemas.
 ------------------------------------------------------------------------------
 """
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set, Union
 from dataclasses import dataclass, field
 import datetime
 import json
