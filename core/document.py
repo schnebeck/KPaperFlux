@@ -91,6 +91,11 @@ class Document(BaseModel):
     v_sender: Optional[str] = None
     v_doc_date: Optional[str] = None
     v_amount: Optional[float] = None
+    
+    # System Managed Dates
+    deleted_at: Optional[str] = None
+    locked_at: Optional[str] = None
+    exported_at: Optional[str] = None
 
     @field_validator("tags", mode="before")
     @classmethod

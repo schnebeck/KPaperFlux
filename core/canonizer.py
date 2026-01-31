@@ -457,7 +457,8 @@ class CanonizerService:
             target_doc.cached_full_text = semantic_extraction.get("repaired_text") or entity_text
 
             self.logical_repo.save(target_doc)
-            print(f"[Canonizer] Saved Entity {target_doc.uuid} ({', '.join(c_types)})")
+            safe_types = [str(t) for t in c_types if t is not None]
+            print(f"[Canonizer] Saved Entity {target_doc.uuid} ({', '.join(safe_types)})")
 
             # [STAGE 1.6] Auto-Tagging
             if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):

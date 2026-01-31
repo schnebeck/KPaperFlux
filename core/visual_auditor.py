@@ -115,39 +115,39 @@ Your goal is to separate the document into two distinct layers (Document Text vs
 - Decide which source is safer for extracting numbers/dates.
 
 ### OUTPUT SCHEMA (JSON ONLY)
-{
-  "layer_document": {
+{{
+  "layer_document": {{
     "clean_text": "String (Full page text, REPAIRED, without stamps)",
     "was_repair_needed": Boolean
-  },
+  }},
 
   "layer_stamps": [
-    {
+    {{
       "raw_content": "String (Full combined text of this specific stamp block)",
       "type": "RECEIVED | PAID | COMPANY | INTERNAL_FORM | HANDWRITTEN_NOTE",
       "location": "TOP_RIGHT | TOP_LEFT | BOTTOM | CENTER",
       "form_fields": [
-        {
+        {{
           "label": "String (The printed field name, e.g. 'Kostenstelle', or 'IMPLIED_DATE' if standalone)",
           "raw_value": "String (What is actually written, e.g. '9/12/25' or null)",
           "normalized_value": "String | Number | null (The formatted result)",
           "value_type": "DATE | TIME | NUMBER | TEXT | SIGNATURE | EMPTY"
-        }
+        }}
       ]
-    }
+    }}
   ],
 
-  "integrity": {
+  "integrity": {{
     "is_type_match": Boolean,
     "suggested_types": ["String"]
-  },
+  }},
 
-  "arbiter_decision": {
+  "arbiter_decision": {{
     "raw_ocr_quality_score": Integer (0-100),
     "ai_vision_quality_score": Integer (0-100),
     "primary_source_recommendation": "RAW_OCR | AI_VISION"
-  }
-}
+  }}
+}}
 """
 
 # Prompt B: Forensic Full Audit (Stamps + Signatures)
@@ -155,32 +155,51 @@ PROMPT_STAGE_1_5_FULL = """
 You are a Forensic Document Auditor & Signature Verifier.
 Your goal is to audit the document structure, extract overlays (forms/stamps), and validate signatures.
 
+### INPUTS
+1. **IMAGE:** Visual scan of the **FIRST_PAGE**.
+2. **RAW OCR:** Text extracted by standard OCR from the First Page.
+   >>> {raw_ocr_page1} <<<
+3. **EXPECTED TYPES:** The system previously identified this as: {expected_types}
+
 ### MISSION 1: THE DOCUMENT LAYER (X-Ray Mode on FIRST_PAGE)
-... (Same as Stamp Auditor)
+- Visually "remove" any ink stamps, handwritten notes, or stains.
+- Transcribe the clean underlying printed text.
 
 ### MISSION 2: THE STAMP LAYER (Form Extraction Mode on FIRST_PAGE)
-... (Same as Stamp Auditor)
+- Focus on stamps and handwritten notes. Extract as structured form fields.
 
 ### MISSION 3: THE SIGNATURE AUDIT (on SIGNATURE_PAGE)
 - Focus on the **SIGNATURE_PAGE**.
-- Check for **handwritten** or **digital** signatures in signature blocks.
-- **Context:** A blank line is NOT a signature. Look for ink marks.
+- Check for handwritten or digital signatures.
 
 ### MISSION 4: THE ARBITER (Quality Control on FIRST_PAGE)
-... (Same as Stamp Auditor)
+- Compare your "Document Layer" transcription with the provided "RAW OCR".
+- Determine if the Raw OCR is corrupted by the stamps/overlays.
+- Decide which source is safer for extracting numbers/dates.
 
 ### OUTPUT SCHEMA (JSON ONLY)
-... (Similar to Stamp Auditor + signatures block)
-{
-  ...
-  "signatures": {
+{{
+  "layer_document": {{
+    "clean_text": "String",
+    "was_repair_needed": Boolean
+  }},
+  "layer_stamps": [],
+  "signatures": {{
     "has_signature": Boolean,
     "count": Integer,
     "type": "HANDWRITTEN | DIGITAL | NONE",
     "details": "String"
-  },
-  ...
-}
+  }},
+  "integrity": {{
+    "is_type_match": Boolean,
+    "suggested_types": ["String"]
+  }},
+  "arbiter_decision": {{
+    "raw_ocr_quality_score": Integer,
+    "ai_vision_quality_score": Integer,
+    "primary_source_recommendation": "RAW_OCR | AI_VISION"
+  }}
+}}
 """
 
 

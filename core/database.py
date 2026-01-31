@@ -83,6 +83,9 @@ class DatabaseManager:
             semantic_data TEXT, -- JSON of Canonical Data
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             deleted INTEGER DEFAULT 0,
+            deleted_at DATETIME,
+            locked_at DATETIME,
+            exported_at DATETIME,
             page_count_virt INTEGER DEFAULT 0,
             type_tags TEXT, -- JSON List of strings
             sender TEXT,
@@ -111,24 +114,6 @@ class DatabaseManager:
             self.connection.execute(create_physical_files_table)
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_virtual_documents_fts)
-
-            # Migration: Ensure all columns exist for existing installations
-            cols_to_add = [
-                ("type_tags", "TEXT"),
-                ("sender", "TEXT"),
-                ("doc_date", "TEXT"),
-                ("amount", "REAL"),
-                ("tags", "TEXT")
-            ]
-            for col, col_type in cols_to_add:
-                try:
-                    self.connection.execute(f"ALTER TABLE virtual_documents ADD COLUMN {col} {col_type}")
-                except sqlite3.OperationalError:
-                    pass  # Column already exists
-
-            # Cleanup legacy artifacts
-            self.connection.execute("DROP TABLE IF EXISTS tagging_rules")
-            self.connection.execute("DROP VIEW IF EXISTS documents")
             self._create_fts_triggers()
 
     def matches_condition(self, entity_uuid: str, query_dict: Dict[str, Any]) -> bool:
@@ -179,12 +164,25 @@ class DatabaseManager:
         allowed = [
             "status", "export_filename", "deleted", "is_immutable", "locked",
             "type_tags", "cached_full_text", "last_used", "last_processed_at",
-            "semantic_data", "sender", "amount", "doc_date", "tags"
+            "semantic_data", "sender", "amount", "doc_date", "tags",
+            "deleted_at", "locked_at", "exported_at"
         ]
         filtered = {k: v for k, v in updates.items() if k in allowed}
 
         if "locked" in filtered:
-            filtered["is_immutable"] = int(filtered.pop("locked"))
+            locked_val = bool(filtered.pop("locked"))
+            filtered["is_immutable"] = int(locked_val)
+            if locked_val:
+                filtered["locked_at"] = datetime.now().isoformat()
+            else:
+                filtered["locked_at"] = None
+
+        if "deleted" in filtered:
+            deleted_val = bool(filtered["deleted"])
+            if deleted_val:
+                 filtered["deleted_at"] = datetime.now().isoformat()
+            else:
+                 filtered["deleted_at"] = None
 
         if "type_tags" in filtered and isinstance(filtered["type_tags"], list):
             filtered["type_tags"] = json.dumps(filtered["type_tags"])
@@ -241,7 +239,8 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags, 
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount, tags
+                   sender, doc_date, amount, tags,
+                   deleted_at, locked_at, exported_at
             FROM virtual_documents
             WHERE uuid = ?
         """
@@ -377,7 +376,8 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount, tags
+                   sender, doc_date, amount, tags,
+                   deleted_at, locked_at, exported_at
             FROM virtual_documents
             WHERE {where_clause}
             ORDER BY created_at DESC
@@ -586,7 +586,8 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount, tags
+                   sender, doc_date, amount, tags,
+                   deleted_at, locked_at, exported_at
             FROM virtual_documents
             WHERE deleted = 0
             ORDER BY created_at DESC
@@ -648,6 +649,9 @@ class DatabaseManager:
             "doc_date": row[13] if len(row) > 13 else None,
             "amount": row[14] if len(row) > 14 else None,
             "tags": tags,
+            "deleted_at": row[16] if len(row) > 16 else None,
+            "locked_at": row[17] if len(row) > 17 else None,
+            "exported_at": row[18] if len(row) > 18 else None,
         }
 
         # Merge semantic fields into the main document body for Pydantic mapping
@@ -674,7 +678,8 @@ class DatabaseManager:
                    COALESCE(v.export_filename, 'Entity ' || substr(v.uuid, 1, 8)),
                    v.page_count_virt, v.created_at, v.is_immutable, v.type_tags,
                    v.cached_full_text, v.last_used, v.last_processed_at,
-                   v.semantic_data, v.sender, v.doc_date, v.amount, v.tags
+                   v.semantic_data, v.sender, v.doc_date, v.amount, v.tags,
+                   v.deleted_at, v.locked_at, v.exported_at
             FROM virtual_documents v
             JOIN virtual_documents_fts f ON v.uuid = f.uuid
             WHERE f.cached_full_text MATCH ? AND v.deleted = 0
@@ -688,18 +693,21 @@ class DatabaseManager:
 
     def delete_document(self, uuid: str) -> bool:
         """
-        Performs a soft-delete on a document.
-
-        Args:
-            uuid: The document UUID to mark as deleted.
-
-        Returns:
-            True if successful.
+        Performs a soft-delete on a document and records the timestamp.
         """
-        sql = "UPDATE virtual_documents SET deleted = 1 WHERE uuid = ?"
+        now = datetime.now().isoformat()
+        sql = "UPDATE virtual_documents SET deleted = 1, deleted_at = ? WHERE uuid = ?"
         with self.connection:
-            self.connection.execute(sql, (uuid,))
+            self.connection.execute(sql, (now, uuid))
             return self.connection.total_changes > 0
+
+    def mark_documents_deleted(self, uuids: List[str]) -> None:
+        """Soft-deletes multiple documents and records the deletion timestamp."""
+        now = datetime.now().isoformat()
+        sql = "UPDATE virtual_documents SET deleted = 1, deleted_at = ? WHERE uuid = ?"
+        with self.connection:
+            for uid in uuids:
+                self.connection.execute(sql, (now, uid))
 
     def purge_document(self, uuid: str) -> bool:
         """
@@ -729,15 +737,9 @@ class DatabaseManager:
 
     def restore_document(self, uuid: str) -> bool:
         """
-        Restores a document from the trash bin.
-
-        Args:
-            uuid: The identifier of the document to restore.
-
-        Returns:
-            True if successful.
+        Restores a document from the trash bin and clears the deletion timestamp.
         """
-        sql = "UPDATE virtual_documents SET deleted = 0 WHERE uuid = ?"
+        sql = "UPDATE virtual_documents SET deleted = 0, deleted_at = NULL WHERE uuid = ?"
         with self.connection:
             self.connection.execute(sql, (uuid,))
             return self.connection.total_changes > 0
@@ -756,7 +758,8 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount, tags
+                   sender, doc_date, amount, tags,
+                   deleted_at, locked_at, exported_at
             FROM virtual_documents
             WHERE deleted = 0 
               AND is_immutable = 0
@@ -783,7 +786,8 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount, tags
+                   sender, doc_date, amount, tags,
+                   deleted_at, locked_at, exported_at
             FROM virtual_documents
             WHERE status = 'PROCESSED' 
               AND semantic_data IS NOT NULL 
@@ -1052,7 +1056,8 @@ class DatabaseManager:
                    page_count_virt, created_at, is_immutable, type_tags,
                    cached_full_text, last_used, last_processed_at,
                    semantic_data,
-                   sender, doc_date, amount, tags
+                   sender, doc_date, amount, tags,
+                   deleted_at, locked_at, exported_at
             FROM virtual_documents
             WHERE deleted = 1
             ORDER BY created_at DESC
@@ -1187,8 +1192,9 @@ class DatabaseManager:
             INSERT INTO virtual_documents (
                 uuid, source_mapping, status, export_filename, created_at, 
                 deleted, type_tags, semantic_data, page_count_virt, is_immutable, 
-                cached_full_text, sender, doc_date, amount, tags
-            ) VALUES (?, ?, ?, ?, ?, 0, ?, '{}', 1, 0, ?, ?, ?, ?, ?)
+                cached_full_text, sender, doc_date, amount, tags,
+                deleted_at, locked_at, exported_at
+            ) VALUES (?, ?, ?, ?, ?, 0, ?, '{}', 1, 0, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         try:
             with self.connection:
@@ -1197,7 +1203,8 @@ class DatabaseManager:
                     created, type_tags_json, (doc.text_content or doc.cached_full_text),
                     doc.sender, str(doc.doc_date) if doc.doc_date else None,
                     float(doc.amount) if doc.amount else 0.0,
-                    user_tags_json
+                    user_tags_json,
+                    doc.deleted_at, doc.locked_at, doc.exported_at
                 ))
         except sqlite3.Error:
             pass

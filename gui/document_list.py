@@ -86,16 +86,17 @@ class DocumentListWidget(QWidget):
         1: "Entity ID",
         2: "Filename",
         3: "Pages",
-        4: "Created",
-        5: "Status",
-        6: "Type Tags",
-        7: "Sender",
-        8: "Date",
-        9: "Amount",
-        10: "AI Processed",
-        11: "Last Used",
-        12: "Locked",
-        13: "Tags"
+        4: "Imported Date",
+        5: "Used Date",
+        6: "Deleted Date",
+        7: "Locked Date",
+        8: "Autoprocessed Date",
+        9: "Exported Date",
+        10: "Doc Data Date",
+        11: "Status",
+        12: "Type Tags",
+        13: "Sender",
+        14: "Tags"
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
 
@@ -151,8 +152,8 @@ class DocumentListWidget(QWidget):
         self.tree.setItemDelegateForColumn(0, RowNumberDelegate(self.tree))
 
         # Tag Delegates
-        self.tree.setItemDelegateForColumn(6, TagDelegate(self.tree))
-        self.tree.setItemDelegateForColumn(13, TagDelegate(self.tree))
+        self.tree.setItemDelegateForColumn(12, TagDelegate(self.tree))
+        self.tree.setItemDelegateForColumn(14, TagDelegate(self.tree))
 
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.tree.setSortingEnabled(True)
@@ -811,15 +812,17 @@ class DocumentListWidget(QWidget):
         # 4. Apply to Columns
         target_item.setText(2, filename)
         target_item.setText(3, pages_str)
-        target_item.setText(4, created_str)
-        target_item.setText(5, status)
-        target_item.setText(6, ", ".join(self.sort_type_tags(type_tags)))
-        target_item.setText(7, doc.sender or "-")
-        target_item.setText(8, str(doc.doc_date or "-"))
-        target_item.setText(9, str(doc.amount or "-"))
-        target_item.setText(10, processed_str)
-        target_item.setText(11, used_str)
-        target_item.setText(12, locked_str)
+        target_item.setText(4, format_datetime(doc.created_at) or "-")
+        target_item.setText(5, format_datetime(doc.last_used) or "-")
+        target_item.setText(6, format_datetime(doc.deleted_at) or "-")
+        target_item.setText(7, format_datetime(doc.locked_at) or "-")
+        target_item.setText(8, format_datetime(doc.last_processed_at) or "-")
+        target_item.setText(9, format_datetime(doc.exported_at) or "-")
+        target_item.setText(10, str(doc.doc_date or "-"))
+        target_item.setText(11, doc.status or "NEW")
+        target_item.setText(12, ", ".join(self.sort_type_tags(type_tags)))
+        target_item.setText(13, doc.sender or "-")
+        target_item.setText(14, ", ".join(doc.tags or []))
 
         # 5. Dynamic Columns
         num_fixed = len(self.FIXED_COLUMNS)
@@ -1064,25 +1067,31 @@ class DocumentListWidget(QWidget):
             combined_types = self.sort_type_tags(set(type_tags + doc_types))
             locked_str = "Yes" if getattr(doc, "locked", False) else "No"
 
-            # Format timestamps
-            processed_str = format_datetime(doc.last_processed_at) or "-"
+            # Format all system dates
+            import_str = format_datetime(doc.created_at) or "-"
             used_str = format_datetime(doc.last_used) or "-"
+            deleted_str = format_datetime(doc.deleted_at) or "-"
+            locked_at_str = format_datetime(doc.locked_at) or "-"
+            processed_str = format_datetime(doc.last_processed_at) or "-"
+            exported_str = format_datetime(doc.exported_at) or "-"
+            data_date_str = str(doc.doc_date or "-")
 
             col_data = [
-                "",                 # 0: # (Handled by Delegate)
+                "",                 # 0: #
                 doc.uuid,           # 1: Entity ID
                 filename,           # 2: Filename
                 pages_str,          # 3: Pages
-                created_str,        # 4: Created
-                status,             # 5: Status
-                ", ".join(combined_types), # 6: Type Tags
-                doc.sender or "-",    # 7: Sender
-                str(doc.doc_date or "-"), # 8: Date
-                str(doc.amount or "-"),    # 9: Amount
-                processed_str,      # 10: AI Processed
-                used_str,           # 11: Last Used
-                locked_str,         # 12: Locked
-                ", ".join(doc.tags or []) # 13: User Tags
+                import_str,         # 4: Imported Date
+                used_str,           # 5: Used Date
+                deleted_str,        # 6: Deleted Date
+                locked_at_str,      # 7: Locked Date
+                processed_str,      # 8: Autoprocessed Date
+                exported_str,       # 9: Exported Date
+                data_date_str,      # 10: Doc Data Date
+                status,             # 11: Status
+                ", ".join(str(t) for t in combined_types if t), # 12: Type Tags
+                doc.sender or "-",    # 13: Sender
+                ", ".join(str(t) for t in (doc.tags or []) if t) # 14: Tags
             ]
 
             # Phase 102: Support Dynamic Columns
@@ -1107,26 +1116,23 @@ class DocumentListWidget(QWidget):
             # Set data for identification and sorting
             item.setData(1, Qt.ItemDataRole.UserRole, doc.uuid) # Logical index 1 is UUID
             item.setData(3, Qt.ItemDataRole.UserRole, pages_sort)
-            item.setData(4, Qt.ItemDataRole.UserRole, created_sort)
+            # Sorting and Tooltips for Metadata
+            item.setData(4, Qt.ItemDataRole.UserRole, str(doc.created_at or ""))
+            item.setData(5, Qt.ItemDataRole.UserRole, str(doc.last_used or ""))
+            item.setData(6, Qt.ItemDataRole.UserRole, str(doc.deleted_at or ""))
+            item.setData(7, Qt.ItemDataRole.UserRole, str(doc.locked_at or ""))
+            item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_processed_at or ""))
+            item.setData(9, Qt.ItemDataRole.UserRole, str(doc.exported_at or ""))
+            item.setData(10, Qt.ItemDataRole.UserRole, str(doc.doc_date or ""))
+            item.setData(13, Qt.ItemDataRole.UserRole, doc.sender or "")
 
-            # Sorting for metadata columns
-            if doc.sender: item.setData(7, Qt.ItemDataRole.UserRole, doc.sender)
-            if doc.doc_date: item.setData(8, Qt.ItemDataRole.UserRole, str(doc.doc_date))
-            if doc.amount: item.setData(9, Qt.ItemDataRole.UserRole, float(doc.amount))
-
-            # Sorting and Tooltips for Tags
             if combined_types:
-                item.setToolTip(6, "\n".join(combined_types))
+                item.setToolTip(12, "\n".join(str(t) for t in combined_types if t))
 
             if doc.tags:
-                item.setData(13, Qt.ItemDataRole.UserRole, ", ".join(doc.tags))
-                item.setToolTip(13, "\n".join(doc.tags))
-
-            # Sort keys for timestamps
-            if hasattr(doc, "last_processed_at") and doc.last_processed_at:
-                item.setData(10, Qt.ItemDataRole.UserRole, str(doc.last_processed_at))
-            if hasattr(doc, "last_used") and doc.last_used:
-                item.setData(11, Qt.ItemDataRole.UserRole, str(doc.last_used))
+                tag_str = ", ".join(str(t) for t in doc.tags if t)
+                item.setData(14, Qt.ItemDataRole.UserRole, tag_str)
+                item.setToolTip(14, "\n".join(str(t) for t in doc.tags if t))
 
             # Dynamic Columns Sort Data
             for d_idx, key in enumerate(self.dynamic_columns):
@@ -1175,7 +1181,14 @@ class DocumentListWidget(QWidget):
                         doc.file_path = str(potential)
 
         dlg = ExportDialog(self, documents)
-        dlg.exec()
+        if dlg.exec():
+            # Phase 106: Mark documents as exported
+            if self.db_manager:
+                now = datetime.datetime.now().isoformat()
+                for doc in documents:
+                    self.db_manager.update_document_metadata(doc.uuid, {"exported_at": now})
+                # Refresh list to show new exported dates
+                self.refresh_list()
 
     def update_breadcrumb(self):
         """Update breadcrumb label based on current state."""

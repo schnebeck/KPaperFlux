@@ -690,13 +690,14 @@ class AIAnalyzer:
         # Build hints from semantic data or previous stage
         structural_hints = ""
         if detected_entities:
-             doc_types = [ent.get("doc_type") for ent in detected_entities if ent.get("doc_type")]
+             doc_types = [str(t) for t in (ent.get("doc_type") for ent in detected_entities) if t]
              structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe classification stage (Stage 1.1) already identified these types: {', '.join(doc_types)}.\n"
              structural_hints += "Ensure the output contains boundaries for these documents.\n"
         elif semantic_data:
              summary = semantic_data.get("summary", {})
              doc_types = summary.get("doc_type", [])
              if isinstance(doc_types, list) and doc_types:
+                 doc_types = [str(t) for t in doc_types if t]
                  structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe system previously detected the following Semantic Types: {', '.join(doc_types)}.\nUse this to guide your splitting."
 
         # Strict List allowed by system (Hybrid DMS)
