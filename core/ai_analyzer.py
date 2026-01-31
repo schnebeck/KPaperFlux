@@ -2,11 +2,12 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/ai_analyzer.py
-Version:        1.1.0
+Version:        1.2.0
 Producer:       thorsten.schnebeck@gmx.net
-Generator:      Antigravity (Gemini 3pro)
+Generator:      Gemini 3pro
 Description:    Intelligence Layer for semantic document analysis and extraction.
-                Handles Google Gemini API interaction and adaptive scan modes.
+                Handles Google Gemini API interaction, adaptive scan modes,
+                and structured data extraction using Pydantic schemas.
 ------------------------------------------------------------------------------
 """
 from typing import Optional, List, Dict, Any
@@ -32,11 +33,14 @@ from core.config import AppConfig
 
 @dataclass
 class AIAnalysisResult:
+    """
+    Data container for AI analysis results.
+    """
     sender: Optional[str] = None
     doc_date: Optional[datetime.date] = None
     amount: Optional[Decimal] = None
 
-    # Phase 45 Financials
+    # Financial Details
     gross_amount: Optional[Decimal] = None
     postage: Optional[Decimal] = None
     packaging: Optional[Decimal] = None
@@ -64,52 +68,70 @@ class AIAnalysisResult:
     sender_city: Optional[str] = None
     sender_country: Optional[str] = None
 
-    # Phase 30: Dynamic Data
-    extra_data: Optional[dict] = None
+    # Metadata & Semantic Data
+    extra_data: Optional[Dict[str, Any]] = None
+    semantic_data: Optional[Dict[str, Any]] = None
 
-    # Phase 70: Semantic Data
-    semantic_data: Optional[dict] = None
 
 class AIAnalyzer:
     """
     Analyzes document text using Google Gemini to extract structured data.
     """
-    MAX_RETRIES = 5
-    _cooldown_until: Optional[datetime.datetime] = None # Shared cooldown state
-    _adaptive_delay: float = 0.0 # Adaptive delay in seconds (Harmonic Oscillation)
-    _printed_prompts = set() # Phase 102: Debug Once
+    MAX_RETRIES: int = 5
+    _cooldown_until: Optional[datetime.datetime] = None  # Shared cooldown state
+    _adaptive_delay: float = 0.0  # Adaptive delay in seconds
+    _printed_prompts: Set[str] = set()  # Debug tracking
 
-    def _print_debug_prompt(self, title: str, prompt: str):
-        """Phase 102: Helper to print prompt ONCE in console for debugging."""
-        # By default, we only print if a 'VERBOSE_AI' env var or flag is set.
-        # For now, let's just print a very condensed version unless requested.
+    def _print_debug_prompt(self, title: str, prompt: str) -> None:
+        """
+        Prints the AI prompt to the console for debugging purposes (only once per unique prompt).
+
+        Args:
+            title: The debug section title.
+            prompt: The full prompt string.
+        """
         if prompt not in self._printed_prompts:
+            # Uncomment for verbose prompt debugging
             # print(f"\n=== [{title}] ===\n{prompt}\n==============================\n")
             self._printed_prompts.add(prompt)
 
     @classmethod
     def get_adaptive_delay(cls) -> float:
+        """
+        Retrieves the current adaptive delay value.
+
+        Returns:
+            The delay in seconds.
+        """
         return cls._adaptive_delay
 
-    def __init__(self, api_key: str, model_name: str = 'gemini-2.0-flash'):
+    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash") -> None:
+        """
+        Initializes the AIAnalyzer with Gemini API credentials.
+
+        Args:
+            api_key: The Google GenAI API key.
+            model_name: The target Gemini model name.
+        """
         self.api_key = api_key
         self.client = genai.Client(api_key=self.api_key)
         self.model_name = model_name
         self.config = AppConfig()
-        
-        # Phase 107: Dynamic Model Limits
-        self.max_output_tokens = 65636# Default
+
+        # Dynamic Model Limits
+        self.max_output_tokens: int = 65536
         self._fetch_model_limits()
 
-    def _fetch_model_limits(self):
-        """Queries the API for model limits and applies safety overrides."""
+    def _fetch_model_limits(self) -> None:
+        """
+        Queries the API for model limits and applies safety overrides for Flash models.
+        """
         try:
             m = self.client.models.get(model=self.model_name)
-            self.max_output_tokens = getattr(m, 'output_token_limit', 8192)
-            
+            self.max_output_tokens = getattr(m, "output_token_limit", 8192)
+
             # Safety Override for Flash Models:
             # Even if API reports 8k, Flash models usually support 64k or more.
-            # This is critical for information-dense documents like DigiKey invoices.
             if "flash" in self.model_name.lower():
                 if self.max_output_tokens < 65536:
                     print(f"[AI] Model Info: {self.model_name} (API Limit: {self.max_output_tokens}). Applying 64k Flash Strategy.")
@@ -124,14 +146,14 @@ class AIAnalyzer:
 
     def list_models(self) -> List[str]:
         """
-        Fetches available models from the Google GenAI API.
-        Filters for models with generateContent support.
+        Fetches available models from the Google GenAI API and filters for those supporting generateContent.
+
+        Returns:
+            A sorted list of available model names.
         """
         models = []
         for m in self.client.models.list():
-            # Filter for models that support generating content
-            # Note: In the google-genai SDK 2.0, this is 'supported_actions'
-            if hasattr(m, 'supported_actions') and 'generateContent' in m.supported_actions:
+            if hasattr(m, "supported_actions") and "generateContent" in m.supported_actions:
                 name = m.name
                 if name.startswith("models/"):
                     name = name[7:]
@@ -139,13 +161,21 @@ class AIAnalyzer:
         return sorted(models)
 
     @staticmethod
-    def extract_headers_footers(ocr_pages: List[str], header_ratio=0.15, footer_ratio=0.10) -> List[str]:
+    def extract_headers_footers(ocr_pages: List[str], header_ratio: float = 0.15, footer_ratio: float = 0.10) -> List[str]:
         """
-        Reduces text of each page to top 15% and bottom 10% to save tokens.
+        Reduces the text of each page to the top and bottom regions to save tokens.
+
+        Args:
+            ocr_pages: List of strings containing OCR text for each page.
+            header_ratio: The ratio of the top area to keep.
+            footer_ratio: The ratio of the bottom area to keep.
+
+        Returns:
+            A list of optimized strings for each page.
         """
         optimized_pages = []
         for text in ocr_pages:
-            lines = text.split('\n')
+            lines = text.split("\n")
             total_lines = len(lines)
             if total_lines < 10:
                 optimized_pages.append(text)
@@ -246,30 +276,25 @@ class AIAnalyzer:
             # Clear cooldown after waiting or if expired
             AIAnalyzer._cooldown_until = None
 
-    def analyze_text(self, text: str, image=None) -> AIAnalysisResult:
-        """
-        Send text and optional image to Gemini and parse the JSON response.
-        :param text: Text content of the document.
-        :param image: PIL.Image object of the first page (optional).
-        """
-        if (not text or not text.strip()) and not image:
-            return AIAnalysisResult()
 
-        return self._analyze_text_internal(text, image)
+    def _generate_with_retry(self, contents: Any) -> Optional[Any]:
+        """
+        Executes the content generation with robust 429 handling and adaptive delay.
 
-    def _generate_with_retry(self, contents):
+        Args:
+            contents: The contents to send to the Gemini model (can be a list or a dict with config).
+
+        Returns:
+            The response object from the API or None if all retries fail.
         """
-        Execute generation with robust 429 handling and adaptive delay.
-        """
-        # 0. Adaptive Delay (Swing In)
-        if AIAnalyzer._adaptive_delay > 0:
-            print(f"AI Adaptive Delay: Sleeping {AIAnalyzer._adaptive_delay:.2f}s...")
-            time.sleep(AIAnalyzer._adaptive_delay)
+        # 0. Adaptive Delay
+        if self._adaptive_delay > 0:
+            print(f"AI Adaptive Delay: Sleeping {self._adaptive_delay:.2f}s...")
+            time.sleep(self._adaptive_delay)
 
         response = None
         last_error = None
 
-        # Retry Loop
         for attempt in range(self.MAX_RETRIES):
             if attempt > 0:
                 print(f"AI Retrying... (Attempt {attempt+1}/{self.MAX_RETRIES})")
@@ -277,12 +302,12 @@ class AIAnalyzer:
             self._wait_for_cooldown()
 
             try:
-                # Use provided config if any
+                # Handle dictionary input with config
                 req_config = None
                 call_contents = contents
-                if isinstance(contents, dict) and 'config' in contents:
-                    req_config = contents['config']
-                    call_contents = contents['contents']
+                if isinstance(contents, dict) and "config" in contents:
+                    req_config = contents["config"]
+                    call_contents = contents["contents"]
 
                 response = self.client.models.generate_content(
                     model=self.model_name,
@@ -290,57 +315,61 @@ class AIAnalyzer:
                     config=req_config
                 )
 
-                # Success: Decrease Adaptive Delay (Multiplicative Decrease)
-                if AIAnalyzer._adaptive_delay > 0:
-                    old_delay = AIAnalyzer._adaptive_delay
-                    AIAnalyzer._adaptive_delay = max(0.0, AIAnalyzer._adaptive_delay * 0.5)
-                    if AIAnalyzer._adaptive_delay < 0.1: AIAnalyzer._adaptive_delay = 0.0
-                    print(f"AI Success (Attempt {attempt+1}/{self.MAX_RETRIES}). Decreasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
-                else:
-                    # Just log success if it was first or subsequent attempt
-                    if attempt > 0:
-                        print(f"AI Success after {attempt+1} attempts.")
+                # Success: Decrease Adaptive Delay
+                if self._adaptive_delay > 0:
+                    old_delay = self._adaptive_delay
+                    self._adaptive_delay = max(0.0, self._adaptive_delay * 0.5)
+                    if self._adaptive_delay < 0.1:
+                        self._adaptive_delay = 0.0
+                    print(f"AI Success (Attempt {attempt+1}/{self.MAX_RETRIES}). Decreasing Delay: {old_delay:.2f}s -> {self._adaptive_delay:.2f}s")
+                elif attempt > 0:
+                    print(f"AI Success after {attempt+1} attempts.")
 
                 return response
 
             except Exception as e:
                 last_error = e
-                # Check for 429 Resource Exhausted
                 is_429 = False
 
-                # ClientError usually wraps, but depending on library version:
-                if hasattr(e, "code") and e.code == 429: is_429 = True
-                if hasattr(e, "status") and "RESOURCE_EXHAUSTED" in str(e.status): is_429 = True
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e): is_429 = True
+                if hasattr(e, "code") and e.code == 429:
+                    is_429 = True
+                if hasattr(e, "status") and "RESOURCE_EXHAUSTED" in str(e.status):
+                    is_429 = True
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    is_429 = True
 
                 if is_429:
-                    # 1. Increase Adaptive Delay
-                    old_delay = AIAnalyzer._adaptive_delay
-                    new_delay = max(2.0, AIAnalyzer._adaptive_delay * 2.0)
-                    AIAnalyzer._adaptive_delay = min(256.0, new_delay)
+                    old_delay = self._adaptive_delay
+                    new_delay = max(2.0, self._adaptive_delay * 2.0)
+                    self._adaptive_delay = min(256.0, new_delay)
 
-                    if AIAnalyzer._adaptive_delay != old_delay:
-                        print(f"AI Rate Limit Hit! Increasing Adaptive Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
+                    if self._adaptive_delay != old_delay:
+                        print(f"AI Rate Limit Hit! Increasing Delay: {old_delay:.2f}s -> {self._adaptive_delay:.2f}s")
 
-                    # 2. Exponential Backoff for *this* retry
-                    # Ensure we respect the adaptive delay if it's higher
                     backoff = 2 * (2 ** attempt) + random.uniform(0, 1)
-                    delay = max(backoff, AIAnalyzer._adaptive_delay)
-                    print(f"[{attempt+1}/{self.MAX_RETRIES}] AI 429 (Rate Limit). Backing off for {delay:.1f}s (Adaptation: {AIAnalyzer._adaptive_delay:.1f}s)")
+                    delay = max(backoff, self._adaptive_delay)
+                    print(f"[{attempt+1}/{self.MAX_RETRIES}] AI 429. Backing off for {delay:.1f}s")
 
-                    # Set Cooldown
                     AIAnalyzer._cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=delay)
                     continue
                 else:
-                    # Generic error fallback (e.g. 500, blocked content)
                     print(f"AI Error (Attempt {attempt+1}/{self.MAX_RETRIES}): {e}")
-                    time.sleep(1) # Small delay for generic errors
+                    time.sleep(1)
 
-        # Soft Fail instead of hard crash
         print(f"ABORT: AI Analysis failed after {self.MAX_RETRIES} attempts. Last error: {last_error}")
         return None
 
-    def analyze_text(self, text: str, image=None) -> AIAnalysisResult:
+    def analyze_text(self, text: str, image: Optional[Any] = None) -> AIAnalysisResult:
+        """
+        Analyzes the document text using Gemini and extracts semantic data.
+
+        Args:
+            text: The text content of the document.
+            image: Optional image data (first page).
+
+        Returns:
+            An AIAnalysisResult object containing extracted data.
+        """
         # document_schema used by legacy analyze_text.
         # Inlined for portability (GitHub Safe).
         doc_schema = {
@@ -488,110 +517,125 @@ class AIAnalyzer:
                 except: pass
 
             # Parse Amounts
-            def to_decimal(val):
+            def to_decimal(val: Any) -> Optional[Decimal]:
+                """Safe conversion to Decimal."""
                 if val is not None:
-                    try: return Decimal(str(val))
-                    except: pass
+                    try:
+                        return Decimal(str(val))
+                    except (ValueError, TypeError, json.JSONDecodeError):
+                        pass
                 return None
 
-                # Phase 80: Backfill Summary for Indexing
-                # Ensure semantic_data['summary'] has the best consolidated values
-                if "summary" not in semantic_data:
-                    semantic_data["summary"] = {}
+            # 2. Build Result Object
+            result = AIAnalysisResult(
+                doc_date=doc_date,
+                amount=to_decimal(extracted["amount"]),
+                gross_amount=to_decimal(extracted["gross_amount"]),
+                sender=extracted["sender"],
+                doc_type=str(extracted["doc_type"]) if extracted["doc_type"] else None,
+                semantic_data=semantic_data
+            )
 
-                summ = semantic_data["summary"]
-                if extracted["amount"]:
-                    summ["amount"] = str(extracted["amount"])
-                if extracted["gross_amount"]:
-                    summ["gross_amount"] = str(extracted["gross_amount"])
-                if extracted["sender"]:
-                    summ["sender_name"] = extracted["sender"]
+            # Phase 80: Backfill Summary for Indexing
+            if "summary" not in semantic_data:
+                semantic_data["summary"] = {}
 
-                # Re-assign modified semantic_data
-                result.semantic_data = semantic_data
+            summ = semantic_data["summary"]
+            if extracted["amount"]:
+                summ["amount"] = str(extracted["amount"])
+            if extracted["gross_amount"]:
+                summ["gross_amount"] = str(extracted["gross_amount"])
+            if extracted["sender"]:
+                summ["sender_name"] = extracted["sender"]
 
-                return result
+            return result
 
         except Exception as e:
             print(f"CRITICAL AI Analysis Error (Logic): {e}")
             import traceback
             traceback.print_exc()
             return AIAnalysisResult()
-    def identify_entities(self, text: str, semantic_data: dict = None, detected_entities: List[dict] = None) -> List[dict]:
+    def identify_entities(self, text: str, semantic_data: Optional[Dict[str, Any]] = None, detected_entities: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """
-        Phase 1.2 of Canonization: Identify distinct documents.
-        Uses semantic_data if available (Phase 98 Refinement), otherwise fallback to text.
+        Phase 1.2 of Canonization: Identifies distinct documents within a file.
+        Uses semantic_data if available for refinement, otherwise falls back to text analysis.
+
+        Args:
+            text: The full text of the document.
+            semantic_data: Optional previous semantic analysis data.
+            detected_entities: Optional list of previously detected entities.
+
+        Returns:
+            A list of dictionaries representing identified logical entities.
         """
         if semantic_data and isinstance(semantic_data, dict) and "pages" in semantic_data:
-            # Phase 98: Use Semantic JSON Refinement
             print("[AIAnalyzer] Using Semantic JSON for Entity Identification (Refinement Mode)")
             return self.refine_semantic_entities(semantic_data)
 
         # Legacy / Fallback Mode (Raw Text)
         return self._identify_entities_legacy(text, semantic_data, detected_entities)
 
-    def refine_semantic_entities(self, semantic_data: dict) -> List[dict]:
+    def refine_semantic_entities(self, semantic_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Phase 98: Analyzes the Semantic JSON structure to identify Logical Entities.
-        Goals:
-        - Detect Logical Boundaries (Start/End Page).
-        - Merge content spanning pages (e.g. Tables).
-        - Detach content from physical page numbers.
+        Analyzes the Semantic JSON structure to identify Logical Entities.
+
+        Args:
+            semantic_data: The semantic analysis dictionary.
+
+        Returns:
+            A list of dictionaries representing logical entities.
         """
         # 1. Extract Existing Type Hints
         existing_types_str = "OTHER"
         summary = semantic_data.get("summary", {})
         if "doc_type" in summary:
-            # Can be list or string
             dt = summary["doc_type"]
             if isinstance(dt, list):
                 existing_types_str = ", ".join(dt)
             else:
                 existing_types_str = str(dt)
 
-        # 2. Serialize semantic_data (Truncate if huge, but JSON usually fits)
+        # 2. Serialize semantic_data
         json_str = json.dumps(semantic_data, ensure_ascii=False)
 
         prompt = f"""
         You are a Semantic Document Architect.
-        Your input is a "Physical Page Structure" (JSON) of a file.
-        Your goal is to transform this into a "Logical Document Structure".
+        Transform Physical Page Structure into Logical Document Structure.
 
         ### EXISTING ANALYSIS
-        The system has already detected the following Document Types: {existing_types_str}.
-        You MUST respect these types. Do NOT invent new types.
+        Detected Types: {existing_types_str}.
 
         ### INPUT (Physical Structure)
         {json_str}
 
         ### TASK
-        1. Analyze the JSON structure (Regions, Blocks).
-        2. Identify Logical Document Boundaries (Start/End Pages).
-           - MERGE content that spans multiple pages (e.g. a Table starting on Page 1 and ending on Page 2 is ONE logical unit).
-        3. Return the start/end pages for each logical entity.
+        1. Identify Logical Document Boundaries (Start/End Pages).
+        2. MERGE content that spans multiple pages.
 
         ### OUTPUT
         Return a JSON LIST of Logical Entities:
         [
           {{
-            "type": "INVOICE", // Use the type from EXISTING ANALYSIS
-            "pages": [1, 2, 3], // The physical pages belonging to this entity
+            "type": "INVOICE",
+            "pages": [1, 2, 3],
             "confidence": 0.99,
-            "hints": "Table spans pages 1-3. Total amount found on page 3."
+            "hints": "..."
           }}
         ]
         """
 
         try:
-             result = self._generate_json(prompt, stage_label="STAGE 1.2 REFINEMENT REQUEST")
-             self._print_debug_prompt("REFINEMENT REQUEST", prompt)
+            result = self._generate_json(prompt, stage_label="STAGE 1.2 REFINEMENT")
+            self._print_debug_prompt("REFINEMENT REQUEST", prompt)
 
-             if isinstance(result, list): return result
-             if isinstance(result, dict) and "entities" in result: return result["entities"]
-             return []
+            if isinstance(result, list):
+                return result
+            if isinstance(result, dict) and "entities" in result:
+                return result["entities"]
+            return []
         except Exception as e:
-             print(f"[Refinement] Failed: {e}")
-             return []
+            print(f"[Refinement] Failed: {e}")
+            return []
 
     def _identify_entities_legacy(self, text: str, semantic_data: dict = None, detected_entities: List[dict] = None) -> List[dict]:
         # ... (Original identify_entities logic mooved here) ...
@@ -659,17 +703,24 @@ class AIAnalyzer:
             print(f"Entity ID Failed: {e}")
             return []
 
-    def extract_canonical_data(self, doc_type: Any, text: str) -> dict:
+    def extract_canonical_data(self, doc_type: Any, text: str) -> Dict[str, Any]:
         """
         Phase 2 of Canonization: Extract strict CDM for a specific Entity Type.
         Dynamically builds the target schema based on the Pydantic model.
+
+        Args:
+            doc_type: The document type (string or DocType enum).
+            text: The text content of the entity.
+
+        Returns:
+            A dictionary containing the extracted canonical data.
         """
         # Ensure DocType Enum
         if isinstance(doc_type, str):
             try:
                 doc_type = DocType(doc_type)
-            except:
-                pass # Keep as string if custom, but mapping won't work
+            except (ValueError, KeyError):
+                pass  # Keep as string if custom, but mapping won't work
 
         # 1. Select the appropriate Specific Data Model
         model_map = {
@@ -1045,28 +1096,34 @@ TASK:
 
         return errors
 
-    def _generate_json(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Any:
+    def _generate_json(self, prompt: str, stage_label: str = "AI REQUEST", images: Optional[Any] = None) -> Optional[Any]:
         """
         High-level helper that handles both API retries and logical JSON retries.
         If JSON is malformed or truncated, it tries a second time with a hint.
+
+        Args:
+            prompt: The text prompt.
+            stage_label: A label for debugging purposes.
+            images: Optional images to include in the request.
+
+        Returns:
+            The parsed JSON result or None if it fails.
         """
         max_logical_retries = 2
         current_attempt = 1
-        
+
         while current_attempt <= max_logical_retries:
             res = self._generate_json_raw(prompt, stage_label, images)
             if res is not None:
                 return res
-            
-            # If we are here, parsing failed despite all internal repairs
+
             if current_attempt < max_logical_retries:
                 print(f"[AI] Logical Retry {current_attempt}/{max_logical_retries} for {stage_label} due to JSON Error.")
-                # We could append a hint, but usually just retrying fixes transient hallucination/truncation
                 current_attempt += 1
-                time.sleep(1) # Small pause
+                time.sleep(1)
             else:
                 break
-        
+
         return None
 
     def _generate_json_raw(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Any:
