@@ -2,40 +2,82 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/ai_analyzer.py
-Version:        1.2.0
+Version:        2.0.0
 Producer:       thorsten.schnebeck@gmx.net
-Generator:      Gemini 3pro
+Generator:      Antigravity
 Description:    Intelligence Layer for semantic document analysis and extraction.
                 Handles Google Gemini API interaction, adaptive scan modes,
                 and structured data extraction using Pydantic schemas.
 ------------------------------------------------------------------------------
 """
-from typing import Optional, List, Dict, Any, Set, Union
-from dataclasses import dataclass, field
+
+import base64
 import datetime
 import json
-import re
-import base64
-import fitz  # PyMuPDF
-from decimal import Decimal
-import time
 import random
+import re
+import time
+from dataclasses import dataclass, field
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Set, Union
+
+import fitz  # PyMuPDF
 from google import genai
 from google.genai import types
-from google.genai.errors import ClientError
+from pydantic import BaseModel, Field
+
+from core.config import AppConfig
 from core.models.canonical_entity import (
-    DocType, InvoiceData, LogisticsData, BankStatementData,
-    TaxAssessmentData, ExpenseData, UtilityData, ContractData,
-    InsuranceData, VehicleData, MedicalData, LegalMetaData
+    BankStatementData,
+    ContractData,
+    DocType,
+    ExpenseData,
+    InsuranceData,
+    InvoiceData,
+    LegalMetaData,
+    LogisticsData,
+    MedicalData,
+    TaxAssessmentData,
+    UtilityData,
+    VehicleData,
 )
 from core.models.identity import IdentityProfile
-from core.config import AppConfig
 
-@dataclass
-class AIAnalysisResult:
+
+class AIAnalysisResult(BaseModel):
     """
     Data container for AI analysis results.
+    
+    Attributes:
+        sender: Name of the sender.
+        doc_date: Date of the document.
+        amount: Net amount.
+        gross_amount: Gross amount.
+        postage: Postage costs.
+        packaging: Packaging costs.
+        tax_rate: Tax rate percentage.
+        currency: Currency code (e.g., EUR).
+        doc_type: Document type.
+        sender_address: Full address of the sender.
+        iban: IBAN found in the document.
+        phone: Phone number found in the document.
+        tags: Suggested tags.
+        recipient_company: Name of the recipient company.
+        recipient_name: Name of the recipient person.
+        recipient_street: Recipient street address.
+        recipient_zip: Recipient ZIP code.
+        recipient_city: Recipient city.
+        recipient_country: Recipient country.
+        sender_company: Name of the sender company.
+        sender_name: Name of the sender person.
+        sender_street: Sender street address.
+        sender_zip: Sender ZIP code.
+        sender_city: Sender city.
+        sender_country: Sender country.
+        extra_data: Additional raw data.
+        semantic_data: Full structured semantic data tree.
     """
+
     sender: Optional[str] = None
     doc_date: Optional[datetime.date] = None
     amount: Optional[Decimal] = None
@@ -69,14 +111,18 @@ class AIAnalysisResult:
     sender_country: Optional[str] = None
 
     # Metadata & Semantic Data
-    extra_data: Optional[Dict[str, Any]] = None
-    semantic_data: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    semantic_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class AIAnalyzer:
     """
     Analyzes document text using Google Gemini to extract structured data.
+    
+    Provides high-level methods for document classification, semantic extraction,
+    and adaptive scan strategies.
     """
+
     MAX_RETRIES: int = 5
     _cooldown_until: Optional[datetime.datetime] = None  # Shared cooldown state
     _adaptive_delay: float = 0.0  # Adaptive delay in seconds
