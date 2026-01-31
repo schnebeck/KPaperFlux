@@ -455,6 +455,8 @@ class CanonizerService:
             smart_name = self.analyzer.generate_smart_filename(semantic_extraction, target_doc.type_tags)
             target_doc.export_filename = smart_name
             target_doc.cached_full_text = semantic_extraction.get("repaired_text") or entity_text
+            target_doc.status = "PROCESSED"
+            target_doc.last_processed_at = datetime.now().isoformat()
 
             self.logical_repo.save(target_doc)
             safe_types = [str(t) for t in c_types if t is not None]

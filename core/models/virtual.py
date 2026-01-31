@@ -65,6 +65,11 @@ class VirtualDocument:
     type_tags: List[str] = field(default_factory=list)  # System-defined doc types
     tags: List[str] = field(default_factory=list)  # User-defined tags
 
+    # System Managed Dates
+    deleted_at: Optional[str] = None
+    locked_at: Optional[str] = None
+    exported_at: Optional[str] = None
+
     # Filter Columns (Cached metadata for fast filtering/sorting)
     sender: Optional[str] = None
     doc_date: Optional[str] = None
@@ -163,18 +168,21 @@ class VirtualDocument:
             source_mapping=source_mapping,
             status=str(row[2]),
             export_filename=str(row[3]) if row[3] else None,
-            last_used=str(row[4]) if row[4] else None,
-            last_processed_at=str(row[5]) if row[5] else None,
+            page_count_virt=int(row[4]) if row[4] else 0,
+            created_at=str(row[5]) if row[5] else None,
             is_immutable=bool(row[6]),
-            thumbnail_path=str(row[7]) if row[7] else None,
-            cached_full_text=str(row[8]) if row[8] else "",
-            semantic_data=semantic_data,
-            created_at=str(row[10]) if row[10] else None,
-            deleted=bool(row[11]),
-            page_count_virt=int(row[12]) if row[12] else 0,
             type_tags=type_tags,
-            sender=str(row[14]) if len(row) > 14 and row[14] else None,
-            doc_date=str(row[15]) if len(row) > 15 and row[15] else None,
-            amount=float(row[16]) if len(row) > 16 and row[16] else None,
-            tags=tags
+            cached_full_text=str(row[8]) if row[8] else "",
+            last_used=str(row[9]) if row[9] else None,
+            last_processed_at=str(row[10]) if row[10] else None,
+            semantic_data=semantic_data,
+            sender=str(row[12]) if len(row) > 12 and row[12] else None,
+            doc_date=str(row[13]) if len(row) > 13 and row[13] else None,
+            amount=float(row[14]) if len(row) > 14 and row[14] else None,
+            tags=tags,
+            deleted_at=str(row[16]) if len(row) > 16 and row[16] else None,
+            locked_at=str(row[17]) if len(row) > 17 and row[17] else None,
+            exported_at=str(row[18]) if len(row) > 18 and row[18] else None,
+            thumbnail_path=str(row[7]) if len(row) > 7 and row[7] else None,
+            deleted=bool(row[11]) if len(row) > 11 else False,
         )

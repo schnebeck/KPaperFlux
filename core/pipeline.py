@@ -126,7 +126,20 @@ class PipelineProcessor:
             original_filename=original_filename,
             text_content="\n".join(full_text),
             created_at=virtual_doc.created_at,
-            extra_data={"status": virtual_doc.status},
+            last_processed_at=virtual_doc.last_processed_at,
+            last_used=virtual_doc.last_used,
+            status=virtual_doc.status,
+            type_tags=virtual_doc.type_tags,
+            tags=virtual_doc.tags,
+            sender=virtual_doc.sender,
+            doc_date=virtual_doc.doc_date,
+            amount=virtual_doc.amount,
+            export_filename=virtual_doc.export_filename,
+            deleted_at=virtual_doc.deleted_at,
+            locked_at=virtual_doc.locked_at,
+            exported_at=virtual_doc.exported_at,
+            semantic_data=virtual_doc.semantic_data,
+            extra_data={"status": virtual_doc.status, "source_mapping": virtual_doc.to_source_mapping_json()},
         )
         return doc
         
