@@ -2,7 +2,7 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/models/physical.py
-Version:        1.2.0
+Version:        2.0.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
 Description:    Data model for physical files stored in the immutable document 

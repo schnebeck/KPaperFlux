@@ -2,7 +2,7 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/repositories/logical_repo.py
-Version:        1.2.0
+Version:        2.0.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
 Description:    Repository for managing persistence of VirtualDocument models in 

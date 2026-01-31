@@ -2,7 +2,7 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/models/identity.py
-Version:        1.2.0
+Version:        2.0.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
 Description:    Defines the IdentityProfile data model for representing users

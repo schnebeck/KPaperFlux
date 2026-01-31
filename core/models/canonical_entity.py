@@ -2,7 +2,7 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/models/canonical_entity.py
-Version:        1.2.0
+Version:        2.0.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
 Description:    Defines the canonical data models for structured document 
