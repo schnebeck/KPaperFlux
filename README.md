@@ -14,6 +14,9 @@
   </p>
 </div>
 
+> [!WARNING]
+> **PRE-RELEASE SOFTWARE:** KPaperFlux is currently in a state of rapid, high-volatility development ("wild development phase"). Breaking changes and experimental features are common. **Use with real, sensitive data at your own risk!** Always keep backups of your documents.
+
 **KPaperFlux** is not just another DMS. It is an intelligent **document refiner**. Instead of simply archiving documents, KPaperFlux understands, repairs, and structures content using state-of-the-art AI.
 
 Designed specifically for **Power Users** and **Linux Enthusiasts** who demand maximum control over their data without sacrificing the convenience of cloud AI.
@@ -38,6 +41,15 @@ KPaperFlux employs a multi-stage, intelligent analysis pipeline to understand do
 *   **SANE Integration:** Direct control of scanners under Linux.
 *   **Drag & Drop:** Easy import of PDF files.
 *   **Metadata Editor:** A powerful editor to verify and correct AI results.
+
+---
+
+## 🛠️ Current Development Status
+
+The current developer version features a **relatively solid GUI** for document capture and semantic metadata analysis. However, please be aware that:
+*   **Data Extraction:** Fully exporting or utilizing the structured data in other applications is still a work-in-progress and can be challenging.
+*   **Debug Features:** The GUI still contains various debug commands and development shortcuts.
+*   **Communication:** Part of the system feedback and internal communication currently occurs via **console output (stdout/stderr)**.
 
 ---
 
