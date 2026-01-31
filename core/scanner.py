@@ -71,6 +71,26 @@ class ScannerDriver(ABC):
         pass
 
     @abstractmethod
+    def get_full_capabilities(self, device_name: str) -> Dict[str, Any]:
+        """
+        Returns both sources and resolutions for all sources in one go.
+
+        Args:
+            device_name: The name/ID of the scanner device.
+
+        Returns:
+            A dictionary containing:
+            {
+               "sources": ["Flatbed", "ADF", ...],
+               "resolutions": {
+                   "Flatbed": [100, 200, ...],
+                   "ADF": [100, 200, ...]
+               }
+            }
+        """
+        pass
+
+    @abstractmethod
     def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = "Color") -> Optional[str]:
         """
         Scans a single page.
@@ -152,6 +172,15 @@ class MockScanner(ScannerDriver):
             List of supported resolutions.
         """
         return [75, 150, 200, 300, 600]
+
+    def get_full_capabilities(self, device_name: str) -> Dict[str, Any]:
+        """Returns mock capabilities."""
+        sources = self.get_source_list(device_name)
+        res = [75, 150, 200, 300, 600]
+        return {
+            "sources": sources,
+            "resolutions": {s: res for s in sources}
+        }
 
     def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = "Color") -> Optional[str]:
         """
@@ -324,30 +353,85 @@ class SaneScanner(ScannerDriver):
                     print(f"DEBUG: Could not set source {source} for resolution query: {e}")
 
             opts = {opt[1]: opt for opt in dev.get_options()}
-            resolutions = []
-            if "resolution" in opts:
-                opt = opts["resolution"]
-                constraint_type = opt[4]
-                constraint = opt[8]
-
-                if constraint_type == 1:  # Range
-                    # (min, max, quant)
-                    min_val, max_val, quant = constraint
-                    if quant <= 0:
-                        quant = 50
-                    resolutions = list(range(int(min_val), int(max_val) + 1, int(quant)))
-                elif constraint_type == 2:  # List
-                    resolutions = [int(v) for v in constraint]
-
+            resolutions = self._extract_resolutions(opts)
             dev.close()
-            
-            if not resolutions:
-                resolutions = [75, 150, 200, 300, 600]
-            
-            return sorted(list(set(resolutions)))
+            return resolutions
         except Exception as e:
             print(f"DEBUG: get_resolution_list failed for {device_name}: {e}")
             return [75, 150, 200, 300, 600]
+
+    def get_full_capabilities(self, device_name: str) -> Dict[str, Any]:
+        """
+        Fetches all sources and resolutions for each source in one session.
+        """
+        if not SANE_AVAILABLE:
+            res = [75, 150, 200, 300, 600]
+            return {"sources": ["Flatbed"], "resolutions": {"Flatbed": res}}
+
+        try:
+            dev = self._open_device_with_retry(device_name)
+            opts = {opt[1]: opt for opt in dev.get_options()}
+            
+            sources = []
+            if "source" in opts:
+                try:
+                    sources = opts["source"][8]
+                except:
+                    sources = ["Flatbed"]
+            
+            if not sources:
+                sources = ["Flatbed"]
+            
+            res_map = {}
+            for s in sources:
+                try:
+                    dev.source = s
+                    s_opts = {opt[1]: opt for opt in dev.get_options()}
+                    res_map[s] = self._extract_resolutions(s_opts)
+                except Exception as e:
+                    print(f"DEBUG: Failed to get resolutions for source {s}: {e}")
+                    res_map[s] = [75, 150, 200, 300, 600]
+            
+            dev.close()
+            return {"sources": sources, "resolutions": res_map}
+            
+        except Exception as e:
+            print(f"DEBUG: get_full_capabilities failed for {device_name}: {e}")
+            fallback_sources = ["Flatbed", "ADF", "ADF Duplex"]
+            fallback_res = [75, 150, 200, 300, 600]
+            return {
+                "sources": fallback_sources,
+                "resolutions": {s: fallback_res for s in fallback_sources}
+            }
+
+    def _extract_resolutions(self, opts: Dict[str, Any]) -> List[int]:
+        """Helper to extract resolution list from SANE options."""
+        resolutions = []
+        if "resolution" in opts:
+            opt = opts["resolution"]
+            constraint_type = opt[4]
+            constraint = opt[8]
+
+            if constraint and isinstance(constraint, (list, tuple)):
+                if constraint_type == 1 and len(constraint) == 3:  # Traditional Range
+                    try:
+                        min_val, max_val, quant = constraint
+                        if quant <= 0: quant = 50
+                        resolutions = list(range(int(min_val), int(max_val) + 1, int(quant)))
+                    except Exception as e:
+                        print(f"DEBUG: Failed to parse range constraint {constraint}: {e}")
+                        resolutions = [int(v) for v in constraint]
+                else:
+                    # Treat anything else that is a list/tuple as discrete values
+                    try:
+                        resolutions = [int(v) for v in constraint]
+                    except Exception as e:
+                        print(f"DEBUG: Failed to parse list constraint {constraint}: {e}")
+
+        if not resolutions:
+            # Fallback to standard set if no resolutions could be determined
+            resolutions = [75, 150, 200, 300, 600]
+        return sorted(list(set(resolutions)))
 
     def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = "Color") -> Optional[str]:
         """
