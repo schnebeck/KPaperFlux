@@ -239,6 +239,39 @@ class SaneScanner(ScannerDriver):
             print(f"SANE list_devices error: {e}")
             return []
 
+    def _open_device_with_retry(self, device_name: str, retries: int = 3, delay: float = 1.5) -> Any:
+        """
+        Attempts to open a SANE device with a retry mechanism if it's busy.
+        
+        Args:
+            device_name: The name of the SANE device.
+            retries: Number of attempts.
+            delay: Seconds to wait between attempts.
+
+        Returns:
+            The opened SANE device.
+
+        Raises:
+            Exception: If all attempts fail.
+        """
+        import time
+        last_error = Exception("Unknown error")
+        for i in range(retries):
+            try:
+                # Always wait a tiny bit before initial open to let previous sessions close
+                time.sleep(0.3)
+                return sane.open(device_name)
+            except Exception as e:
+                last_error = e
+                err_str = str(e).lower()
+                if "busy" in err_str or "access denied" in err_str or "io error" in err_str:
+                    print(f"DEBUG: SANE device {device_name} busy or IO error, retrying in {delay}s (Attempt {i+1}/{retries})...")
+                    time.sleep(delay)
+                    continue
+                else:
+                    break
+        raise last_error
+
     def get_source_list(self, device_name: str) -> List[str]:
         """
         Returns a list of supported sources for the given device.
@@ -252,10 +285,7 @@ class SaneScanner(ScannerDriver):
         if not SANE_AVAILABLE:
             return ["Flatbed"]
         try:
-            import time
-
-            time.sleep(0.3)  # Give device a moment
-            dev = sane.open(device_name)
+            dev = self._open_device_with_retry(device_name)
             opts = {opt[1]: opt for opt in dev.get_options()}
             sources = []
             if "source" in opts:
@@ -267,8 +297,8 @@ class SaneScanner(ScannerDriver):
             dev.close()
             return sources
         except Exception as e:
-            print(f"DEBUG: get_source_list failed for {device_name}: {e}")
-            # Improved defaults for modern multi-function devices
+            print(f"DEBUG: get_source_list failed for {device_name} after retries: {e}")
+            # Fallback for UI continuity
             return ["Flatbed", "ADF", "ADF Duplex"]
 
     def get_resolution_list(self, device_name: str, source: Optional[str] = None) -> List[int]:
@@ -285,10 +315,7 @@ class SaneScanner(ScannerDriver):
         if not SANE_AVAILABLE:
             return [75, 150, 200, 300, 600]
         try:
-            import time
-
-            time.sleep(0.2)
-            dev = sane.open(device_name)
+            dev = self._open_device_with_retry(device_name)
             
             if source:
                 try:
@@ -578,7 +605,7 @@ class SaneScanner(ScannerDriver):
         results: List[str] = []
         dev = None
         try:
-            dev = sane.open(device_name)
+            dev = self._open_device_with_retry(device_name)
             options = {opt[1]: opt for opt in dev.get_options()}
 
             if "resolution" in options:
