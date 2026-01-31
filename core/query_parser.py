@@ -1,13 +1,28 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/query_parser.py
+Version:        1.2.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Simple natural language parser for search queries. Extracts 
+                temporal constraints (years) and document types to generate 
+                structured filter criteria.
+------------------------------------------------------------------------------
+"""
 
 import re
-from datetime import date
+from typing import Dict, Optional
+
 
 class QueryParser:
     """
-    Parses natural language queries into filter criteria.
+    Parses simple natural language queries into structured filter criteria.
+    Focuses on keyword extraction for years and document types.
     """
-    
-    KNOWN_TYPES = {
+
+    # Mapping of localized keywords to canonical document types
+    KNOWN_TYPES: Dict[str, str] = {
         "invoice": "Invoice",
         "rechnung": "Invoice",
         "receipt": "Receipt",
@@ -17,48 +32,55 @@ class QueryParser:
         "letter": "Letter",
         "brief": "Letter"
     }
-    
-    def parse(self, query: str) -> dict:
+
+    def parse(self, query: str) -> Dict[str, Optional[str]]:
         """
-        Parse query string into criteria dict.
-        Returns: {
-            'date_from': 'YYYY-MM-DD',
-            'date_to': 'YYYY-MM-DD',
-            'type': 'Invoice',
-            'text_search': 'amazon'
-        }
+        Parses a query string into a structured criteria dictionary.
+
+        Example:
+            "Rechnungen 2023 Amazon" -> {
+                'date_from': '2023-01-01',
+                'date_to': '2023-12-31',
+                'type': 'Invoice',
+                'text_search': 'amazon'
+            }
+
+        Args:
+            query: The natural language search query.
+
+        Returns:
+            A dictionary containing structured filter criteria.
         """
-        criteria = {}
+        criteria: Dict[str, Optional[str]] = {}
         tokens = query.lower().split()
         remaining_tokens = []
-        
-        # 1. Year Extraction (2000-2099)
-        year_found = False
+
+        # Year Extraction Pattern (2000-2099)
         year_pattern = re.compile(r"^(20\d{2})$")
-        
-        # 2. Type Extraction
-        type_found = None
-        
+
+        year_found = False
+        type_found = False
+
         for token in tokens:
-            # Check Year
+            # 1. Year Extraction
             if not year_found and year_pattern.match(token):
-                year = int(token)
+                year = token
                 criteria['date_from'] = f"{year}-01-01"
                 criteria['date_to'] = f"{year}-12-31"
                 year_found = True
                 continue
-                
-            # Check Type
-            clean_token = token.rstrip("s.,") # Simple plural/punct strip
+
+            # 2. Type Extraction (with simple fuzzy punctuation stripping)
+            clean_token = token.rstrip("s.,;")
             if not type_found and clean_token in self.KNOWN_TYPES:
                 criteria['type'] = self.KNOWN_TYPES[clean_token]
                 type_found = True
                 continue
-                
+
+            # 3. Collect non-metadata tokens for full-text search
             remaining_tokens.append(token)
-            
-        # 3. Remaining Text
+
         if remaining_tokens:
             criteria['text_search'] = " ".join(remaining_tokens)
-            
+
         return criteria
