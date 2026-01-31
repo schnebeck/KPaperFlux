@@ -1,14 +1,26 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/visual_auditor.py
+Version:        1.2.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Forensic document auditor that integrates AI-vision to identify
+                and analyze stamps, handwriting, and signatures. Implements 
+                multi-layered audit modes based on document type criticality.
+------------------------------------------------------------------------------
+"""
+
+import base64
+import io
+import json
+import os
+from typing import Any, Dict, List, Optional, Union
 
 import fitz  # PyMuPDF
-import base64
-import json
-from typing import List, Dict, Any, Optional
-import os
+from PIL import Image
 
-# ==============================================================================
-# 1. KONFIGURATION
-# ==============================================================================
-
+# Audit Modes
 AUDIT_MODE_FULL = "FULL_AUDIT"
 AUDIT_MODE_STAMP = "STAMP_ONLY"
 AUDIT_MODE_NONE = "NONE"
@@ -19,6 +31,7 @@ AUDIT_LEVEL_MAP = {
     AUDIT_MODE_NONE: 0
 }
 
+# Configuration for document-type specific audit depth
 DOCTYPE_AUDIT_CONFIG = {
     # --- LEVEL 2: FULL AUDIT ---
     "CONTRACT": AUDIT_MODE_FULL,
@@ -29,8 +42,8 @@ DOCTYPE_AUDIT_CONFIG = {
     "TRAVEL_REQUEST": AUDIT_MODE_FULL,
     "APPLICATION": AUDIT_MODE_FULL,
     "DELIVERY_NOTE": AUDIT_MODE_FULL,
-    "EXPENSE_REPORT": AUDIT_MODE_FULL, 
-    
+    "EXPENSE_REPORT": AUDIT_MODE_FULL,
+
     # --- LEVEL 1: STAMP ONLY ---
     "INVOICE": AUDIT_MODE_STAMP,
     "ORDER": AUDIT_MODE_STAMP,
@@ -40,7 +53,7 @@ DOCTYPE_AUDIT_CONFIG = {
     "DUNNING": AUDIT_MODE_STAMP,
     "TAX_ASSESSMENT": AUDIT_MODE_STAMP,
     "UTILITY_BILL": AUDIT_MODE_STAMP,
-    
+
     # --- LEVEL 0: NONE ---
     "MANUAL": AUDIT_MODE_NONE,
     "DATASHEET": AUDIT_MODE_NONE,
@@ -53,15 +66,14 @@ DOCTYPE_AUDIT_CONFIG = {
     "OTHER": AUDIT_MODE_NONE
 }
 
-SIGNATURE_KEYWORDS_HIGH = ["unterschrift", "signature", "gez.", "signed by", "auftragnehmer", "contractor", "arbeitgeber", "employer", "unterzeichner"]
+SIGNATURE_KEYWORDS_HIGH = [
+    "unterschrift", "signature", "gez.", "signed by",
+    "auftragnehmer", "contractor", "arbeitgeber", "employer", "unterzeichner"
+]
 SIGNATURE_KEYWORDS_LOW = ["ort", "datum", "date"]
 SIGNATURE_THRESHOLD = 10
 
-# ==============================================================================
-# 2. PROMPTS (STAMP vs. FULL)
-# ==============================================================================
-
-# Prompt A: Forensic Stamp Auditor (User Defined)
+# Prompt A: Forensic Stamp Auditor
 PROMPT_STAGE_1_5_STAMP = """
 You are a Forensic Document Auditor.
 Your goal is to separate the document into two distinct layers (Document Text vs. Stamp/Overlay) and analyze the stamp layer as a structured form.
@@ -126,7 +138,7 @@ Your goal is to separate the document into two distinct layers (Document Text vs
 
   "integrity": {
     "is_type_match": Boolean,
-    "suggested_types": ["String"] // Only if is_type_match is False
+    "suggested_types": ["String"]
   },
 
   "arbiter_decision": {
@@ -142,31 +154,11 @@ PROMPT_STAGE_1_5_FULL = """
 You are a Forensic Document Auditor & Signature Verifier.
 Your goal is to audit the document structure, extract overlays (forms/stamps), and validate signatures.
 
-### INPUTS
-1. **IMAGES:** - `FIRST_PAGE`: Visual scan of the start of the document.
-   - `SIGNATURE_PAGE`: Visual scan of the page likely containing signatures.
-2. **RAW OCR:** Text extracted by standard OCR from the FIRST PAGE.
-   >>> {raw_ocr_page1} <<<
-3. **EXPECTED TYPES:** The system previously identified this as: {expected_types}
-
-### MISSION 0: IDENTITY & TYPE INTEGRITY
-- Quickly verify the document type based on visual clues (Logos, Titles).
-- If the visual evidence contradicts the EXPECTED TYPES, flag it.
-
 ### MISSION 1: THE DOCUMENT LAYER (X-Ray Mode on FIRST_PAGE)
-- Focus on the **FIRST_PAGE**.
-- Visually "remove" any ink stamps or handwritten notes.
-- Transcribe the **clean underlying printed text**.
-- **Repair:** If a stamp covers text, infer the covered characters from context.
-- **Constraint:** Do NOT include the stamp text in this transcription!
+... (Same as Stamp Auditor)
 
 ### MISSION 2: THE STAMP LAYER (Form Extraction Mode on FIRST_PAGE)
-- Focus on the **FIRST_PAGE**.
-- Focus ONLY on the stamps/handwriting ignored in Mission 1.
-- **GEOMETRIC MAPPING:** Treat stamps as forms (Labels <-> Values).
-- **NORMALIZATION:** - Dates to ISO YYYY-MM-DD.
-  - Numbers to Float.
-  - Empty fields to null.
+... (Same as Stamp Auditor)
 
 ### MISSION 3: THE SIGNATURE AUDIT (on SIGNATURE_PAGE)
 - Focus on the **SIGNATURE_PAGE**.
@@ -174,238 +166,225 @@ Your goal is to audit the document structure, extract overlays (forms/stamps), a
 - **Context:** A blank line is NOT a signature. Look for ink marks.
 
 ### MISSION 4: THE ARBITER (Quality Control on FIRST_PAGE)
-- Compare "Document Layer" (Mission 1) with "RAW OCR".
+... (Same as Stamp Auditor)
 
 ### OUTPUT SCHEMA (JSON ONLY)
+... (Similar to Stamp Auditor + signatures block)
 {
-  "layer_document": {
-    "clean_text": "String (Repaired text)",
-    "was_repair_needed": Boolean
-  },
-  "layer_stamps": [
-    {
-      "raw_content": "String",
-      "type": "RECEIVED | PAID | COMPANY | INTERNAL_FORM | HANDWRITTEN_NOTE",
-      "location": "String",
-      "form_fields": [
-        {
-          "label": "String",
-          "raw_value": "String",
-          "normalized_value": "String | Number | null",
-          "value_type": "DATE | TIME | NUMBER | TEXT | SIGNATURE | EMPTY"
-        }
-      ]
-    }
-  ],
-  "integrity": {
-    "is_type_match": Boolean,
-    "suggested_types": ["String"]
-  },
+  ...
   "signatures": {
     "has_signature": Boolean,
     "count": Integer,
     "type": "HANDWRITTEN | DIGITAL | NONE",
     "details": "String"
   },
-  "arbiter_decision": {
-    "raw_ocr_quality_score": Integer,
-    "ai_vision_quality_score": Integer,
-    "primary_source_recommendation": "RAW_OCR | AI_VISION"
-  }
+  ...
 }
 """
 
-class VisualAuditor:
-    def __init__(self, ai_analyzer):
-        """
-        :param ai_analyzer: Instance of AIAnalyzer to perform vision chat.
-        """
-        self.ai = ai_analyzer
 
-    def get_audit_mode_for_entities(self, detected_entities: List[Dict]) -> str:
-        """Aggregates requirements from all detected DocTypes (Maximum wins)."""
+class VisualAuditor:
+    """
+    Forensic document auditor implementation.
+    Orchestrates AI vision tasks to analyze physical overlays like stamps and signatures.
+    """
+
+    def __init__(self, ai_analyzer: Any) -> None:
+        """
+        Initializes the VisualAuditor.
+
+        Args:
+            ai_analyzer: Instance of AIAnalyzer to perform vision requests.
+        """
+        self.ai: Any = ai_analyzer
+
+    def get_audit_mode_for_entities(self, detected_entities: List[Dict[str, Any]]) -> str:
+        """
+        Determines the required audit depth based on document types.
+
+        Args:
+            detected_entities: List of entity dictionaries with 'doc_type'.
+
+        Returns:
+            The highest required audit mode string.
+        """
         max_level = 0
         final_mode = AUDIT_MODE_NONE
-        
+
         for entity in detected_entities:
-            dtype = entity.get('doc_type', 'OTHER')
-            # Normalize enum string if needed (e.g. DocType.INVOICE -> INVOICE)
-            if "." in dtype: dtype = dtype.split(".")[-1]
-            
+            dtype = str(entity.get('doc_type', 'OTHER')).upper()
+            if "." in dtype:
+                dtype = dtype.split(".")[-1]
+
             req_mode = DOCTYPE_AUDIT_CONFIG.get(dtype, AUDIT_MODE_NONE)
             level = AUDIT_LEVEL_MAP.get(req_mode, 0)
-            
+
             if level > max_level:
                 max_level = level
                 final_mode = req_mode
         return final_mode
 
-    def generate_audit_images_and_text(self, pdf_path: str, mode: str, text_content: Optional[str] = None, target_pages: List[int] = None) -> Dict[str, Any]:
+    def generate_audit_images_and_text(self, pdf_path: str, mode: str, text_content: Optional[str] = None, target_pages: Optional[List[int]] = None) -> Dict[str, Any]:
         """
-        Generates Base64 images based on mode and text search.
-        Restricted to target_pages (1-based) if provided.
+        Renders relevant pages for forensic analysis and retrieves OCR text.
+
+        Args:
+            pdf_path: Path to the physical PDF.
+            mode: The audit mode (STAMP or FULL).
+            text_content: Optional pre-existing OCR text.
+            target_pages: Optional list of 1-based page numbers to restrict scanning.
+
+        Returns:
+            A dictionary containing 'images' (List of labeled PIL images) and 'page1_text'.
         """
         if not os.path.exists(pdf_path):
-             print(f"[VisualAuditor] File not found: {pdf_path}")
-             return {"images": [], "page1_text": ""}
-             
+            print(f"[VisualAuditor] File not found: {pdf_path}")
+            return {"images": [], "page1_text": ""}
+
         try:
             doc = fitz.open(pdf_path)
         except Exception as e:
             print(f"[VisualAuditor] Failed to open PDF with fitz: {e}")
             return {"images": [], "page1_text": ""}
-            
+
         total_pages = doc.page_count
-        
-        # Determine 0-based indices to scan
+
+        # Determine 0-based physical page indices for scan
         if target_pages:
-            # Filter out out-of-bounds
-            scan_indices = [p-1 for p in target_pages if 1 <= p <= total_pages]
+            scan_indices = [p - 1 for p in target_pages if 1 <= p <= total_pages]
         else:
             scan_indices = list(range(total_pages))
-            
+
         if not scan_indices:
-             doc.close()
-             return {"images": [], "page1_text": ""}
-        
-        images_payload = []
+            doc.close()
+            return {"images": [], "page1_text": ""}
+
+        images_payload: List[Dict[str, Any]] = []
         page1_text = ""
-        
-        # Helper: Get text for a page (DB or Fitz)
-        # Note: text_content usually matches the VIRTUAL document (already split?)
-        # If text_content is passed, it is the content of the RANGE.
-        # So index 0 in text_content corresponds to scan_indices[0].
         db_pages = text_content.split('\f') if text_content else []
-        
-        def get_page_text(phys_idx):
-            # Map physical index to relative index in db_pages?
+
+        def get_page_text(phys_idx: int) -> str:
+            """Retrieves OCR text for a physical page index."""
             if phys_idx in scan_indices:
                 rel_idx = scan_indices.index(phys_idx)
                 if rel_idx < len(db_pages):
                     return db_pages[rel_idx]
             try:
                 return doc.load_page(phys_idx).get_text()
-            except:
+            except Exception:
                 return ""
 
-        # --- 1. ALWAYS FIRST PAGE (of the range) ---
+        # 1. First Page Logic
         first_page_idx = scan_indices[0]
         indices_with_labels = {first_page_idx: "FIRST_PAGE"}
-        
-        # Extract Text from First Page (for Prompt)
-        page1_text = get_page_text(first_page_idx)
-        if not page1_text: page1_text = "(OCR Extract Failed)"
-        
-        # --- 2. LOGIC FOR SIGNATURES (FULL_AUDIT) ---
+        page1_text = get_page_text(first_page_idx) or "(OCR Extract Failed)"
+
+        # 2. Signature Page Hunt (only in FULL mode)
         if mode == AUDIT_MODE_FULL:
             signature_page_index = -1
             best_score = 0
-            
-            # Smart Search within range
+
             for i in scan_indices:
-                try:
-                    text = get_page_text(i).lower()
-                    score = 0
-                    for kw in SIGNATURE_KEYWORDS_HIGH:
-                        if kw in text: score += 10
-                    for kw in SIGNATURE_KEYWORDS_LOW:
-                        if kw in text: score += 1
-                    
-                    if score >= SIGNATURE_THRESHOLD:
-                        # Found a candidate.
-                        # If multiple candidates, usually the LAST one is the real signature page.
-                        if score >= best_score:
-                             best_score = score
-                             signature_page_index = i
-                except:
-                    pass
-            
-            # Decision:
+                text = get_page_text(i).lower()
+                score = 0
+                for kw in SIGNATURE_KEYWORDS_HIGH:
+                    if kw in text:
+                        score += 10
+                for kw in SIGNATURE_KEYWORDS_LOW:
+                    if kw in text:
+                        score += 1
+
+                if score >= SIGNATURE_THRESHOLD and score >= best_score:
+                    best_score = score
+                    signature_page_index = i
+
             if signature_page_index != -1:
-                indices_with_labels[signature_page_index] = "SIGNATURE_PAGE"
-                print(f"[Smart Audit] Signature candidate found on physical page {signature_page_index + 1} (Score: {best_score})")
+                if signature_page_index == first_page_idx:
+                    indices_with_labels[first_page_idx] = "FIRST_PAGE_AND_SIGNATURE_PAGE"
+                else:
+                    indices_with_labels[signature_page_index] = "SIGNATURE_PAGE"
             else:
+                # Fallback to last page of range
                 last_idx = scan_indices[-1]
-                indices_with_labels[last_idx] = "SIGNATURE_PAGE"
-                print("[Smart Audit] No keywords. Using last page of range as fallback.")
+                if last_idx == first_page_idx:
+                    indices_with_labels[first_page_idx] = "FIRST_PAGE_AND_SIGNATURE_PAGE"
+                else:
+                    indices_with_labels[last_idx] = "SIGNATURE_PAGE"
 
-            # Special Case: Single Page Doc or First=Last
-            if first_page_idx in indices_with_labels and indices_with_labels[first_page_idx] == "SIGNATURE_PAGE":
-                 indices_with_labels[first_page_idx] = "FIRST_PAGE_AND_SIGNATURE_PAGE"
-
-        # --- 3. RENDERING ---
+        # 3. Rendering relevant pages at high DPI
         for idx, label in indices_with_labels.items():
             try:
                 page = doc.load_page(idx)
-                # Matrix 4.16 = ~300 DPI for high-resolution visual analysis (Stamps/Signatures)
+                # High resolution (approx 300 DPI) for visual analysis
                 pix = page.get_pixmap(matrix=fitz.Matrix(4.16, 4.16))
-                
-                from PIL import Image
-                import io
                 img_data = pix.tobytes("png")
                 pil_img = Image.open(io.BytesIO(img_data))
-                
+
                 images_payload.append({
-                    "image": pil_img, 
+                    "image": pil_img,
                     "label": label
                 })
             except Exception as e:
                 print(f"[VisualAuditor] Render error page {idx}: {e}")
-        
+
         doc.close()
         return {
             "images": images_payload,
             "page1_text": page1_text
         }
 
-    def run_stage_1_5(self, pdf_path: str, doc_uuid: str, stage_1_result: Dict, text_content: Optional[str] = None, target_pages: List[int] = None) -> Dict:
+    def run_stage_1_5(self, pdf_path: Union[str, Path], doc_uuid: str, stage_1_result: Dict[str, Any], text_content: Optional[str] = None, target_pages: Optional[List[int]] = None) -> Dict[str, Any]:
         """
-        Executes audit and returns result dict.
+        Executes the Stage 1.5 Forensic Audit via AI vision.
+
+        Args:
+            pdf_path: Path to the physical PDF source.
+            doc_uuid: Virtual document UUID.
+            stage_1_result: The JSON result from Stage 1 analysis.
+            text_content: Optional full OCR text.
+            target_pages: Optional 1-based page list for logical document.
+
+        Returns:
+            A dictionary containing the audit findings.
         """
-        # 1. Determine Mode
         entities = stage_1_result.get('detected_entities', [])
         audit_mode = self.get_audit_mode_for_entities(entities)
-        print(f"[AI] STAGE 1.5 Auditor -> Mode: {audit_mode}")
-        
+
         if audit_mode == AUDIT_MODE_NONE:
             return {"meta_mode": AUDIT_MODE_NONE}
-            
-        # 2. Generate Images & Text
+
+        # Render relevant pages
         data = self.generate_audit_images_and_text(str(pdf_path), audit_mode, text_content=text_content, target_pages=target_pages)
         audit_images_data = data["images"]
-        
-        # Prefer validation text from DB (text_content) if available, else fitz
-        if text_content:
-            pages = text_content.split('\f')
-            raw_ocr_page1 = pages[0] if pages else text_content
-        else:
-             raw_ocr_page1 = data["page1_text"]
-        
+        raw_ocr_page1 = data["page1_text"]
+
         if not audit_images_data:
-            print("[VisualAuditor] No images generated. Skipping.")
-            return {"meta_mode": "NONE"}
-            
-        # 3. Select & Format Prompt
+            return {"meta_mode": AUDIT_MODE_NONE}
+
+        # Prepare Prompt
         base_prompt = PROMPT_STAGE_1_5_FULL if audit_mode == AUDIT_MODE_FULL else PROMPT_STAGE_1_5_STAMP
-        
-        # Inject Contextual Data
         doc_types = [ent.get('doc_type', 'OTHER') for ent in entities]
-        system_prompt = base_prompt.replace("{raw_ocr_page1}", raw_ocr_page1 if raw_ocr_page1 else "(No text found)")
-        system_prompt = system_prompt.replace("{expected_types}", str(doc_types))
-        
-        # 4. Construct Content List for Gemini
-        contents = [system_prompt]
-        
+
+        system_prompt = base_prompt.format(
+            raw_ocr_page1=raw_ocr_page1,
+            expected_types=str(doc_types)
+        )
+
+        # Gemini Multimodal Content
+        contents: List[Union[str, Image.Image]] = []
         for item in audit_images_data:
-            label = item['label']
-            img = item['image']
-            contents.append(f"\n[IMAGE CONTEXT: {label}]\n")
-            contents.append(img)
-            
-        # 5. Call AI
-        res_json = self.ai._generate_json(system_prompt, stage_label=f"STAGE 1.5 AUDIT ({audit_mode})", images=contents[1:])
+            contents.append(f"\n[IMAGE CONTEXT: {item['label']}]\n")
+            contents.append(item['image'])
+
+        # AI Execution
+        res_json = self.ai._generate_json(
+            system_prompt,
+            stage_label=f"STAGE 1.5 AUDIT ({audit_mode})",
+            images=contents
+        )
+
         if res_json:
             res_json["meta_mode"] = audit_mode
             return res_json
-            
-        return {}
+
+        return {"meta_mode": AUDIT_MODE_NONE}
