@@ -57,12 +57,13 @@ class ScannerDriver(ABC):
         pass
 
     @abstractmethod
-    def get_resolution_list(self, device_name: str) -> List[int]:
+    def get_resolution_list(self, device_name: str, source: Optional[str] = None) -> List[int]:
         """
         Returns a list of supported resolutions (DPI).
 
         Args:
             device_name: The name/ID of the scanner device.
+            source: Optional paper source to query resolutions for.
 
         Returns:
             A list of supported resolutions in DPI.
@@ -139,12 +140,13 @@ class MockScanner(ScannerDriver):
         """
         return ["Flatbed", "ADF", "ADF Duplex"]
 
-    def get_resolution_list(self, device_name: str) -> List[int]:
+    def get_resolution_list(self, device_name: str, source: Optional[str] = None) -> List[int]:
         """
         Returns mock resolution list.
 
         Args:
             device_name: Device name (ignored).
+            source: Paper source (ignored).
 
         Returns:
             List of supported resolutions.
@@ -252,10 +254,9 @@ class SaneScanner(ScannerDriver):
         try:
             import time
 
-            time.sleep(0.2)  # Give device a moment
+            time.sleep(0.3)  # Give device a moment
             dev = sane.open(device_name)
             opts = {opt[1]: opt for opt in dev.get_options()}
-            print(f"DEBUG: All SANE options for {device_name}: {list(opts.keys())}")
             sources = []
             if "source" in opts:
                 try:
@@ -269,12 +270,13 @@ class SaneScanner(ScannerDriver):
             print(f"DEBUG: get_source_list failed for {device_name}: {e}")
             return ["Flatbed", "ADF"]
 
-    def get_resolution_list(self, device_name: str) -> List[int]:
+    def get_resolution_list(self, device_name: str, source: Optional[str] = None) -> List[int]:
         """
         Returns a list of supported resolutions (DPI) for the given device.
 
         Args:
             device_name: The name of the SANE device.
+            source: Optional paper source to query resolutions for.
 
         Returns:
             A list of supported resolutions in DPI.
@@ -284,8 +286,15 @@ class SaneScanner(ScannerDriver):
         try:
             import time
 
-            time.sleep(0.1)
+            time.sleep(0.2)
             dev = sane.open(device_name)
+            
+            if source:
+                try:
+                    dev.source = source
+                except Exception as e:
+                    print(f"DEBUG: Could not set source {source} for resolution query: {e}")
+
             opts = {opt[1]: opt for opt in dev.get_options()}
             resolutions = []
             if "resolution" in opts:

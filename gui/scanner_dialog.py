@@ -245,6 +245,12 @@ class ScannerDialog(QDialog):
             self.settings.setValue("last_device_label", self.device_combo.currentText())
         
         self.settings.setValue("last_dpi", self.dpi_combo.currentData())
+        
+        # Save source-specific DPI
+        src = self.source_combo.currentText()
+        if src:
+            self.settings.setValue(f"last_dpi_{src}", self.dpi_combo.currentData())
+            
         self.settings.setValue("last_mode", self.mode_combo.currentData())
         self.settings.setValue("last_page_format", self.format_combo.currentData())
         self.settings.setValue("last_source", self.source_combo.currentText())
@@ -264,32 +270,49 @@ class ScannerDialog(QDialog):
         last_src = self.settings.value("last_source")
         if last_src:
              idx = self.source_combo.findText(last_src)
-             if idx >= 0: self.source_combo.setCurrentIndex(idx)
+             if idx >= 0: 
+                 self.source_combo.setCurrentIndex(idx)
+             else:
+                 # If last source not found (e.g. backend changed), trigger manually
+                 self._on_source_changed(self.source_combo.currentIndex())
+        else:
+             # Initial trigger
+             self._on_source_changed(self.source_combo.currentIndex())
+
+    def _on_source_changed(self, index):
+        """Update UI based on source (e.g. Duplex options and resolutions)."""
+        device_id = self.device_combo.currentData()
+        src = self.source_combo.currentText()
+        if not device_id or not src: 
+            return
+
+        # 1. Handle Duplex UI
+        is_duplex = any(kw in src for kw in ["Duplex", "Beidseitig", "Zweiseitig"])
+        self.duplex_settings.setVisible(is_duplex)
         
-        # Update resolutions
-        res_list = self.driver.get_resolution_list(device_id)
+        # 2. Update resolutions for THIS source
+        res_list = self.driver.get_resolution_list(device_id, source=src)
+        self.dpi_combo.blockSignals(True)
         self.dpi_combo.clear()
         for res in res_list:
             self.dpi_combo.addItem(f"{res} dpi", str(res))
             
-        # Try to restore last DPI or default to 200
-        target_dpi = getattr(self, "_temp_last_dpi", "200")
-        idx = self.dpi_combo.findData(target_dpi)
+        # 3. Restore last DPI for THIS source, or general last, or default 200
+        source_dpi = self.settings.value(f"last_dpi_{src}")
+        general_dpi = self.settings.value("last_dpi", "200")
+        target_dpi = source_dpi if source_dpi else general_dpi
+        
+        idx = self.dpi_combo.findData(str(target_dpi))
         if idx >= 0:
             self.dpi_combo.setCurrentIndex(idx)
         else:
-            # Fallback to 200 if available, or closest
             idx_200 = self.dpi_combo.findData("200")
             if idx_200 >= 0:
                 self.dpi_combo.setCurrentIndex(idx_200)
             elif self.dpi_combo.count() > 0:
                 self.dpi_combo.setCurrentIndex(0)
-
-    def _on_source_changed(self, index):
-        """Update UI based on source (e.g. Duplex options)."""
-        src = self.source_combo.currentText()
-        is_duplex = any(kw in src for kw in ["Duplex", "Beidseitig", "Zweiseitig"])
-        self.duplex_settings.setVisible(is_duplex)
+        
+        self.dpi_combo.blockSignals(False)
         QTimer.singleShot(50, self.adjustSize)
             
     def _start_discovery(self):
