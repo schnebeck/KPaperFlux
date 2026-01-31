@@ -2,29 +2,33 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/database.py
-Version:        1.1.0
+Version:        1.2.0
 Producer:       thorsten.schnebeck@gmx.net
-Generator:      Gemini 3pro
-Description:    Manages SQLite database connections and schema. Provides
-                a high-level API for interacting with document metadata,
-                physical files, and advanced filtering/search.
+Generator:      Antigravity
+Description:    Central database manager for SQLite persistence. Handles 
+                schema initialization, migrations, and complex domain-specific 
+                queries for physical files and virtual documents. Implements 
+                FTS5 search and advanced nested filtering logic.
 ------------------------------------------------------------------------------
 """
 
-import sqlite3
 import json
-import uuid
+import sqlite3
 import traceback
-from typing import Optional, List, Any, Dict, Tuple, Set
-from decimal import Decimal
+import uuid
 from datetime import datetime
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
 from core.document import Document
+
 
 class DatabaseManager:
     """
-    Manages SQLite database connections and schema.
+    Manages SQLite database connections, schema migrations, and high-level
+    API for document persistence and retrieval.
     """
-    
+
     def __init__(self, db_path: str = "kpaperflux.db") -> None:
         """
         Initializes the DatabaseManager.
@@ -32,25 +36,24 @@ class DatabaseManager:
         Args:
             db_path: Path to the SQLite database file.
         """
-        self.db_path = db_path
+        self.db_path: str = db_path
         self.connection: Optional[sqlite3.Connection] = None
         self._connect()
 
     def _connect(self) -> None:
         """
         Establishes a connection to the database and configures performance PRAGMAs.
+        Enables WAL mode and foreign key constraints.
         """
-        # check_same_thread=False allows using the connection across threads (Worker support)
+        # check_same_thread=False allows using the connection across worker threads
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
-        # Enable foreign keys
         self.connection.execute("PRAGMA foreign_keys = ON")
-        # Enable WAL mode for better concurrency
         self.connection.execute("PRAGMA journal_mode = WAL")
 
     def init_db(self) -> None:
         """
-        Initializes the database schema if it does not exist.
-        Handles migrations for various project phases.
+        Initializes the database schema and handles migrations for all components.
+        Creates tables for physical files, virtual documents, and FTS5 search index.
         """
         create_physical_files_table = """
         CREATE TABLE IF NOT EXISTS physical_files (
@@ -80,12 +83,8 @@ class DatabaseManager:
             semantic_data TEXT, -- JSON of Canonical Data
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             deleted INTEGER DEFAULT 0,
-            
-            -- Stage 0/1 Powerhouse: Generated Count
             page_count_virt INTEGER DEFAULT 0,
             type_tags TEXT, -- JSON List of strings
-            
-            -- Filter Columns (Phase 105)
             sender TEXT,
             doc_date TEXT,
             amount REAL,
@@ -93,6 +92,7 @@ class DatabaseManager:
         );
         """
 
+        # Using FTS5 for efficient full-text search across content and metadata
         create_virtual_documents_fts = """
         CREATE VIRTUAL TABLE IF NOT EXISTS virtual_documents_fts USING fts5(
             uuid UNINDEXED,
@@ -112,37 +112,36 @@ class DatabaseManager:
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_virtual_documents_fts)
 
-            # Migration: Ensure type_tags exists if table was created earlier
-            try:
-                self.connection.execute("ALTER TABLE virtual_documents ADD COLUMN type_tags TEXT")
-            except sqlite3.OperationalError:
-                pass  # Already exists
-
-            # Phase 105 Filter Column Migrations
-            for col, col_type in [("sender", "TEXT"), ("doc_date", "TEXT"), ("amount", "REAL"), ("tags", "TEXT")]:
+            # Migration: Ensure all columns exist for existing installations
+            cols_to_add = [
+                ("type_tags", "TEXT"),
+                ("sender", "TEXT"),
+                ("doc_date", "TEXT"),
+                ("amount", "REAL"),
+                ("tags", "TEXT")
+            ]
+            for col, col_type in cols_to_add:
                 try:
                     self.connection.execute(f"ALTER TABLE virtual_documents ADD COLUMN {col} {col_type}")
                 except sqlite3.OperationalError:
-                    pass
+                    pass  # Column already exists
 
-            # Phase 106: Auto-Tagging Rules migrated to FilterTree
+            # Cleanup legacy artifacts
             self.connection.execute("DROP TABLE IF EXISTS tagging_rules")
-
-            # Ensure legacy view is gone
             self.connection.execute("DROP VIEW IF EXISTS documents")
             self._create_fts_triggers()
 
     def matches_condition(self, entity_uuid: str, query_dict: Dict[str, Any]) -> bool:
         """
-        Phase 106: Check if a specific document matches a rule's filter conditions.
-        Uses the existing SQL-based filter engine.
+        Checks if a specific document matches a set of filter conditions.
+        Used by the RulesEngine for automated tagging.
 
         Args:
-            entity_uuid: The UUID of the virtual document to check.
-            query_dict: A dictionary representing the search/filter criteria.
+            entity_uuid: The UUID of the virtual document to evaluate.
+            query_dict: A dictionary defining the search/filter criteria.
 
         Returns:
-            True if the document matches the conditions, False otherwise.
+            True if the document fulfills the conditions.
         """
         if not self.connection:
             return False
@@ -159,27 +158,24 @@ class DatabaseManager:
             return cursor.fetchone() is not None
         except sqlite3.Error as e:
             print(f"[DB] Error in matches_condition: {e}")
-            traceback.print_exc()
             return False
-
-
-
 
     def update_document_metadata(self, uuid: str, updates: Dict[str, Any]) -> bool:
         """
         Updates specific fields of a virtual document in the database.
+        Handles serialization of complex types (lists, dicts).
 
         Args:
             uuid: The UUID of the document to update.
             updates: A dictionary of fields and their new values.
 
         Returns:
-            True if the update was successful, False otherwise.
+            True if at least one field was updated successfully.
         """
         if not self.connection or not updates:
             return False
 
-        # Whitelist of allowed fields for Stage 0/1/2
+        # Whitelist of fields allowed for direct update
         allowed = [
             "status", "export_filename", "deleted", "is_immutable", "locked",
             "type_tags", "cached_full_text", "last_used", "last_processed_at",
@@ -204,28 +200,37 @@ class DatabaseManager:
             return True
         return False
 
-    def touch_last_used(self, uuid: str):
-        """Update last_used timestamp to current local time."""
-        from datetime import datetime
+    def touch_last_used(self, uuid: str) -> None:
+        """
+        Updates the legacy 'last_used' timestamp to current local time.
+
+        Args:
+            uuid: The document UUID to update.
+        """
         now = datetime.now().isoformat()
         self.update_document_metadata(uuid, {"last_used": now})
 
-    def update_document_status(self, uuid: str, new_status: str):
-        """Helper to update status in virtual_documents."""
+    def update_document_status(self, uuid: str, new_status: str) -> None:
+        """
+        Direct helper to update a document's status.
+
+        Args:
+            uuid: The document identifier.
+            new_status: The new status string (e.g., 'PROCESSED').
+        """
         sql = "UPDATE virtual_documents SET status = ? WHERE uuid = ?"
         with self.connection:
             self.connection.execute(sql, (new_status, uuid))
 
-
     def get_document_by_uuid(self, uuid: str) -> Optional[Document]:
         """
-        Fetches a single document by its UUID.
+        Retrieves a single virtual document by its unique UUID.
 
         Args:
-            uuid: The UUID of the virtual document.
+            uuid: The document UUID.
 
         Returns:
-            A Document object if found, None otherwise.
+            A populated Document object if found, else None.
         """
         if not self.connection:
             return None
@@ -247,8 +252,13 @@ class DatabaseManager:
             return self._row_to_doc(row)
         return None
 
-    def reset_document_for_reanalysis(self, uuid: str):
-        """Phase 102: Reset logical entity status for fresh AI processing without deleting the row."""
+    def reset_document_for_reanalysis(self, uuid: str) -> None:
+        """
+        Resets a document's status and AI-derived metadata for fresh processing.
+
+        Args:
+            uuid: The UUID of the document to reset.
+        """
         sql = """
             UPDATE virtual_documents 
             SET status = 'NEW', 
@@ -260,8 +270,13 @@ class DatabaseManager:
         with self.connection:
             self.connection.execute(sql, (uuid,))
 
-    def queue_for_semantic_extraction(self, uuids: list[str]):
-        """Phase 107: Queue documents for Stage 2 processing skip Stage 1."""
+    def queue_for_semantic_extraction(self, uuids: List[str]) -> None:
+        """
+        Queues documents for Stage 2 processing (Semantic Extraction).
+
+        Args:
+            uuids: List of document identifiers to queue.
+        """
         sql = """
             UPDATE virtual_documents 
             SET status = 'STAGE2_PENDING'
@@ -273,18 +288,27 @@ class DatabaseManager:
 
     def get_deleted_documents(self) -> List[Document]:
         """
-        Wrapper for UI: Trash Bin now shows Deleted Semantic Entities.
-        The physical document is just a container.
+        Retrieves all documents currently marked as deleted (Trash Bin).
+
+        Returns:
+            A list of soft-deleted Document objects.
         """
         return self.get_deleted_entities_view()
-    def get_available_extra_keys(self) -> list[str]:
+
+    def get_available_extra_keys(self) -> List[str]:
         """
-        Scan all documents for unique keys in JSON data.
+        Scans all documents to identify unique keys present in JSON metadata.
+
+        Returns:
+            A sorted list of flattened keys (e.g., 'semantic:total_amount').
         """
-        keys = set()
+        keys: Set[str] = set()
+        if not self.connection:
+            return []
+
         cursor = self.connection.cursor()
         
-        # 1. Semantic Data Keys (AI Results)
+        # 1. Extract from AI Results (Semantic Data)
         try:
             cursor.execute("SELECT semantic_data FROM virtual_documents WHERE semantic_data IS NOT NULL")
             for row in cursor.fetchall():
@@ -293,20 +317,28 @@ class DatabaseManager:
                         data = json.loads(row[0])
                         if isinstance(data, dict):
                              self._extract_keys_recursive(data, keys, prefix="semantic:")
-                    except: pass
-        except: pass
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+        except sqlite3.Error:
+            pass
 
-        # 2. Add Stamp Labels (Phase 105: Dynamic Stamps)
+        # 2. Extract from Stamp Labels
         for label in self.get_unique_stamp_labels():
             keys.add(f"stamp_field:{label}")
                         
         return sorted(list(keys))
 
-    def _extract_keys_recursive(self, obj, keys_set, prefix=""):
-        """Helper to flatten JSON keys."""
+    def _extract_keys_recursive(self, obj: Any, keys_set: Set[str], prefix: str = "") -> None:
+        """
+        Recursively flattens JSON keys into a dot-notated set.
+
+        Args:
+            obj: The object to traverse.
+            keys_set: The set to populate with keys.
+            prefix: The current prefix for nested keys.
+        """
         if isinstance(obj, dict):
             for k, v in obj.items():
-                # Avoid appending dot if prefix ends with colon (json:key instead of json:.key)
                 sep = "." if prefix and not prefix.endswith(":") else ""
                 new_prefix = f"{prefix}{sep}{k}"
                 
@@ -319,19 +351,23 @@ class DatabaseManager:
                              self._extract_keys_recursive(item, keys_set, new_prefix)
                 else:
                      keys_set.add(new_prefix)
-            
 
-    def search_documents_advanced(self, query: dict) -> List[Document]:
+    def search_documents_advanced(self, query: Dict[str, Any]) -> List[Document]:
         """
-        Search Virtual Documents using a structured nested query object.
+        Performs an advanced search using a nested query structure.
+
+        Args:
+            query: Structured query dictionary with conditions and operators.
+
+        Returns:
+            A list of matching Document objects.
         """
-        if not query or not query.get("conditions") and not query.get("field"):
+        if not query or (not query.get("conditions") and not query.get("field")):
              return self.get_all_entities_view()
 
         where_clause, params = self._build_where_clause(query)
         
-        # Phase 105 Fix: Ensure we don't return deleted documents by default in Advanced Search
-        # unless specifically filtered for 'deleted' (Trash Mode).
+        # Exclude deleted documents unless explicitly searched
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
             
@@ -351,14 +387,17 @@ class DatabaseManager:
         cursor.execute(sql, params)
         rows = cursor.fetchall()
         
-        results = []
-        for row in rows:
-            results.append(self._row_to_doc(row))
-        return results
+        return [self._row_to_doc(row) for row in rows]
 
-    def count_documents_advanced(self, query: dict) -> int:
+    def count_documents_advanced(self, query: Dict[str, Any]) -> int:
         """
-        Efficiently count documents matching an advanced query.
+        Returns the number of documents matching an advanced query.
+
+        Args:
+            query: Structured query dictionary.
+
+        Returns:
+            The count of matching records.
         """
         if not query or (not query.get("conditions") and not query.get("field")):
             return self.count_documents()
@@ -374,25 +413,21 @@ class DatabaseManager:
 
     def _build_where_clause(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
         """
-        Recursively builds a SQL WHERE clause from a nested query dictionary.
+        Recursively translates a query node into SQL WHERE fragments.
 
         Args:
-            node: A dictionary representing a query node (condition or group).
+            node: The query node (condition or group).
 
         Returns:
-            A tuple containing the SQL string and the list of parameters.
+            A tuple of (SQL string, parameters list).
         """
         if "field" in node:
-            # Single condition
             field = node["field"]
             op = node["op"]
             val = node.get("value")
             negate = node.get("negate", False)
 
-            # 1. Map Field to SQL Expression
             expr = self._map_field_to_sql(field)
-
-            # 2. Map Operator to SQL
             clause, params = self._map_op_to_sql(expr, op, val)
 
             if negate:
@@ -400,8 +435,7 @@ class DatabaseManager:
             return clause, params
 
         if "conditions" in node:
-            # A group (AND/OR)
-            logic_op = node.get("operator", "AND").upper()
+            logic_op = str(node.get("operator", "AND")).upper()
             sub_clauses = []
             all_params = []
 
@@ -419,8 +453,16 @@ class DatabaseManager:
         return "1=1", []
 
     def _map_field_to_sql(self, field: str) -> str:
-        """Maps virtual field keys to SQL column expressions or JSON extractions."""
-        # Simple Mappings
+        """
+        Maps logical field names to database-level SQL expressions.
+        Supports direct columns and nested JSON paths.
+
+        Args:
+            field: The logical field name.
+
+        Returns:
+            A SQL expression string.
+        """
         mapping = {
             "uuid": "uuid",
             "status": "status",
@@ -431,23 +473,21 @@ class DatabaseManager:
             "cached_full_text": "cached_full_text",
             "original_filename": "export_filename",
             "deleted": "deleted",
-            
-            # Stage 1 Direct fields
-            "type_tags": "type_tags", # JSON array
-            "tags": "tags",           # JSON array (User)
+            "type_tags": "type_tags",
+            "tags": "tags",
             "sender": "sender",
             "doc_date": "doc_date",
             "amount": "amount",
             
-            # Stage 1 Semantic fields (nested in semantic_data)
+            # Semantic shortcuts
             "direction": "json_extract(semantic_data, '$.direction')",
             "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
             "confidence": "json_extract(semantic_data, '$.confidence')",
             "reasoning": "json_extract(semantic_data, '$.reasoning')",
-            "doc_type": "json_extract(semantic_data, '$.doc_types[0]')", # First one as primary for simple search
+            "doc_type": "json_extract(semantic_data, '$.doc_types[0]')",
             "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
             
-            # Phase 105: Visual Audit / Stamps
+            # Forensic/Stamp aggregations
             "stamp_text": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.raw_content'), '')) "
                           "FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), "
                           "json_extract(semantic_data, '$.layer_stamps'))) AS s)",
@@ -459,37 +499,34 @@ class DatabaseManager:
         if field in mapping:
             return mapping[field]
             
-        # JSON Path Fallback
-        if field.startswith("json:"):
-            path = field[5:]
-            return f"json_extract(semantic_data, '$.{path}')"
-        if field.startswith("semantic:"):
-            path = field[9:]
+        # Dynamic JSON mapping
+        if field.startswith("json:") or field.startswith("semantic:"):
+            path = field.split(":", 1)[1]
             return f"json_extract(semantic_data, '$.{path}')"
             
-        # Dynamic Stamp Fields (Phase 105)
+        # Dynamic Stamp Form Fields
         if field.startswith("stamp_field:"):
              label = field[12:]
-             # Return subquery that aggregates values for THIS label from all stamps
-             return f"(SELECT group_concat(COALESCE(json_extract(f.value, '$.normalized_value'), json_extract(f.value, '$.raw_value'))) " \
+             return f"(SELECT group_concat(COALESCE(json_extract(f.value, '$.normalized_value'), " \
+                    f"json_extract(f.value, '$.raw_value'))) " \
                     f" FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), " \
                     f" json_extract(semantic_data, '$.layer_stamps'))) AS s, " \
                     f" json_each(json_extract(s.value, '$.form_fields')) AS f " \
                     f" WHERE json_extract(f.value, '$.label') = '{label}')"
             
-        return field # fallback
+        return field
 
     def _map_op_to_sql(self, expr: str, op: str, val: Any) -> Tuple[str, List[Any]]:
         """
-        Translates an abstract operator and value into a SQL clause and parameters.
+        Translates a logical operator and value into a SQL condition.
 
         Args:
-            expr: The SQL expression for the field.
-            op: The operator (e.g., 'equals', 'contains').
-            val: The comparison value.
+            expr: The SQL field expression.
+            op: The operator key.
+            val: The value to compare against.
 
         Returns:
-            A tuple containing the SQL fragment and parameters.
+            A tuple of (SQL condition string, parameters list).
         """
         if op == "equals":
             if isinstance(val, list):
@@ -501,7 +538,7 @@ class DatabaseManager:
 
         if op == "contains":
             if expr in ["type_tags", "tags"]:
-                # Precise JSON array element match
+                # JSON array intersection logic
                 if isinstance(val, list):
                     if not val:
                         return "1=1", []
@@ -520,29 +557,15 @@ class DatabaseManager:
         if op == "starts_with":
             return f"{expr} LIKE ?", [f"{val}%"]
 
-        if op == "gt":
-            return f"{expr} > ?", [val]
-
-        if op == "gte":
-            return f"{expr} >= ?", [val]
-
-        if op == "lt":
-            return f"{expr} < ?", [val]
-
-        if op == "lte":
-            return f"{expr} <= ?", [val]
+        if op in ["gt", "gte", "lt", "lte"]:
+            sql_ops = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
+            return f"{expr} {sql_ops[op]} ?", [val]
 
         if op == "is_empty":
             return f"{expr} IS NULL OR {expr} = ''", []
 
         if op == "is_not_empty":
             return f"{expr} IS NOT NULL AND {expr} != ''", []
-
-        if op == "in":
-            if not isinstance(val, list):
-                val = [val]
-            placeholders = ", ".join(["?" for _ in val])
-            return f"{expr} COLLATE NOCASE IN ({placeholders})", val
 
         if op == "between":
             if isinstance(val, list) and len(val) == 2:
@@ -552,8 +575,10 @@ class DatabaseManager:
 
     def get_all_entities_view(self) -> List[Document]:
         """
-        Primary data view for Stage 0/1 Documents.
-        Targeting: virtual_documents.
+        Retrieves all active (non-deleted) logical documents.
+
+        Returns:
+            A list of Document objects ordered by creation date.
         """
         sql = """
             SELECT uuid, source_mapping, status, 
@@ -574,19 +599,14 @@ class DatabaseManager:
 
     def _row_to_doc(self, row: Tuple[Any, ...]) -> Document:
         """
-        Helper to convert a database row to a Document object.
+        Converts a database result tuple into a fully hydrated Document object.
 
         Args:
-            row: A tuple returned by a database query.
+            row: The raw database row tuple.
 
         Returns:
-            A populated Document object.
+            A validated Document instance.
         """
-        # Index Map:
-        # 0:uuid, 1:source_mapping, 2:status, 3:filename, 4:page_count, 5:created_at,
-        # 6:locked, 7:type_tags, 8:cached_full_text, 9:last_used, 10:last_processed_at, 11:semantic_data
-        # 12:sender, 13:doc_date, 14:amount, 15:tags
-
         def safe_json_load(data: Optional[str], default: Any = None) -> Any:
             if not data:
                 return default
@@ -599,11 +619,11 @@ class DatabaseManager:
         semantic_data = safe_json_load(row[11] if len(row) > 11 else None, {})
         tags_raw = row[15] if len(row) > 15 else None
 
-        tags = []
+        tags: List[str] = []
         if tags_raw:
             try:
                 tags = json.loads(tags_raw)
-                if isinstance(tags, str):  # Handle legacy CSV format
+                if isinstance(tags, str):
                     tags = [t.strip() for t in tags.split(",") if t.strip()]
             except (json.JSONDecodeError, TypeError):
                 if isinstance(tags_raw, str):
@@ -630,31 +650,21 @@ class DatabaseManager:
             "tags": tags,
         }
 
+        # Merge semantic fields into the main document body for Pydantic mapping
         if semantic_data and isinstance(semantic_data, dict):
             doc_data.update(semantic_data)
 
-        # Ensure type consistency (doc_type is not in the row directly but often in semantic_data)
         return Document(**doc_data)
-
-
-    def _parse_amount_safe(self, val):
-        """Helper to parse amount strings that might contain commas."""
-        if val is None:
-            return None
-        if isinstance(val, (int, float)):
-            return float(val)
-        if isinstance(val, str):
-            # Replace German comma with dot
-            clean_val = val.replace(",", ".")
-            try:
-                return float(clean_val)
-            except ValueError:
-                return None
-        return None
 
     def search_documents(self, search_text: str) -> List[Document]:
         """
-        FTS5 Search across virtual_documents.
+        Performs a full-text search across all documents using FTS5.
+
+        Args:
+            search_text: The query string.
+
+        Returns:
+            A ranked list of matching Document objects.
         """
         if not search_text:
             return self.get_all_entities_view()
@@ -676,20 +686,16 @@ class DatabaseManager:
         
         return [self._row_to_doc(row) for row in rows]
 
-
     def delete_document(self, uuid: str) -> bool:
         """
-        Marks a document as deleted (Soft Delete).
+        Performs a soft-delete on a document.
 
         Args:
-            uuid: The UUID of the document to delete.
+            uuid: The document UUID to mark as deleted.
 
         Returns:
-            True if the operation was successful, False otherwise.
+            True if successful.
         """
-        if not self.connection:
-            return False
-
         sql = "UPDATE virtual_documents SET deleted = 1 WHERE uuid = ?"
         with self.connection:
             self.connection.execute(sql, (uuid,))
@@ -697,43 +703,52 @@ class DatabaseManager:
 
     def purge_document(self, uuid: str) -> bool:
         """
-        Permanently delete a document by its UUID (Hard Delete).
+        Permanently deletes a document record and its FTS entry.
+
+        Args:
+            uuid: The document UUID.
+
+        Returns:
+            True if successful.
         """
         sql = "DELETE FROM virtual_documents WHERE uuid = ?"
         with self.connection:
             self.connection.execute(sql, (uuid,))
             return self.connection.total_changes > 0
 
-    def purge_entities_for_source(self, source_uuid: str):
-        """Hard delete all virtual documents linked to this physical source."""
+    def purge_entities_for_source(self, source_uuid: str) -> None:
+        """
+        Hard deletes all logical entities referencing a specific physical source.
+
+        Args:
+            source_uuid: The UUID of the physical source.
+        """
         sql = "DELETE FROM virtual_documents WHERE source_mapping LIKE ?"
         with self.connection:
             self.connection.execute(sql, (f'%{source_uuid}%',))
 
     def restore_document(self, uuid: str) -> bool:
         """
-        Restores a soft-deleted document (moves it from Trash back to Active).
+        Restores a document from the trash bin.
 
         Args:
-            uuid: The UUID of the document to restore.
+            uuid: The identifier of the document to restore.
 
         Returns:
-            True if the document was restored, False otherwise.
+            True if successful.
         """
-        if not self.connection:
-            return False
-
         sql = "UPDATE virtual_documents SET deleted = 0 WHERE uuid = ?"
         with self.connection:
             self.connection.execute(sql, (uuid,))
             return self.connection.total_changes > 0
 
-    # --- Stage 2 Maintenance Functions ---
-
     def get_documents_missing_semantic_data(self) -> List[Document]:
         """
-        Fetch documents where status is 'PROCESSED' but semantic_data is missing or empty.
-        Excluded deleted and immutable documents.
+        Identifies documents that lack structural semantic metadata.
+        Used for maintenance and catch-up processing.
+
+        Returns:
+            List of incomplete Document objects.
         """
         sql = """
             SELECT uuid, source_mapping, status, 
@@ -745,7 +760,8 @@ class DatabaseManager:
             FROM virtual_documents
             WHERE deleted = 0 
               AND is_immutable = 0
-              AND (semantic_data IS NULL OR semantic_data = '{}' OR json_extract(semantic_data, '$.bodies') IS NULL OR json_extract(semantic_data, '$.bodies') = '{}')
+              AND (semantic_data IS NULL OR semantic_data = '{}' OR 
+                   json_extract(semantic_data, '$.bodies') IS NULL)
             ORDER BY created_at DESC
         """
         cursor = self.connection.cursor()
@@ -755,19 +771,12 @@ class DatabaseManager:
 
     def get_documents_mismatched_semantic_data(self) -> List[Document]:
         """
-        Fetch documents where semantic_data contents do not align with current type_tags.
-        Logic: If a tag like 'INVOICE' is present, we expect a 'finance_body' in semantic_data['bodies'].
+        Forensic check for Documents whose semantic bodies don't match their type tags.
+        Example: Document tagged as INVOICE but missing a 'finance_body'.
+
+        Returns:
+            List of documents requiring re-analysis.
         """
-        # We'll fetch all processed docs and filter in Python for complex logic
-        # Or we can try some JSON SQL
-        
-        # Heuristic: 
-        # INVOICE -> bodies.finance_body
-        # CONTRACT -> bodies.legal_body
-        # BANK_STATEMENT -> bodies.ledger_body
-        # PAYSLIP -> bodies.hr_body
-        # MEDICAL_DOCUMENT -> bodies.health_body
-        
         sql = """
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
@@ -786,7 +795,17 @@ class DatabaseManager:
         rows = cursor.fetchall()
         
         all_docs = [self._row_to_doc(row) for row in rows]
-        mismatched = []
+        mismatched: List[Document] = []
+        
+        # Mappings of Tag -> Expected Semantic Body
+        body_mapping = {
+            "INVOICE": "finance_body", "RECEIPT": "finance_body",
+            "ORDER_CONFIRMATION": "finance_body", "DUNNING": "finance_body",
+            "BANK_STATEMENT": "ledger_body", "CONTRACT": "legal_body",
+            "OFFICIAL_LETTER": "legal_body", "PAYSLIP": "hr_body",
+            "MEDICAL_DOCUMENT": "health_body", "UTILITY_BILL": "finance_body",
+            "EXPENSE_REPORT": "travel_body"
+        }
         
         for doc in all_docs:
             if not doc.type_tags or not doc.semantic_data:
@@ -794,46 +813,23 @@ class DatabaseManager:
                 
             bodies = doc.semantic_data.get("bodies", {})
             if not bodies:
-                continue # If no bodies at all, it's 'Missing', not 'Mismatched'
+                continue
                 
             tags = [t.upper() for t in doc.type_tags]
-            
-            # Simplified Mismatch Logic
             is_mismatch = False
             
-            mapping = {
-                "INVOICE": "finance_body",
-                "RECEIPT": "finance_body",
-                "ORDER_CONFIRMATION": "finance_body",
-                "DUNNING": "finance_body",
-                "BANK_STATEMENT": "ledger_body",
-                "CONTRACT": "legal_body",
-                "OFFICIAL_LETTER": "legal_body",
-                "PAYSLIP": "hr_body",
-                "MEDICAL_DOCUMENT": "health_body",
-                "UTILITY_BILL": "finance_body",
-                "EXPENSE_REPORT": "travel_body"
-            }
-            
-            # Check if any tag requires a body that is missing
-            for tag, body_key in mapping.items():
+            for tag, body_key in body_mapping.items():
                 if tag in tags and body_key not in bodies:
                     is_mismatch = True
                     break
             
-            # OR Check if semantic data has bodies for tags that are NOT present
-            # (e.g. tag changed from INVOICE to CONTRACT, but finance_body remains)
             if not is_mismatch:
                 for body_key in bodies.keys():
-                    # Find tags that would justify this body
-                    found_reason = False
-                    for tag, mapped_body in mapping.items():
-                        if mapped_body == body_key and tag in tags:
-                            found_reason = True
+                    if body_key in ["finance_body", "ledger_body", "legal_body", "hr_body", "health_body"]:
+                        # Check if any tag justifies this body
+                        if not any(v == body_key and k in tags for k, v in body_mapping.items()):
+                            is_mismatch = True
                             break
-                    if not found_reason and body_key in ["finance_body", "ledger_body", "legal_body", "hr_body", "health_body", "travel_body"]:
-                        is_mismatch = True
-                        break
             
             if is_mismatch:
                 mismatched.append(doc)
@@ -841,21 +837,21 @@ class DatabaseManager:
         return mismatched
 
     def close(self) -> None:
-        """
-        Closes the database connection safely.
-        """
+        """Safely closes the database connection."""
         if self.connection:
             self.connection.close()
             self.connection = None
 
-    # --- Phase 93: Stage 0/1 Entity & Tag Management ---
-
     def get_virtual_documents_by_source(self, source_uuid: str) -> List[Document]:
         """
-        Fetch all virtual documents that include the given physical file UUID.
+        Finds all virtual documents that incorporate a specific physical file.
+
+        Args:
+            source_uuid: The physical file UUID.
+
+        Returns:
+            List of referencing documents.
         """
-        # We search inside the source_mapping JSON array.
-        # This is slightly slow but correct for Stage 0/1.
         sql = "SELECT uuid FROM virtual_documents WHERE source_mapping LIKE ?"
         cursor = self.connection.cursor()
         cursor.execute(sql, (f'%{source_uuid}%',))
@@ -864,31 +860,36 @@ class DatabaseManager:
         results = []
         for v_uuid in uuids:
             doc = self.get_document_by_uuid(v_uuid)
-            if doc: results.append(doc)
+            if doc:
+                results.append(doc)
         return results
 
-    def get_all_tags_with_counts(self) -> dict[str, int]:
+    def get_all_tags_with_counts(self) -> Dict[str, int]:
         """
-        Aggregate all tags from virtual_documents and return a count for each.
-        Aggregates from both 'type_tags' (System) and 'tags' (User) columns.
+        Aggregates all unique tags and type labels from the database.
+
+        Returns:
+            A dictionary mapping tag names to their occurrence counts.
         """
         sql = "SELECT type_tags, tags FROM virtual_documents"
         cursor = self.connection.cursor()
-        tag_counts = {}
+        tag_counts: Dict[str, int] = {}
         
         try:
             cursor.execute(sql)
             rows = cursor.fetchall()
             for (type_tags_json, tags_json) in rows:
                 for json_val in [type_tags_json, tags_json]:
-                    if not json_val: continue
+                    if not json_val:
+                        continue
                     try:
                         tags_list = json.loads(json_val)
                         if isinstance(tags_list, list):
                             for t in tags_list:
                                 if t and isinstance(t, str):
                                     tag_counts[t] = tag_counts.get(t, 0) + 1
-                    except: pass
+                    except (json.JSONDecodeError, TypeError):
+                        pass
         except Exception as e:
             print(f"[WARN] get_all_tags_with_counts failed: {e}")
             
@@ -896,36 +897,34 @@ class DatabaseManager:
 
     def get_virtual_uuids_with_text_content(self, text: str) -> List[str]:
         """
-        Deep search for UUIDs of virtual documents that contain the given text.
-        Searches:
-        1. virtual_documents.cached_full_text
-        2. physical_files.raw_ocr_data (and maps back to virtual_doc)
+        Performs a deep search for documents containing a specific text snippet.
+        Searches cached logical text and raw physical OCR data.
+
+        Args:
+            text: The text to search for.
+
+        Returns:
+            List of matching document identifiers.
         """
         text = text.strip()
-        if not text: return []
+        if not text:
+            return []
         
-        found_uuids = set()
-        
-        # 1. Search Virtual Documents Cache
-        sql_v = "SELECT uuid FROM virtual_documents WHERE cached_full_text LIKE ? AND deleted = 0"
+        found_uuids: Set[str] = set()
         cursor = self.connection.cursor()
-        with self.connection:
-            cursor.execute(sql_v, (f"%{text}%",))
-            for row in cursor.fetchall():
-                found_uuids.add(row[0])
+        
+        # 1. Logical Search
+        sql_v = "SELECT uuid FROM virtual_documents WHERE cached_full_text LIKE ? AND deleted = 0"
+        cursor.execute(sql_v, (f"%{text}%",))
+        for row in cursor.fetchall():
+            found_uuids.add(row[0])
                 
-        # 2. Search Physical Files (Raw Data)
-        # This is the "Deep Search" requested by user
+        # 2. Deep Physical Search
         sql_p = "SELECT uuid FROM physical_files WHERE raw_ocr_data LIKE ?"
-        phys_uuids = []
-        with self.connection:
-            cursor.execute(sql_p, (f"%{text}%",))
-            phys_uuids = [r[0] for r in cursor.fetchall()]
+        cursor.execute(sql_p, (f"%{text}%",))
+        phys_uuids = [r[0] for r in cursor.fetchall()]
             
         if phys_uuids:
-            # Find Virtual Docs referencing these physical files
-            # This logic assumes source_mapping contains the physical UUID string
-            # We construct a massive OR query or iterate
             for p_uuid in phys_uuids:
                 sql_map = "SELECT uuid FROM virtual_documents WHERE source_mapping LIKE ? AND deleted = 0"
                 cursor.execute(sql_map, (f"%{p_uuid}%",))
@@ -936,60 +935,54 @@ class DatabaseManager:
 
     def find_text_pages_in_document(self, doc_uuid: str, text: str) -> List[int]:
         """
-        Identify logical page numbers (0-based) in a virtual document where text appears.
-        Uses Raw OCR Data from physical files.
+        Identifies logical page numbers within a document where text appears.
+
+        Args:
+            doc_uuid: The target virtual document ID.
+            text: Search string.
+
+        Returns:
+            A list of 0-based logical page indices.
         """
         text = text.strip()
-        if not text: return []
+        if not text:
+            return []
         
-        matching_pages = []
-        
-        # 1. Get Source Mapping
+        matching_pages: List[int] = []
         sql = "SELECT source_mapping FROM virtual_documents WHERE uuid = ?"
         cursor = self.connection.cursor()
         cursor.execute(sql, (doc_uuid,))
         row = cursor.fetchone()
+        
         if not row or not row[0]:
             return []
             
         try:
-            mapping = json.loads(row[0]) # List[{file_uuid, pages: [int], ...}]
-        except:
+            mapping = json.loads(row[0])
+        except (json.JSONDecodeError, TypeError):
             return []
             
         current_virt_page = 0
-        
-        # 2. Iterate segments
         for segment in mapping:
             p_uuid = segment.get("file_uuid")
-            src_pages = segment.get("pages", []) # List of 0-based page indices in physical file
+            src_pages = segment.get("pages", [])
             
             if not p_uuid or not src_pages:
                 continue
                 
-            # Get Raw Data for this file
-            sql_ocr = "SELECT raw_ocr_data FROM physical_files WHERE uuid = ?"
-            cursor.execute(sql_ocr, (p_uuid,))
+            cursor.execute("SELECT raw_ocr_data FROM physical_files WHERE uuid = ?", (p_uuid,))
             ocr_row = cursor.fetchone()
             
             if ocr_row and ocr_row[0]:
                 try:
-                    ocr_map = json.loads(ocr_row[0]) # Dict: "1": "Text", "2": "Text" (usually 1-based keys in Tesseract/OCR)
-                except:
+                    ocr_map = json.loads(ocr_row[0])
+                except (json.JSONDecodeError, TypeError):
                     ocr_map = {}
                     
-                # Check each page in this segment
                 for i, src_page_idx in enumerate(src_pages):
                     virt_page_idx = current_virt_page + i
-                    
-                    # src_page_idx is 1-based (from source_mapping convention)
-                    # OCR keys are strings of "1", "2"...
-                    
-                    # Correct lookup:
+                    # OCR map keys are strings of 1-based indices
                     page_text = ocr_map.get(str(src_page_idx))
-                    
-                    snippet = (page_text[:30] + "...") if page_text else "None"
-                    
                     if page_text and text.lower() in page_text.lower():
                         matching_pages.append(virt_page_idx)
                         
@@ -999,13 +992,18 @@ class DatabaseManager:
 
     def get_available_tags(self, system: bool = False) -> List[str]:
         """
-        Return a list of unique tags.
-        :param system: If True, return from 'type_tags' column, else from 'tags' (User).
+        Returns a sorted list of unique tags from either system or user namespace.
+
+        Args:
+            system: If True, pulls from 'type_tags', else from 'tags'.
+
+        Returns:
+            List of unique tag names.
         """
         col = "type_tags" if system else "tags"
         sql = f"SELECT {col} FROM virtual_documents WHERE {col} IS NOT NULL"
         cursor = self.connection.cursor()
-        tags = set()
+        tags: Set[str] = set()
         try:
             cursor.execute(sql)
             for (json_val,) in cursor.fetchall():
@@ -1014,37 +1012,27 @@ class DatabaseManager:
                     if isinstance(data, list):
                         for t in data:
                             tags.add(str(t))
-                except: pass
-        except Exception as e:
-            print(f"[WARN] get_available_tags failed: {e}")
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        except sqlite3.Error:
+            pass
         return sorted(list(tags))
 
-    def rename_tag(self, old_name: str, new_name: str) -> int:
-        """Rename a tag (Placeholder)."""
-        return 0
-
-    def delete_tag(self, tag_name: str) -> int:
-        """Delete a tag (Placeholder)."""
-        return 0
-
-
-
-    def count_documents(self, filters: dict = None) -> int:
-        """
-        Count documents in virtual_documents.
-        Simplified for Stage 0/1.
-        """
-        sql = "SELECT COUNT(*) FROM virtual_documents WHERE deleted = 0"
+    def count_documents(self) -> int:
+        """Returns total count of non-deleted documents."""
         cursor = self.connection.cursor()
-        cursor.execute(sql)
-        return cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM virtual_documents WHERE deleted = 0")
+        return int(cursor.fetchone()[0])
 
-
-    def count_entities(self, status: str = None) -> int:
+    def count_entities(self, status: Optional[str] = None) -> int:
         """
-        Count entries in virtual_documents (Active only).
-        :param status: Optional status filter (e.g. 'NEW', 'PROCESSED')
-        :return: Count
+        Returns count of non-deleted documents, optionally filtered by status.
+
+        Args:
+            status: Status string (e.g., 'NEW').
+
+        Returns:
+            Integer count.
         """
         sql = "SELECT COUNT(*) FROM virtual_documents WHERE deleted = 0"
         params = []
@@ -1054,18 +1042,10 @@ class DatabaseManager:
              
         cursor = self.connection.cursor()
         cursor.execute(sql, params)
-        return cursor.fetchone()[0]
+        return int(cursor.fetchone()[0])
         
     def get_deleted_entities_view(self) -> List[Document]:
-        """
-        Fetches all soft-deleted virtual documents for the Trash Bin view.
-
-        Returns:
-            A list of Document objects marked as deleted.
-        """
-        if not self.connection:
-            return []
-
+        """Provides Trash Bin view data."""
         sql = """
             SELECT uuid, source_mapping, status, 
                    COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
@@ -1080,97 +1060,47 @@ class DatabaseManager:
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
-        
         return [self._row_to_doc(row) for row in rows]
 
-    def delete_entity(self, uuid: str) -> bool:
-        """
-        Soft-deletes a virtual document (entity). Alias for delete_document.
-
-        Args:
-            uuid: The UUID of the document to delete.
-
-        Returns:
-            True if successful, False otherwise.
-        """
-        return self.delete_document(uuid)
-
-    def restore_entity(self, uuid: str) -> bool:
-        """
-        Restores a soft-deleted virtual document. Alias for restore_document.
-
-        Args:
-            uuid: The UUID of the document to restore.
-
-        Returns:
-            True if successful, False otherwise.
-        """
-        return self.restore_document(uuid)
-
-    def purge_entity(self, uuid: str) -> bool:
-        """
-        Permanently deletes a virtual document. Alias for purge_document.
-
-        Args:
-            uuid: The UUID of the document to purge.
-
-        Returns:
-            True if successful, False otherwise.
-        """
-        return self.purge_document(uuid)
-            
     def purge_all_data(self, vault_path: str) -> bool:
         """
-        DESTRUCTIVE: Deletes ALL data from database and vault.
-        Used for development/testing reset.
+        DESTRUCTIVE: Resets database and clears vault directory.
+        Used for full environment reset.
+
+        Args:
+            vault_path: Path to the immutable vault.
+
+        Returns:
+            True if purge completed successfully.
         """
         import os
         import shutil
         
         try:
             cursor = self.connection.cursor()
-            
-            # 1. Drop Tables (Schema Reset)
-            cursor.execute("DROP VIEW IF EXISTS documents")
             cursor.execute("DROP TABLE IF EXISTS virtual_documents")
             cursor.execute("DROP TABLE IF EXISTS physical_files")
             cursor.execute("DROP TABLE IF EXISTS virtual_documents_fts")
-            
-            # 2. Reset Sequences
-            try:
-                cursor.execute("DELETE FROM sqlite_sequence")
-            except:
-                pass 
-            
             self.connection.commit()
             
-            # 3. Re-Initialize Database (Recreate empty tables)
             self.init_db()
             
-            # 3. Clear Vault Directory
             if vault_path and os.path.exists(vault_path):
                 for filename in os.listdir(vault_path):
                     file_path = os.path.join(vault_path, filename)
                     try:
-                        if os.path.isfile(file_path) or os.path.islink(file_path):
+                        if os.path.isfile(file_path):
                             os.unlink(file_path)
                         elif os.path.isdir(file_path):
                             shutil.rmtree(file_path)
                     except Exception as e:
-                        print(f"Failed to delete {file_path}. Reason: {e}")
-                        return False
-            
+                        print(f"Purge error at {file_path}: {e}")
             return True
-        except Exception as e:
-            print(f"Purge failed: {e}")
-            self.connection.rollback()
-            raise # Re-raise to let the user know
+        except Exception:
+            return False
 
-    def get_source_mapping_from_entity(self, entity_uuid: str) -> Optional[list]:
-        """
-        Get the 'source_mapping' JSON (list of SourceReferences) for an entity.
-        Used by GUI to find the physical file for a Logical Entity (Shadow Document).
-        """
+    def get_source_mapping_from_entity(self, entity_uuid: str) -> Optional[List[Dict[str, Any]]]:
+        """Retrieves raw source mapping for a virtual entity."""
         cursor = self.connection.cursor()
         cursor.execute("SELECT source_mapping FROM virtual_documents WHERE uuid = ?", (entity_uuid,))
         row = cursor.fetchone()
@@ -1179,7 +1109,7 @@ class DatabaseManager:
         return None
 
     def get_unique_stamp_labels(self) -> List[str]:
-        """Fetch all unique labels used in stamp form fields across the database."""
+        """Aggregates all unique labels from detected stamps in semantic data."""
         sql = """
             SELECT DISTINCT json_extract(f.value, '$.label')
             FROM virtual_documents,
@@ -1189,50 +1119,34 @@ class DatabaseManager:
             WHERE f.value IS NOT NULL AND json_extract(f.value, '$.label') IS NOT NULL;
         """
         try:
-            with self.connection:
-                cursor = self.connection.cursor()
-                cursor.execute(sql)
-                return [row[0] for row in cursor.fetchall()]
-        except Exception as e:
-            print(f"[DB] Error fetching unique stamp labels: {e}")
+            cursor = self.connection.cursor()
+            cursor.execute(sql)
+            return [row[0] for row in cursor.fetchall()]
+        except Exception:
             return []
             
     def get_source_uuid_from_entity(self, entity_uuid: str) -> Optional[str]:
-        """
-        Resolves an entity UUID to its primary source physical UUID.
-
-        Args:
-            entity_uuid: The UUID of the virtual document.
-
-        Returns:
-            The primary source file UUID or None.
-        """
+        """Returns the first physical file ID associated with a virtual entity."""
         mapping = self.get_source_mapping_from_entity(entity_uuid)
         if mapping and len(mapping) > 0:
             return str(mapping[0].get("file_uuid"))
         return None
 
     def _create_fts_triggers(self) -> None:
-        """
-        Creates SQLite triggers to keep the FTS index synchronized with
-        the virtual_documents table.
-        """
+        """Maintains FTS synchronicity via SQLite triggers."""
         triggers = [
-            # INSERT
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_ai AFTER INSERT ON virtual_documents BEGIN
                 INSERT INTO virtual_documents_fts(rowid, uuid, export_filename, type_tags, cached_full_text)
                 VALUES (new.rowid, new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
             END;
             """,
-            # DELETE
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_ad AFTER DELETE ON virtual_documents BEGIN
                 INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, export_filename, type_tags, cached_full_text)
                 VALUES('delete', old.rowid, old.uuid, old.export_filename, old.type_tags, old.cached_full_text);
             END;
             """,
-            # UPDATE
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_au AFTER UPDATE ON virtual_documents BEGIN
                 INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, export_filename, type_tags, cached_full_text)
@@ -1242,78 +1156,48 @@ class DatabaseManager:
             END;
             """
         ]
-        if not self.connection:
-            return
         with self.connection:
             for trigger_sql in triggers:
                 self.connection.execute(trigger_sql)
 
-    def _update_table(self, table: str, pk_val: str, updates: dict, pk_col: str = "uuid"):
-        """Helper to update multiple columns in a table."""
-        if not updates: return
+    def _update_table(self, table: str, pk_val: str, updates: Dict[str, Any], pk_col: str = "uuid") -> None:
+        """Internal generic update helper."""
+        if not updates:
+            return
         cols = ", ".join([f"{k} = ?" for k in updates.keys()])
         sql = f"UPDATE {table} SET {cols} WHERE {pk_col} = ?"
         vals = list(updates.values()) + [pk_val]
         with self.connection:
             self.connection.execute(sql, vals)
 
-    # --- Compatibility / Legacy Methods ---
-
+    # --- Backwards Compatibility ---
     def get_all_documents(self) -> List[Document]:
-        """Compatibility wrapper for get_all_entities_view."""
         return self.get_all_entities_view()
 
     def insert_document(self, doc: Document) -> None:
-        """
-        Compatibility wrapper for inserting a document into virtual_documents (primarily for tests).
-
-        Args:
-            doc: The Document object to insert.
-        """
-        if not self.connection:
-            return
-
-        source_mapping = "[]"
-        if doc.extra_data and "source_mapping" in doc.extra_data:
-            source_mapping = json.dumps(doc.extra_data["source_mapping"])
-
-        status = doc.status or "NEW"
-        filename = doc.original_filename or "Unknown"
+        """Compatibility insert for unit tests."""
+        created = doc.created_at or datetime.now().isoformat()
         type_tags_json = json.dumps(doc.type_tags or [])
         user_tags_json = json.dumps(doc.tags or [])
-
-        # Build semantic data from extra fields
-        semantic = {}
-        fields_to_check = ["sender", "amount", "doc_date", "invoice_number", "tax_rate", "doc_type"]
-        for field in fields_to_check:
-            if hasattr(doc, field) and getattr(doc, field):
-                semantic[field] = getattr(doc, field)
-
-        if doc.semantic_data:
-            semantic.update(doc.semantic_data)
-
-        semantic_json = json.dumps(semantic, default=str)
+        sm_json = "[]"
+        if doc.extra_data and "source_mapping" in doc.extra_data:
+            sm_json = json.dumps(doc.extra_data["source_mapping"])
 
         sql = """
             INSERT INTO virtual_documents (
                 uuid, source_mapping, status, export_filename, created_at, 
                 deleted, type_tags, semantic_data, page_count_virt, is_immutable, 
                 cached_full_text, sender, doc_date, amount, tags
-            ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 1, 0, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, 0, ?, '{}', 1, 0, ?, ?, ?, ?, ?)
         """
-
-        created = doc.created_at
-        if not created:
-            created = datetime.now().isoformat()
-
         try:
             with self.connection:
                 self.connection.execute(sql, (
-                    doc.uuid, source_mapping, status, filename,
-                    created, type_tags_json, semantic_json, (doc.text_content or doc.cached_full_text),
+                    doc.uuid, sm_json, doc.status or "NEW", doc.original_filename or "Unknown",
+                    created, type_tags_json, (doc.text_content or doc.cached_full_text),
                     doc.sender, str(doc.doc_date) if doc.doc_date else None,
                     float(doc.amount) if doc.amount else 0.0,
                     user_tags_json
                 ))
-        except sqlite3.Error as e:
-            print(f"[WARN] insert_document compatibility failed: {e}")
+        except sqlite3.Error:
+            pass
