@@ -3,7 +3,7 @@
 Project:        KPaperFlux
 File:           core/canonizer.py
 Version:        1.1.0
-Producer:       thorsten.schnebeck@gmx.net
+Producer:       
 Generator:      Antigravity (Gemini 3pro)
 Description:    Canonization service that orchestrates the document processing
                 pipeline, including splitting, visual auditing, and extraction.

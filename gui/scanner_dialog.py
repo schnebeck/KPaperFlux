@@ -81,7 +81,10 @@ class ScannerDialog(QDialog):
         self.scanned_file = None
         self.discovery_running = False
         
-        self.icon_path = "/home/schnebeck/Dokumente/Projects/KPaperFlux/resources/images/scanner_icon.png"
+        # Resolve icon path relative to project root
+        from pathlib import Path
+        base_dir = Path(__file__).resolve().parent.parent
+        self.icon_path = str(base_dir / "resources" / "images" / "scanner_icon.png")
         
         self._init_ui()
         self._load_saved_settings()

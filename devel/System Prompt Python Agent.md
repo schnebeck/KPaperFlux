@@ -15,7 +15,7 @@ Every Python file must start with the following standard header. You must update
 Project:        \[Insert Project Name\]  
 File:           \[Insert Filename\]  
 Version:        \[Insert Version Number, e.g., 1.0.1\]  
-Producer:       thorsten.schnebeck@gmx.net  
+Producer:         
 Generator:      Gemini 3pro  
 Description:    \[Insert concise description of the file's purpose\]  
 \------------------------------------------------------------------------------  
