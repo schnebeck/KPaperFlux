@@ -1,4 +1,18 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           main.py
+Version:        1.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Gemini 3pro
+Description:    Application entry point. Initializes the Qt environment,
+                loads translations, and sets up core infrastructure components
+                (Vault, Database, Pipeline) before launching the main window.
+------------------------------------------------------------------------------
+"""
+
 import sys
+import shutil
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QTranslator
@@ -11,22 +25,54 @@ from gui.main_window import MainWindow
 from core.config import AppConfig
 
 
-def main():
+def migrate_database(app_config: AppConfig) -> Path:
     """
-    KPaperFlux Entry Point.
-    Initializes infrastructure and launches the GUI.
-    """
-    app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon("resources/icon.png"))
-    app_config = AppConfig()
+    Handles migration of the database file from local path to XDG data directory.
 
-    # Load Translations
+    Args:
+        app_config: The application configuration manager.
+
+    Returns:
+        The resolved path to the database file.
+    """
+    db_filename = "kpaperflux.db"
+    data_dir = app_config.get_data_dir()
+    db_path = data_dir / db_filename
+    local_db_path = Path(".").resolve() / db_filename
+
+    if local_db_path.exists() and not db_path.exists():
+        print(f"Migrating Database from {local_db_path} to {db_path}...")
+        try:
+            shutil.move(str(local_db_path), str(db_path))
+            print("Database migration successful.")
+
+            # Move WAL/SHM files if they exist (SQLite temporary files)
+            for ext in ["-wal", "-shm"]:
+                wal_src = local_db_path.with_name(db_filename + ext)
+                wal_dst = db_path.with_name(db_filename + ext)
+                if wal_src.exists():
+                    shutil.move(str(wal_src), str(wal_dst))
+        except Exception as e:
+            print(f"Error migrating database: {e}")
+            # Fallback will be handled by returning the intended path (which might not exist)
+
+    return db_path
+
+
+def load_translations(app: QApplication, app_config: AppConfig) -> None:
+    """
+    Loads and installs system translations based on configuration.
+
+    Args:
+        app: The current QApplication instance.
+        app_config: The application configuration manager.
+    """
     lang = app_config.get_language()
     if lang != "en":
         translator = QTranslator()
-        # Look for kpaperflux_<lang>.qm in resources/translations relative to this file
         base_dir = Path(__file__).resolve().parent
         qm_path = base_dir / "resources" / "translations" / f"kpaperflux_{lang}.qm"
+
         if qm_path.exists():
             if translator.load(str(qm_path)):
                 app.installTranslator(translator)
@@ -36,44 +82,25 @@ def main():
         else:
             print(f"Translation file not found: {qm_path}")
 
+
+def main() -> None:
+    """
+    KPaperFlux Entry Point.
+    Initializes infrastructure and launches the GUI.
+    """
+    app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon("resources/icon.png"))
+    app_config = AppConfig()
+
+    load_translations(app, app_config)
+
     # 1. Initialize Infrastructure
-    # Use path from config
     vault_path = app_config.get_vault_path()
     vault = DocumentVault(base_path=vault_path)
-    
-    # DB Layout Migration
-    import shutil
-    db_filename = "kpaperflux.db"
-    
-    # New Standard Path
-    data_dir = app_config.get_data_dir()
-    db_path = data_dir / db_filename
-    
-    # Old Local Path
-    local_db_path = Path(".").resolve() / db_filename
-    
-    if local_db_path.exists() and not db_path.exists():
-        print(f"Migrating Database from {local_db_path} to {db_path}...")
-        try:
-            shutil.move(str(local_db_path), str(db_path))
-            print("Database migration successful.")
-            
-            # Move WAL/SHM files if they exist (SQLite temporary files)
-            for ext in ["-wal", "-shm"]:
-                wal_src = local_db_path.with_name(db_filename + ext)
-                wal_dst = db_path.with_name(db_filename + ext)
-                if wal_src.exists():
-                    shutil.move(str(wal_src), str(wal_dst))
-        except Exception as e:
-            print(f"Error migrating database: {e}")
-            # Fallback to local if move failed? Or just crash?
-            # We let it standard crash later if DB can't be opened, but path is now set.
-    
-    # If explicit path override is ever needed, we could add it to Config.
-    # For now, we strictly use the XDG data location.
-    
+
+    db_path = migrate_database(app_config)
     db = DatabaseManager(db_path=str(db_path))
-    db.init_db() # Ensure tables exist
+    db.init_db()
 
     # 2. Initialize Logic
     pipeline = PipelineProcessor(vault=vault, db=db)
@@ -84,6 +111,7 @@ def main():
 
     # 4. Event Loop
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
