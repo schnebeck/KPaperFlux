@@ -1,18 +1,41 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/models/identity.py
+Version:        1.2.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Defines the IdentityProfile data model for representing users
+                and business entities. Used for direction classification and 
+                address verification via fuzzy matching.
+------------------------------------------------------------------------------
+"""
+
 from typing import List, Optional
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
+
 
 class IdentityProfile(BaseModel):
     """
-    Structured Identity Profile extracted from a raw signature.
-    Used for intelligent direction classification.
+    Structured Identity Profile used for intelligent direction classification 
+    and document validation. Contains names, aliases, and specific identifiers 
+    like VAT IDs or IBANs.
     """
-    name: Optional[str] = None # Official Name (Person or Entity)
-    aliases: List[str] = []    # Variations for the main name
-    
-    # Explicit Company Fields (if present)
+
+    # Official Name of the person or entity
+    name: Optional[str] = None
+
+    # Variations or abbreviations of the main name
+    aliases: List[str] = Field(default_factory=list)
+
+    # Explicit company details if applicable
     company_name: Optional[str] = None
-    company_aliases: List[str] = []
-    
-    address_keywords: List[str] = [] # Atomic parts (Street, City, Zip)
+    company_aliases: List[str] = Field(default_factory=list)
+
+    # Atomic parts of the address (e.g., ["Musterstraße", "12345", "Berlin"])
+    address_keywords: List[str] = Field(default_factory=list)
+
+    # Tax identifiers and financial details
     vat_id: Optional[str] = None
-    iban: List[str] = []
+    iban: List[str] = Field(default_factory=list)
