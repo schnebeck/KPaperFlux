@@ -5,26 +5,35 @@ File:           core/repositories/physical_repo.py
 Version:        1.2.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
-Description:    Repository for managing persistence of PhysicalFile models in the
-                sqlite database.
+Description:    Repository for managing persistence of PhysicalFile models in 
+                the SQLite database. Handles CRUD operations for immutable 
+                source files, phash lookups, and OCR data storage.
 ------------------------------------------------------------------------------
 """
 
 import json
-from typing import List, Optional
+from typing import Any, List, Optional, Tuple
 
 from core.models.physical import PhysicalFile
 
 from .base import BaseRepository
 
+
 class PhysicalRepository(BaseRepository):
     """
-    Manages access to 'physical_files' table.
+    Manages access to the 'physical_files' table, providing persistence
+    for physical source documents.
     """
-    
-    def save(self, file: PhysicalFile) -> int:
+
+    def save(self, file: PhysicalFile) -> bool:
         """
-        Insert or Update a physical file record.
+        Inserts or replaces a physical file record in the database.
+
+        Args:
+            file: The PhysicalFile instance to persist.
+
+        Returns:
+            True if the operation was successful.
         """
         sql = """
         INSERT OR REPLACE INTO physical_files (
@@ -34,9 +43,9 @@ class PhysicalRepository(BaseRepository):
             ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
-        
+
         ocr_json = json.dumps(file.raw_ocr_data) if file.raw_ocr_data else None
-        
+
         values = (
             file.uuid,
             file.phash,
@@ -47,15 +56,31 @@ class PhysicalRepository(BaseRepository):
             ocr_json,
             file.created_at
         )
-        
-        with self.conn:
-            self.conn.execute(sql, values)
-            return 1 # Simplified return
+
+        try:
+            with self.conn:
+                self.conn.execute(sql, values)
+            return True
+        except Exception as e:
+            print(f"[PhysicalRepo] Save error: {e}")
+            return False
 
     def get_by_uuid(self, uuid: str) -> Optional[PhysicalFile]:
-        """Fetch by UUID."""
-        # Order: uuid, phash, file_path, original_filename, file_size, raw_ocr_data, created_at, page_count_phys
-        sql = "SELECT uuid, phash, file_path, original_filename, file_size, raw_ocr_data, created_at, page_count_phys FROM physical_files WHERE uuid = ?"
+        """
+        Retrieves a physical file record by its unique UUID.
+
+        Args:
+            uuid: The unique identifier of the physical file.
+
+        Returns:
+            A PhysicalFile instance if found, else None.
+        """
+        sql = """
+        SELECT uuid, phash, file_path, original_filename, file_size, 
+               raw_ocr_data, created_at, page_count_phys 
+        FROM physical_files 
+        WHERE uuid = ?
+        """
         cursor = self.conn.cursor()
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
@@ -64,28 +89,59 @@ class PhysicalRepository(BaseRepository):
         return None
 
     def get_by_phash(self, phash: str) -> Optional[PhysicalFile]:
-        """Fetch by perceptual hash (deduplication)."""
-        sql = "SELECT uuid, phash, file_path, original_filename, file_size, raw_ocr_data, created_at, page_count_phys FROM physical_files WHERE phash = ?"
+        """
+        Retrieves a physical file by its perceptual hash (deduplication check).
+
+        Args:
+            phash: The perceptual hash string.
+
+        Returns:
+            A PhysicalFile instance if found, else None.
+        """
+        sql = """
+        SELECT uuid, phash, file_path, original_filename, file_size, 
+               raw_ocr_data, created_at, page_count_phys 
+        FROM physical_files 
+        WHERE phash = ?
+        """
         cursor = self.conn.cursor()
         cursor.execute(sql, (phash,))
         row = cursor.fetchone()
         if row:
             return PhysicalFile.from_row(row)
         return None
-        
-    def increment_ref_count(self, uuid: str):
-        """Atomic increment? (No longer in schema, for reference only)"""
-        pass
 
-    def get_all(self) -> list[PhysicalFile]:
-        """Fetch all physical files."""
-        sql = "SELECT uuid, phash, file_path, original_filename, file_size, raw_ocr_data, created_at, page_count_phys FROM physical_files"
+    def get_all(self) -> List[PhysicalFile]:
+        """
+        Fetches all physical file records from the database.
+
+        Returns:
+            A list of PhysicalFile instances.
+        """
+        sql = """
+        SELECT uuid, phash, file_path, original_filename, file_size, 
+               raw_ocr_data, created_at, page_count_phys 
+        FROM physical_files
+        """
         cursor = self.conn.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
         return [PhysicalFile.from_row(row) for row in rows]
 
-    def delete(self, uuid: str):
-        """Hard delete of a physical file record."""
-        with self.conn:
-             self.conn.execute("DELETE FROM physical_files WHERE uuid = ?", (uuid,))
+    def delete(self, uuid: str) -> bool:
+        """
+        Hard deletes a physical file record from the repository.
+
+        Args:
+            uuid: The ID of the record to remove.
+
+        Returns:
+            True if the deletion was executed without error.
+        """
+        try:
+            with self.conn:
+                self.conn.execute("DELETE FROM physical_files WHERE uuid = ?", (uuid,))
+            return True
+        except Exception as e:
+            print(f"[PhysicalRepo] Delete error: {e}")
+            return False
