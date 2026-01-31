@@ -2,7 +2,7 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/visual_auditor.py
-Version:        1.2.0
+Version:        2.0.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
 Description:    Forensic document auditor that integrates AI-vision to identify
@@ -15,6 +15,7 @@ import base64
 import io
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import fitz  # PyMuPDF
