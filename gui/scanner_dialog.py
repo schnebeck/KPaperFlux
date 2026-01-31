@@ -150,12 +150,9 @@ class ScannerDialog(QDialog):
         self.source_combo.currentIndexChanged.connect(self._on_source_changed)
         form.addRow(self.tr("Quelle:"), self.source_combo)
         
-        self.dpi_spin = QSpinBox()
-        self.dpi_spin.setRange(75, 1200)
-        self.dpi_spin.setValue(200)
-        self.dpi_spin.setSuffix(" dpi")
-        self.dpi_spin.setMinimumHeight(30)
-        form.addRow(self.tr("Auflösung:"), self.dpi_spin)
+        self.dpi_combo = QComboBox()
+        self.dpi_combo.setMinimumHeight(30)
+        form.addRow(self.tr("Auflösung:"), self.dpi_combo)
         
         self.mode_combo = QComboBox()
         self.mode_combo.addItem(self.tr("Farbe"), "Color")
@@ -222,7 +219,9 @@ class ScannerDialog(QDialog):
             self.stack.setCurrentIndex(1) # Show settings immediately
             
         # Restore other options
-        self.dpi_spin.setValue(int(self.settings.value("last_dpi", 200)))
+        last_dpi = self.settings.value("last_dpi", "200")
+        # We will set the value in _on_device_found once the combo is populated
+        self._temp_last_dpi = str(last_dpi)
         
         mode = self.settings.value("last_mode", "Color")
         idx = self.mode_combo.findData(mode)
@@ -245,7 +244,7 @@ class ScannerDialog(QDialog):
             self.settings.setValue("last_device_id", device_id)
             self.settings.setValue("last_device_label", self.device_combo.currentText())
         
-        self.settings.setValue("last_dpi", self.dpi_spin.value())
+        self.settings.setValue("last_dpi", self.dpi_combo.currentData())
         self.settings.setValue("last_mode", self.mode_combo.currentData())
         self.settings.setValue("last_page_format", self.format_combo.currentData())
         self.settings.setValue("last_source", self.source_combo.currentText())
@@ -266,6 +265,25 @@ class ScannerDialog(QDialog):
         if last_src:
              idx = self.source_combo.findText(last_src)
              if idx >= 0: self.source_combo.setCurrentIndex(idx)
+        
+        # Update resolutions
+        res_list = self.driver.get_resolution_list(device_id)
+        self.dpi_combo.clear()
+        for res in res_list:
+            self.dpi_combo.addItem(f"{res} dpi", str(res))
+            
+        # Try to restore last DPI or default to 200
+        target_dpi = getattr(self, "_temp_last_dpi", "200")
+        idx = self.dpi_combo.findData(target_dpi)
+        if idx >= 0:
+            self.dpi_combo.setCurrentIndex(idx)
+        else:
+            # Fallback to 200 if available, or closest
+            idx_200 = self.dpi_combo.findData("200")
+            if idx_200 >= 0:
+                self.dpi_combo.setCurrentIndex(idx_200)
+            elif self.dpi_combo.count() > 0:
+                self.dpi_combo.setCurrentIndex(0)
 
     def _on_source_changed(self, index):
         """Update UI based on source (e.g. Duplex options)."""
@@ -342,7 +360,7 @@ class ScannerDialog(QDialog):
         self.scan_progress.setRange(0, 0)
         
         self.worker = ScannerWorker(
-            self.driver, device_id, self.dpi_spin.value(), self.mode_combo.currentData(), 
+            self.driver, device_id, int(self.dpi_combo.currentData() or 200), self.mode_combo.currentData(), 
             self.source_combo.currentText(), self.combo_duplex_mode.currentData(),
             self.format_combo.currentData()
         )

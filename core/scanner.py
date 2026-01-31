@@ -57,6 +57,19 @@ class ScannerDriver(ABC):
         pass
 
     @abstractmethod
+    def get_resolution_list(self, device_name: str) -> List[int]:
+        """
+        Returns a list of supported resolutions (DPI).
+
+        Args:
+            device_name: The name/ID of the scanner device.
+
+        Returns:
+            A list of supported resolutions in DPI.
+        """
+        pass
+
+    @abstractmethod
     def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = "Color") -> Optional[str]:
         """
         Scans a single page.
@@ -125,6 +138,18 @@ class MockScanner(ScannerDriver):
             List of supported sources.
         """
         return ["Flatbed", "ADF", "ADF Duplex"]
+
+    def get_resolution_list(self, device_name: str) -> List[int]:
+        """
+        Returns mock resolution list.
+
+        Args:
+            device_name: Device name (ignored).
+
+        Returns:
+            List of supported resolutions.
+        """
+        return [75, 150, 200, 300, 600]
 
     def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = "Color") -> Optional[str]:
         """
@@ -243,6 +268,49 @@ class SaneScanner(ScannerDriver):
         except Exception as e:
             print(f"DEBUG: get_source_list failed for {device_name}: {e}")
             return ["Flatbed", "ADF"]
+
+    def get_resolution_list(self, device_name: str) -> List[int]:
+        """
+        Returns a list of supported resolutions (DPI) for the given device.
+
+        Args:
+            device_name: The name of the SANE device.
+
+        Returns:
+            A list of supported resolutions in DPI.
+        """
+        if not SANE_AVAILABLE:
+            return [75, 150, 200, 300, 600]
+        try:
+            import time
+
+            time.sleep(0.1)
+            dev = sane.open(device_name)
+            opts = {opt[1]: opt for opt in dev.get_options()}
+            resolutions = []
+            if "resolution" in opts:
+                opt = opts["resolution"]
+                constraint_type = opt[4]
+                constraint = opt[8]
+
+                if constraint_type == 1:  # Range
+                    # (min, max, quant)
+                    min_val, max_val, quant = constraint
+                    if quant <= 0:
+                        quant = 50
+                    resolutions = list(range(int(min_val), int(max_val) + 1, int(quant)))
+                elif constraint_type == 2:  # List
+                    resolutions = [int(v) for v in constraint]
+
+            dev.close()
+            
+            if not resolutions:
+                resolutions = [75, 150, 200, 300, 600]
+            
+            return sorted(list(set(resolutions)))
+        except Exception as e:
+            print(f"DEBUG: get_resolution_list failed for {device_name}: {e}")
+            return [75, 150, 200, 300, 600]
 
     def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = "Color") -> Optional[str]:
         """
