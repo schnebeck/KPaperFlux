@@ -26,8 +26,8 @@ class DeviceDiscoveryWorker(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
-class SourceDiscoveryWorker(QThread):
-    finished = pyqtSignal(list)
+class CapabilityDiscoveryWorker(QThread):
+    finished = pyqtSignal(dict)
     error = pyqtSignal(str)
     
     def __init__(self, driver: ScannerDriver, device: str):
@@ -37,25 +37,8 @@ class SourceDiscoveryWorker(QThread):
         
     def run(self):
         try:
-            sources = self.driver.get_source_list(self.device)
-            self.finished.emit(sources)
-        except Exception as e:
-            self.error.emit(str(e))
-
-class ResolutionWorker(QThread):
-    finished = pyqtSignal(list, str) # resolutions, source
-    error = pyqtSignal(str)
-    
-    def __init__(self, driver: ScannerDriver, device: str, source: str):
-        super().__init__()
-        self.driver = driver
-        self.device = device
-        self.source = source
-        
-    def run(self):
-        try:
-            resolutions = self.driver.get_resolution_list(self.device, source=self.source)
-            self.finished.emit(resolutions, self.source)
+            caps = self.driver.get_full_capabilities(self.device)
+            self.finished.emit(caps)
         except Exception as e:
             self.error.emit(str(e))
 
@@ -114,6 +97,7 @@ class ScannerDialog(QDialog):
         self.scanned_file = None
         self.discovery_running = False
         self.detail_loading = False
+        self.device_caps = {} # Current device's sources/resolutions
         
         # Resolve icon path relative to project root
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -304,25 +288,74 @@ class ScannerDialog(QDialog):
             return
         self._current_device_id = device_id
         
+        # Check cache first
+        cached_caps = self._get_cached_caps(device_id)
+        if cached_caps:
+             print(f"[DEBUG] ScannerDialog: Using cached capabilities for {device_id}")
+             self.device_caps = cached_caps
+             self._apply_capabilities(cached_caps)
+             # Refresh in background anyway to stay up-to-date
+             print(f"[DEBUG] ScannerDialog: Refreshing capabilities in background...")
+             self._fetch_device_details(device_id, background=True)
+             return
+
+        print(f"[DEBUG] ScannerDialog: No cache for {device_id}, performing initial fetch...")
         self.stack.setCurrentIndex(0)
         self.loading_label.setText(self.tr(f"Lade Geräteoptionen für {self.device_combo.currentText()}..."))
         self._fetch_device_details(device_id)
 
-    def _fetch_device_details(self, device_id):
+    def _get_cached_caps(self, device_id):
+        import json
+        key = f"caps_{device_id.replace(':', '_').replace('/', '_')}"
+        data = self.settings.value(key)
+        if data:
+            try: return json.loads(data)
+            except: return None
+        return None
+
+    def _save_cached_caps(self, device_id, caps):
+        import json
+        key = f"caps_{device_id.replace(':', '_').replace('/', '_')}"
+        self.settings.setValue(key, json.dumps(caps))
+
+    def _fetch_device_details(self, device_id, background=False):
         if self.detail_loading: return
         self.detail_loading = True
         
-        self.source_worker = SourceDiscoveryWorker(self.driver, device_id)
-        self.source_worker.finished.connect(self._on_sources_found)
-        self.source_worker.error.connect(self._on_source_error)
-        self.source_worker.start()
+        self.cap_worker = CapabilityDiscoveryWorker(self.driver, device_id)
+        self.cap_worker.finished.connect(lambda caps: self._on_caps_found(caps, device_id, background))
+        self.cap_worker.error.connect(self._on_cap_error)
+        self.cap_worker.start()
 
-    def _on_sources_found(self, sources):
+    def _on_caps_found(self, caps, device_id, background):
         self.detail_loading = False
+        self.device_caps = caps
+        self._save_cached_caps(device_id, caps)
         
+        if not background:
+            print(f"[DEBUG] ScannerDialog: capabilities loaded (Foreground): {list(caps.get('resolutions', {}).keys())}")
+            self._apply_capabilities(caps)
+            self.stack.setCurrentIndex(1)
+            QTimer.singleShot(100, self.adjustSize)
+        else:
+            print(f"[DEBUG] ScannerDialog: capabilities refreshed (Background)")
+            # If we loaded in background, update CMDS if we are currently on the same device
+            if self.device_combo.currentData() == device_id:
+                # Silently update sources if they changed
+                current_src = self.source_combo.currentText()
+                self.source_combo.blockSignals(True)
+                self.source_combo.clear()
+                self.source_combo.addItems(caps["sources"])
+                idx = self.source_combo.findText(current_src)
+                if idx >= 0: self.source_combo.setCurrentIndex(idx)
+                self.source_combo.blockSignals(False)
+                # Refresh resolutions for active source
+                self._on_source_changed(self.source_combo.currentIndex())
+
+    def _apply_capabilities(self, caps):
         self.source_combo.blockSignals(True)
         self.source_combo.clear()
-        self.source_combo.addItems(sources)
+        self.source_combo.addItems(caps["sources"])
         
         last_src = self.settings.value("last_source")
         if last_src:
@@ -331,47 +364,34 @@ class ScannerDialog(QDialog):
                 self.source_combo.setCurrentIndex(idx)
         
         self.source_combo.blockSignals(False)
-        
-        # Trigger resolution fetch for the now active source
         self._on_source_changed(self.source_combo.currentIndex())
-        
-        self.stack.setCurrentIndex(1)
-        QTimer.singleShot(100, self.adjustSize)
 
-    def _on_source_error(self, msg):
+    def _on_cap_error(self, msg):
         self.detail_loading = False
-        self.stack.setCurrentIndex(1)
-        print(f"Source fetch error: {msg}")
+        if self.stack.currentIndex() == 0:
+            self.stack.setCurrentIndex(1)
+        print(f"Capability fetch error: {msg}")
 
     def _on_source_changed(self, index):
         """Update UI based on source (e.g. Duplex options and resolutions)."""
-        device_id = self.device_combo.currentData()
         src = self.source_combo.currentText()
-        if not device_id or not src: 
-            return
+        if not src: return
 
+        print(f"[DEBUG] ScannerDialog: Source changed to '{src}'")
         # 1. Handle Duplex UI
         is_duplex = any(kw in src for kw in ["Duplex", "Beidseitig", "Zweiseitig"])
         self.duplex_settings.setVisible(is_duplex)
         
-        # 2. Update resolutions for THIS source (asynchronously)
-        self.dpi_combo.setEnabled(False)
-        self.res_worker = ResolutionWorker(self.driver, device_id, src)
-        self.res_worker.finished.connect(self._on_resolutions_found)
-        self.res_worker.error.connect(self._on_resolution_error)
-        self.res_worker.start()
-
-    def _on_resolutions_found(self, res_list, source):
-        # Verify it's still the active source
-        if source != self.source_combo.currentText():
-            return
+        # 2. Use cached resolutions if available
+        res_list = self.device_caps.get("resolutions", {}).get(src, [75, 150, 200, 300, 600])
+        print(f"[DEBUG] ScannerDialog: Loading {len(res_list)} resolutions from cache for '{src}'")
             
         self.dpi_combo.blockSignals(True)
         self.dpi_combo.clear()
         for res in res_list:
             self.dpi_combo.addItem(f"{res} dpi", str(res))
             
-        source_dpi = self.settings.value(f"last_dpi_{source}")
+        source_dpi = self.settings.value(f"last_dpi_{src}")
         general_dpi = self.settings.value("last_dpi", "200")
         target_dpi = source_dpi if source_dpi else general_dpi
         
@@ -388,10 +408,6 @@ class ScannerDialog(QDialog):
         self.dpi_combo.blockSignals(False)
         self.dpi_combo.setEnabled(True)
         QTimer.singleShot(50, self.adjustSize)
-
-    def _on_resolution_error(self, msg):
-        self.dpi_combo.setEnabled(True)
-        print(f"Resolution fetch error: {msg}")
             
     def _start_discovery(self):
         if self.discovery_running: return
