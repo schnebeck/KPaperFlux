@@ -26,6 +26,39 @@ class DeviceDiscoveryWorker(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
+class SourceDiscoveryWorker(QThread):
+    finished = pyqtSignal(list)
+    error = pyqtSignal(str)
+    
+    def __init__(self, driver: ScannerDriver, device: str):
+        super().__init__()
+        self.driver = driver
+        self.device = device
+        
+    def run(self):
+        try:
+            sources = self.driver.get_source_list(self.device)
+            self.finished.emit(sources)
+        except Exception as e:
+            self.error.emit(str(e))
+
+class ResolutionWorker(QThread):
+    finished = pyqtSignal(list, str) # resolutions, source
+    error = pyqtSignal(str)
+    
+    def __init__(self, driver: ScannerDriver, device: str, source: str):
+        super().__init__()
+        self.driver = driver
+        self.device = device
+        self.source = source
+        
+    def run(self):
+        try:
+            resolutions = self.driver.get_resolution_list(self.device, source=self.source)
+            self.finished.emit(resolutions, self.source)
+        except Exception as e:
+            self.error.emit(str(e))
+
 class ScannerWorker(QThread):
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
@@ -80,6 +113,7 @@ class ScannerDialog(QDialog):
         self.driver = get_scanner_driver("auto")
         self.scanned_file = None
         self.discovery_running = False
+        self.detail_loading = False
         
         # Resolve icon path relative to project root
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -214,9 +248,13 @@ class ScannerDialog(QDialog):
         
         if last_dev_id:
             # Pre-populate with cached device
+            self.device_combo.blockSignals(True)
             self.device_combo.addItem(last_dev_label, last_dev_id)
+            self.device_combo.blockSignals(False)
             self.scan_btn.setEnabled(True)
-            self.stack.setCurrentIndex(1) # Show settings immediately
+            # We stay in loading view and trigger source fetch
+            self.loading_label.setText(self.tr(f"Verbinde mit {last_dev_label}..."))
+            self._fetch_device_details(last_dev_id)
             
         # Restore other options
         last_dpi = self.settings.value("last_dpi", "200")
@@ -261,23 +299,49 @@ class ScannerDialog(QDialog):
         device_id = self.device_combo.currentData()
         if not device_id: return
         
-        # Update sources
-        sources = self.driver.get_source_list(device_id)
+        # Avoid redundant loading if it's the same device
+        if hasattr(self, "_current_device_id") and self._current_device_id == device_id:
+            return
+        self._current_device_id = device_id
+        
+        self.stack.setCurrentIndex(0)
+        self.loading_label.setText(self.tr(f"Lade Geräteoptionen für {self.device_combo.currentText()}..."))
+        self._fetch_device_details(device_id)
+
+    def _fetch_device_details(self, device_id):
+        if self.detail_loading: return
+        self.detail_loading = True
+        
+        self.source_worker = SourceDiscoveryWorker(self.driver, device_id)
+        self.source_worker.finished.connect(self._on_sources_found)
+        self.source_worker.error.connect(self._on_source_error)
+        self.source_worker.start()
+
+    def _on_sources_found(self, sources):
+        self.detail_loading = False
+        
+        self.source_combo.blockSignals(True)
         self.source_combo.clear()
         self.source_combo.addItems(sources)
         
-        # Try to restore last source
         last_src = self.settings.value("last_source")
         if last_src:
-             idx = self.source_combo.findText(last_src)
-             if idx >= 0: 
-                 self.source_combo.setCurrentIndex(idx)
-             else:
-                 # If last source not found (e.g. backend changed), trigger manually
-                 self._on_source_changed(self.source_combo.currentIndex())
-        else:
-             # Initial trigger
-             self._on_source_changed(self.source_combo.currentIndex())
+            idx = self.source_combo.findText(last_src)
+            if idx >= 0: 
+                self.source_combo.setCurrentIndex(idx)
+        
+        self.source_combo.blockSignals(False)
+        
+        # Trigger resolution fetch for the now active source
+        self._on_source_changed(self.source_combo.currentIndex())
+        
+        self.stack.setCurrentIndex(1)
+        QTimer.singleShot(100, self.adjustSize)
+
+    def _on_source_error(self, msg):
+        self.detail_loading = False
+        self.stack.setCurrentIndex(1)
+        print(f"Source fetch error: {msg}")
 
     def _on_source_changed(self, index):
         """Update UI based on source (e.g. Duplex options and resolutions)."""
@@ -290,15 +354,24 @@ class ScannerDialog(QDialog):
         is_duplex = any(kw in src for kw in ["Duplex", "Beidseitig", "Zweiseitig"])
         self.duplex_settings.setVisible(is_duplex)
         
-        # 2. Update resolutions for THIS source
-        res_list = self.driver.get_resolution_list(device_id, source=src)
+        # 2. Update resolutions for THIS source (asynchronously)
+        self.dpi_combo.setEnabled(False)
+        self.res_worker = ResolutionWorker(self.driver, device_id, src)
+        self.res_worker.finished.connect(self._on_resolutions_found)
+        self.res_worker.error.connect(self._on_resolution_error)
+        self.res_worker.start()
+
+    def _on_resolutions_found(self, res_list, source):
+        # Verify it's still the active source
+        if source != self.source_combo.currentText():
+            return
+            
         self.dpi_combo.blockSignals(True)
         self.dpi_combo.clear()
         for res in res_list:
             self.dpi_combo.addItem(f"{res} dpi", str(res))
             
-        # 3. Restore last DPI for THIS source, or general last, or default 200
-        source_dpi = self.settings.value(f"last_dpi_{src}")
+        source_dpi = self.settings.value(f"last_dpi_{source}")
         general_dpi = self.settings.value("last_dpi", "200")
         target_dpi = source_dpi if source_dpi else general_dpi
         
@@ -313,7 +386,12 @@ class ScannerDialog(QDialog):
                 self.dpi_combo.setCurrentIndex(0)
         
         self.dpi_combo.blockSignals(False)
+        self.dpi_combo.setEnabled(True)
         QTimer.singleShot(50, self.adjustSize)
+
+    def _on_resolution_error(self, msg):
+        self.dpi_combo.setEnabled(True)
+        print(f"Resolution fetch error: {msg}")
             
     def _start_discovery(self):
         if self.discovery_running: return

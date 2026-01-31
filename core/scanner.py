@@ -268,7 +268,8 @@ class SaneScanner(ScannerDriver):
             return sources
         except Exception as e:
             print(f"DEBUG: get_source_list failed for {device_name}: {e}")
-            return ["Flatbed", "ADF"]
+            # Improved defaults for modern multi-function devices
+            return ["Flatbed", "ADF", "ADF Duplex"]
 
     def get_resolution_list(self, device_name: str, source: Optional[str] = None) -> List[int]:
         """
