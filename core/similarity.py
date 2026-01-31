@@ -1,232 +1,270 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/similarity.py
+Version:        1.2.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Similarity engine for identifying duplicate documents. Uses a 
+                multi-modal approach combining metadata heuristics, text 
+                Jaccard similarity, and visual RMS comparison.
+------------------------------------------------------------------------------
+"""
 
-from typing import List, Tuple, Dict, Set
+import math
+import os
+import tempfile
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
+from pdf2image import convert_from_path
+from PIL import Image, ImageChops
+
 from core.database import DatabaseManager
 from core.document import Document
-import difflib
-import math
-from pathlib import Path
-from pdf2image import convert_from_path
-from PIL import Image, ImageChops, ImageStat
-import os
 
 
 class SimilarityManager:
     """
     Identifies potential duplicate documents based on metadata, text content, and visual appearance.
     """
-    def __init__(self, db_manager: DatabaseManager, vault=None):
-        self.db_manager = db_manager
-        self.vault = vault # Needed to resolve file paths
-        self.thumbnail_cache = {} # Map uuid -> PIL.Image
 
-    def find_duplicates(self, threshold: float = 0.85, progress_callback=None) -> List[Tuple[Document, Document, float]]:
+    def __init__(self, db_manager: DatabaseManager, vault: Optional[Any] = None) -> None:
+        """
+        Initializes the SimilarityManager.
+
+        Args:
+            db_manager: The database manager for accessing document data.
+            vault: The document vault for resolving file paths (optional).
+        """
+        self.db_manager: DatabaseManager = db_manager
+        self.vault: Optional[Any] = vault  # Needed to resolve file paths
+        self.thumbnail_cache: Dict[str, List[Image.Image]] = {}  # Map uuid -> List of PIL.Image
+
+    def find_duplicates(self, threshold: float = 0.85, progress_callback: Optional[Callable[[int, int], None]] = None) -> List[Tuple[Document, Document, float]]:
         """
         Find pairs of documents that are likely duplicates.
-        Returns a list of tuples: (doc_a, doc_b, similarity_score).
+
+        Args:
+            threshold: Similarity score threshold (0.0 to 1.0) above which documents are considered duplicates.
+            progress_callback: Optional function(current, total) for progress reporting.
+
+        Returns:
+            A list of tuples containing (doc_a, doc_b, similarity_score).
         """
         # Phase 102: Use Entity View instead of legacy get_all_documents
         documents = self.db_manager.get_all_entities_view()
-        duplicates = []
-        self.thumbnail_cache = {} # Clear cache
-        
+        duplicates: List[Tuple[Document, Document, float]] = []
+        self.thumbnail_cache = {}  # Clear cache for a fresh scan
+
         n = len(documents)
         total_pairs = (n * (n - 1)) // 2
         processed = 0
-        
+
         for i in range(n):
             for j in range(i + 1, n):
                 doc_a = documents[i]
                 doc_b = documents[j]
-                
+
                 score = self.calculate_similarity(doc_a, doc_b)
                 if score >= threshold:
                     duplicates.append((doc_a, doc_b, score))
-                
+
                 processed += 1
                 if progress_callback:
-                    # Emit (current, total)
                     progress_callback(processed, total_pairs)
-                    
+
         return duplicates
 
     def calculate_similarity(self, doc_a: Document, doc_b: Document) -> float:
         """
         Calculate a similarity score between 0.0 and 1.0.
-        Max of (Text Jaccard, Visual Similarity) boosted by Metadata.
+        Combined logic of Text Jaccard and Visual Similarity, boosted by Metadata.
+
+        Args:
+            doc_a: First document to compare.
+            doc_b: Second document to compare.
+
+        Returns:
+            A similarity score between 0.0 and 1.0.
         """
-        # Critical Metadata Check (Veto Power)
-        # If dates are present and differ, these are likely different monthly invoices (same template).
+        # 1. Critical Metadata Check (Veto Power)
+        # If dates are present and differ, these are likely different monthly invoices.
         if doc_a.doc_date and doc_b.doc_date and doc_a.doc_date != doc_b.doc_date:
-            return 0.0 # Strongly reject different dates
-            
-        # If amounts are present and differ significanly, likely different files.
+            return 0.0
+
+        # If amounts are present and differ significantly, likely different files.
         if doc_a.amount is not None and doc_b.amount is not None and doc_a.amount != doc_b.amount:
-            # Allow small float tolerance? Assuming exact match needed for duplicates.
-            return 0.1 # Very low score
-            
-        # Metadata Score (Boost)
+            return 0.1
+
+        # 2. Base Metadata Score (Boost Factor)
         metadata_score = 0.0
         if doc_a.amount is not None and doc_b.amount is not None and doc_a.amount == doc_b.amount:
-             metadata_score += 0.3
+            metadata_score += 0.3
         if doc_a.doc_date and doc_b.doc_date and doc_a.doc_date == doc_b.doc_date:
-                metadata_score += 0.2
-                
-        # Text Similarity (Jaccard)
-        text_a = (doc_a.text_content or "").lower().split()
-        text_b = (doc_b.text_content or "").lower().split()
-        
+            metadata_score += 0.2
+
+        # 3. Text Similarity (Jaccard Index)
+        text_a: List[str] = (doc_a.text_content or "").lower().split()
+        text_b: List[str] = (doc_b.text_content or "").lower().split()
+
         if not text_a or not text_b:
-             text_score = 0.0
+            text_score = 0.0
         else:
-             set_a = set(text_a)
-             set_b = set(text_b)
-             if not set_a or not set_b:
-                 text_score = 0.0
-             else:
-                 text_score = len(set_a & set_b) / len(set_a | set_b)
-        
-        # Visual Similarity
+            set_a: Set[str] = set(text_a)
+            set_b: Set[str] = set(text_b)
+            if not set_a or not set_b:
+                text_score = 0.0
+            else:
+                text_score = len(set_a & set_b) / len(set_a | set_b)
+
+        # 4. Visual Similarity
         visual_score = 0.0
         if self.vault:
             visual_score = self.calculate_visual_similarity(doc_a, doc_b)
-            
-        # Strategy:
-        # If visual score is high (e.g. > 0.9), it's likely a scan of the same doc, even if text failed.
-        # If text score is high, it's a match.
-        # Take the maximum of Text and Visual as the base content score.
-        
+
+        # 5. Combination Strategy
+        # Use maximum of Text and Visual as base content score.
         content_score = max(text_score, visual_score)
-        
         final_score = content_score
-        
+
         # Boost if metadata matches
         if metadata_score >= 0.5:
             final_score += 0.2
-            
+
         return min(final_score, 1.0)
 
     def calculate_visual_similarity(self, doc_a: Document, doc_b: Document) -> float:
         """
-        Render pages as low-res images and compare.
-        Supports checking if a single-page doc is contained in a multi-page doc.
-        Returns 0.0 to 1.0 (1.0 = identical).
+        Render pages as low-res images and compare them.
+        Handles containment (single page in multi-page doc) and P1-to-P1 comparison.
+
+        Args:
+            doc_a: First document.
+            doc_b: Second document.
+
+        Returns:
+            A visual similarity score between 0.0 and 1.0.
         """
         imgs_a = self._get_cached_thumbnails(doc_a)
         imgs_b = self._get_cached_thumbnails(doc_b)
-        
+
         if not imgs_a or not imgs_b:
             return 0.0
-            
-        # Strategy:
-        # Case 1: Both single page -> simple compare.
-        # Case 2: One is single page, other multi -> Check for containment (Max Match).
-        # Case 3: Both multi -> Compare P1 vs P1 (Assumption: First page usually identifies doc).
-        
+
         best_sim = 0.0
-        
+
+        # Case 1: A is single page, B is multi -> Check for containment
         if len(imgs_a) == 1 and len(imgs_b) > 1:
-            # Check if A is in B
             for img_b in imgs_b:
                 sim = self._compare_images(imgs_a[0], img_b)
-                if sim > best_sim: best_sim = sim
+                if sim > best_sim:
+                    best_sim = sim
             return best_sim
-            
+
+        # Case 2: B is single page, A is multi -> Check for containment
         elif len(imgs_b) == 1 and len(imgs_a) > 1:
-             # Check if B is in A
             for img_a in imgs_a:
                 sim = self._compare_images(img_a, imgs_b[0])
-                if sim > best_sim: best_sim = sim
+                if sim > best_sim:
+                    best_sim = sim
             return best_sim
-            
+
+        # Case 3: Both single or both multi -> Compare First Page
         else:
-            # P1 vs P1
             return self._compare_images(imgs_a[0], imgs_b[0])
 
     def _compare_images(self, img_a: Image.Image, img_b: Image.Image) -> float:
-        """Compare two PIL images using RMS."""
+        """
+        Compare two images using Root Mean Square (RMS) of color difference.
+
+        Args:
+            img_a: First image.
+            img_b: Second image.
+
+        Returns:
+            Similarity score between 0.0 and 1.0.
+        """
         if img_a.size != img_b.size:
-             # Resize secondary to primary
-             img_b = img_b.resize(img_a.size)
-             
+            img_b = img_b.resize(img_a.size)
+
         diff = ImageChops.difference(img_a, img_b)
         h = diff.histogram()
         sq = (value * ((idx % 256) ** 2) for idx, value in enumerate(h))
         sum_of_squares = sum(sq)
         rms = math.sqrt(sum_of_squares / float(img_a.size[0] * img_a.size[1]))
-        
-        # Heuristic normalization
+
+        # Normalize RMS: 0 (identical) to ~100+ (very different)
         sim = max(0.0, 1.0 - (rms / 100.0))
         return sim
 
     def _get_cached_thumbnails(self, doc: Document) -> List[Image.Image]:
-        """Return list of thumbnails for up to first 5 pages, ignoring KPaperFlux stamps."""
+        """
+        Resolves, renders, and caches thumbnails for a document.
+        Strips KPaperFlux stamps before rendering to ensure comparison robustness.
+
+        Args:
+            doc: The document to render.
+
+        Returns:
+            A list of PIL Image objects.
+        """
         if doc.uuid in self.thumbnail_cache:
             return self.thumbnail_cache[doc.uuid]
-            
-        # Phase 98: Resolve Physical Path from Entity
+
+        # Resolve path
         path_str = self.vault.get_file_path(doc.uuid)
         if not path_str or not os.path.exists(path_str):
-             # Try resolving via entity mapping
-             if hasattr(self.db_manager, "get_source_uuid_from_entity"):
-                 phys_uuid = self.db_manager.get_source_uuid_from_entity(doc.uuid)
-                 if phys_uuid:
-                     path_str = self.vault.get_file_path(phys_uuid)
+            if hasattr(self.db_manager, "get_source_uuid_from_entity"):
+                phys_uuid = self.db_manager.get_source_uuid_from_entity(doc.uuid)
+                if phys_uuid:
+                    path_str = self.vault.get_file_path(phys_uuid)
 
         if not path_str:
             return []
-            
+
         path = Path(path_str)
         if not path.exists():
             return []
-            
-        # Check for stamps and create clean temp if needed
+
         render_path = path
-        temp_file = None
-        
+        temp_file: Optional[str] = None
+
+        # Phase 98: Strip stamps before comparison
         try:
             from core.stamper import DocumentStamper
-            import tempfile
             import shutil
-            
+
             stamper = DocumentStamper()
             if stamper.has_stamp(str(path)):
-                # Create temp file
                 fd, temp_path = tempfile.mkstemp(suffix=".pdf")
                 os.close(fd)
                 shutil.copy2(path, temp_path)
-                
-                # Check stamps on temp (same as original)
-                # Remove all stamps
+
                 if stamper.remove_stamp(temp_path):
                     render_path = Path(temp_path)
                     temp_file = temp_path
-                else:
-                    # Failed to strip or no stamps found? Use temp anyway or original?
-                    pass
-        except Exception as e:
-            print(f"Error checking/stripping stamps for {doc.original_filename}: {e}")
-            
+        except (ImportError, IOError) as e:
+            print(f"[Similarity] Error stripping stamps for {doc.original_filename}: {e}")
+
         try:
-            # Render first 5 pages, Size 128px
+            # Render first 5 pages, low res (grayscale)
             images = convert_from_path(str(render_path), first_page=1, last_page=5, size=128, grayscale=True)
-            thumbnails = []
+            thumbnails: List[Image.Image] = []
             for img in images:
-                # Resize to fixed 64x80
+                # Resize to standard aspect ratio/thumbnail size
                 thumb = img.resize((64, 80))
                 thumbnails.append(thumb)
-                
-            self.thumbnail_cache[doc.uuid] = thumbnails
-            
-            # Cleanup temp
-            if temp_file and os.path.exists(temp_file):
-                os.unlink(temp_file)
-                
-            return thumbnails
-            
-        except Exception as e:
-            print(f"Visual Sim Error {doc.original_filename}: {e}")
-            if temp_file and os.path.exists(temp_file):
-                os.unlink(temp_file)
-            
-        return []
 
+            self.thumbnail_cache[doc.uuid] = thumbnails
+            return thumbnails
+
+        except Exception as e:
+            print(f"[Similarity] Visual Sim Error {doc.original_filename}: {e}")
+            return []
+        finally:
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    os.unlink(temp_file)
+                except OSError:
+                    pass
