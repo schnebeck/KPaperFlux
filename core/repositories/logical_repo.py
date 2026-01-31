@@ -5,15 +5,15 @@ File:           core/repositories/logical_repo.py
 Version:        1.2.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
-Description:    Repository for managing persistence of VirtualDocument models in
-                the sqlite database. Handles complex serialization of mapping
-                and semantic data.
+Description:    Repository for managing persistence of VirtualDocument models in 
+                the SQLite database. Handles complex serialization of mapping 
+                and semantic data using custom JSON encoders for temporal data.
 ------------------------------------------------------------------------------
 """
 
 import json
 from datetime import date, datetime
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 from core.models.virtual import VirtualDocument
 
@@ -23,6 +23,7 @@ from .base import BaseRepository
 class EnhancedJSONEncoder(json.JSONEncoder):
     """
     Custom JSON encoder to handle datetime and date objects.
+    Ensures that semantic data remains serializable even with complex types.
     """
 
     def default(self, obj: Any) -> Any:
@@ -33,24 +34,30 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 class LogicalRepository(BaseRepository):
     """
-    Manages access to the 'virtual_documents' table.
+    Manages access to the 'virtual_documents' table, providing persistence
+    for logical business entities.
     """
 
-    def save(self, doc: VirtualDocument) -> None:
+    def save(self, doc: VirtualDocument) -> bool:
         """
-        Inserts or updates a virtual document record.
+        Inserts or updates a virtual document record in the database.
 
         Args:
-            doc: The VirtualDocument instance to save.
-        """
-        # 1. Prepare JSON mapping
-        mapping_json = doc.get_mapping_json()
-        semantic_json = json.dumps(doc.semantic_data, cls=EnhancedJSONEncoder) if doc.semantic_data else None
+            doc: The VirtualDocument instance to persist.
 
-        # 2. Calculate Total Pages
+        Returns:
+            True if the operation was successful.
+        """
+        # 1. Prepare JSON structures
+        mapping_json = doc.to_source_mapping_json()
+        semantic_json = json.dumps(doc.semantic_data, cls=EnhancedJSONEncoder) if doc.semantic_data else None
+        type_tags_json = json.dumps(doc.type_tags) if doc.type_tags else None
+        tags_json = json.dumps(doc.tags) if doc.tags else None
+
+        # 2. Re-calculate Total Pages for physical tracking
         total_pages = sum(len(ref.pages) for ref in doc.source_mapping)
 
-        # 3. SQL (Upsert)
+        # 3. SQL execution
         sql = """
         INSERT OR REPLACE INTO virtual_documents (
             uuid, source_mapping, status, export_filename, 
@@ -61,9 +68,6 @@ class LogicalRepository(BaseRepository):
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
-
-        type_tags_json = json.dumps(doc.type_tags) if doc.type_tags else None
-        tags_json = json.dumps(doc.tags) if doc.tags else None
 
         values = (
             doc.uuid,
@@ -86,15 +90,20 @@ class LogicalRepository(BaseRepository):
             tags_json,
         )
 
-        with self.conn:
-            self.conn.execute(sql, values)
+        try:
+            with self.conn:
+                self.conn.execute(sql, values)
+            return True
+        except Exception as e:
+            print(f"[LogicalRepo] Save error: {e}")
+            return False
 
     def get_by_uuid(self, uuid: str) -> Optional[VirtualDocument]:
         """
-        Fetches a logical document by its UUID.
+        Fetches a logical document by its unique UUID.
 
         Args:
-            uuid: The unique identifier.
+            uuid: The document UUID.
 
         Returns:
             The VirtualDocument instance if found, else None.
@@ -118,13 +127,13 @@ class LogicalRepository(BaseRepository):
 
     def get_by_source_file(self, file_uuid: str) -> List[VirtualDocument]:
         """
-        Finds all logical entities that reference a specific physical file.
+        Finds all logical entities that reference a specific physical file UUID.
 
         Args:
-            file_uuid: The UUID of the physical file.
+            file_uuid: The UUID of the physical source file.
 
         Returns:
-            A list of VirtualDocument instances referencing the file.
+            A list of matching VirtualDocument instances.
         """
         pattern = f'%"{file_uuid}"%'
         sql = """
@@ -140,27 +149,35 @@ class LogicalRepository(BaseRepository):
         cursor.execute(sql, (pattern,))
         rows = cursor.fetchall()
 
-        results: List[VirtualDocument] = []
-        for row in rows:
-            results.append(VirtualDocument.from_row(row))
-        return results
+        return [VirtualDocument.from_row(row) for row in rows]
 
-    def delete_by_uuid(self, uuid: str) -> None:
+    def delete_by_uuid(self, uuid: str) -> bool:
         """
-        Hard deletes a virtual document record.
+        Hard deletes a virtual document record from the database.
 
         Args:
-            uuid: The UUID of the record to delete.
-        """
-        with self.conn:
-            self.conn.execute("DELETE FROM virtual_documents WHERE uuid = ?", (uuid,))
-
-    def get_all(self) -> List[VirtualDocument]:
-        """
-        Fetches all logical documents (including deleted).
+            uuid: The UUID of the record to remove.
 
         Returns:
-            A list of all VirtualDocument instances.
+            True if the operation was successful.
+        """
+        try:
+            with self.conn:
+                self.conn.execute("DELETE FROM virtual_documents WHERE uuid = ?", (uuid,))
+            return True
+        except Exception as e:
+            print(f"[LogicalRepo] Delete error: {e}")
+            return False
+
+    def get_all(self, include_deleted: bool = True) -> List[VirtualDocument]:
+        """
+        Fetches all logical documents from the repository.
+
+        Args:
+            include_deleted: If False, filters out records marked as deleted.
+
+        Returns:
+            A list of VirtualDocument instances.
         """
         sql = """
         SELECT 
@@ -170,6 +187,9 @@ class LogicalRepository(BaseRepository):
             sender, doc_date, amount, tags
         FROM virtual_documents
         """
+        if not include_deleted:
+            sql += " WHERE deleted = 0"
+
         cursor = self.conn.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
