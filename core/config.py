@@ -2,9 +2,9 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/config.py
-Version:        1.1.0
+Version:        1.2.0
 Producer:       thorsten.schnebeck@gmx.net
-Generator:      Gemini 3pro
+Generator:      Antigravity
 Description:    Manages application configuration using QSettings. Standardizes
                 paths for configuration and data across different platforms
                 (XDG standards on Linux).
@@ -14,6 +14,7 @@ Description:    Manages application configuration using QSettings. Standardizes
 import os
 from pathlib import Path
 from typing import Any, Optional
+
 from PyQt6.QtCore import QSettings, QStandardPaths
 
 
@@ -208,33 +209,73 @@ class AppConfig:
         self._set_setting("AI", self.KEY_API_KEY, key)
 
     def get_private_signature(self) -> str:
-        """Retrieves the private identity signature."""
+        """
+        Retrieves the private identity signature.
+
+        Returns:
+            The private signature string.
+        """
         return str(self._get_setting("Identity", "private_signature", ""))
 
     def set_private_signature(self, sig: str) -> None:
-        """Saves the private identity signature."""
+        """
+        Saves the private identity signature.
+
+        Args:
+            sig: The private signature string.
+        """
         self._set_setting("Identity", "private_signature", sig)
 
     def get_business_signature(self) -> str:
-        """Retrieves the business identity signature."""
+        """
+        Retrieves the business identity signature.
+
+        Returns:
+            The business signature string.
+        """
         return str(self._get_setting("Identity", "business_signature", ""))
 
     def set_business_signature(self, sig: str) -> None:
-        """Saves the business identity signature."""
+        """
+        Saves the business identity signature.
+
+        Args:
+            sig: The business signature string.
+        """
         self._set_setting("Identity", "business_signature", sig)
 
     def get_private_profile_json(self) -> str:
-        """Retrieves the private profile data as a JSON string."""
+        """
+        Retrieves the private profile data as a JSON string.
+
+        Returns:
+            The JSON profile string.
+        """
         return str(self._get_setting("Identity", "private_profile", "{}"))
 
     def set_private_profile_json(self, json_str: str) -> None:
-        """Saves the private profile data as a JSON string."""
+        """
+        Saves the private profile data as a JSON string.
+
+        Args:
+            json_str: The JSON profile string.
+        """
         self._set_setting("Identity", "private_profile", json_str)
 
     def get_business_profile_json(self) -> str:
-        """Retrieves the business profile data as a JSON string."""
+        """
+        Retrieves the business profile data as a JSON string.
+
+        Returns:
+            The JSON profile string.
+        """
         return str(self._get_setting("Identity", "business_profile", "{}"))
 
     def set_business_profile_json(self, json_str: str) -> None:
-        """Saves the business profile data as a JSON string."""
+        """
+        Saves the business profile data as a JSON string.
+
+        Args:
+            json_str: The JSON profile string.
+        """
         self._set_setting("Identity", "business_profile", json_str)
