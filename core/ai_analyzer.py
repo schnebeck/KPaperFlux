@@ -3,7 +3,7 @@
 Project:        KPaperFlux
 File:           core/ai_analyzer.py
 Version:        1.1.0
-Producer:       
+Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity (Gemini 3pro)
 Description:    Intelligence Layer for semantic document analysis and extraction.
                 Handles Google Gemini API interaction and adaptive scan modes.

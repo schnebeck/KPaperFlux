@@ -3,7 +3,7 @@
 Project:        KPaperFlux
 File:           gui/workers.py
 Version:        1.1.0
-Producer:       
+Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity (Gemini 3pro)
 Description:    PyQt6 worker threads for background processing (AI Queue, 
                 Import, Reprocessing, Tagging).

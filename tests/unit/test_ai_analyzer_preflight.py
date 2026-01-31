@@ -4,7 +4,7 @@
 Project:        KPaperFlux
 File:           tests/unit/test_ai_analyzer_preflight.py
 Version:        1.0.0
-Producer:       
+Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
 Description:    Reproduction test for f-string formatting error in AI Pre-Flight.
 ------------------------------------------------------------------------------

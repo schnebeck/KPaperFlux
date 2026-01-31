@@ -82,9 +82,8 @@ class ScannerDialog(QDialog):
         self.discovery_running = False
         
         # Resolve icon path relative to project root
-        from pathlib import Path
-        base_dir = Path(__file__).resolve().parent.parent
-        self.icon_path = str(base_dir / "resources" / "images" / "scanner_icon.png")
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        self.icon_path = os.path.join(project_root, "resources", "images", "scanner_icon.png")
         
         self._init_ui()
         self._load_saved_settings()
