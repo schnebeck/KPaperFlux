@@ -8,12 +8,12 @@ def test_mock_scanner_devices():
     scanner = MockScanner()
     devices = scanner.list_devices()
     assert len(devices) > 0
-    assert devices[0][0] == "mock:001"
+    assert devices[0][0] == "mock:1"
 
 def test_mock_scanner_scan():
     scanner = MockScanner()
     # device_name ignored by mock
-    output_path = scanner.scan_page("mock:001", dpi=150, color_mode="Gray")
+    output_path = scanner.scan_page("mock:1", dpi=150, color_mode="Gray")
     
     assert output_path is not None
     assert os.path.exists(output_path)

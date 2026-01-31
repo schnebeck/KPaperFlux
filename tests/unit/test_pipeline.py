@@ -33,14 +33,13 @@ def test_process_document_success(pipeline, mock_vault, mock_db):
     
     # Mock Physical Ingestion
     phys_file = PhysicalFile(
-         file_uuid=str(uuid.uuid4()),
+         uuid=str(uuid.uuid4()),
          original_filename="fake_scan.pdf",
          file_path="/vault/1234.pdf",
          phash="abcd",
          file_size=100,
-         page_count=2,
+         page_count_phys=2,
          raw_ocr_data={"1": "Page1", "2": "Page2"},
-         ref_count=0,
          created_at=datetime.datetime.now().isoformat()
     )
     pipeline._ingest_physical_file = MagicMock(return_value=phys_file)
@@ -65,7 +64,7 @@ def test_reprocess_document_success(pipeline):
     entity_id = str(uuid.uuid4())
     
     v_doc = VirtualDocument(
-        entity_uuid=entity_id,
+        uuid=entity_id,
         created_at=datetime.datetime.now().isoformat()
     )
     pipeline.logical_repo.get_by_uuid.return_value = v_doc
@@ -89,31 +88,38 @@ def test_pipeline_handles_missing_file(pipeline):
         pipeline.process_document("non_existent.pdf")
 
 # OCR Tests (Mocking subprocess)
-@patch("core.pipeline.subprocess.run")
+@patch("core.pipeline.subprocess.Popen")
 @patch("core.pipeline.tempfile.TemporaryDirectory")
 @patch("core.config.AppConfig.get_ocr_binary", return_value="ocrmypdf")
-def test_run_ocr_success(mock_get_ocr, mock_temp_dir, mock_run, pipeline, tmp_path):
+def test_run_ocr_success(mock_get_ocr, mock_temp_dir, mock_popen, pipeline, tmp_path):
     """Test successful OCR execution logic."""
     input_file = tmp_path / "test.pdf"
     input_file.touch()
-    
+
+    # The TemporaryDirectory will return our tmp_path
     mock_temp_dir.return_value.__enter__.return_value = str(tmp_path)
-    
-    # The output PDF is what _extract_text_native will read
+    # The expected output PDF in that temp dir
     output_pdf = tmp_path / f"ocr_{input_file.name}"
     output_pdf.touch()
-    
+
+    # Mock Popen
+    mock_process = MagicMock()
+    mock_process.poll.return_value = 0
+    mock_process.communicate.return_value = (b"", b"")
+    mock_process.returncode = 0
+    mock_popen.return_value = mock_process
+
     # We mock _extract_text_native to return dict
-    with patch.object(pipeline, '_extract_text_native', return_value={"1": "OCR Text"}):
+    with patch.object(pipeline, "_extract_text_native", return_value={"1": "OCR Text"}):
         res = pipeline._run_ocr(input_file)
         assert res == {"1": "OCR Text"}
-        
-    mock_run.assert_called()
+
+    mock_popen.assert_called()
 
 @patch("core.canonizer.CanonizerService")
 def test_pipeline_integration_ai(MockCanonizer, pipeline):
     """Test AI delegation."""
-    v_doc = VirtualDocument(entity_uuid="v1", created_at="now")
+    v_doc = VirtualDocument(uuid="v1", created_at="now")
     
     pipeline._run_ai_analysis(v_doc)
     MockCanonizer.return_value.process_virtual_document.assert_called_with(v_doc)

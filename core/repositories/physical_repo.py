@@ -1,8 +1,21 @@
-from typing import Optional
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/repositories/physical_repo.py
+Version:        1.2.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Repository for managing persistence of PhysicalFile models in the
+                sqlite database.
+------------------------------------------------------------------------------
+"""
+
 import json
-import sqlite3
-from .base import BaseRepository
+from typing import List, Optional
+
 from core.models.physical import PhysicalFile
+
+from .base import BaseRepository
 
 class PhysicalRepository(BaseRepository):
     """
