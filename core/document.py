@@ -2,9 +2,9 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/document.py
-Version:        1.1.0
+Version:        1.2.0
 Producer:       thorsten.schnebeck@gmx.net
-Generator:      Gemini 3pro
+Generator:      Antigravity
 Description:    Core domain model for a document in KPaperFlux. Defines the
                 schema for document metadata, validation rules, and
                 de/serialization using Pydantic.
@@ -15,7 +15,7 @@ import json
 import uuid
 from datetime import date
 from decimal import Decimal
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -32,7 +32,7 @@ class Document(BaseModel):
     cached_full_text: Optional[str] = None
 
     # Metadata extracted by AI or user
-    doc_date: Optional[date] = None
+    doc_date: Optional[Union[date, str]] = None
     sender: Optional[str] = None
     amount: Optional[Decimal] = None
 
@@ -98,7 +98,7 @@ class Document(BaseModel):
                 pass
             return [v]
         if isinstance(v, list):
-            return [str(t) for v_item in v for t in ([v_item] if isinstance(v_item, str) else [])]
+            return [str(t) for v_item in v if isinstance(v_item, str) for t in [v_item]]
         return []
 
     @field_validator("amount", "gross_amount", "postage", "packaging", "tax_rate", mode="before")
@@ -126,7 +126,7 @@ class Document(BaseModel):
                 return None
             try:
                 return Decimal(v)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, Decimal.InvalidOperation):
                 return None
         return None
 
@@ -165,8 +165,8 @@ class Document(BaseModel):
     text_content: Optional[str] = None
 
     # Dynamic & Semantic Data
-    extra_data: Optional[dict] = None
-    semantic_data: Optional[dict] = None
+    extra_data: Optional[Dict[str, Any]] = None
+    semantic_data: Optional[Dict[str, Any]] = None
 
     # Database Virtual Columns (Read-only)
     v_sender: Optional[str] = None
