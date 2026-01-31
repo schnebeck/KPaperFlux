@@ -36,6 +36,7 @@ build/
 *.pem
 /vault/
 filter_tree.json
+dashboard_config.json
 verify_*.py
 System Prompt*
 

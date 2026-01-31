@@ -88,7 +88,19 @@ class MainWindow(QMainWindow):
         # Phase 105: Selection Tracking
         self._dashboard_selections = {} # query_str -> uuid
 
-        self.filter_config_path = Path("filter_tree.json").resolve()
+        self.app_config = AppConfig()
+        self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
+        
+        # Migration: Check if old config exists in CWD and move it
+        old_filter_config = Path("filter_tree.json").resolve()
+        # Ensure we don't overwrite if target exists, unless we want to merge? 
+        # For now, simplistic migration: if target missing and source exists, move.
+        if old_filter_config.exists() and not self.filter_config_path.exists():
+            try:
+                shutil.move(str(old_filter_config), str(self.filter_config_path))
+                print(f"[Info] Migrated filter tree config to {self.filter_config_path}")
+            except Exception as e:
+                print(f"[Error] Failed to migrate filter tree config: {e}")
 
         self.create_menu_bar()
         self.create_tool_bar()

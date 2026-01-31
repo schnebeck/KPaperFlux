@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
                              QHBoxLayout, QScrollArea, QSizePolicy, QMenu)
@@ -7,6 +8,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurv
 from PyQt6.QtGui import QAction, QCursor, QPalette
 
 from gui.dialogs.dashboard_entry_dialog import DashboardEntryDialog
+from core.config import AppConfig
 
 CELL_WIDTH = 280
 CELL_HEIGHT = 180
@@ -93,7 +95,19 @@ class DashboardWidget(QWidget):
         super().__init__(parent)
         self.db_manager = db_manager
         self.filter_tree = filter_tree
-        self.config_path = Path("dashboard_config.json")
+        
+        self.app_config = AppConfig()
+        self.config_path = self.app_config.get_config_dir() / "dashboard_config.json"
+        
+        # Migration: Check if old config exists in CWD and move it if target doesn't exist
+        old_config = Path("dashboard_config.json")
+        if old_config.exists() and not self.config_path.exists():
+            try:
+                shutil.move(str(old_config), str(self.config_path))
+                print(f"[Info] Migrated dashboard config to {self.config_path}")
+            except Exception as e:
+                print(f"[Error] Failed to migrate dashboard config: {e}")
+        
         self.cards_config = []
         self.card_widgets = []
         self.locked = True # Default for safety

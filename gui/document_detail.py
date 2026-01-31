@@ -4,7 +4,9 @@ from PyQt6.QtWidgets import (
     QPushButton, QScrollArea, QMessageBox
 )
 from PyQt6.QtCore import Qt
-from core.models.virtual_document import VirtualDocumentfrom core.database import DatabaseManager
+from core.models.virtual import VirtualDocument
+from core.database import DatabaseManager
+from core.document import Document
 from core.vault import DocumentVault
 from gui.pdf_viewer import PdfViewerWidget
 from gui.widgets.tag_input import TagInputWidget

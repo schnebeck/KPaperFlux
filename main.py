@@ -41,7 +41,38 @@ def main():
     vault_path = app_config.get_vault_path()
     vault = DocumentVault(base_path=vault_path)
     
-    db = DatabaseManager(db_path="./kpaperflux.db") # Keep DB local for now or add to config?
+    # DB Layout Migration
+    import shutil
+    db_filename = "kpaperflux.db"
+    
+    # New Standard Path
+    data_dir = app_config.get_data_dir()
+    db_path = data_dir / db_filename
+    
+    # Old Local Path
+    local_db_path = Path(".").resolve() / db_filename
+    
+    if local_db_path.exists() and not db_path.exists():
+        print(f"Migrating Database from {local_db_path} to {db_path}...")
+        try:
+            shutil.move(str(local_db_path), str(db_path))
+            print("Database migration successful.")
+            
+            # Move WAL/SHM files if they exist (SQLite temporary files)
+            for ext in ["-wal", "-shm"]:
+                wal_src = local_db_path.with_name(db_filename + ext)
+                wal_dst = db_path.with_name(db_filename + ext)
+                if wal_src.exists():
+                    shutil.move(str(wal_src), str(wal_dst))
+        except Exception as e:
+            print(f"Error migrating database: {e}")
+            # Fallback to local if move failed? Or just crash?
+            # We let it standard crash later if DB can't be opened, but path is now set.
+    
+    # If explicit path override is ever needed, we could add it to Config.
+    # For now, we strictly use the XDG data location.
+    
+    db = DatabaseManager(db_path=str(db_path))
     db.init_db() # Ensure tables exist
 
     # 2. Initialize Logic

@@ -1,5 +1,5 @@
 from pathlib import Path
-from PyQt6.QtCore import QSettings
+from PyQt6.QtCore import QSettings, QStandardPaths
 
 class AppConfig:
     """
@@ -22,6 +22,34 @@ class AppConfig:
         # On Linux, this stores at ~/.config/kpaperflux/kpaperflux.conf
         # Organization="kpaperflux", Application="kpaperflux"
         self.settings = QSettings("kpaperflux", "kpaperflux")
+
+    def get_config_dir(self) -> Path:
+        """
+        Returns the path to the application configuration directory.
+        Ensures the directory exists.
+        Default on Linux: ~/.config/kpaperflux/
+        """
+        base_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.ConfigLocation)
+        config_dir = Path(base_path) / "kpaperflux"
+        if not config_dir.exists():
+            config_dir.mkdir(parents=True, exist_ok=True)
+        return config_dir
+
+    def get_data_dir(self) -> Path:
+        """
+        Returns the path to the application data directory.
+        Ensures the directory exists.
+        Default on Linux: ~/.local/share/kpaperflux/
+        """
+        base_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
+        # Note: AppDataLocation usually includes Organization/Appname automatically or generically.
+        # But QStandardPaths behavior varies. 
+        # On Linux AppDataLocation usually -> ~/.local/share/kpaperflux if initialized with correct org/app names.
+        # However, to be safe and consistent with previous manually joined paths, we check.
+        data_dir = Path(base_path)
+        if not data_dir.exists():
+            data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir
         
     def _get_setting(self, group: str, key: str, default=None):
         if group:

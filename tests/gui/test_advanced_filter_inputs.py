@@ -9,7 +9,7 @@ class MockDBManager:
     def get_available_extra_keys(self):
         return ["semantic:invoice.total", "json:custom_field"]
         
-    def get_available_tags(self):
+    def get_available_tags(self, *args, **kwargs):
         return ["tag1", "tag2", "urgent"]
 
 @pytest.fixture
