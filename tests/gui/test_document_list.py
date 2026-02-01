@@ -14,7 +14,7 @@ def test_document_list_population(qtbot, mock_db):
     # Data Setup
     docs = [
         Document(original_filename="invoice.pdf", sender="Amazon", amount=Decimal("15.99"), doc_date=date(2023, 1, 1)),
-        Document(original_filename="contract.pdf", doc_type="Vertrag")
+        Document(original_filename="contract.pdf", type_tags=["Vertrag"])
     ]
     mock_db.get_all_documents.return_value = docs
     mock_db.get_all_entities_view.return_value = docs

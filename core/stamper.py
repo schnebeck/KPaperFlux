@@ -144,7 +144,9 @@ class DocumentStamper:
             # Coalesce stamp content to a single stream
             contents_data = b""
             if "/Contents" in stamp_page:
-                contents_data = stamp_page.contents_coalesce()
+                content_stream = stamp_page.contents_coalesce()
+                if content_stream is not None:
+                    contents_data = content_stream.read_bytes()
 
             # Create Form XObject in destination PDF
             form_xobj = target_pdf.make_stream(contents_data)

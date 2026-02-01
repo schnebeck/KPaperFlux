@@ -53,7 +53,7 @@ class FilterConditionWidget(QWidget):
     FIELDS_BY_CAT = {
         "basis": {
             "Belegdatum": "doc_date",
-            "Belegtyp": "doc_type",
+            "Belegtyp": "classification",
             "Status": "status",
             "Schlagworte (Tags)": "tags",
             "System-Tags": "type_tags",
@@ -156,7 +156,7 @@ class FilterConditionWidget(QWidget):
         if available_system_tags is not None: self.available_system_tags = available_system_tags
 
         # Refresh active input if it depends on tags
-        if self.field_key in ["type_tags", "tags", "doc_type", "direction", "tenant_context"]:
+        if self.field_key in ["type_tags", "tags", "classification", "direction", "tenant_context"]:
              # Force a refresh of the multi-select combo items
              old_field = self.last_field
              self.last_field = None # Force it to re-populate
@@ -276,7 +276,7 @@ class FilterConditionWidget(QWidget):
              ctxs = [t for t in self.available_system_tags if t.startswith("CTX_") or t in ["PRIVATE", "BUSINESS"]]
              if not ctxs: ctxs = ["PRIVATE", "BUSINESS", "UNKNOWN"]
              self.input_multi.addItems(ctxs)
-        elif field_key == "doc_type":
+        elif field_key == "classification":
              self.input_stack.setCurrentIndex(1)
              self.input_multi.clear()
              # Filter available_system_tags for things that are DocTypes

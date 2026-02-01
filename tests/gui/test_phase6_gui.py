@@ -17,9 +17,9 @@ def db_manager(tmp_path):
 @pytest.fixture
 def filled_db(db_manager):
     # Insert dummy docs
-    doc1 = Document(uuid="uuid-1", original_filename="doc1.pdf", doc_date="2023-01-01", doc_type="Invoice", tags=["paid"])
-    doc2 = Document(uuid="uuid-2", original_filename="doc2.pdf", doc_date="2023-06-01", doc_type="Receipt", tags=["food"])
-    doc3 = Document(uuid="uuid-3", original_filename="doc3.pdf", doc_date="2024-01-01", doc_type="Invoice", tags=["unpaid"])
+    doc1 = Document(uuid="uuid-1", original_filename="doc1.pdf", doc_date="2023-01-01", type_tags=["Invoice"], tags=["paid"])
+    doc2 = Document(uuid="uuid-2", original_filename="doc2.pdf", doc_date="2023-06-01", type_tags=["Receipt"], tags=["food"])
+    doc3 = Document(uuid="uuid-3", original_filename="doc3.pdf", doc_date="2024-01-01", type_tags=["Invoice"], tags=["unpaid"])
     
     db_manager.insert_document(doc1)
     db_manager.insert_document(doc2)

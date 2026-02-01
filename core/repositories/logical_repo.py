@@ -59,7 +59,7 @@ class LogicalRepository(BaseRepository):
 
         # 3. SQL execution
         sql = """
-        INSERT OR REPLACE INTO virtual_documents (
+        INSERT INTO virtual_documents (
             uuid, source_mapping, status, export_filename, 
             last_used, last_processed_at, is_immutable, thumbnail_path, 
             cached_full_text, semantic_data, created_at, deleted, 
@@ -68,6 +68,24 @@ class LogicalRepository(BaseRepository):
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
+        ON CONFLICT(uuid) DO UPDATE SET
+            source_mapping=excluded.source_mapping,
+            status=excluded.status,
+            export_filename=excluded.export_filename,
+            last_used=excluded.last_used,
+            last_processed_at=excluded.last_processed_at,
+            is_immutable=excluded.is_immutable,
+            thumbnail_path=excluded.thumbnail_path,
+            cached_full_text=excluded.cached_full_text,
+            semantic_data=excluded.semantic_data,
+            created_at=excluded.created_at,
+            deleted=excluded.deleted,
+            deleted_at=excluded.deleted_at,
+            locked_at=excluded.locked_at,
+            exported_at=excluded.exported_at,
+            page_count_virt=excluded.page_count_virt,
+            type_tags=excluded.type_tags,
+            tags=excluded.tags
         """
 
         values = (

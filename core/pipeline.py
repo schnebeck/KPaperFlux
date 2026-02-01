@@ -881,7 +881,9 @@ class PipelineProcessor:
         elif doc.sender_name:
             sender = doc.sender_name
 
-        doc_type = doc.doc_type or "Document"
+        effective_type = "Document"
+        if doc.type_tags:
+            effective_type = str(doc.type_tags[0])
         date_part = str(sd.get("doc_date") or "UnknownDate")
 
         def clean(s: str) -> str:
@@ -891,7 +893,7 @@ class PipelineProcessor:
             s = re.sub(r"[\s]+", "_", s)  # Space to underscore
             return s
 
-        base = f"{clean(sender)}_{clean(doc_type)}_{clean(date_part)}"
+        base = f"{clean(sender)}_{clean(effective_type)}_{clean(date_part)}"
         return base
 
     def save_document(self, doc: Document) -> None:

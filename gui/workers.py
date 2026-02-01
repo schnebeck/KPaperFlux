@@ -268,7 +268,7 @@ class MainLoopWorker(QThread):
                     WHERE status IN ('NEW', 'READY_FOR_PIPELINE', 'STAGE2_PENDING') 
                     AND deleted = 0
                 """)
-                total_pending = cursor.fetchone()[0]
+                total_pending = int(cursor.fetchone()[0] or 0)
 
                 # If nothing to do, wait and continue
                 if total_pending == 0:

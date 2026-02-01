@@ -16,7 +16,7 @@ def test_pydantic_validation_correction(mock_genai):
     # Coercible
     # InvoiceData does NOT have total_amount, it has net_amount/gross_amount.
     coercible_json = {
-        "doc_type": "INVOICE",
+        "classification": "INVOICE",
         "specific_data": {
             "net_amount": "123.45" # String, should be float
         }

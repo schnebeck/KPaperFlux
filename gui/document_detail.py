@@ -127,7 +127,7 @@ class DocumentDetailWidget(QWidget):
         self.iban_edit.setText(doc.iban or "")
         self.phone_edit.setText(doc.phone or "")
         self.date_edit.setText(str(sd.get("doc_date") or ""))
-        self.type_edit.setText(doc.doc_type or "")
+        self.type_edit.setText(", ".join(doc.type_tags or []))
         # Tags: Handle List or legacy String
         tags = doc.tags or []
         if isinstance(tags, list):
@@ -175,7 +175,7 @@ class DocumentDetailWidget(QWidget):
             "sender_address": self.address_edit.toPlainText(),
             "iban": self.iban_edit.text(),
             "phone": self.phone_edit.text(),
-            "doc_type": self.type_edit.text(),
+            "type_tags": [t.strip() for t in self.type_edit.text().split(",") if t.strip()],
             "tags": self.tags_edit.getTags(),
             "semantic_data": sd
         }

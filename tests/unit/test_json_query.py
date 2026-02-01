@@ -8,24 +8,20 @@ def test_json_query_generation():
     """
     db = DatabaseManager(":memory:")
     
-    # query = {field: "json:stamps.cost_center", op: "equals", value: "10"}
     query = {
         "field": "json:stamps.cost_center", 
         "op": "equals", 
         "value": "10"
     }
-    params = []
     
-    sql = db._build_advanced_sql(query, params)
+    sql, params = db._build_where_clause(query)
     
     print(f"Generated SQL: {sql}")
+    print(f"Params: {params}")
     
-    # Expected: EXISTS (SELECT 1 FROM json_tree(documents.extra_data) WHERE fullkey LIKE ? AND value = ?)
-    # Params: ["%stamps%cost_center%", "10"]
-    assert "EXISTS" in sql
-    assert "json_tree" in sql
-    assert "fullkey LIKE" in sql
-    assert "%stamps%cost_center%" in params
+    # Expected: json_extract(semantic_data, '$.stamps.cost_center') = ? COLLATE NOCASE
+    assert "json_extract" in sql
+    assert "$.stamps.cost_center" in sql
     assert "10" in params
 
 def test_json_contains_query():
@@ -36,12 +32,13 @@ def test_json_contains_query():
         "op": "contains", 
         "value": "ready"
     }
-    params = []
     
-    sql = db._build_advanced_sql(query, params)
+    sql, params = db._build_where_clause(query)
     
-    # LIKE should be used in value check
+    print(f"Generated SQL: {sql}")
+    print(f"Params: {params}")
+    
+    # Expected: json_extract(semantic_data, '$.status') LIKE ?
     assert "LIKE" in sql
-    # Params order: [pattern, value] -> ["%status%", "%ready%"]
-    assert "%status%" in params
+    assert "json_extract" in sql
     assert "%ready%" in params

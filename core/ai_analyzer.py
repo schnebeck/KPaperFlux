@@ -57,7 +57,7 @@ class AIAnalysisResult(BaseModel):
         packaging: Packaging costs.
         tax_rate: Tax rate percentage.
         currency: Currency code (e.g., EUR).
-        doc_type: Document type.
+        type_tags: List of classification tags.
         sender_address: Full address of the sender.
         iban: IBAN found in the document.
         phone: Phone number found in the document.
@@ -89,7 +89,7 @@ class AIAnalysisResult(BaseModel):
     tax_rate: Optional[Decimal] = None
     currency: Optional[str] = None
 
-    doc_type: Optional[str] = None
+    type_tags: List[str] = field(default_factory=list)
     sender_address: Optional[str] = None
     iban: Optional[str] = None
     phone: Optional[str] = None
@@ -334,9 +334,9 @@ class AIAnalyzer:
             The response object from the API or None if all retries fail.
         """
         # 0. Adaptive Delay
-        if self._adaptive_delay > 0:
-            print(f"AI Adaptive Delay: Sleeping {self._adaptive_delay:.2f}s...")
-            time.sleep(self._adaptive_delay)
+        if AIAnalyzer._adaptive_delay > 0:
+            print(f"AI Adaptive Delay: Sleeping {AIAnalyzer._adaptive_delay:.2f}s...")
+            time.sleep(AIAnalyzer._adaptive_delay)
 
         response = None
         last_error = None
@@ -362,12 +362,12 @@ class AIAnalyzer:
                 )
 
                 # Success: Decrease Adaptive Delay
-                if self._adaptive_delay > 0:
-                    old_delay = self._adaptive_delay
-                    self._adaptive_delay = max(0.0, self._adaptive_delay * 0.5)
-                    if self._adaptive_delay < 0.1:
-                        self._adaptive_delay = 0.0
-                    print(f"AI Success (Attempt {attempt+1}/{self.MAX_RETRIES}). Decreasing Delay: {old_delay:.2f}s -> {self._adaptive_delay:.2f}s")
+                if AIAnalyzer._adaptive_delay > 0:
+                    old_delay = AIAnalyzer._adaptive_delay
+                    AIAnalyzer._adaptive_delay = max(0.0, AIAnalyzer._adaptive_delay * 0.5)
+                    if AIAnalyzer._adaptive_delay < 0.1:
+                        AIAnalyzer._adaptive_delay = 0.0
+                    print(f"AI Success (Attempt {attempt+1}/{self.MAX_RETRIES}). Decreasing Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
                 elif attempt > 0:
                     print(f"AI Success after {attempt+1} attempts.")
 
@@ -385,15 +385,15 @@ class AIAnalyzer:
                     is_429 = True
 
                 if is_429:
-                    old_delay = self._adaptive_delay
-                    new_delay = max(2.0, self._adaptive_delay * 2.0)
-                    self._adaptive_delay = min(256.0, new_delay)
+                    old_delay = AIAnalyzer._adaptive_delay
+                    new_delay = max(2.0, AIAnalyzer._adaptive_delay * 2.0)
+                    AIAnalyzer._adaptive_delay = min(256.0, new_delay)
 
-                    if self._adaptive_delay != old_delay:
-                        print(f"AI Rate Limit Hit! Increasing Delay: {old_delay:.2f}s -> {self._adaptive_delay:.2f}s")
+                    if AIAnalyzer._adaptive_delay != old_delay:
+                        print(f"AI Rate Limit Hit! Increasing Delay: {old_delay:.2f}s -> {AIAnalyzer._adaptive_delay:.2f}s")
 
                     backoff = 2 * (2 ** attempt) + random.uniform(0, 1)
-                    delay = max(backoff, self._adaptive_delay)
+                    delay = max(backoff, AIAnalyzer._adaptive_delay)
                     print(f"[{attempt+1}/{self.MAX_RETRIES}] AI 429. Backing off for {delay:.1f}s")
 
                     AIAnalyzer._cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=delay)
@@ -421,7 +421,7 @@ class AIAnalyzer:
         doc_schema = {
           "type": "object",
           "properties": {
-             "summary": { "type": "object", "properties": { "doc_type": { "type": "array", "items": { "type": "string" } }, "main_date": { "type": "string" } } },
+             "summary": { "type": "object", "properties": { "classification": { "type": "array", "items": { "type": "string" } }, "main_date": { "type": "string" } } },
              "pages": { "type": "array", "items": { "type": "object" } }
           }
         }
@@ -429,7 +429,7 @@ class AIAnalyzer:
         # Create a simplified One-Shot Example to guide the model away from Schema copying
         example_json = """
         {
-          "summary": { "doc_type": ["Invoice"], "main_date": "2025-01-01", "language": "de" },
+          "summary": { "classification": ["Invoice"], "main_date": "2025-01-01", "language": "de" },
           "pages": [
             {
               "page_number": 1,
@@ -515,14 +515,14 @@ class AIAnalyzer:
                 "amount": None,
                 "gross_amount": None,
                 "sender": None,
-                "doc_type": None
+                "classification": None
             }
 
             # 1. Check Summary (Quick Path)
             if "summary" in semantic_data:
                 summ = semantic_data["summary"]
                 extracted["doc_date"] = summ.get("main_date")
-                extracted["doc_type"] = summ.get("doc_type")
+                extracted["classification"] = summ.get("classification")
 
             # 2. Traverse Blocks for Financials if missing
             # A simple heuristic: Look for KeyValueBlocks with keys like "amount", "total", "net", "brutto"
@@ -578,7 +578,7 @@ class AIAnalyzer:
                 amount=to_decimal(extracted["amount"]),
                 gross_amount=to_decimal(extracted["gross_amount"]),
                 sender=extracted["sender"],
-                doc_type=str(extracted["doc_type"]) if extracted["doc_type"] else None,
+                type_tags=extracted["classification"] if isinstance(extracted["classification"], list) else ([str(extracted["classification"])] if extracted["classification"] else []),
                 semantic_data=semantic_data
             )
 
@@ -634,8 +634,8 @@ class AIAnalyzer:
         # 1. Extract Existing Type Hints
         existing_types_str = "OTHER"
         summary = semantic_data.get("summary", {})
-        if "doc_type" in summary:
-            dt = summary["doc_type"]
+        if "classification" in summary:
+            dt = summary["classification"]
             if isinstance(dt, list):
                 existing_types_str = ", ".join(dt)
             else:
@@ -690,15 +690,15 @@ class AIAnalyzer:
         # Build hints from semantic data or previous stage
         structural_hints = ""
         if detected_entities:
-             doc_types = [str(t) for t in (ent.get("doc_type") for ent in detected_entities) if t]
-             structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe classification stage (Stage 1.1) already identified these types: {', '.join(doc_types)}.\n"
+             entity_types = [str(t) for t in (ent.get("classification") for ent in detected_entities) if t]
+             structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe classification stage (Stage 1.1) already identified these types: {', '.join(entity_types)}.\n"
              structural_hints += "Ensure the output contains boundaries for these documents.\n"
         elif semantic_data:
              summary = semantic_data.get("summary", {})
-             doc_types = summary.get("doc_type", [])
-             if isinstance(doc_types, list) and doc_types:
-                 doc_types = [str(t) for t in doc_types if t]
-                 structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe system previously detected the following Semantic Types: {', '.join(doc_types)}.\nUse this to guide your splitting."
+             entity_types = summary.get("classification", [])
+             if isinstance(entity_types, list) and entity_types:
+                 entity_types = [str(t) for t in entity_types if t]
+                 structural_hints = f"\n### PREVIOUS ANALYSIS HINTS\nThe system previously detected the following Classification: {', '.join(entity_types)}.\nUse this to guide your splitting."
 
         # Strict List allowed by system (Hybrid DMS)
         allowed_types = [
@@ -750,22 +750,22 @@ class AIAnalyzer:
             print(f"Entity ID Failed: {e}")
             return []
 
-    def extract_canonical_data(self, doc_type: Any, text: str) -> Dict[str, Any]:
+    def extract_canonical_data(self, primary_type: Any, text: str) -> Dict[str, Any]:
         """
         Phase 2 of Canonization: Extract strict CDM for a specific Entity Type.
         Dynamically builds the target schema based on the Pydantic model.
 
         Args:
-            doc_type: The document type (string or DocType enum).
+            primary_type: The document type (string or DocType enum).
             text: The text content of the entity.
 
         Returns:
             A dictionary containing the extracted canonical data.
         """
         # Ensure DocType Enum
-        if isinstance(doc_type, str):
+        if isinstance(primary_type, str):
             try:
-                doc_type = DocType(doc_type)
+                primary_type = DocType(primary_type)
             except (ValueError, KeyError):
                 pass  # Keep as string if custom, but mapping won't work
 
@@ -800,8 +800,8 @@ class AIAnalyzer:
             DocType.OTHER: None
         }
 
-        target_model = model_map.get(doc_type)
-        val = doc_type.value if hasattr(doc_type, 'value') else str(doc_type)
+        target_model = model_map.get(primary_type)
+        val = primary_type.value if hasattr(primary_type, 'value') else str(primary_type)
 
         # Build Schema Strings
         specific_schema_hint = ""
@@ -833,7 +833,7 @@ class AIAnalyzer:
         Extract data into this exact JSON structure:
 
         {{
-          "doc_type": "{val}",
+          "entity_type": "{val}",
           "doc_date": "YYYY-MM-DD",
           "parties": {{
             "sender": {{ "name": "...", "address": "...", "id": "...", "company": "...", "street": "...", "zip_code": "...", "city": "...", "country": "..." }},
@@ -887,12 +887,12 @@ class AIAnalyzer:
             # TODO: Validate the outer `CanonicalEntity` too?
             # Creating a transient CanonicalEntity to coerce top-level fields (doc_date, etc.)
             try:
-                # We need to handle 'doc_type' conversion string -> Enum
-                if "doc_type" in raw_data and isinstance(raw_data["doc_type"], str):
+                # We need to handle 'entity_type' conversion string -> Enum
+                if "entity_type" in raw_data and isinstance(raw_data["entity_type"], str):
                      # If it matches enum
                      try:
                          # Ensure it's uppercase
-                         raw_data["doc_type"] = raw_data["doc_type"].upper()
+                         raw_data["entity_type"] = raw_data["entity_type"].upper()
                      except: pass
 
                 # Attempt full validation if possible, or just coercion of known fields
@@ -1380,12 +1380,12 @@ TASK:
     # STAGE 2: SCHEMA REGISTRY
     # ==============================================================================
 
-    def get_target_schema(self, doc_type: str, include_repair: bool = True) -> Dict:
+    def get_target_schema(self, entity_type: str, include_repair: bool = True) -> Dict:
         """
         Phase 2.1: Schema Registry.
         Detailed polymorph schemas for each document type.
         """
-        dt = doc_type.upper()
+        dt = entity_type.upper()
         
         # BASIS: Common Header (immer dabei)
         base_header = {
@@ -1823,14 +1823,14 @@ These data points have ALREADY been processed and mapped to the system.
 >>> SIGNATURES: {signature_json} <<<
 *Instruction:* STICKLY IGNORE these in your analysis. DO NOT re-extract them, DO NOT mention them in your summary or analysis. They are provided as context ONLY to avoid misinterpreting stamp noise as document content.
 
-### 4. EXTRACTION TARGET: {doc_type}
+### 4. EXTRACTION TARGET: {entity_type}
 - **Identity Context:** {user_identity}
 - **Rules:**
   1. **Page Independence:** Scan ALL pages. Do not stop after Page 1.
   2. **Ignore Stamp Noise:** These anchors are already handled. Strictly ignore their text content and do NOT include or reference them in your JSON response.
   3. **Visual Supremacy:** If Raw OCR and Image conflict, the Image and your Logic are the source of truth. Correct OCR errors in your output JSON.
   4. **Target Specificity & Compliance:** 
-     - Focus PRIMARILY on extracting fields relevant to `{doc_type}`. 
+     - Focus PRIMARILY on extracting fields relevant to `{entity_type}`. 
      - **MANDATORY:** You MUST provide the specific body key defined in the schema (e.g. `finance_body` for Invoices, `career_body` for Certificates). 
      - If the document is hybrid and contains other data, you may fill multiple body keys.
      - **BEWARE:** Do NOT return generic data under a wrong key. Ensure the category names match the TARGET SCHEMA exactly.
@@ -1855,9 +1855,9 @@ Return ONLY valid JSON.
         if types_to_extract:
             print(f"[AI] Stage 2 (Extraction) [START] -> Types: {', '.join(types_to_extract)}, Vision: {bool(pdf_path)}")
 
-        for i, doc_type in enumerate(types_to_extract):
+        for i, entity_type in enumerate(types_to_extract):
             include_repair = (i == 0)
-            schema = self.get_target_schema(doc_type, include_repair=include_repair)
+            schema = self.get_target_schema(entity_type, include_repair=include_repair)
             
             # Context Limit: Gemini handles large contexts easily. 100k chars is safe.
             limit = 100000
@@ -1876,7 +1876,7 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
 """
             
             prompt = PROMPT_TEMPLATE.format(
-                doc_type=doc_type,
+                entity_type=entity_type,
                 document_text=best_text[:limit],
                 stamps_json=stamps_json_str,
                 signature_json=json.dumps(sig_data),
@@ -1885,7 +1885,7 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                 repair_mission=prompt_repair_instruction
             )
             try:
-                extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {doc_type}", images=images_payload)
+                extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {entity_type}", images=images_payload)
                 if extraction:
                     found_keys = []
                     for key, value in extraction.items():
@@ -1894,9 +1894,9 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                             found_keys.append(key)
                     
                     if not found_keys:
-                         print(f"[AI] STAGE 2: {doc_type} -> Success (But NO body-data found!)")
+                         print(f"[AI] STAGE 2: {entity_type} -> Success (But NO body-data found!)")
                     else:
-                         print(f"[AI] STAGE 2: {doc_type} -> Success (Found: {', '.join(found_keys)})")
+                         print(f"[AI] STAGE 2: {entity_type} -> Success (Found: {', '.join(found_keys)})")
 
                     if not final_semantic_data["meta_header"]:
                         final_semantic_data["meta_header"] = extraction.get("meta_header", {})
@@ -1905,10 +1905,10 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                         if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
                             final_semantic_data["repaired_text"] = extraction["repaired_text"]
                 else:
-                    print(f"[AI] STAGE 2: {doc_type} -> FAILED (JSON Error or Truncation after retries)")
+                    print(f"[AI] STAGE 2: {entity_type} -> FAILED (JSON Error or Truncation after retries)")
                     return None
             except Exception as e:
-                print(f"[AI] Stage 2 Error ({doc_type}): {e}")
+                print(f"[AI] Stage 2 Error ({entity_type}): {e}")
                 return None
 
         # Final Validation: Did we get anything useful?
@@ -1923,7 +1923,7 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
         print(f"[AI] Stage 2 (Extraction) [DONE] -> Success ({bodies_count} {cat_str}: {', '.join(final_semantic_data['bodies'].keys())})")
         return final_semantic_data
 
-    def generate_smart_filename(self, semantic_data: Dict, doc_types: List[str]) -> str:
+    def generate_smart_filename(self, semantic_data: Dict, entity_types: List[str]) -> str:
         """
         Phase 2.4: Smart Filename Generation.
         Generates a human-readable filename based on extracted data.
@@ -1972,7 +1972,7 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
 
         # 3. Type (WAS)
         # Ensure we filter out None values and noise tags
-        clean_types = [t for t in doc_types if t and isinstance(t, str) and t not in ["INBOUND", "OUTBOUND", "INTERNAL", "CTX_PRIVATE", "CTX_BUSINESS", "UNKNOWN"]]
+        clean_types = [t for t in entity_types if t and isinstance(t, str) and t not in ["INBOUND", "OUTBOUND", "INTERNAL", "CTX_PRIVATE", "CTX_BUSINESS", "UNKNOWN"]]
         type_str = "-".join(clean_types[:2]) if clean_types else "DOC"
 
         filename = f"{date_str}__{entity_name}__{type_str}.pdf"

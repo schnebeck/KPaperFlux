@@ -196,6 +196,7 @@ class CanonizerService:
             return False
 
         v_doc.cached_full_text = full_text
+        print(f"[DEBUG] Canonizer Resolved text ({len(full_text)} chars) for {v_doc.uuid}")
 
         # Reconstruct page list from source_mapping
         pages_text: List[str] = []
@@ -234,7 +235,7 @@ class CanonizerService:
                 }
             ]
             # Restore detected_entities for context in Stage 2
-            detected_entities = [{"doc_types": split_candidates[0]["types"]}]
+            detected_entities = [{"entity_types": split_candidates[0]["types"]}]
         else:
             # --- START STAGE 1 ---
             print(f"[AI] Stage 1.1 (Classification) [START] -> Pages: {len(pages_text)}")
@@ -278,7 +279,7 @@ class CanonizerService:
 
             all_tags: List[str] = []
             for ent in detected_entities:
-                types = ent.get("doc_types", [])
+                types = ent.get("entity_types", [])
                 for t in types:
                     if t and t not in all_tags:
                         all_tags.append(t)
@@ -286,28 +287,36 @@ class CanonizerService:
 
             if is_manual:
                 print(f"[Canonizer] Manually edited doc {v_doc.uuid} detected. Skipping auto-split.")
-                return True
-
-            has_clear_boundaries = all(ent.get("page_indices") for ent in detected_entities)
-            if is_hybrid and not has_clear_boundaries:
-                print("[Canonizer] Stage 1.1 found hybrid but no clear boundaries. Triggering Stage 1.2.")
-                split_candidates = self.analyzer.identify_entities(full_text, detected_entities=detected_entities)
-
-                if split_candidates is None:
-                    print("[Canonizer] Stage 1.2 AI Analysis returned None. Aborting.")
-                    return False
+                # We still need to proceed to Stage 2 for this manual document.
+                # So we simply set split_candidates to a single entry representing the whole doc.
+                split_candidates = [
+                    {
+                        "types": v_doc.type_tags or ["OTHER"],
+                        "pages": list(range(1, len(pages_text) + 1)),
+                        "confidence": 1.0,
+                    }
+                ]
             else:
-                split_candidates = []
-                for ent in detected_entities:
-                    split_candidates.append(
-                        {
-                            "types": ent.get("doc_types", ["OTHER"]),
-                            "pages": ent.get("page_indices", list(range(1, len(pages_text) + 1))),
-                            "confidence": ent.get("confidence", 1.0),
-                            "direction": ent.get("direction"),
-                            "tenant_context": ent.get("tenant_context"),
-                        }
-                    )
+                has_clear_boundaries = all(ent.get("page_indices") for ent in detected_entities)
+                if is_hybrid and not has_clear_boundaries:
+                    print("[Canonizer] Stage 1.1 found hybrid but no clear boundaries. Triggering Stage 1.2.")
+                    split_candidates = self.analyzer.identify_entities(full_text, detected_entities=detected_entities)
+
+                    if split_candidates is None:
+                        print("[Canonizer] Stage 1.2 AI Analysis returned None. Aborting.")
+                        return False
+                else:
+                    split_candidates = []
+                    for ent in detected_entities:
+                        split_candidates.append(
+                            {
+                                "types": ent.get("entity_types", ["OTHER"]),
+                                "pages": ent.get("page_indices", list(range(1, len(pages_text) + 1))),
+                                "confidence": ent.get("confidence", 1.0),
+                                "direction": ent.get("direction"),
+                                "tenant_context": ent.get("tenant_context"),
+                            }
+                        )
 
         # 4. Apply Splits
         original_source_map = v_doc.source_mapping
@@ -366,7 +375,7 @@ class CanonizerService:
                 audit_res = self.visual_auditor.run_stage_1_5(
                     pdf_path=pf.file_path,
                     doc_uuid=target_doc.uuid,
-                    stage_1_result={"detected_entities": [{"doc_type": t} for t in c_types]},
+                    stage_1_result={"detected_entities": [{"entity_type": t} for t in c_types]},
                     text_content=entity_text,
                     target_pages=new_source_pages,
                 )
@@ -402,7 +411,7 @@ class CanonizerService:
                     print("[Canonizer] Failed atomic lock for S2. Skipping.")
                     continue
 
-            s1_context = {"detected_entities": [{"doc_types": c_types}]}
+            s1_context = {"entity_types": c_types}
 
             semantic_extraction = self.analyzer.run_stage_2(
                 raw_ocr_pages=entity_pages, stage_1_result=s1_context, stage_1_5_result=audit_res, pdf_path=pf.file_path if pf else None
@@ -525,7 +534,7 @@ class CanonizerService:
             return mappings
 
         doc.source_mapping = regroup(pages_a)
-        doc.doc_type = json.dumps(["UNKNOWN"])
+        doc.type_tags = ["UNKNOWN"]
         doc.semantic_data = {}
         doc.status = "NEW"
         self.logical_repo.save(doc)

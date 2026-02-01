@@ -11,22 +11,25 @@ def test_document_creation():
     assert len(doc.uuid) > 0
 
 def test_document_optional_fields():
-    """Test creating a Document with all optional fields."""
-    today = date.today()
+    """Test creating a Document with semantic data."""
+    today = date.today().isoformat()
     doc = Document(
         original_filename="receipt.jpg",
-        doc_date=today,
-        sender="Amazon",
-        amount=Decimal("12.99"),
-        doc_type="Rechnung",
+        semantic_data={
+            "doc_date": today,
+            "sender": "Company A",
+            "amount": 12.99
+        },
+        type_tags=["Rechnung"],
         phash="a1b2c3d4",
         text_content="Total: 12.99"
     )
     
-    assert doc.doc_date == today
-    assert doc.sender == "Amazon"
-    assert doc.amount == Decimal("12.99")
-    assert doc.doc_type == ["Rechnung"]
+    sd = doc.semantic_data
+    assert sd["doc_date"] == today
+    assert sd["sender"] == "Company A"
+    assert sd["amount"] == 12.99
+    assert doc.type_tags == ["Rechnung"]
     assert doc.phash == "a1b2c3d4"
     assert doc.text_content == "Total: 12.99"
 

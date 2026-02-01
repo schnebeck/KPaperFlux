@@ -30,6 +30,7 @@ class PhysicalFile:
     page_count_phys: int = 0
     raw_ocr_data: Dict[str, str] = field(default_factory=dict)  # Map "page_num" -> "text"
     created_at: Optional[str] = None  # ISO format string
+    ref_count: int = 0
 
     @classmethod
     def from_row(cls, row: Tuple[Any, ...]) -> 'PhysicalFile':
@@ -60,5 +61,6 @@ class PhysicalFile:
             file_size=int(row["file_size"]) if row["file_size"] else 0,
             raw_ocr_data=ocr_data,
             created_at=str(row["created_at"]) if row["created_at"] else None,
-            page_count_phys=int(row["page_count_phys"]) if "page_count_phys" in row.keys() and row["page_count_phys"] else 0
+            page_count_phys=int(row["page_count_phys"]) if "page_count_phys" in row.keys() and row["page_count_phys"] else 0,
+            ref_count=int(row["ref_count"]) if "ref_count" in row.keys() else 0
         )

@@ -39,6 +39,7 @@ class DatabaseManager:
         self.db_path: str = db_path
         self.connection: Optional[sqlite3.Connection] = None
         self._connect()
+        self.init_db()
         # Source of truth for document selection to avoid index mismatches
         self._doc_select = """
             uuid, source_mapping, status, export_filename, last_used, 
@@ -106,9 +107,7 @@ class DatabaseManager:
             uuid UNINDEXED,
             export_filename,
             type_tags,
-            cached_full_text,
-            content='virtual_documents',
-            content_rowid='rowid'
+            cached_full_text
         );
         """
 
@@ -121,6 +120,60 @@ class DatabaseManager:
             self.connection.execute(create_virtual_documents_fts)
             self._create_fts_triggers()
             self._create_usage_triggers()
+            self._create_ref_count_triggers()
+
+    def _create_ref_count_triggers(self) -> None:
+        """
+        Maintains 'ref_count' in physical_files based on usage in virtual_documents.
+        This ensures physical files are only deleted when no logical entity refers to them.
+        """
+        triggers = [
+            """
+            CREATE TRIGGER IF NOT EXISTS vd_ref_count_insert AFTER INSERT ON virtual_documents
+            BEGIN
+                UPDATE physical_files 
+                SET ref_count = ref_count + 1
+                WHERE uuid IN (
+                    SELECT json_extract(value, '$.file_uuid') 
+                    FROM json_each(new.source_mapping)
+                );
+            END;
+            """,
+            """
+            CREATE TRIGGER IF NOT EXISTS vd_ref_count_delete AFTER DELETE ON virtual_documents
+            BEGIN
+                UPDATE physical_files 
+                SET ref_count = ref_count - 1
+                WHERE uuid IN (
+                    SELECT json_extract(value, '$.file_uuid') 
+                    FROM json_each(old.source_mapping)
+                );
+            END;
+            """,
+            """
+            CREATE TRIGGER IF NOT EXISTS vd_ref_count_update AFTER UPDATE ON virtual_documents
+            WHEN (old.source_mapping IS NOT new.source_mapping)
+            BEGIN
+                -- Decrement old
+                UPDATE physical_files 
+                SET ref_count = ref_count - 1
+                WHERE uuid IN (
+                    SELECT json_extract(value, '$.file_uuid') 
+                    FROM json_each(old.source_mapping)
+                );
+                -- Increment new
+                UPDATE physical_files 
+                SET ref_count = ref_count + 1
+                WHERE uuid IN (
+                    SELECT json_extract(value, '$.file_uuid') 
+                    FROM json_each(new.source_mapping)
+                );
+            END;
+            """
+        ]
+        with self.connection:
+            for trigger_sql in triggers:
+                self.connection.execute(trigger_sql)
 
     def matches_condition(self, entity_uuid: str, query_dict: Dict[str, Any]) -> bool:
         """
@@ -468,7 +521,7 @@ class DatabaseManager:
             "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
             "confidence": "json_extract(semantic_data, '$.confidence')",
             "reasoning": "json_extract(semantic_data, '$.reasoning')",
-            "doc_type": "json_extract(semantic_data, '$.doc_types[0]')",
+            "classification": "json_extract(type_tags, '$[0]')",
             "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
             
             # Forensic/Stamp aggregations
@@ -635,7 +688,13 @@ class DatabaseManager:
 
         # Semantic data remains encapsulated in the semantic_data field
 
-        return Document(**doc_data)
+        try:
+            return Document(**doc_data)
+        except Exception as e:
+            print(f"[DB] ValidationError for {doc_data.get('uuid')}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def search_documents(self, search_text: str) -> List[Document]:
         """
@@ -1096,22 +1155,24 @@ class DatabaseManager:
         triggers = [
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_ai AFTER INSERT ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(rowid, uuid, export_filename, type_tags, cached_full_text)
-                VALUES (new.rowid, new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
+                INSERT INTO virtual_documents_fts(uuid, export_filename, type_tags, cached_full_text)
+                VALUES (new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
             END;
             """,
             """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_ad AFTER DELETE ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, export_filename, type_tags, cached_full_text)
-                VALUES('delete', old.rowid, old.uuid, old.export_filename, old.type_tags, old.cached_full_text);
+                DELETE FROM virtual_documents_fts WHERE uuid = old.uuid;
             END;
             """,
             """
-            CREATE TRIGGER IF NOT EXISTS virtual_documents_au AFTER UPDATE ON virtual_documents BEGIN
-                INSERT INTO virtual_documents_fts(virtual_documents_fts, rowid, uuid, export_filename, type_tags, cached_full_text)
-                VALUES('delete', old.rowid, old.uuid, old.export_filename, old.type_tags, old.cached_full_text);
-                INSERT INTO virtual_documents_fts(rowid, uuid, export_filename, type_tags, cached_full_text)
-                VALUES (new.rowid, new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
+            CREATE TRIGGER IF NOT EXISTS virtual_documents_au AFTER UPDATE ON virtual_documents
+            WHEN (old.export_filename IS NOT new.export_filename OR
+                  old.type_tags IS NOT new.type_tags OR
+                  old.cached_full_text IS NOT new.cached_full_text)
+            BEGIN
+                DELETE FROM virtual_documents_fts WHERE uuid = old.uuid;
+                INSERT INTO virtual_documents_fts(uuid, export_filename, type_tags, cached_full_text)
+                VALUES (new.uuid, new.export_filename, new.type_tags, new.cached_full_text);
             END;
             """
         ]

@@ -878,9 +878,7 @@ class DocumentListWidget(QWidget):
 
             if show and target_type:
                 type_tags = getattr(doc, "type_tags", []) or []
-                doc_types = getattr(doc, "doc_type", []) or []
-                if isinstance(doc_types, str): doc_types = [doc_types]
-                combined = type_tags + doc_types
+                combined = type_tags
                 if target_type.lower() not in [t.lower() for t in combined]:
                     show = False
 
@@ -903,7 +901,7 @@ class DocumentListWidget(QWidget):
                 sd = doc.semantic_data or {}
                 haystack = [
                     str(sd.get("sender") or ""),
-                    str(doc.doc_type or ""),
+                    str(doc.type_tags or ""),
                     str(doc.tags or ""),
                     str(doc.original_filename or ""),
                     str(doc.sender_address or ""),
@@ -1063,10 +1061,8 @@ class DocumentListWidget(QWidget):
             pages_str = str(pages_sort)
             status = getattr(doc, "status", "NEW")
             type_tags = getattr(doc, "type_tags", []) or []
-            doc_types = getattr(doc, "doc_type", []) or []
-            if isinstance(doc_types, str): doc_types = [doc_types]
-            # Combine and sort for consistent display
-            combined_types = self.sort_type_tags(set(type_tags + doc_types))
+            # Sort for consistent display
+            combined_types = self.sort_type_tags(set(type_tags))
             locked_str = "Yes" if getattr(doc, "locked", False) else "No"
 
             # Format all system dates

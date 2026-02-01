@@ -31,17 +31,25 @@ def test_stage1_env():
     
     # Mock AI Analyzer
     mock_analyzer = MagicMock(spec=AIAnalyzer)
-    # Phase B: Classification Result
-    mock_analyzer.classify_structure.return_value = {
+    mock_analyzer.extract_canonical_data.return_value = {"dummy": "data"} 
+    mock_analyzer.run_stage_1_adaptive.return_value = {
         "detected_entities": [
-            {"doc_type": "INVOICE", "direction": "INBOUND", "tenant_context": "BUSINESS"}
+            {"entity_types": ["INVOICE"], "direction": "INBOUND", "tenant_context": "BUSINESS"}
         ]
     }
-    # Identity parsing mock
-    mock_analyzer.identify_entities.return_value = [] # Not splitting in this test
-    mock_analyzer.extract_canonical_data.return_value = {"dummy": "data"} 
+    mock_analyzer.run_stage_2.return_value = {
+        "meta_header": {"doc_date": "2023-01-01", "sender": "Amazon"},
+        "bodies": {},
+        "repaired_text": "Page 1 text\nPage 2 text"
+    }
+    mock_analyzer.generate_smart_filename.return_value = "2023-01-01__Amazon__Invoice.pdf"
     
     canonizer = CanonizerService(db_manager, analyzer=mock_analyzer)
+    # Mock Visual Auditor to avoid non-serializable MagicMocks
+    canonizer.visual_auditor.run_stage_1_5 = MagicMock(return_value={
+        "audit_summary": {"was_stamp_interference": False, "has_handwriting": False},
+        "integrity": {"is_type_match": True, "suggested_types": []}
+    })
     
     yield {
         "pipeline": pipeline,
@@ -94,7 +102,7 @@ def test_stage1_background_flow(test_stage1_env):
     print(f"[DEBUG] Type Tags: {updated_doc.type_tags}")
     
     # Phase A: OCR
-    assert updated_doc.cached_full_text == "Page 1 text\n\nPage 2 text"
+    assert updated_doc.cached_full_text == "Page 1 text\nPage 2 text"
     
     # Phase B: Classification
     assert updated_doc.status == "PROCESSED"
@@ -103,8 +111,8 @@ def test_stage1_background_flow(test_stage1_env):
     
     # Verify AI call was made with correct number of pages
     mock_analyzer = test_stage1_env["mock_analyzer"]
-    mock_analyzer.classify_structure.assert_called_once()
-    args, _ = mock_analyzer.classify_structure.call_args
+    mock_analyzer.run_stage_1_adaptive.assert_called_once()
+    args, _ = mock_analyzer.run_stage_1_adaptive.call_args
     pages_text = args[0]
     assert len(pages_text) == 2
     assert pages_text[0] == "Page 1 text"

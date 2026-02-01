@@ -260,13 +260,13 @@ class CanonicalEntity(BaseModel):
     Main container for a canonicalized document entity.
     Aggregates all extracted and normalized metadata.
     """
-    doc_type: DocType
+    entity_type: DocType
     doc_id: Optional[str] = None
     doc_date: Optional[date] = None
     parties: Parties = Field(default_factory=Parties)
     tags_and_flags: List[str] = Field(default_factory=list)
 
-    # Specific data blocks based on doc_type
+    # Specific data blocks based on entity_type
     specific_data: Dict[str, Any] = Field(default_factory=dict)
 
     # Polymorphic list data (LineItems or BankTransactions)

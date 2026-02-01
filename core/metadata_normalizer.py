@@ -164,23 +164,24 @@ class MetadataNormalizer:
         if not doc.semantic_data:
             return {}
 
-        # Determine DocType (favor direct field over nested summary)
-        doc_type = doc.doc_type
-        if not doc_type and isinstance(doc.semantic_data, dict):
+        # Determine Classification (favor type_tags over nested summary)
+        effective_type = doc.type_tags
+        if not effective_type and isinstance(doc.semantic_data, dict):
             summary = doc.semantic_data.get("summary", {})
             if isinstance(summary, dict):
-                doc_type = summary.get("doc_type", "Other")
+                # Use new classification field exclusively
+                effective_type = summary.get("classification", "Other")
 
-        # Normalize DocType string (handle single or list)
-        if isinstance(doc_type, list) and doc_type:
-            doc_type = str(doc_type[0])
-        elif doc_type:
-            doc_type = str(doc_type)
+        # Normalize to a single string for config lookup
+        if isinstance(effective_type, list) and effective_type:
+            effective_type = str(effective_type[0])
+        elif effective_type:
+            effective_type = str(effective_type)
         else:
-            doc_type = "Other"
+            effective_type = "Other"
 
         config = cls.get_config()
-        type_def = config.get("types", {}).get(doc_type)
+        type_def = config.get("types", {}).get(effective_type)
 
         if not type_def:
             return {}
@@ -299,21 +300,21 @@ class MetadataNormalizer:
         if not doc.semantic_data:
             doc.semantic_data = {"summary": {}}
 
-        doc_type = doc.doc_type
-        if not doc_type and isinstance(doc.semantic_data, dict):
+        effective_type = doc.type_tags
+        if not effective_type and isinstance(doc.semantic_data, dict):
             summary = doc.semantic_data.get("summary", {})
             if isinstance(summary, dict):
-                doc_type = summary.get("doc_type", "Other")
+                effective_type = summary.get("classification", "Other")
 
-        if isinstance(doc_type, list) and doc_type:
-            doc_type = str(doc_type[0])
-        elif doc_type:
-            doc_type = str(doc_type)
+        if isinstance(effective_type, list) and effective_type:
+            effective_type = str(effective_type[0])
+        elif effective_type:
+            effective_type = str(effective_type)
         else:
-            doc_type = "Other"
+            effective_type = "Other"
 
         config = cls.get_config()
-        type_def = config.get("types", {}).get(doc_type) or config.get("types", {}).get("Other")
+        type_def = config.get("types", {}).get(effective_type) or config.get("types", {}).get("Other")
         if not type_def:
             return False
 

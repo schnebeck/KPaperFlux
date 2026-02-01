@@ -40,31 +40,22 @@ def test_ingest_physical_file(temp_infra):
     assert doc.original_filename == "dummy.pdf"
     
     # 2. Verify Physical File Store
-    # id, file_uuid, original_filename, ...
+    # Column order in physical_files: uuid(0), phash(1), file_path(2), original_filename(3), ...
     cursor = db.connection.cursor()
     phys_rows = cursor.execute("SELECT * FROM physical_files").fetchall()
     assert len(phys_rows) == 1
     p_row = phys_rows[0]
-    assert p_row[2] == "dummy.pdf" # original_filename
-    # It can be None if empty
-    # assert p_row[7] is not None 
-    assert p_row[8] == 1 # ref_count (1 virtual doc)
+    assert p_row[3] == "dummy.pdf" # original_filename (Index 3 now)
+    assert p_row[8] == 1 # ref_count (Index 8 now)
     
     # 3. Verify Logical Entity Store
     v_doc = pipeline.logical_repo.get_by_uuid(doc.uuid)
     assert v_doc is not None
-    assert v_doc.entity_uuid == doc.uuid
+    assert v_doc.uuid == doc.uuid # Fixed entity_uuid -> uuid
     assert len(v_doc.source_mapping) == 1
-    assert v_doc.source_mapping[0].file_uuid == p_row[1] # Matches Physical UUID
+    assert v_doc.source_mapping[0].file_uuid == p_row[0] # uuid is Index 0 now
     
-    # 4. Verify Shadow Documents Table
-    shadow_rows = cursor.execute("SELECT * FROM documents WHERE uuid = ?", (doc.uuid,)).fetchall()
-    assert len(shadow_rows) == 1
-    # Check text content populated via shadow (even if empty)
-    # Documents table: uuid, original_filename, page_count, ...
-    # page_count should be 1
-    # Index 2 is page_count usually
-    # But schema is dynamic.
+    # 4. Verify Database View
     s_doc = db.get_document_by_uuid(doc.uuid)
     assert s_doc.page_count == 1
 

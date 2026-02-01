@@ -17,8 +17,9 @@ def mock_vault():
 
 @pytest.fixture
 def mock_exists():
-    with patch("pathlib.Path.exists", return_value=True) as mock:
-        yield mock
+    with patch("pathlib.Path.exists", return_value=True) as m1, \
+         patch("os.path.exists", return_value=True) as m2:
+        yield m1, m2
 
 def test_visual_similarity_identical(mock_db, mock_vault, mock_exists):
     # Mock conversion -> Single Page Identical
@@ -44,9 +45,10 @@ def test_visual_similarity_containment(mock_db, mock_vault, mock_exists):
         img_other2 = Image.new('L', (64, 80), color=255)
         
         def side_effect(path, **kwargs):
-            if "a.pdf" in str(path):
+            p_str = str(path)
+            if "a" in p_str: # More robust match for /tmp/a.pdf or MagicMock-a-pdf
                 return [img_target]
-            elif "b.pdf" in str(path):
+            elif "b" in p_str:
                 return [img_other1, img_target, img_other2]
             return []
             
@@ -65,7 +67,8 @@ def test_visual_similarity_different(mock_db, mock_vault, mock_exists):
         img_b = Image.new('L', (64, 80), color=255)
         
         def side_effect(path, **kwargs):
-            if "a.pdf" in str(path): return [img_a]
+            p_str = str(path)
+            if "a" in p_str: return [img_a]
             else: return [img_b]
             
         mock_convert.side_effect = side_effect

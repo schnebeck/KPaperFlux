@@ -11,9 +11,11 @@ def test_export_to_zip(tmp_path):
     doc1 = Document(
         uuid="uuid1",
         original_filename="invoice.pdf",
-        doc_date="2023-10-25",
-        amount=123.45,
-        sender="Amazon",
+        semantic_data={
+            "doc_date": "2023-10-25",
+            "amount": 123.45,
+            "sender": "Amazon"
+        },
         file_path=str(tmp_path / "invoice.pdf")
     )
     # Create dummy PDF file
@@ -23,8 +25,10 @@ def test_export_to_zip(tmp_path):
     doc2 = Document(
         uuid="uuid2", 
         original_filename="receipt.pdf",
-        amount="50.00", # String amount to test conversion
-        sender="Edeka"
+        semantic_data={
+            "amount": 50.00,
+            "sender": "Edeka"
+        }
     )
     # doc2 has no file
     
@@ -115,7 +119,7 @@ def test_export_semantic_fields(tmp_path, monkeypatch):
     doc = Document(
         uuid="sem1",
         original_filename="sem.pdf",
-        doc_type="Invoice"
+        type_tags=["Invoice"]
     )
     doc.semantic_data = {
         "summary": {

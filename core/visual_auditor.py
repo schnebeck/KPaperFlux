@@ -220,7 +220,7 @@ class VisualAuditor:
         Determines the required audit depth based on document types.
 
         Args:
-            detected_entities: List of entity dictionaries with 'doc_type'.
+            detected_entities: List of entity dictionaries with 'entity_type'.
 
         Returns:
             The highest required audit mode string.
@@ -229,7 +229,7 @@ class VisualAuditor:
         final_mode = AUDIT_MODE_NONE
 
         for entity in detected_entities:
-            dtype = str(entity.get('doc_type', 'OTHER')).upper()
+            dtype = str(entity.get('entity_type', 'OTHER')).upper()
             if "." in dtype:
                 dtype = dtype.split(".")[-1]
 
@@ -380,11 +380,11 @@ class VisualAuditor:
 
         # Prepare Prompt
         base_prompt = PROMPT_STAGE_1_5_FULL if audit_mode == AUDIT_MODE_FULL else PROMPT_STAGE_1_5_STAMP
-        doc_types = [ent.get('doc_type', 'OTHER') for ent in entities]
+        entity_types = [ent.get('entity_type', 'OTHER') for ent in entities]
 
         system_prompt = base_prompt.format(
             raw_ocr_page1=raw_ocr_page1,
-            expected_types=str(doc_types)
+            expected_types=str(entity_types)
         )
 
         # Gemini Multimodal Content

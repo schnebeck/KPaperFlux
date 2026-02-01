@@ -41,7 +41,7 @@ class TestMetadataNormalizer:
     def test_integration_extraction(self):
         # Mock Document with raw AI data
         doc = Document(file_path="dummy.pdf", original_filename="dummy.pdf")
-        doc.doc_type = "Invoice" # Assume configured type
+        doc.type_tags = ["Invoice"] # Assume configured type
         doc.semantic_data = {
             "summary": {
                 "invoice_date": "15.03.2024",

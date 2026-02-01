@@ -1,37 +1,42 @@
 import pytest
 from core.database import DatabaseManager
 
-DB_PATH = "kpaperflux.db"
+DB_PATH = ":memory:" # Use memory for unit test
 
 def test_virtual_column_search():
-    print("Testing Virtual Column Search Logic...")
+    """Verify that virtual fields (mapped to JSON) generate correct SQL and execute."""
     db = DatabaseManager(DB_PATH)
     
-    # 1. Simulate a search query for v_sender
+    # 1. Simulate a search query for 'sender' (mapped to JSON)
     query = {
         "operator": "AND",
         "conditions": [
-            {"field": "v_sender", "op": "contains", "value": "Test", "negate": False}
+            {"field": "sender", "op": "contains", "value": "Test", "negate": False}
         ]
     }
     
-    # 2. Build SQL with the private method (for testing logic) or run search
-    # Running search is better integration test
+    # 2. Build SQL and execute
+    # Note: search_documents_advanced should not crash
     try:
         results = db.search_documents_advanced(query)
-        print(f"Search successful (no SQL errors). Found {len(results)} docs.")
+        # We expect 0 results on empty DB, but success (no OperationalError)
+        assert isinstance(results, list)
         
-        # We expect at least one doc if we ran the previous test
-        if len(results) > 0:
-            print(f"Sample Doc Sender: {results[0].sender_name} (from JSON!)")
-            # Note: Document object doesn't have v_sender attribute, it's mapped to standard columns 
-            # OR we need to update Document model to hold it?
-            # Actually, standard columns "sender" is legacy. "sender_name" is potentially empty in doc object unless populated from JSON.
-            
     except Exception as e:
         pytest.fail(f"Search Failure: {e}")
         
     db.close()
 
-if __name__ == "__main__":
-    test_virtual_column_search()
+def test_semantic_prefix_search():
+    """Verify the 'semantic:' prefix works for deep JSON mapping."""
+    db = DatabaseManager(":memory:")
+    query = {
+        "field": "semantic:meta_header.doc_id", 
+        "op": "equals", 
+        "value": "123"
+    }
+    
+    sql, params = db._build_where_clause(query)
+    assert "json_extract" in sql
+    assert "$.meta_header.doc_id" in sql
+    assert "123" in params

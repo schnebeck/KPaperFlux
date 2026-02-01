@@ -12,8 +12,8 @@ from gui.main_window import MainWindow
 class TestDashboardRefreshRepro(unittest.TestCase):
     
     @patch('gui.workers.ImportWorker')
-    @patch('gui.main_window.AIWorker') 
-    @patch('gui.main_window.TagManager') 
+    @patch('gui.workers.MainLoopWorker') 
+    @patch('gui.main_window.TagManagerDialog') 
     @patch('PyQt6.QtWidgets.QProgressDialog')
     @patch('PyQt6.QtWidgets.QMessageBox')
     def test_import_refresh_dashboard_called(self, mock_msgbox, mock_progress, MockTagManager, MockAIWorker, MockWorker):
@@ -54,15 +54,15 @@ class TestDashboardRefreshRepro(unittest.TestCase):
         mw.dashboard_widget = MagicMock()
         mw.list_widget = MagicMock()
         
-        # Mock Delete Confirmation (static method usually)
-        mock_msgbox.question.return_value = QMessageBox.StandardButton.Yes
+        # Mock Delete Confirmation (using instance and exec)
+        mock_msgbox.return_value.exec.return_value = QMessageBox.StandardButton.Yes.value
         # Mock DB delete
         mw.db_manager.delete_document.return_value = True
         mw.list_widget.get_selected_uuids.return_value = ["uuid-to-delete"]
         
         # 2. Simulate Delete Slot being called
-        # Note: delete_documents_slot may take arguments or use list selection
-        mw.delete_documents_slot(["uuid-to-delete"])
+        # Note: delete_document_slot may take arguments or use list selection
+        mw.delete_document_slot(["uuid-to-delete"])
         
         # 3. Assertions
         if not mw.dashboard_widget.refresh_stats.called:

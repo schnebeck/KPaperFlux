@@ -655,7 +655,7 @@ class AdvancedFilterWidget(QWidget):
         if criteria.get("tags"):
             conditions.append({"field": "type_tags", "op": "contains", "value": criteria["tags"]})
         if criteria.get("types"):
-            conditions.append({"field": "doc_type", "op": "in", "value": criteria["types"]})
+            conditions.append({"field": "classification", "op": "in", "value": criteria["types"]})
 
         return {"operator": "AND", "conditions": conditions}
 

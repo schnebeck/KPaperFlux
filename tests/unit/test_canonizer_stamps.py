@@ -1,7 +1,8 @@
 import pytest
+import json
 from unittest.mock import MagicMock, patch
 from core.canonizer import CanonizerService
-from core.models.canonical_entity import DocType, CanonicalEntity
+from core.models.virtual import VirtualDocument, SourceReference
 
 @pytest.fixture
 def mock_db():
@@ -10,42 +11,67 @@ def mock_db():
 @pytest.fixture
 def mock_analyzer():
     analyzer = MagicMock()
-    # Mock extract_canonical_data to return minimal valid data
-    analyzer.extract_canonical_data.return_value = {}
+    analyzer.run_stage_1_adaptive.return_value = {
+        "detected_entities": [{"entity_types": ["INVOICE"], "page_indices": [1, 2]}]
+    }
+    # Mock run_stage_2 to return minimal valid data
+    analyzer.run_stage_2.return_value = {
+        "meta_header": {"doc_date": "2025-01-01"},
+        "bodies": {},
+        "repaired_text": "Clean Text"
+    }
+    analyzer.generate_smart_filename.return_value = "smart_name.pdf"
     return analyzer
 
-def test_canonizer_filters_stamps_by_page(mock_db, mock_analyzer):
-    service = CanonizerService(mock_db, mock_analyzer)
+@pytest.fixture
+def mock_repos(mock_db):
+    logical = MagicMock()
+    physical = MagicMock()
+    return logical, physical
+
+def test_canonizer_filters_stamps_by_page(mock_db, mock_analyzer, mock_repos):
+    logical_repo, physical_repo = mock_repos
+    service = CanonizerService(mock_db, mock_analyzer, physical_repo=physical_repo, logical_repo=logical_repo)
     
-    uuid = "doc-123"
-    text = "Page 1\fPage 2" # Two pages to match detected entity range
-    semantic_data = {}
+    # Setup VirtualDocument with 2 pages
+    v_doc = VirtualDocument(
+        uuid="doc-123",
+        source_mapping=[SourceReference(file_uuid="phys-1", pages=[1, 2])],
+        status="NEW",
+        type_tags=["INVOICE"]
+    )
     
-    # Stamps on Page 1 and Page 3
-    extra_data = {
-        "stamps": [
-            {"text": "Stamp P1", "page": 1},
-            {"text": "Stamp P3", "page": 3}
-        ]
-    }
+    # Mock Physical File with OCR 
+    mock_phys = MagicMock()
+    mock_phys.file_path = "/tmp/phys1.pdf"
+    mock_phys.raw_ocr_data = json.dumps({"1": "Page 1 Text", "2": "Page 2 Text", "3": "Page 3 Text"})
+    physical_repo.get_by_uuid.return_value = mock_phys
     
-    # Mock classify_structure (Fixed)
-    mock_analyzer.classify_structure.return_value = {
-        "detected_entities": [{"doc_type": "INVOICE", "pages": [1, 2]}]
-    }
-    
-    with patch.object(service, 'save_entity') as mock_save, \
-         patch.object(service, '_classify_direction') as mock_classify:
+    # Mock Visual Auditor directly on the service instance
+    with patch.object(service.visual_auditor, 'run_stage_1_5') as mock_run_1_5:
+        # Simulate that Stage 1.5 was called and returned stamps
+        mock_run_1_5.return_value = {
+            "layer_stamps": [
+                {"text": "Stamp P1", "page": 1}
+            ]
+        }
         
-        service.process_document(uuid, text, semantic_data, extra_data)
-        
-        mock_save.assert_called_once()
-        entity = mock_save.call_args[0][0] # First arg
-        
-        assert isinstance(entity, CanonicalEntity)
-        assert entity.page_range == [1, 2]
-        
-        # Verify Stamps
-        assert len(entity.stamps) == 1
-        assert entity.stamps[0]["text"] == "Stamp P1"
-        # Stamp P3 should be excluded because Page 3 is not in entity range [1, 2]
+        # We also need to mock _atomic_transition to allow processing
+        with patch.object(service, '_atomic_transition', return_value=True):
+            service.process_virtual_document(v_doc)
+            
+            # Verify that VisualAuditor was called with correct target_pages
+            mock_run_1_5.assert_called_once()
+            args, kwargs = mock_run_1_5.call_args
+            called_target_pages = kwargs.get("target_pages")
+            assert called_target_pages == [1, 2]
+            
+            # Verify saved semantic data contains the stamp from P1
+            logical_repo.save.assert_called()
+            # The last save should have the final status and semantic data
+            saved_doc = logical_repo.save.call_args[0][0]
+            assert saved_doc.status == "PROCESSED"
+            assert "visual_audit" in saved_doc.semantic_data
+            stamps = saved_doc.semantic_data["visual_audit"].get("layer_stamps", [])
+            assert len(stamps) == 1
+            assert stamps[0]["text"] == "Stamp P1"

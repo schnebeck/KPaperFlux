@@ -34,7 +34,7 @@ def test_backoff_on_429(mock_genai):
     
     # Mock Response
     success_response = MagicMock()
-    success_response.text = '{"summary": {"doc_type": ["Success"]}}'
+    success_response.text = '{"summary": {"classification": ["Success"]}}'
     
     # Mock Client
     mock_model = MagicMock()
@@ -60,7 +60,7 @@ def test_backoff_on_429(mock_genai):
         result = analyzer.analyze_text("foo")
         
         # Should return success
-        assert result.doc_type == "Success"
+        assert "Success" in result.type_tags
         
         # Should have called generate_content 3 times
         assert mock_model.generate_content.call_count == 3

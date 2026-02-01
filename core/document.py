@@ -41,7 +41,6 @@ class Document(BaseModel):
     tax_rate: Optional[Decimal] = None
     currency: Optional[str] = None
 
-    doc_type: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     type_tags: List[str] = Field(default_factory=list)
 
@@ -113,11 +112,11 @@ class Document(BaseModel):
             return [str(t) for t in v]
         return []
 
-    @field_validator("doc_type", "type_tags", mode="before")
+    @field_validator("type_tags", mode="before")
     @classmethod
     def normalize_list_fields(cls, v: Any) -> List[str]:
         """
-        Normalizes list fields like doc_type and type_tags.
+        Normalizes list fields like type_tags.
         """
         if v is None:
             return []

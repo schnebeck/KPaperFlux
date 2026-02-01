@@ -38,9 +38,10 @@ class PhysicalRepository(BaseRepository):
         sql = """
         INSERT OR REPLACE INTO physical_files (
             uuid, phash, file_path, original_filename, 
-            file_size, page_count_phys, raw_ocr_data, created_at
+            file_size, page_count_phys, raw_ocr_data, created_at,
+            ref_count
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
 
@@ -54,7 +55,8 @@ class PhysicalRepository(BaseRepository):
             file.file_size,
             file.page_count_phys,
             ocr_json,
-            file.created_at
+            file.created_at,
+            file.ref_count
         )
 
         try:
@@ -77,7 +79,7 @@ class PhysicalRepository(BaseRepository):
         """
         sql = """
         SELECT uuid, phash, file_path, original_filename, file_size, 
-               raw_ocr_data, created_at, page_count_phys 
+               raw_ocr_data, created_at, page_count_phys, ref_count
         FROM physical_files 
         WHERE uuid = ?
         """
@@ -100,7 +102,7 @@ class PhysicalRepository(BaseRepository):
         """
         sql = """
         SELECT uuid, phash, file_path, original_filename, file_size, 
-               raw_ocr_data, created_at, page_count_phys 
+               raw_ocr_data, created_at, page_count_phys, ref_count
         FROM physical_files 
         WHERE phash = ?
         """
@@ -120,7 +122,7 @@ class PhysicalRepository(BaseRepository):
         """
         sql = """
         SELECT uuid, phash, file_path, original_filename, file_size, 
-               raw_ocr_data, created_at, page_count_phys 
+               raw_ocr_data, created_at, page_count_phys, ref_count
         FROM physical_files
         """
         cursor = self.conn.cursor()

@@ -63,8 +63,8 @@ class SemanticExcelExporter:
         if not isinstance(summary, dict):
             summary = {}
 
-        # Normalize doc_type if list
-        dt = summary.get("doc_type")
+        # Normalize classification if list
+        dt = summary.get("classification")
         if isinstance(dt, list):
             dt = ", ".join(map(str, dt))
 

@@ -49,9 +49,9 @@ def db_with_docs(tmp_path):
     db = DatabaseManager(str(db_path))
     db.init_db()
     
-    d1 = Document(uuid="1", original_filename="inv.pdf", doc_date="2024-05-01", sender="Amazon", doc_type="Invoice")
-    d2 = Document(uuid="2", original_filename="rec.pdf", doc_date="2023-05-01", sender="Google", doc_type="Receipt")
-    d3 = Document(uuid="3", original_filename="letter.pdf", doc_date="2024-06-01", sender="Ebay", doc_type="Letter", tags=["urgent"])
+    d1 = Document(uuid="1", original_filename="inv.pdf", doc_date="2024-05-01", sender="Amazon", type_tags=["Invoice"])
+    d2 = Document(uuid="2", original_filename="rec.pdf", doc_date="2023-05-01", sender="Google", type_tags=["Receipt"])
+    d3 = Document(uuid="3", original_filename="letter.pdf", doc_date="2024-06-01", sender="Ebay", type_tags=["Letter"], tags=["urgent"])
     
     db.insert_document(d1)
     db.insert_document(d2)

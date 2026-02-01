@@ -403,6 +403,9 @@ class MetadataEditorWidget(QWidget):
         self.export_filename_edit.clear()
         self.export_filename_edit.setPlaceholderText("<Multiple Values>")
 
+        self.sender_edit.clear()
+        self.sender_edit.setPlaceholderText("<Multiple Values>")
+
         self.source_viewer.setPlainText(f"{len(docs)} documents selected.")
         self.semantic_viewer.setPlainText("-")
         
@@ -444,11 +447,9 @@ class MetadataEditorWidget(QWidget):
         sd = doc.semantic_data or {}
 
         # Doc Types (Dynamic via Enum)
-        dt = sd.get("doc_types", [])
-        if not dt and getattr(doc, 'doc_type', None):
-            # Legacy field compat
-            dt = doc.doc_type if isinstance(doc.doc_type, list) else [doc.doc_type]
+        dt = doc.type_tags or []
         self.doc_types_combo.setCheckedItems(dt)
+        self.doc_types_combo.setPlaceholderText("") # Clear any residual placeholder
 
         # Directions & Context (Dynamic via standard values)
         # Note: We keep these UNKNOWN by default if nothing found
@@ -635,7 +636,7 @@ class MetadataEditorWidget(QWidget):
             traverse(sd["custom_fields"], "Custom")
 
         # 2. Bodies (Phase 107/110)
-        handled_keys = {"meta_header", "custom_fields", "bodies", "visual_audit", "layer_stamps", "summary", "doc_types", "direction", "tenant_context"}
+        handled_keys = {"meta_header", "custom_fields", "bodies", "visual_audit", "layer_stamps", "summary", "entity_types", "direction", "tenant_context"}
 
         if "bodies" in sd and isinstance(sd["bodies"], dict):
             for body_name, body_data in sd["bodies"].items():
@@ -742,13 +743,14 @@ class MetadataEditorWidget(QWidget):
 
         # 2. Semantic Metadata (Extracted Data)
         # We merge existing semantic_data with UI changes
-        sd = self.doc.semantic_data or {}
-        sd["doc_types"] = doc_types
+        sd = self.doc.semantic_data if self.doc else {}
+        if sd is None: sd = {}
+        sd["entity_types"] = doc_types
         sd["direction"] = direction
         sd["tenant_context"] = context
 
         # Phase 107: Automatic Pruning of mismatched semantic bodies
-        # Logic: If doc_types changed, remove bodies that don't belong to any of the NEW types.
+        # Logic: If entity_types changed, remove bodies that don't belong to any of the NEW types.
         mapping = {
             "INVOICE": "finance_body", "RECEIPT": "finance_body", "ORDER_CONFIRMATION": "finance_body",
             "DUNNING": "finance_body", "BANK_STATEMENT": "ledger_body", "CONTRACT": "legal_body",

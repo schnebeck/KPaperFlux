@@ -34,8 +34,9 @@ def test_calculate_similarity_jaccard():
 
 def test_metadata_boost():
     # Low text similarity but Perfect Metadata
-    doc_a = Document(original_filename="a.pdf", text_content="invoice amazon delivery", amount=Decimal("10.00"), doc_date=datetime.date(2024,1,1))
-    doc_b = Document(original_filename="b.pdf", text_content="invoice google play", amount=Decimal("10.00"), doc_date=datetime.date(2024,1,1))
+    today = "2024-01-01"
+    doc_a = Document(original_filename="a.pdf", text_content="invoice amazon delivery", semantic_data={"amount": 10.00, "doc_date": today})
+    doc_b = Document(original_filename="b.pdf", text_content="invoice google play", semantic_data={"amount": 10.00, "doc_date": today})
     
     manager = SimilarityManager(None)
     # Text Jaccard: "invoice" (1) / "amazon", "delivery", "google", "play", "invoice" (5) = 0.2
@@ -49,7 +50,7 @@ def test_metadata_boost():
     assert score >= 0.4
     
     # High text sim + metadata
-    doc_c = Document(original_filename="c.pdf", text_content="invoice amazon delivery items", amount=Decimal("10.00"), doc_date=datetime.date(2024,1,1))
+    doc_c = Document(original_filename="c.pdf", text_content="invoice amazon delivery items", semantic_data={"amount": 10.00, "doc_date": today})
     # Jaccard ~ 0.6
     # Final = 0.6 + 0.2 = 0.8.
     score2 = manager.calculate_similarity(doc_a, doc_c)
@@ -61,7 +62,7 @@ def test_find_duplicates(mock_db):
         Document(uuid="2", original_filename="b.pdf", text_content="apple banana checkbox"),
         Document(uuid="3", original_filename="c.pdf", text_content="completely different")
     ]
-    mock_db.get_all_documents.return_value = docs
+    mock_db.get_all_entities_view.return_value = docs
     
     manager = SimilarityManager(mock_db)
     duplicates = manager.find_duplicates(threshold=0.5)
