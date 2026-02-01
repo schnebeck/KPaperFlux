@@ -559,11 +559,22 @@ class PdfViewerWidget(QWidget):
         self.view.setZoomMode(QPdfView.ZoomMode.Custom)
         self.btn_fit.setChecked(False)
         self.view.setZoomFactor(self.view.zoomFactor() * 1.2)
+        self._update_scrollbar_policy()
 
     def zoom_out(self):
         self.view.setZoomMode(QPdfView.ZoomMode.Custom)
         self.btn_fit.setChecked(False)
         self.view.setZoomFactor(self.view.zoomFactor() / 1.2)
+        self._update_scrollbar_policy()
+
+    def _update_scrollbar_policy(self):
+        """Disable scrollbars during 'Fit' mode to prevent redundant UI clutter."""
+        if self.view.zoomMode() == QPdfView.ZoomMode.FitInView:
+            self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        else:
+            self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
     def toggle_fit(self, checked=None):
         if checked is None:
@@ -572,6 +583,7 @@ class PdfViewerWidget(QWidget):
             self.view.setZoomMode(QPdfView.ZoomMode.FitInView)
         else:
             self.view.setZoomMode(QPdfView.ZoomMode.Custom)
+        self._update_scrollbar_policy()
         self.save_zoom_state()
 
     def update_zoom_label(self, factor):
@@ -593,6 +605,7 @@ class PdfViewerWidget(QWidget):
             if mode == QPdfView.ZoomMode.Custom:
                 self.view.setZoomFactor(factor)
             self.btn_fit.setChecked(mode == QPdfView.ZoomMode.FitInView)
+            self._update_scrollbar_policy()
         except:
             pass
 

@@ -62,8 +62,9 @@ class LogicalRepository(BaseRepository):
         INSERT OR REPLACE INTO virtual_documents (
             uuid, source_mapping, status, export_filename, 
             last_used, last_processed_at, is_immutable, thumbnail_path, 
-            cached_full_text, semantic_data, created_at, deleted, page_count_virt,
-            type_tags, sender, doc_date, amount, tags
+            cached_full_text, semantic_data, created_at, deleted, 
+            deleted_at, locked_at, exported_at,
+            page_count_virt, type_tags, tags
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
@@ -82,11 +83,11 @@ class LogicalRepository(BaseRepository):
             semantic_json,
             doc.created_at,
             int(doc.deleted),
+            doc.deleted_at,
+            doc.locked_at,
+            doc.exported_at,
             total_pages,
             type_tags_json,
-            doc.sender,
-            doc.doc_date,
-            doc.amount,
             tags_json,
         )
 
@@ -113,7 +114,7 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            sender, doc_date, amount, tags
+            tags, deleted_at, locked_at, exported_at
         FROM virtual_documents
         WHERE uuid = ?
         """
@@ -141,7 +142,7 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            sender, doc_date, amount, tags
+            tags, deleted_at, locked_at, exported_at
         FROM virtual_documents
         WHERE source_mapping LIKE ?
         """
@@ -184,7 +185,7 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            sender, doc_date, amount, tags
+            tags, deleted_at, locked_at, exported_at
         FROM virtual_documents
         """
         if not include_deleted:

@@ -39,6 +39,13 @@ class DatabaseManager:
         self.db_path: str = db_path
         self.connection: Optional[sqlite3.Connection] = None
         self._connect()
+        # Source of truth for document selection to avoid index mismatches
+        self._doc_select = """
+            uuid, source_mapping, status, export_filename, last_used, 
+            last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
+            semantic_data, created_at, deleted, page_count_virt, type_tags,
+            tags, deleted_at, locked_at, exported_at
+        """
 
     def _connect(self) -> None:
         """
@@ -47,6 +54,7 @@ class DatabaseManager:
         """
         # check_same_thread=False allows using the connection across worker threads
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.connection.row_factory = sqlite3.Row  # Enable named column access
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.execute("PRAGMA journal_mode = WAL")
 
@@ -88,9 +96,6 @@ class DatabaseManager:
             exported_at DATETIME,
             page_count_virt INTEGER DEFAULT 0,
             type_tags TEXT, -- JSON List of strings
-            sender TEXT,
-            doc_date TEXT,
-            amount REAL,
             tags TEXT
         );
         """
@@ -115,6 +120,7 @@ class DatabaseManager:
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_virtual_documents_fts)
             self._create_fts_triggers()
+            self._create_usage_triggers()
 
     def matches_condition(self, entity_uuid: str, query_dict: Dict[str, Any]) -> bool:
         """
@@ -164,7 +170,7 @@ class DatabaseManager:
         allowed = [
             "status", "export_filename", "deleted", "is_immutable", "locked",
             "type_tags", "cached_full_text", "last_used", "last_processed_at",
-            "semantic_data", "sender", "amount", "doc_date", "tags",
+            "semantic_data", "tags",
             "deleted_at", "locked_at", "exported_at"
         ]
         filtered = {k: v for k, v in updates.items() if k in allowed}
@@ -198,16 +204,6 @@ class DatabaseManager:
             return True
         return False
 
-    def touch_last_used(self, uuid: str) -> None:
-        """
-        Updates the legacy 'last_used' timestamp to current local time.
-
-        Args:
-            uuid: The document UUID to update.
-        """
-        now = datetime.now().isoformat()
-        self.update_document_metadata(uuid, {"last_used": now})
-
     def update_document_status(self, uuid: str, new_status: str) -> None:
         """
         Direct helper to update a document's status.
@@ -233,14 +229,8 @@ class DatabaseManager:
         if not self.connection:
             return None
 
-        sql = """
-            SELECT uuid, source_mapping, status, 
-                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable, type_tags, 
-                   cached_full_text, last_used, last_processed_at,
-                   semantic_data,
-                   sender, doc_date, amount, tags,
-                   deleted_at, locked_at, exported_at
+        sql = f"""
+            SELECT {self._doc_select}
             FROM virtual_documents
             WHERE uuid = ?
         """
@@ -371,13 +361,7 @@ class DatabaseManager:
             where_clause = f"({where_clause}) AND deleted = 0"
             
         sql = f"""
-            SELECT uuid, source_mapping, status, 
-                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable, type_tags,
-                   cached_full_text, last_used, last_processed_at,
-                   semantic_data,
-                   sender, doc_date, amount, tags,
-                   deleted_at, locked_at, exported_at
+            SELECT {self._doc_select}
             FROM virtual_documents
             WHERE {where_clause}
             ORDER BY created_at DESC
@@ -475,9 +459,9 @@ class DatabaseManager:
             "deleted": "deleted",
             "type_tags": "type_tags",
             "tags": "tags",
-            "sender": "sender",
-            "doc_date": "doc_date",
-            "amount": "amount",
+            "sender": "json_extract(semantic_data, '$.sender')",
+            "doc_date": "json_extract(semantic_data, '$.doc_date')",
+            "amount": "json_extract(semantic_data, '$.amount')",
             
             # Semantic shortcuts
             "direction": "json_extract(semantic_data, '$.direction')",
@@ -580,14 +564,8 @@ class DatabaseManager:
         Returns:
             A list of Document objects ordered by creation date.
         """
-        sql = """
-            SELECT uuid, source_mapping, status, 
-                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable, type_tags,
-                   cached_full_text, last_used, last_processed_at,
-                   semantic_data,
-                   sender, doc_date, amount, tags,
-                   deleted_at, locked_at, exported_at
+        sql = f"""
+            SELECT {self._doc_select}
             FROM virtual_documents
             WHERE deleted = 0
             ORDER BY created_at DESC
@@ -616,9 +594,12 @@ class DatabaseManager:
             except (json.JSONDecodeError, TypeError):
                 return default
 
-        type_tags = safe_json_load(row[7] if len(row) > 7 else None, [])
-        semantic_data = safe_json_load(row[11] if len(row) > 11 else None, {})
-        tags_raw = row[15] if len(row) > 15 else None
+        type_tags = safe_json_load(row["type_tags"], [])
+        semantic_data = safe_json_load(row["semantic_data"], {})
+        tags_raw = row["tags"]
+        
+        # Original Filename fallback
+        orig_filename = row[3] if row[3] else f"Entity {str(row[0])[:8]}"
 
         tags: List[str] = []
         if tags_raw:
@@ -626,37 +607,33 @@ class DatabaseManager:
                 tags = json.loads(tags_raw)
                 if isinstance(tags, str):
                     tags = [t.strip() for t in tags.split(",") if t.strip()]
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError) as e:
+                print(f"[DB] Error parsing tags for {row['uuid']}: {e}")
                 if isinstance(tags_raw, str):
                     tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
 
         doc_data = {
-            "uuid": row[0],
-            "extra_data": {"source_mapping": row[1]},
-            "status": row[2],
-            "original_filename": row[3],
-            "page_count": row[4],
-            "created_at": row[5],
-            "locked": bool(row[6]),
-            "deleted": False,
+            "uuid": row["uuid"],
+            "extra_data": {"source_mapping": row["source_mapping"]},
+            "status": row["status"],
+            "original_filename": row["export_filename"] or f"Entity {str(row['uuid'])[:8]}",
+            "page_count": row["page_count_virt"],
+            "created_at": row["created_at"],
+            "last_used": row["last_used"],
+            "last_processed_at": row["last_processed_at"],
+            "locked": bool(row["is_immutable"]),
+            "deleted": bool(row["deleted"]),
             "type_tags": type_tags,
-            "cached_full_text": row[8] if len(row) > 8 else None,
-            "text_content": row[8] if len(row) > 8 else None,
-            "last_used": row[9] if len(row) > 9 else None,
-            "last_processed_at": row[10] if len(row) > 10 else None,
+            "cached_full_text": row["cached_full_text"],
+            "text_content": row["cached_full_text"],
             "semantic_data": semantic_data,
-            "sender": row[12] if len(row) > 12 else None,
-            "doc_date": row[13] if len(row) > 13 else None,
-            "amount": row[14] if len(row) > 14 else None,
             "tags": tags,
-            "deleted_at": row[16] if len(row) > 16 else None,
-            "locked_at": row[17] if len(row) > 17 else None,
-            "exported_at": row[18] if len(row) > 18 else None,
+            "deleted_at": row["deleted_at"] if "deleted_at" in row.keys() else None,
+            "locked_at": row["locked_at"] if "locked_at" in row.keys() else None,
+            "exported_at": row["exported_at"] if "exported_at" in row.keys() else None,
         }
 
-        # Merge semantic fields into the main document body for Pydantic mapping
-        if semantic_data and isinstance(semantic_data, dict):
-            doc_data.update(semantic_data)
+        # Semantic data remains encapsulated in the semantic_data field
 
         return Document(**doc_data)
 
@@ -673,13 +650,8 @@ class DatabaseManager:
         if not search_text:
             return self.get_all_entities_view()
             
-        sql = """
-            SELECT v.uuid, v.source_mapping, v.status, 
-                   COALESCE(v.export_filename, 'Entity ' || substr(v.uuid, 1, 8)),
-                   v.page_count_virt, v.created_at, v.is_immutable, v.type_tags,
-                   v.cached_full_text, v.last_used, v.last_processed_at,
-                   v.semantic_data, v.sender, v.doc_date, v.amount, v.tags,
-                   v.deleted_at, v.locked_at, v.exported_at
+        sql = f"""
+            SELECT {', '.join(['v.' + c.strip() for c in self._doc_select.split(',')])}
             FROM virtual_documents v
             JOIN virtual_documents_fts f ON v.uuid = f.uuid
             WHERE f.cached_full_text MATCH ? AND v.deleted = 0
@@ -752,18 +724,12 @@ class DatabaseManager:
         Returns:
             List of incomplete Document objects.
         """
-        sql = """
-            SELECT uuid, source_mapping, status, 
-                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable, type_tags,
-                   cached_full_text, last_used, last_processed_at,
-                   semantic_data,
-                   sender, doc_date, amount, tags,
-                   deleted_at, locked_at, exported_at
+        sql = f"""
+            SELECT {self._doc_select}
             FROM virtual_documents
             WHERE deleted = 0 
               AND is_immutable = 0
-              AND (semantic_data IS NULL OR semantic_data = '{}' OR 
+              AND (semantic_data IS NULL OR semantic_data = '{{}}' OR 
                    json_extract(semantic_data, '$.bodies') IS NULL)
             ORDER BY created_at DESC
         """
@@ -780,14 +746,8 @@ class DatabaseManager:
         Returns:
             List of documents requiring re-analysis.
         """
-        sql = """
-            SELECT uuid, source_mapping, status, 
-                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable, type_tags,
-                   cached_full_text, last_used, last_processed_at,
-                   semantic_data,
-                   sender, doc_date, amount, tags,
-                   deleted_at, locked_at, exported_at
+        sql = f"""
+            SELECT {self._doc_select}
             FROM virtual_documents
             WHERE status = 'PROCESSED' 
               AND semantic_data IS NOT NULL 
@@ -1050,14 +1010,8 @@ class DatabaseManager:
         
     def get_deleted_entities_view(self) -> List[Document]:
         """Provides Trash Bin view data."""
-        sql = """
-            SELECT uuid, source_mapping, status, 
-                   COALESCE(export_filename, 'Entity ' || substr(uuid, 1, 8)),
-                   page_count_virt, created_at, is_immutable, type_tags,
-                   cached_full_text, last_used, last_processed_at,
-                   semantic_data,
-                   sender, doc_date, amount, tags,
-                   deleted_at, locked_at, exported_at
+        sql = f"""
+            SELECT {self._doc_select}
             FROM virtual_documents
             WHERE deleted = 1
             ORDER BY created_at DESC
@@ -1165,6 +1119,51 @@ class DatabaseManager:
             for trigger_sql in triggers:
                 self.connection.execute(trigger_sql)
 
+    def _create_usage_triggers(self) -> None:
+        """
+        Phase 110: Atomic Usage Tracker.
+        Sets 'last_used' to Current Timestamp whenever document metadata
+        or content is changed (INSERT or UPDATE), but NOT during passive selection.
+        """
+        triggers = [
+            """
+            CREATE TRIGGER IF NOT EXISTS virtual_documents_usage_insert 
+            AFTER INSERT ON virtual_documents
+            FOR EACH ROW
+            WHEN (new.last_used IS NULL)
+            BEGIN
+                UPDATE virtual_documents 
+                SET last_used = strftime('%Y-%m-%dT%H:%M:%S', 'now', 'localtime') 
+                WHERE uuid = new.uuid;
+            END;
+            """,
+            """
+            CREATE TRIGGER IF NOT EXISTS virtual_documents_usage_update 
+            AFTER UPDATE ON virtual_documents
+            FOR EACH ROW
+            WHEN (
+                (new.last_used IS old.last_used OR new.last_used IS NULL) AND
+                (
+                    old.status IS NOT new.status OR
+                    old.export_filename IS NOT new.export_filename OR
+                    old.is_immutable IS NOT new.is_immutable OR
+                    old.semantic_data IS NOT new.semantic_data OR
+                    old.deleted IS NOT new.deleted OR
+                    old.type_tags IS NOT new.type_tags OR
+                    old.tags IS NOT new.tags
+                )
+            )
+            BEGIN
+                UPDATE virtual_documents 
+                SET last_used = strftime('%Y-%m-%dT%H:%M:%S', 'now', 'localtime') 
+                WHERE uuid = new.uuid;
+            END;
+            """
+        ]
+        with self.connection:
+            for trigger_sql in triggers:
+                self.connection.execute(trigger_sql)
+
     def _update_table(self, table: str, pk_val: str, updates: Dict[str, Any], pk_col: str = "uuid") -> None:
         """Internal generic update helper."""
         if not updates:
@@ -1192,17 +1191,16 @@ class DatabaseManager:
             INSERT INTO virtual_documents (
                 uuid, source_mapping, status, export_filename, created_at, 
                 deleted, type_tags, semantic_data, page_count_virt, is_immutable, 
-                cached_full_text, sender, doc_date, amount, tags,
+                cached_full_text, tags,
                 deleted_at, locked_at, exported_at
-            ) VALUES (?, ?, ?, ?, ?, 0, ?, '{}', 1, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 1, 0, ?, ?, ?, ?, ?)
         """
         try:
             with self.connection:
+                sd_json = json.dumps(doc.semantic_data or {})
                 self.connection.execute(sql, (
                     doc.uuid, sm_json, doc.status or "NEW", doc.original_filename or "Unknown",
-                    created, type_tags_json, (doc.text_content or doc.cached_full_text),
-                    doc.sender, str(doc.doc_date) if doc.doc_date else None,
-                    float(doc.amount) if doc.amount else 0.0,
+                    created, type_tags_json, sd_json, (doc.text_content or doc.cached_full_text),
                     user_tags_json,
                     doc.deleted_at, doc.locked_at, doc.exported_at
                 ))

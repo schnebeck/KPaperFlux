@@ -89,11 +89,9 @@ Your goal is to separate the document into two distinct layers (Document Text vs
 - Quickly verify the document type based on visual clues (Logos, Titles).
 - If the visual evidence contradicts the EXPECTED TYPES, flag it.
 
-### MISSION 1: THE DOCUMENT LAYER (X-Ray Mode)
-- Visually "remove" any ink stamps, handwritten notes, or stains.
-- Transcribe the **clean underlying printed text** of the document.
-- **Repair:** If a stamp covers text (e.g. Invoice Number), infer the covered characters from context.
-- **Constraint:** Do NOT include the stamp text in this transcription!
+### MISSION 1: FORENSIC TYPE AUDIT (Integrity Mode)
+- Verify the document type based on visual clues (Logos, Titles, Layout).
+- If the visual evidence contradicts the EXPECTED TYPES, flag it in the `integrity` block.
 
 ### MISSION 2: THE STAMP LAYER (Form Extraction Mode)
 - Focus ONLY on the stamps, handwriting, and stickers ignored in Mission 1.
@@ -110,15 +108,15 @@ Your goal is to separate the document into two distinct layers (Document Text vs
   - If Value is **EMPTY** (Label present but no entry): Return `null` and type `EMPTY`.
 
 ### MISSION 3: THE ARBITER (Quality Control)
-- Compare your "Document Layer" transcription with the provided "RAW OCR".
+- Compare the visual image with the provided "RAW OCR".
 - Determine if the Raw OCR is corrupted by the stamps/overlays.
-- Decide which source is safer for extracting numbers/dates.
+- Decide which source (Vision or OCR) is safer for extracting numbers/dates.
 
 ### OUTPUT SCHEMA (JSON ONLY)
 {{
-  "layer_document": {{
-    "clean_text": "String (Full page text, REPAIRED, without stamps)",
-    "was_repair_needed": Boolean
+  "audit_summary": {{
+    "was_stamp_interference": Boolean,
+    "has_handwriting": Boolean
   }},
 
   "layer_stamps": [
@@ -161,9 +159,8 @@ Your goal is to audit the document structure, extract overlays (forms/stamps), a
    >>> {raw_ocr_page1} <<<
 3. **EXPECTED TYPES:** The system previously identified this as: {expected_types}
 
-### MISSION 1: THE DOCUMENT LAYER (X-Ray Mode on FIRST_PAGE)
-- Visually "remove" any ink stamps, handwritten notes, or stains.
-- Transcribe the clean underlying printed text.
+### MISSION 1: FORENSIC TYPE AUDIT (Integrity Mode)
+- Verify the document type based on visual clues.
 
 ### MISSION 2: THE STAMP LAYER (Form Extraction Mode on FIRST_PAGE)
 - Focus on stamps and handwritten notes. Extract as structured form fields.
@@ -173,15 +170,15 @@ Your goal is to audit the document structure, extract overlays (forms/stamps), a
 - Check for handwritten or digital signatures.
 
 ### MISSION 4: THE ARBITER (Quality Control on FIRST_PAGE)
-- Compare your "Document Layer" transcription with the provided "RAW OCR".
+- Compare the visual image with the provided "RAW OCR".
 - Determine if the Raw OCR is corrupted by the stamps/overlays.
-- Decide which source is safer for extracting numbers/dates.
+- Decide which source (Vision or OCR) is safer for extracting numbers/dates.
 
 ### OUTPUT SCHEMA (JSON ONLY)
 {{
-  "layer_document": {{
-    "clean_text": "String",
-    "was_repair_needed": Boolean
+  "audit_summary": {{
+    "was_stamp_interference": Boolean,
+    "has_handwriting": Boolean
   }},
   "layer_stamps": [],
   "signatures": {{

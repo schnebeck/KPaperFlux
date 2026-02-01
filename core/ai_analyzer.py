@@ -19,7 +19,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import fitz  # PyMuPDF
 from google import genai
@@ -823,8 +823,8 @@ class AIAnalyzer:
                // Fields for {val}:
                {joined_fields}
           }},"""
-            except:
-                pass
+            except Exception as e:
+                print(f"[AI] Error generating schema hint for {val}: {e}")
 
         prompt = f"""
         You are a Specialized Data Extractor for: {val}.
@@ -899,8 +899,8 @@ class AIAnalyzer:
                 # For now, let's minimally coerce 'total_amount' if it sits in specific_data or root?
                 # The prompt asks for `specific_data`.
                 pass
-            except:
-                pass
+            except Exception as e:
+                print(f"[AI] Post-processing of CDM failed: {e}")
 
             return raw_data
         except Exception as e:
@@ -1156,16 +1156,25 @@ TASK:
         Returns:
             The parsed JSON result or None if it fails.
         """
-        max_logical_retries = 2
+        max_logical_retries = 5
         current_attempt = 1
+        last_error = None
+        working_prompt = prompt
 
         while current_attempt <= max_logical_retries:
-            res = self._generate_json_raw(prompt, stage_label, images)
+            if last_error:
+                # Strengthen prompt on retry
+                working_prompt = prompt + f"\n\n### PREVIOUS ATTEMPT FAILED WITH ERROR:\n{last_error}\n\nPLEASE FIX THE JSON STRUCTURE! Ensure all braces are closed, no trailing commas, and strictly follow the schema."
+                self._print_debug_prompt(f"{stage_label} RETRY {current_attempt}", working_prompt)
+
+            res, error_msg = self._generate_json_raw(working_prompt, stage_label, images)
             if res is not None:
                 return res
+            
+            last_error = error_msg
 
             if current_attempt < max_logical_retries:
-                print(f"[AI] Logical Retry {current_attempt}/{max_logical_retries} for {stage_label} due to JSON Error.")
+                print(f"[AI] Logical Retry {current_attempt}/{max_logical_retries} for {stage_label} due to JSON/Validation Error.")
                 current_attempt += 1
                 time.sleep(1)
             else:
@@ -1173,7 +1182,7 @@ TASK:
 
         return None
 
-    def _generate_json_raw(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Any:
+    def _generate_json_raw(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Tuple[Optional[Any], Optional[str]]:
         """Internal helper to call Gemini and perform repair-based parsing."""
         # self._print_debug_prompt(stage_label, prompt) # Moved to high level if needed
 
@@ -1197,7 +1206,7 @@ TASK:
         response = self._generate_with_retry(full_payload)
 
         if not response or not response.candidates:
-            return None
+            return None, "No response from API"
             
         candidate = response.candidates[0]
         is_truncated = candidate.finish_reason == "MAX_TOKENS"
@@ -1211,14 +1220,14 @@ TASK:
             txt = response.text
         except Exception as e:
             print(f"[AI] Error: Could not access response text: {e}")
-            return None
+            return None, f"Could not access response text: {e}"
 
         # Clean control characters (null bytes, etc.) that break JSON
         txt = txt.replace("\x00", "") 
 
         # Robust JSON extraction: Find the first '{' 
         start = txt.find('{')
-        if start == -1: return None
+        if start == -1: return None, "No JSON object found (missing '{')"
 
         def attempt_repair(s: str) -> str:
             """Heuristic JSON repair for common AI mistakes."""
@@ -1290,12 +1299,13 @@ TASK:
                 # Even if we "repaired" the JSON structure, significant content is missing.
                 if is_truncated:
                     print(f"[AI] Response for {stage_label} was truncated. Treating as None to trigger potential retry.")
-                    return None
-                return res_json
+                    return None, "Response truncated (max tokens reached)"
+                return res_json, None
             else:
-                return None
+                return None, "JSON parsing failed after all repair attempts"
         except Exception as e:
             # Propagate the syntax error details
+            err_msg = f"JSON Syntax Error: {e}"
             print(f"[AI] Failed to parse JSON for {stage_label}: {e}")
             if hasattr(e, 'lineno'):
                  print(f"[AI] Syntax Detail: Line {e.lineno}, Col {e.colno}")
@@ -1304,8 +1314,14 @@ TASK:
                 err_pos = e.pos
                 snippet = current_json[max(0, err_pos-40):min(len(current_json), err_pos+40)]
                 print(f"[AI] Error Context: ... {snippet} ...")
+                err_msg += f" (Near: ... {snippet} ...)"
 
-            return None
+            return None, err_msg
+
+    def _generate_json_raw_legacy(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Any:
+        # Keeping a wrapper just in case other things call it and expect old return type
+        res, err = self._generate_json_raw(prompt, stage_label, images)
+        return res
 
     # ==============================================================================
     # STAGE 2: SCHEMA HELPERS (Reusable Components)
@@ -1947,13 +1963,16 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                          entity_name = patient.get("name")
 
         # Clean Entity Name
-        if entity_name:
-            entity_name = re.sub(r'[\s\./\\:]+', '_', entity_name)
-            entity_name = re.sub(r'__+', '_', entity_name)
-            entity_name = entity_name.strip('_')
+        if not entity_name:
+            entity_name = "Unknown"
+            
+        entity_name = re.sub(r'[\s\./\\:]+', '_', entity_name)
+        entity_name = re.sub(r'__+', '_', entity_name)
+        entity_name = entity_name.strip('_')
 
         # 3. Type (WAS)
-        clean_types = [t for t in doc_types if t not in ["INBOUND", "OUTBOUND", "INTERNAL", "CTX_PRIVATE", "CTX_BUSINESS", "UNKNOWN"]]
+        # Ensure we filter out None values and noise tags
+        clean_types = [t for t in doc_types if t and isinstance(t, str) and t not in ["INBOUND", "OUTBOUND", "INTERNAL", "CTX_PRIVATE", "CTX_BUSINESS", "UNKNOWN"]]
         type_str = "-".join(clean_types[:2]) if clean_types else "DOC"
 
         filename = f"{date_str}__{entity_name}__{type_str}.pdf"

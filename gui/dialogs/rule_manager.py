@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from core.database import DatabaseManager
 from core.filter_tree import FilterTree, FilterNode, NodeType
 from gui.widgets.filter_group import FilterGroupWidget
+from gui.utils import show_selectable_message_box, show_notification
 class RuleEditorDialog(QDialog):
 
     """
@@ -195,8 +196,7 @@ class RuleManagerWidget(QWidget):
             if child.name == "Auto-Tagging Rules":
                 return child
         # Not found? Create it
-        
-from core.filter_tree import NodeType
+        from core.filter_tree import NodeType
         folder = FilterNode("Auto-Tagging Rules", NodeType.FOLDER)
         self.filter_tree.root.add_child(folder)
         return folder
@@ -241,9 +241,7 @@ from core.filter_tree import NodeType
                                      icon=QMessageBox.Icon.Question,
                                      buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            
-from gui.workers import BatchTaggingWorker
-            
+            from gui.workers import BatchTaggingWorker
             self.progress = QProgressDialog("Applying rules to database...", "Cancel", 0, 100, self)
             self.progress.setWindowModality(Qt.WindowModality.WindowModal)
             
@@ -263,8 +261,8 @@ from gui.workers import BatchTaggingWorker
 
     def _on_worker_finished(self, modified_count):
         self.progress.close()
-        show_selectable_message_box(self, "Auto-Tagging Complete", 
-                                f"Finished processing database.\n\n{modified_count} documents were modified.", icon=QMessageBox.Icon.Information)
+        show_notification(self, "Auto-Tagging Complete", 
+                          f"Finished processing database.\n\n{modified_count} documents were modified.")
 
 class RuleManagerDialog(QDialog):
     def __init__(self, db_manager: DatabaseManager, filter_tree: FilterTree, parent=None):

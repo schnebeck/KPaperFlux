@@ -11,7 +11,7 @@ from core.database import DatabaseManager
 from core.models.canonical_entity import DocType
 
 # GUI Imports
-from gui.utils import format_datetime, show_selectable_message_box
+from gui.utils import format_datetime, show_selectable_message_box, show_notification
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.tag_input import TagInputWidget
 
@@ -133,6 +133,7 @@ class MetadataEditorWidget(QWidget):
         self.db_manager = db_manager
         self.current_uuids = []
         self.doc = None
+        self._locked_for_load = False
 
         self._init_ui()
 
@@ -216,10 +217,6 @@ class MetadataEditorWidget(QWidget):
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setSpecialValueText(" ") # Allow 'empty' look
         analysis_layout.addRow(self.tr("Document Date:"), self.date_edit)
-
-        self.amount_edit = QLineEdit()
-        self.amount_edit.setPlaceholderText("0.00")
-        analysis_layout.addRow(self.tr("Amount:"), self.amount_edit)
 
         # Reasoning field removed to save space/tokens in AI output
 
@@ -316,7 +313,33 @@ class MetadataEditorWidget(QWidget):
         # Buttons
         self.btn_save = QPushButton(self.tr("Save Changes"))
         self.btn_save.clicked.connect(self.save_changes)
+        self.btn_save.setEnabled(False) # Only enabled if dirty
         layout.addWidget(self.btn_save)
+
+        # Connect Change Signals for Dirty Tracking
+        self.status_combo.currentIndexChanged.connect(self._mark_dirty)
+        self.export_filename_edit.textChanged.connect(self._mark_dirty)
+        self.tags_edit.tagsChanged.connect(self._mark_dirty)
+        self.doc_types_combo.selectionChanged.connect(self._mark_dirty)
+        self.direction_combo.currentIndexChanged.connect(self._mark_dirty)
+        self.context_combo.currentIndexChanged.connect(self._mark_dirty)
+        self.sender_edit.textChanged.connect(self._mark_dirty)
+        self.date_edit.dateChanged.connect(self._mark_dirty)
+        self.stamps_table.itemChanged.connect(self._mark_dirty)
+        self.semantic_table.itemChanged.connect(self._mark_dirty)
+
+    def _mark_dirty(self):
+        """Enable save button when user changes something."""
+        if getattr(self, "_locked_for_load", False):
+            return
+        self.btn_save.setEnabled(True)
+        # Visual hint: subtle green background for the active save button
+        self.btn_save.setStyleSheet("background-color: #e8f5e9; font-weight: bold; border: 1px solid #c8e6c9;")
+
+    def _reset_dirty(self):
+        """Disable save button and reset style."""
+        self.btn_save.setEnabled(False)
+        self.btn_save.setStyleSheet("")
 
     def on_lock_clicked(self, checked):
         if not self.current_uuids or not self.db_manager:
@@ -331,6 +354,7 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.setEnabled(not checked)
 
     def display_documents(self, docs: list[Document]):
+        self._locked_for_load = True
         self.doc = None
         self.current_uuids = [d.uuid for d in docs]
 
@@ -341,6 +365,8 @@ class MetadataEditorWidget(QWidget):
         self.setEnabled(True)
         if len(docs) == 1:
             self.display_document(docs[0])
+            self._reset_dirty()
+            self._locked_for_load = False
             return
 
         # Batch Display (Simplified)
@@ -379,8 +405,14 @@ class MetadataEditorWidget(QWidget):
 
         self.source_viewer.setPlainText(f"{len(docs)} documents selected.")
         self.semantic_viewer.setPlainText("-")
+        
+        self._reset_dirty()
+        self._locked_for_load = False
 
     def display_document(self, doc: Document):
+        # Note: if called from display_documents, _locked_for_load is already True
+        externally_locked = getattr(self, "_locked_for_load", False)
+        self._locked_for_load = True
         self.current_uuids = [doc.uuid]
         self.doc = doc
 
@@ -466,10 +498,10 @@ class MetadataEditorWidget(QWidget):
         self._populate_semantic_table(sd)
 
         # Extracted Data
-        self.sender_edit.setText(doc.sender or sd.get("sender", ""))
+        self.sender_edit.setText(sd.get("sender", ""))
 
         # Date Handling
-        doc_date = doc.doc_date or sd.get("doc_date")
+        doc_date = sd.get("doc_date")
         if doc_date:
             if isinstance(doc_date, str):
                 qdate = QDate.fromString(doc_date, Qt.DateFormat.ISODate)
@@ -478,8 +510,6 @@ class MetadataEditorWidget(QWidget):
                 self.date_edit.setDate(QDate.fromString(doc_date.isoformat(), Qt.DateFormat.ISODate))
         else:
             self.date_edit.setDate(QDate(2000, 1, 1)) # Default
-
-        self.amount_edit.setText(str(doc.amount) if doc.amount is not None else "")
 
         # Source Mapping
         try: # Added try-except block for source mapping parsing
@@ -504,6 +534,10 @@ class MetadataEditorWidget(QWidget):
             self.semantic_viewer.setPlainText(json.dumps(doc.semantic_data, indent=2, ensure_ascii=False))
         else:
             self.semantic_viewer.setPlainText("{}")
+        
+        if not externally_locked:
+            self._reset_dirty()
+            self._locked_for_load = False
 
     def _add_stamp_row(self):
         row = self.stamps_table.rowCount()
@@ -670,7 +704,6 @@ class MetadataEditorWidget(QWidget):
         self.direction_combo.setCurrentIndex(3) # UNKNOWN
         self.context_combo.setCurrentIndex(2) # UNKNOWN
         self.sender_edit.clear()
-        self.amount_edit.clear()
         self.source_viewer.clear()
         self.semantic_viewer.clear()
         self.setEnabled(False)
@@ -865,18 +898,18 @@ class MetadataEditorWidget(QWidget):
             else:
                 target[last_key] = typed_val
 
-        # Update flat document fields as well (Redundancy for filtering)
-        updates["sender"] = self.sender_edit.text().strip()
-        updates["amount"] = self.amount_edit.text().strip()
-
+        # Update semantic_data
+        sd["sender"] = self.sender_edit.text().strip()
+        
+        # doc_date is now purely semantic (JSON)
         if self.date_edit.date().year() > 2000:
-             updates["doc_date"] = self.date_edit.date().toString(Qt.DateFormat.ISODate)
-
+             sd["doc_date"] = self.date_date_str = self.date_edit.date().toString(Qt.DateFormat.ISODate)
+        
         updates["semantic_data"] = sd
 
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)
-             self.db_manager.touch_last_used(uuid)
 
         self.metadata_saved.emit()
-        show_selectable_message_box(self, self.tr("Saved"), self.tr("Changes saved to Database."), icon=QMessageBox.Icon.Information)
+        self._reset_dirty()
+        show_notification(self, self.tr("Saved"), self.tr("Changes saved to Database."))

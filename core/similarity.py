@@ -90,18 +90,27 @@ class SimilarityManager:
         """
         # 1. Critical Metadata Check (Veto Power)
         # If dates are present and differ, these are likely different monthly invoices.
-        if doc_a.doc_date and doc_b.doc_date and doc_a.doc_date != doc_b.doc_date:
+        sd_a = doc_a.semantic_data or {}
+        sd_b = doc_b.semantic_data or {}
+        
+        date_a = sd_a.get("doc_date")
+        date_b = sd_b.get("doc_date")
+        
+        if date_a and date_b and date_a != date_b:
             return 0.0
 
         # If amounts are present and differ significantly, likely different files.
-        if doc_a.amount is not None and doc_b.amount is not None and doc_a.amount != doc_b.amount:
+        amt_a = sd_a.get("amount")
+        amt_b = sd_b.get("amount")
+
+        if amt_a is not None and amt_b is not None and amt_a != amt_b:
             return 0.1
 
         # 2. Base Metadata Score (Boost Factor)
         metadata_score = 0.0
-        if doc_a.amount is not None and doc_b.amount is not None and doc_a.amount == doc_b.amount:
+        if amt_a is not None and amt_b is not None and amt_a == amt_b:
             metadata_score += 0.3
-        if doc_a.doc_date and doc_b.doc_date and doc_a.doc_date == doc_b.doc_date:
+        if date_a and date_b and date_a == date_b:
             metadata_score += 0.2
 
         # 3. Text Similarity (Jaccard Index)

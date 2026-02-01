@@ -94,8 +94,17 @@ class ImportWorker(QThread):
 
     def run(self):
         success_count = 0
-        total = len(self.items)
         imported_uuids = []
+        
+        # Calculate effective total for progress reporting
+        effective_total = 0
+        for item in self.items:
+            if isinstance(item, tuple) and item[0] == "BATCH" and isinstance(item[1], list):
+                effective_total += len(item[1])
+            else:
+                effective_total += 1
+        
+        current_global_idx = 0
 
         try:
             for i, item in enumerate(self.items):
@@ -112,7 +121,11 @@ class ImportWorker(QThread):
                 # SPECIAL BATCH MODE
                 if fpath == "BATCH" and isinstance(instructions, list):
                     # instructions is a LIST of doc definitions
-                    self.progress.emit(i, "Batch Processing...")
+                    
+                    def batch_progress_cb(curr, sub_total):
+                        # curr is 1-based from pipeline
+                        self.progress.emit(current_global_idx + curr - 1, f"Document {curr}/{sub_total}")
+
                     try:
                         # Extract all possible file paths from instructions
                         all_paths = set()
@@ -121,16 +134,22 @@ class ImportWorker(QThread):
                                 if "file_path" in pg:
                                     all_paths.add(pg["file_path"])
 
-                        uuids = self.pipeline.process_batch_with_instructions(list(all_paths), instructions, move_source=self.move_source)
+                        uuids = self.pipeline.process_batch_with_instructions(
+                            list(all_paths), 
+                            instructions, 
+                            move_source=self.move_source,
+                            progress_callback=batch_progress_cb
+                        )
                         if uuids:
-                            success_count += 1 # We count the BATCH as 1 successful "import task"? Or by doc count?
-                            # Usually 1 item in 'items' = 1 progress step.
+                            success_count += len(uuids)
                             imported_uuids.extend(uuids)
+                            current_global_idx += len(instructions)
                     except Exception as e:
                         print(f"Batch Import Error: {e}")
+                        current_global_idx += len(instructions) # Skip ahead anyway
                     continue
 
-                self.progress.emit(i, fpath)
+                self.progress.emit(current_global_idx, fpath)
 
                 try:
                     # Async Import: Skip AI initially
@@ -138,7 +157,7 @@ class ImportWorker(QThread):
                         # Pre-Flight Instruction Mode
                         uuids = self.pipeline.process_document_with_instructions(fpath, instructions, move_source=self.move_source)
                         if uuids:
-                            success_count += 1
+                            success_count += len(uuids)
                             imported_uuids.extend(uuids)
                     else:
                         # Legacy Default Mode
@@ -146,12 +165,15 @@ class ImportWorker(QThread):
                         if doc:
                             success_count += 1
                             imported_uuids.append(doc.uuid)
+                    
+                    current_global_idx += 1
 
                 except Exception as e:
                     print(f"Error importing {fpath}: {e}")
                     traceback.print_exc()
+                    current_global_idx += 1
 
-            self.finished.emit(success_count, total, imported_uuids, "")
+            self.finished.emit(success_count, effective_total, imported_uuids, "")
 
         except Exception as e:
             traceback.print_exc()
@@ -212,15 +234,18 @@ class MainLoopWorker(QThread):
     Periodically checks for READY_FOR_PIPELINE documents and processes them.
     Also manages Stage 2 Queue if needed.
     """
-    status_changed = pyqtSignal(str)
+    status_changed = pyqtSignal(str) # Status text
+    progress = pyqtSignal(int, int) # completed, total
     documents_processed = pyqtSignal() # Notify UI to refresh list
     fatal_error = pyqtSignal(str, str) # title, message
+    pause_state_changed = pyqtSignal(bool) # True if paused
 
     def __init__(self, pipeline: PipelineProcessor, filter_tree):
         super().__init__()
         self.pipeline = pipeline
         self.filter_tree = filter_tree
         self.is_running = True
+        self.is_paused = False
 
         self.canonizer = CanonizerService(pipeline.db,
                                         filter_tree=self.filter_tree,
@@ -228,37 +253,86 @@ class MainLoopWorker(QThread):
                                         logical_repo=pipeline.logical_repo)
 
     def run(self):
+        print("[MainLoop] Worker started.")
         while self.is_running:
+            if self.is_paused:
+                self.status_changed.emit("Paused")
+                time.sleep(0.5)
+                continue
+
             try:
-                # 1. Background Canonizing (Stage 1)
-                # Check if any documents are READY_FOR_PIPELINE
-                # limit 1 to avoid hogging the loop, or higher if batching
-                processed_any = False
+                # 1. Count pending items for progress reporting
+                cursor = self.pipeline.db.connection.cursor()
+                cursor.execute("""
+                    SELECT COUNT(*) FROM virtual_documents 
+                    WHERE status IN ('NEW', 'READY_FOR_PIPELINE', 'STAGE2_PENDING') 
+                    AND deleted = 0
+                """)
+                total_pending = cursor.fetchone()[0]
 
-                # We use a shortcut to check counts first to avoid overhead?
-                # For now just call and let it handle emptiness.
+                # If nothing to do, wait and continue
+                if total_pending == 0:
+                    self.status_changed.emit("Idle")
+                    self.progress.emit(0, 0)
+                else:
+                    self.status_changed.emit(f"Processing ({total_pending} remaining)")
+                    
+                    # Track batch progress for the UI burst
+                    burst_total = min(5, total_pending)
+                    processed_in_this_run = 0
 
-                processed_count = self.canonizer.process_pending_documents(limit=5)
-
-                # Signal UI only if changes occurred
-                if processed_count > 0:
-                    self.documents_processed.emit()
+                    for i in range(burst_total):
+                        if not self.is_running:
+                            print("[MainLoop] Stop requested mid-batch.")
+                            break
+                        if self.is_paused:
+                            print("[MainLoop] Pause requested mid-batch.")
+                            self.status_changed.emit("Finishing current & Pausing...")
+                            break
+                            
+                        processed_count = self.canonizer.process_pending_documents(limit=1)
+                        if processed_count == 0:
+                            break
+                        
+                        processed_in_this_run += processed_count
+                        total_pending -= processed_count
+                        # Emit (processed_so_far, total_in_this_burst)
+                        self.progress.emit(processed_in_this_run, burst_total)
+                        self.status_changed.emit(f"Processing ({total_pending} remaining)")
+                        # Phase 110: Immediate UI feedback
+                        self.documents_processed.emit()
 
             except Exception as e:
                 error_details = traceback.format_exc()
                 print(f"[MainLoop] FATAL ERROR: {e}\n{error_details}")
-                # Phase 107: Broadcaster - Stop the loop and notify UI
-                self.fatal_error.emit("Background Pipeline Error", f"A fatal error occurred in the processing pipeline:\n\n{e}\n\nThe pipeline has been stopped for safety.")
+                self.fatal_error.emit("Background Pipeline Error", f"A fatal error occurred in the processing pipeline:\n\n{e}")
                 self.is_running = False
                 break
 
-            # Sleep until next check (e.g. 5 seconds)
-            for _ in range(50): # 5 seconds split for faster stop
-                if not self.is_running: break
+            # Sleep until next check
+            for _ in range(50): 
+                if not self.is_running or self.is_paused: break
                 time.sleep(0.1)
+        
+        print("[MainLoop] Worker stopped.")
+        self.status_changed.emit("Stopped")
+
+    def set_paused(self, paused: bool):
+        self.is_paused = paused
+        state = "PAUSED" if paused else "RESUMED"
+        print(f"[MainLoop] {state} requested.")
+        if paused:
+            self.status_changed.emit("Finishing current & Pausing...")
+        else:
+             self.status_changed.emit("Resuming...")
+
+        self.pause_state_changed.emit(paused)
 
     def stop(self):
+        print("[MainLoop] STOP requested.")
+        self.status_changed.emit("Stopping (Finishing current)...")
         self.is_running = False
+        self.is_paused = False
 
 class SimilarityWorker(QThread):
     """

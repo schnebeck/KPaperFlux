@@ -140,11 +140,11 @@ class DuplicateFinderDialog(QDialog):
         
     def _format_doc_info(self, doc: Document) -> str:
         text_preview = (doc.text_content or "")[:200]
+        sd = doc.semantic_data or {}
         return (
             f"<b>Filename:</b> {doc.original_filename}<br>"
-            f"<b>Date:</b> {doc.doc_date}<br>"
-            f"<b>Sender:</b> {doc.sender}<br>"
-            f"<b>Amount:</b> {doc.amount}<br>"
+            f"<b>Date:</b> {sd.get('doc_date', '-')}<br>"
+            f"<b>Sender:</b> {sd.get('sender', '-')}<br>"
             f"<b>UUID:</b> <small>{doc.uuid}</small><br>"
             f"<b>Created:</b> {doc.created_at}<br>"
             f"<b>Pages:</b> {doc.page_count}<br>"

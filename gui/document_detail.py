@@ -10,6 +10,7 @@ from core.document import Document
 from core.vault import DocumentVault
 from gui.pdf_viewer import PdfViewerWidget
 from gui.widgets.tag_input import TagInputWidget
+from gui.utils import show_selectable_message_box, show_notification
 from decimal import Decimal
 
 class DocumentDetailWidget(QWidget):
@@ -23,6 +24,7 @@ class DocumentDetailWidget(QWidget):
         self.vault = vault
         self.current_uuid = None
         self.doc = None
+        self._locked_for_load = False
         
         self._init_ui()
         
@@ -73,10 +75,6 @@ class DocumentDetailWidget(QWidget):
         self.date_edit.setPlaceholderText("YYYY-MM-DD")
         self.form_layout.addRow(self.tr("Date:"), self.date_edit)
         
-        self.amount_edit = QLineEdit()
-        self.amount_edit.setObjectName("amount_edit")
-        self.form_layout.addRow(self.tr("Amount:"), self.amount_edit)
-        
         self.type_edit = QLineEdit()
         self.type_edit.setObjectName("type_edit")
         self.form_layout.addRow(self.tr("Type:"), self.type_edit)
@@ -91,23 +89,44 @@ class DocumentDetailWidget(QWidget):
         # Buttons
         self.btn_save = QPushButton(self.tr("Save Changes"))
         self.btn_save.clicked.connect(self.save_changes)
+        self.btn_save.setEnabled(False) # Default disabled
         right_layout.addWidget(self.btn_save)
+
+        # Connect Change Signals
+        self.sender_edit.textChanged.connect(self._mark_dirty)
+        self.address_edit.textChanged.connect(self._mark_dirty)
+        self.iban_edit.textChanged.connect(self._mark_dirty)
+        self.phone_edit.textChanged.connect(self._mark_dirty)
+        self.date_edit.textChanged.connect(self._mark_dirty)
+        self.type_edit.textChanged.connect(self._mark_dirty)
+        self.tags_edit.tagsChanged.connect(self._mark_dirty)
+
+    def _mark_dirty(self):
+        if getattr(self, "_locked_for_load", False):
+            return
+        self.btn_save.setEnabled(True)
+        self.btn_save.setStyleSheet("background-color: #e8f5e9; font-weight: bold; border: 1px solid #c8e6c9;")
+
+    def _reset_dirty(self):
+        self.btn_save.setEnabled(False)
+        self.btn_save.setStyleSheet("")
         
         main_layout.addWidget(right_widget, stretch=40)
 
     def display_document(self, doc: Document):
         """Populate fields and load PDF."""
+        self._locked_for_load = True
         self.doc = doc
         self.current_uuid = doc.uuid
         
         # Populate fields
+        sd = doc.semantic_data or {}
         self.uuid_lbl.setText(doc.uuid)
-        self.sender_edit.setText(doc.sender or "")
+        self.sender_edit.setText(sd.get("sender", ""))
         self.address_edit.setPlainText(doc.sender_address or "")
         self.iban_edit.setText(doc.iban or "")
         self.phone_edit.setText(doc.phone or "")
-        self.date_edit.setText(str(doc.doc_date) if doc.doc_date else "")
-        self.amount_edit.setText(str(doc.amount) if doc.amount is not None else "")
+        self.date_edit.setText(str(sd.get("doc_date") or ""))
         self.type_edit.setText(doc.doc_type or "")
         # Tags: Handle List or legacy String
         tags = doc.tags or []
@@ -125,6 +144,9 @@ class DocumentDetailWidget(QWidget):
             else:
                 self.pdf_viewer.clear()
         
+        self._reset_dirty()
+        self._locked_for_load = False
+        
     def clear_display(self):
         """Clear all."""
         self.current_uuid = None
@@ -136,7 +158,6 @@ class DocumentDetailWidget(QWidget):
         self.iban_edit.clear()
         self.phone_edit.clear()
         self.date_edit.clear()
-        self.amount_edit.clear()
         self.type_edit.clear()
         self.tags_edit.clear()
         self.pdf_viewer.clear()
@@ -146,19 +167,17 @@ class DocumentDetailWidget(QWidget):
             return
             
         # Collect updates
+        sd = self.doc.semantic_data or {}
+        sd["sender"] = self.sender_edit.text()
+        sd["doc_date"] = self.date_edit.text() if self.date_edit.text().strip() else None
+        
         updates = {
-            "sender": self.sender_edit.text(),
             "sender_address": self.address_edit.toPlainText(),
             "iban": self.iban_edit.text(),
             "phone": self.phone_edit.text(),
             "doc_type": self.type_edit.text(),
             "tags": self.tags_edit.getTags(),
-            # Handle amount and date parsing carefully?
-            # For now simple string -> db might depend. 
-            # DatabaseManager update method accepts raw values, but doc_date is DATE column.
-            # SQLite handles strings in DATE col fine usually.
-            "doc_date": self.date_edit.text() if self.date_edit.text().strip() else None,
-            "amount": self.amount_edit.text() if self.amount_edit.text().strip() else None
+            "semantic_data": sd
         }
         
         # Basic validation for Amount (ensure float-compat or let DB/Model handle?)
@@ -167,6 +186,7 @@ class DocumentDetailWidget(QWidget):
         
         success = self.db_manager.update_document_metadata(self.current_uuid, updates)
         if success:
-            show_selectable_message_box(self, self.tr("Success"), self.tr("Metadata saved."), icon=QMessageBox.Icon.Information)
+            self._reset_dirty()
+            show_notification(self, self.tr("Success"), self.tr("Metadata saved."))
         else:
             show_selectable_message_box(self, self.tr("Error"), self.tr("Failed to save changes."), icon=QMessageBox.Icon.Warning)

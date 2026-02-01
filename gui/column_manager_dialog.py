@@ -21,12 +21,14 @@ class ColumnManagerDialog(QDialog):
         layout = QVBoxLayout(self)
         
         # Info
-        layout.addWidget(QLabel(self.tr("Drag and drop to reorder. Uncheck to hide.")))
+        layout.addWidget(QLabel(self.tr("Drag and drop to reorder. Uncheck to hide. Double-click or use button to remove dynamic columns.")))
         
         # List Widget
         self.list_widget = QListWidget()
         self.list_widget.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.list_widget.setAlternatingRowColors(True)
+        self.list_widget.itemDoubleClicked.connect(self.remove_selected_column)
+        self.list_widget.itemSelectionChanged.connect(self._update_button_states)
         layout.addWidget(self.list_widget)
         
         # Add Dynamic Column Section
@@ -38,6 +40,11 @@ class ColumnManagerDialog(QDialog):
         btn_add = QPushButton(self.tr("Add Column"))
         btn_add.clicked.connect(self.add_dynamic_column)
         add_layout.addWidget(btn_add)
+        
+        self.btn_remove = QPushButton(self.tr("Remove Selected"))
+        self.btn_remove.setEnabled(False)
+        self.btn_remove.clicked.connect(self.remove_selected_column)
+        add_layout.addWidget(self.btn_remove)
         
         layout.addLayout(add_layout)
         
@@ -123,6 +130,39 @@ class ColumnManagerDialog(QDialog):
         idx = self.combo_add.findText(key)
         if idx >= 0:
             self.combo_add.removeItem(idx)
+
+    def remove_selected_column(self):
+        item = self.list_widget.currentItem()
+        if not item: return
+        
+        col_type = item.data(Qt.ItemDataRole.UserRole + 1)
+        if col_type == "fixed":
+            QMessageBox.information(self, self.tr("Fixed Column"), self.tr("Fixed columns can only be hidden, not removed from the system."))
+            return
+            
+        key = item.data(Qt.ItemDataRole.UserRole + 3)
+        
+        # Remove from list
+        self.list_widget.takeItem(self.list_widget.row(item))
+        
+        # Add back to combo if it was an available key
+        if key and key not in self.available_keys:
+             self.available_keys.append(key)
+             self.available_keys.sort()
+             self.combo_add.clear()
+             self.combo_add.addItems(self.available_keys)
+        
+        self._update_button_states()
+
+    def _update_button_states(self):
+        item = self.list_widget.currentItem()
+        if not item:
+            self.btn_remove.setEnabled(False)
+            return
+            
+        col_type = item.data(Qt.ItemDataRole.UserRole + 1)
+        # ONLY allow removal for dynamic columns (JSON fields)
+        self.btn_remove.setEnabled(col_type == "dynamic")
 
     def get_result(self):
         """

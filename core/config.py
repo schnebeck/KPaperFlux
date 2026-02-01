@@ -35,41 +35,33 @@ class AppConfig:
     DEFAULT_LANGUAGE: str = "en"
     DEFAULT_MODEL: str = "gemini-1.5-flash"
 
+    APP_ID: str = "kpaperflux"
+
     def __init__(self) -> None:
         """
         Initializes the configuration manager.
-        On Linux, this stores at ~/.config/kpaperflux/kpaperflux.conf
+        Ensures a flat structure by explicitly naming the application and organization.
         """
-        self.settings = QSettings("kpaperflux", "kpaperflux")
+        self.settings = QSettings(self.APP_ID, self.APP_ID)
 
     def get_config_dir(self) -> Path:
         """
         Returns the path to the application configuration directory.
-        Ensures the directory exists.
-        Default on Linux: ~/.config/kpaperflux/
-
-        Returns:
-            Path object pointing to the config directory.
+        Forces a flat structure: ~/.config/kpaperflux/
         """
         base_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.ConfigLocation)
-        config_dir = Path(base_path) / "kpaperflux"
-        if not config_dir.exists():
-            config_dir.mkdir(parents=True, exist_ok=True)
+        config_dir = Path(base_path) / self.APP_ID
+        config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir
 
     def get_data_dir(self) -> Path:
         """
         Returns the path to the application data directory.
-        Ensures the directory exists.
-        Default on Linux: ~/.local/share/kpaperflux/
-
-        Returns:
-            Path object pointing to the data directory.
+        Forces a flat structure: ~/.local/share/kpaperflux/
         """
-        base_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
-        data_dir = Path(base_path)
-        if not data_dir.exists():
-            data_dir.mkdir(parents=True, exist_ok=True)
+        base_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.GenericDataLocation)
+        data_dir = Path(base_path) / self.APP_ID
+        data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 
     def _get_setting(self, group: str, key: str, default: Any = None) -> Any:

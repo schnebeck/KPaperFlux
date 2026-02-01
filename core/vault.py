@@ -89,7 +89,7 @@ class DocumentVault:
         if not src.exists():
             raise FileNotFoundError(f"Source file not found: {source_path}")
 
-        target_filename = f"{file_uuid}{src.suffix}"
+        target_filename = f"{file_uuid}{src.suffix.lower()}"
         target_path = self.base_path / target_filename
 
         if move:
@@ -102,7 +102,7 @@ class DocumentVault:
     def get_file_path(self, uuid: str) -> Optional[str]:
         """
         Returns the absolute path for a given document UUID.
-        Attempts to resolve .pdf primarily, but can be extended.
+        Strictly resolves to .pdf as per storage convention.
 
         Args:
             uuid: The document or file UUID.

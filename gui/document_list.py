@@ -95,8 +95,7 @@ class DocumentListWidget(QWidget):
         10: "Doc Data Date",
         11: "Status",
         12: "Type Tags",
-        13: "Sender",
-        14: "Tags"
+        13: "Tags"
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
 
@@ -153,7 +152,7 @@ class DocumentListWidget(QWidget):
 
         # Tag Delegates
         self.tree.setItemDelegateForColumn(12, TagDelegate(self.tree))
-        self.tree.setItemDelegateForColumn(14, TagDelegate(self.tree))
+        self.tree.setItemDelegateForColumn(13, TagDelegate(self.tree))
 
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.tree.setSortingEnabled(True)
@@ -382,6 +381,8 @@ class DocumentListWidget(QWidget):
             self.current_filter = {}
             self.current_filter_text = ""
             self.current_advanced_query = None
+            # Phase 110: Default Sort for Trash (Column 6: Deleted Date)
+            self.tree.sortByColumn(6, Qt.SortOrder.DescendingOrder)
 
         if refresh:
             self.refresh_list()
@@ -631,13 +632,6 @@ class DocumentListWidget(QWidget):
 
         self.document_selected.emit(uuids)
 
-        # Phase 102: Update last_used for selected documents
-        if self.db_manager and uuids:
-            # For performance, maybe only touch the first one or a small batch?
-            # Let's touch the primary (last clicked) one, or all if small selection.
-            for u in uuids[:5]: # Cap at 5 to avoid thrashing
-                self.db_manager.touch_last_used(u)
-
     def refresh_list(self, force_select_first=False):
         """Fetch docs from DB and populate tree."""
         if not self.db_manager:
@@ -679,8 +673,11 @@ class DocumentListWidget(QWidget):
                 print(f"[DEBUG] Standard View returned {len(docs)} documents.")
 
         # v28.2: Change Detection / Redraw Prevention
-        # We create a footprint of the data to see if a redraw is actually needed.
-        current_sig = tuple((d.uuid, d.status, str(d.last_processed_at)) for d in docs)
+        # We include all timestamps to ensure triggers from the DB are reflected immediately
+        current_sig = tuple(
+            (d.uuid, d.status, str(d.last_processed_at), str(d.last_used), str(d.deleted_at), str(d.locked_at))
+            for d in docs
+        )
 
         if not force_select_first and hasattr(self, '_last_refresh_sig') and self._last_refresh_sig == current_sig:
              # [SILENT] Data is identical to what is currently shown.
@@ -776,6 +773,9 @@ class DocumentListWidget(QWidget):
              # Compare fields displayed in the list
              if (old_doc.status == doc.status and
                  old_doc.last_processed_at == doc.last_processed_at and
+                 old_doc.last_used == doc.last_used and
+                 old_doc.deleted_at == doc.deleted_at and
+                 old_doc.locked_at == doc.locked_at and
                  old_doc.type_tags == doc.type_tags and
                  old_doc.original_filename == doc.original_filename and
                  old_doc.semantic_data == doc.semantic_data):
@@ -810,6 +810,7 @@ class DocumentListWidget(QWidget):
         used_str = format_datetime(doc.last_used) or "-"
 
         # 4. Apply to Columns
+        sd = doc.semantic_data or {}
         target_item.setText(2, filename)
         target_item.setText(3, pages_str)
         target_item.setText(4, format_datetime(doc.created_at) or "-")
@@ -818,11 +819,10 @@ class DocumentListWidget(QWidget):
         target_item.setText(7, format_datetime(doc.locked_at) or "-")
         target_item.setText(8, format_datetime(doc.last_processed_at) or "-")
         target_item.setText(9, format_datetime(doc.exported_at) or "-")
-        target_item.setText(10, str(doc.doc_date or "-"))
+        target_item.setText(10, str(sd.get("doc_date") or "-"))
         target_item.setText(11, doc.status or "NEW")
         target_item.setText(12, ", ".join(self.sort_type_tags(type_tags)))
-        target_item.setText(13, doc.sender or "-")
-        target_item.setText(14, ", ".join(doc.tags or []))
+        target_item.setText(13, ", ".join(doc.tags or []))
 
         # 5. Dynamic Columns
         num_fixed = len(self.FIXED_COLUMNS)
@@ -865,7 +865,8 @@ class DocumentListWidget(QWidget):
             doc = self.documents_cache.get(uuid)
 
             if date_from or date_to:
-                date_val = str(doc.doc_date) if doc and doc.doc_date else ""
+                sd = doc.semantic_data or {}
+                date_val = str(sd.get("doc_date") or "")
 
                 if not date_val:
                     if date_from or date_to: show = False
@@ -899,8 +900,9 @@ class DocumentListWidget(QWidget):
 
             if show and text_search and doc:
                 query = text_search.lower()
+                sd = doc.semantic_data or {}
                 haystack = [
-                    str(doc.sender or ""),
+                    str(sd.get("sender") or ""),
                     str(doc.doc_type or ""),
                     str(doc.tags or ""),
                     str(doc.original_filename or ""),
@@ -1074,7 +1076,8 @@ class DocumentListWidget(QWidget):
             locked_at_str = format_datetime(doc.locked_at) or "-"
             processed_str = format_datetime(doc.last_processed_at) or "-"
             exported_str = format_datetime(doc.exported_at) or "-"
-            data_date_str = str(doc.doc_date or "-")
+            sd = doc.semantic_data or {}
+            data_date_str = str(sd.get("doc_date") or "-")
 
             col_data = [
                 "",                 # 0: #
@@ -1090,8 +1093,7 @@ class DocumentListWidget(QWidget):
                 data_date_str,      # 10: Doc Data Date
                 status,             # 11: Status
                 ", ".join(str(t) for t in combined_types if t), # 12: Type Tags
-                doc.sender or "-",    # 13: Sender
-                ", ".join(str(t) for t in (doc.tags or []) if t) # 14: Tags
+                ", ".join(str(t) for t in (doc.tags or []) if t) # 13: Tags
             ]
 
             # Phase 102: Support Dynamic Columns
@@ -1123,16 +1125,15 @@ class DocumentListWidget(QWidget):
             item.setData(7, Qt.ItemDataRole.UserRole, str(doc.locked_at or ""))
             item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_processed_at or ""))
             item.setData(9, Qt.ItemDataRole.UserRole, str(doc.exported_at or ""))
-            item.setData(10, Qt.ItemDataRole.UserRole, str(doc.doc_date or ""))
-            item.setData(13, Qt.ItemDataRole.UserRole, doc.sender or "")
+            item.setData(10, Qt.ItemDataRole.UserRole, str(sd.get("doc_date") or ""))
 
             if combined_types:
                 item.setToolTip(12, "\n".join(str(t) for t in combined_types if t))
 
             if doc.tags:
                 tag_str = ", ".join(str(t) for t in doc.tags if t)
-                item.setData(14, Qt.ItemDataRole.UserRole, tag_str)
-                item.setToolTip(14, "\n".join(str(t) for t in doc.tags if t))
+                item.setData(13, Qt.ItemDataRole.UserRole, tag_str)
+                item.setToolTip(13, "\n".join(str(t) for t in doc.tags if t))
 
             # Dynamic Columns Sort Data
             for d_idx, key in enumerate(self.dynamic_columns):
@@ -1158,7 +1159,8 @@ class DocumentListWidget(QWidget):
         # header.sortIndicatorSection() returns the current sort column (-1 if none)
         # Note: If restored state had a sort, it's already set.
         if self.tree.header().sortIndicatorSection() < 0:
-             self.tree.sortByColumn(4, Qt.SortOrder.DescendingOrder)
+             sort_col = 6 if self.is_trash_mode else 4
+             self.tree.sortByColumn(sort_col, Qt.SortOrder.DescendingOrder)
 
         # v28.2 REMOVED: self.document_count_changed.emit(...)
         # Callers (refresh_list, apply_advanced_filter) must emit manually

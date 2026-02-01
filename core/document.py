@@ -17,7 +17,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Document(BaseModel):
@@ -25,6 +25,7 @@ class Document(BaseModel):
     Core domain model for a document in KPaperFlux.
     Uses Pydantic for validation and serialization.
     """
+    model_config = ConfigDict(extra="forbid")
 
     uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
     original_filename: Optional[str] = None
@@ -32,9 +33,6 @@ class Document(BaseModel):
     cached_full_text: Optional[str] = None
 
     # Metadata extracted by AI or user
-    doc_date: Optional[Union[date, str]] = None
-    sender: Optional[str] = None
-    amount: Optional[Decimal] = None
 
     # Extended Finance Data
     gross_amount: Optional[Decimal] = None
@@ -88,9 +86,6 @@ class Document(BaseModel):
     semantic_data: Optional[Dict[str, Any]] = None
 
     # Database Virtual Columns (Read-only / Entity View)
-    v_sender: Optional[str] = None
-    v_doc_date: Optional[str] = None
-    v_amount: Optional[float] = None
     
     # System Managed Dates
     deleted_at: Optional[str] = None
@@ -138,7 +133,7 @@ class Document(BaseModel):
             return [str(t) for t in v if t]
         return []
 
-    @field_validator("amount", "gross_amount", "postage", "packaging", "tax_rate", mode="before")
+    @field_validator("gross_amount", "postage", "packaging", "tax_rate", mode="before")
     @classmethod
     def normalize_decimals(cls, v: Any) -> Optional[Decimal]:
         """

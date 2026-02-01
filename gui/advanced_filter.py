@@ -40,7 +40,7 @@ except ImportError as e:
     # --- MOCKS END ---
 
 try:
-    from gui.utils import show_selectable_message_box
+    from gui.utils import show_selectable_message_box, show_notification
 except ImportError:
     def show_selectable_message_box(parent, title, text, icon=QMessageBox.Icon.Information, buttons=QMessageBox.StandardButton.Ok):
         msg = QMessageBox(parent)
@@ -426,9 +426,8 @@ class AdvancedFilterWidget(QWidget):
         if self.save_callback:
             self.save_callback()
 
-        show_selectable_message_box(self, self.tr("Filter Created"),
-                                     self.tr("A new view filter '%s' has been created in the 'Views' folder.") % name,
-                                     icon=QMessageBox.Icon.Information)
+        show_notification(self, self.tr("Filter Created"),
+                          self.tr("A new view filter '%s' has been created in the 'Views' folder.") % name)
         self.load_known_filters() # Refresh filters tab combo
 
     def _on_save_rule_clicked(self):
@@ -556,9 +555,8 @@ class AdvancedFilterWidget(QWidget):
 
     def _on_batch_finished(self, progress, count):
         progress.close()
-        show_selectable_message_box(self, self.tr("Complete"),
-                                     self.tr("Rule applied. %d documents modified.") % count,
-                                     icon=QMessageBox.Icon.Information)
+        show_notification(self, self.tr("Complete"),
+                          self.tr("Rule applied. %d documents modified.") % count)
         # Refresh UI? Better to emit a signal so MainWindow can refresh list.
         self.refresh_dynamic_data()
 

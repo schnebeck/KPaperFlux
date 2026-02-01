@@ -43,7 +43,8 @@ from gui.activity_widgets import BackgroundActivityStatusBar
 from gui.utils import (
     format_datetime,
     format_date,
-    show_selectable_message_box
+    show_selectable_message_box,
+    show_notification
 )
 
 class MergeConfirmDialog(QDialog):
@@ -775,7 +776,7 @@ class MainWindow(QMainWindow):
                      self.filter_tree_widget.load_tree()
 
                 if count > 1:
-                    show_selectable_message_box(self, self.tr("Deleted"), self.tr(f"Deleted {deleted_count} items."), icon=QMessageBox.Icon.Information)
+                    show_notification(self, self.tr("Deleted"), self.tr(f"Deleted {deleted_count} items."))
 
     def reprocess_document_slot(self, uuids: list):
         """Re-run pipeline for list of documents."""
@@ -861,7 +862,7 @@ class MainWindow(QMainWindow):
         # Phase 107 Update: We NO LONGER add tasks manually to ai_worker.
         # The MainLoopWorker will pick up 'NEW' documents automatically.
 
-        show_selectable_message_box(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nProcessing will continue in background.", icon=QMessageBox.Icon.Information)
+        show_notification(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nProcessing will continue in background.")
 
     def start_import_process(self, files: list[str], move_source: bool = False):
         """
@@ -980,7 +981,7 @@ class MainWindow(QMainWindow):
         docs = self.db_manager.get_documents_missing_semantic_data()
         count = len(docs)
         if count == 0:
-            show_selectable_message_box(self, self.tr("Semantic Data"), self.tr("All documents have semantic data."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Semantic Data"), self.tr("All documents have semantic data."))
             return
 
         self.central_stack.setCurrentIndex(1) # Explorer View
@@ -995,7 +996,7 @@ class MainWindow(QMainWindow):
         docs = self.db_manager.get_documents_mismatched_semantic_data()
         count = len(docs)
         if count == 0:
-            show_selectable_message_box(self, self.tr("Semantic Data"), self.tr("No data mismatches found."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Semantic Data"), self.tr("No data mismatches found."))
             return
 
         self.central_stack.setCurrentIndex(1) # Explorer View
@@ -1037,7 +1038,7 @@ class MainWindow(QMainWindow):
         """Find all documents with empty semantic data and trigger processing."""
         docs = self.db_manager.get_documents_missing_semantic_data()
         if not docs:
-            show_selectable_message_box(self, self.tr("Semantic Data"), self.tr("No empty documents found."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Semantic Data"), self.tr("No empty documents found."))
             return
 
         uuids = [d.uuid for d in docs]
@@ -1154,7 +1155,7 @@ class MainWindow(QMainWindow):
             self._current_sim_worker = None
 
             if not duplicates:
-                show_selectable_message_box(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."), icon=QMessageBox.Icon.Information)
+                show_notification(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."))
                 return
 
             dialog = DuplicateFinderDialog(duplicates, self.db_manager, self)
@@ -1295,9 +1296,8 @@ class MainWindow(QMainWindow):
                           splitter_opened = True
 
              if not error_msg and not splitter_opened:
-                  show_selectable_message_box(self, self.tr("Import Finished"),
-                                               self.tr(f"Imported {len(imported_uuids)} documents.\nBackground processing started."),
-                                               icon=QMessageBox.Icon.Information)
+                  show_notification(self, self.tr("Import Finished"),
+                                    self.tr(f"Imported {len(imported_uuids)} documents.\nBackground processing started."))
 
         if hasattr(self, "dashboard_widget"):
              self.dashboard_widget.refresh_stats()
@@ -1329,7 +1329,7 @@ class MainWindow(QMainWindow):
 
         docs = self.list_widget.get_visible_documents()
         if not docs:
-            show_selectable_message_box(self, self.tr("Export"), self.tr("No documents visible to export."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Export"), self.tr("No documents visible to export."))
             return
 
         self.list_widget.open_export_dialog(docs)
@@ -1414,7 +1414,7 @@ class MainWindow(QMainWindow):
                 else:
                      msg = self.tr(f"Stamp applied to {successful_count} document(s).")
 
-                show_selectable_message_box(self, self.tr("Success"), msg, icon=QMessageBox.Icon.Information)
+                show_notification(self, self.tr("Success"), msg)
 
                 self.list_widget.document_selected.emit([target_uuid])
 
@@ -1473,7 +1473,7 @@ class MainWindow(QMainWindow):
 
             if count > 0:
                 self.list_widget.refresh_list()
-                show_selectable_message_box(self, self.tr("Tags Updated"), self.tr(f"Updated tags for {count} documents."), icon=QMessageBox.Icon.Information)
+                show_notification(self, self.tr("Tags Updated"), self.tr(f"Updated tags for {count} documents."))
 
     def toggle_editor_visibility(self, checked: bool):
         """Toggle the visibility of the metadata editor widget."""
@@ -1594,7 +1594,7 @@ class MainWindow(QMainWindow):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
-            show_selectable_message_box(self, self.tr("Restored"), self.tr(f"Restored {count} document(s)."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Restored"), self.tr(f"Restored {count} document(s)."))
 
     def purge_data_slot(self):
         """
@@ -1627,7 +1627,7 @@ class MainWindow(QMainWindow):
                 if hasattr(self, "filter_input"):
                     self.filter_input.clear()
 
-                show_selectable_message_box(self, self.tr("Success"), self.tr("System has been reset."), icon=QMessageBox.Icon.Information)
+                show_notification(self, self.tr("Success"), self.tr("System has been reset."))
             else:
                 show_selectable_message_box(self, self.tr("Error"), self.tr("Failed to purge data. Check logs."), icon=QMessageBox.Icon.Warning)
 
@@ -1638,7 +1638,7 @@ class MainWindow(QMainWindow):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
-            show_selectable_message_box(self, self.tr("Deleted"), self.tr(f"Permanently deleted {count} document(s)."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Deleted"), self.tr(f"Permanently deleted {count} document(s)."))
 
     def navigate_to_list_filter(self, payload: dict):
         """Switch to Explorer View and apply filter."""

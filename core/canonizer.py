@@ -392,11 +392,8 @@ class CanonizerService:
                         if new_types:
                             target_doc.type_tags = list(set(new_types + target_doc.type_tags))
 
-                    decision = audit_res.get("arbiter_decision", {})
-                    if decision.get("primary_source_recommendation") == "AI_VISION":
-                        cleaned_text = audit_res.get("layer_document", {}).get("clean_text")
-                        if cleaned_text:
-                            entity_text = cleaned_text
+                    # Note: We NO LONGER replace entity_text with clean_text from Stage 1.5
+                    # because Stage 2 handles text repair comprehensively across all pages.
 
             # [STAGE 2] Semantic Extraction
             # Gate: Only transition to PROCESSING_S2 if we are currently in a valid preceding state
@@ -419,38 +416,34 @@ class CanonizerService:
 
             target_doc.semantic_data.update(semantic_extraction)
 
-            # --- PHASE 105: Populate Filter Columns ---
+            # --- PHASE 105: Sync Top-Level Semantic Helpers ---
             header = semantic_extraction.get("meta_header", {})
             bodies = semantic_extraction.get("bodies", {})
-
-            # 1. Date
+            
+            # Ensure sender and doc_date are in the root of semantic_data
             if header.get("doc_date"):
-                target_doc.doc_date = header["doc_date"]
+                target_doc.semantic_data["doc_date"] = header["doc_date"]
+            
+            sender_obj = header.get("sender")
+            if sender_obj:
+                if isinstance(sender_obj, dict):
+                    target_doc.semantic_data["sender"] = sender_obj.get("name")
+                else:
+                    target_doc.semantic_data["sender"] = str(sender_obj)
 
-            # 2. Sender
-            sender_obj = header.get("sender", {})
-            if isinstance(sender_obj, dict):
-                target_doc.sender = sender_obj.get("name")
-            elif isinstance(sender_obj, str):
-                target_doc.sender = sender_obj
-
-            # 3. Amount (Heuristic from bodies)
+            # Heuristic for top-level amount in semantic_data
+            amt = None
             if "finance_body" in bodies:
                 fb = bodies["finance_body"]
-                # In order of preference: Gross > Net > Total Due
                 amt = fb.get("total_gross") or fb.get("total_net") or fb.get("total_due") or fb.get("total_amount")
-                if amt is not None:
-                    try:
-                        target_doc.amount = float(amt)
-                    except (ValueError, TypeError):
-                        pass
             elif "ledger_body" in bodies:
-                lb = bodies["ledger_body"]
-                if lb.get("end_balance") is not None:
-                    try:
-                        target_doc.amount = float(lb["end_balance"])
-                    except (ValueError, TypeError):
-                        pass
+                amt = bodies["ledger_body"].get("end_balance")
+
+            if amt is not None:
+                try:
+                    target_doc.semantic_data["amount"] = float(amt)
+                except:
+                    pass
 
             smart_name = self.analyzer.generate_smart_filename(semantic_extraction, target_doc.type_tags)
             target_doc.export_filename = smart_name

@@ -1,5 +1,5 @@
-from PyQt6.QtCore import QLocale, QDate, QDateTime, QTime, Qt
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtCore import QLocale, QDate, QDateTime, QTime, Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
+from PyQt6.QtWidgets import QMessageBox, QWidget, QLabel, QVBoxLayout, QApplication
 from datetime import datetime, date
 
 def format_date(d) -> str:
@@ -81,3 +81,20 @@ def show_selectable_message_box(parent, title, text, icon=None, buttons=None):
     msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.LinksAccessibleByMouse)
 
     return msg.exec()
+
+import subprocess
+import shutil
+
+def show_notification(parent, title, text, duration=3000):
+    """
+    Shows a system-level notification using notify-send (FreeDesktop).
+    """
+    if shutil.which("notify-send"):
+        try:
+            # -t specifies timeout in ms. -a (app name).
+            subprocess.run(["notify-send", "-a", "KPaperFlux", "-t", str(duration), title, text], check=False)
+        except Exception as e:
+            print(f"[ERROR] Failed to send system notification: {e}")
+    else:
+        # Fallback to console if notify-send is missing
+        print(f"[Notification] {title}: {text}")

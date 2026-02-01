@@ -71,9 +71,6 @@ class VirtualDocument:
     exported_at: Optional[str] = None
 
     # Filter Columns (Cached metadata for fast filtering/sorting)
-    sender: Optional[str] = None
-    doc_date: Optional[str] = None
-    amount: Optional[float] = None
 
     # Runtime properties
     page_count_virt: int = 0
@@ -163,26 +160,37 @@ class VirtualDocument:
             except (json.JSONDecodeError, TypeError):
                 pass
 
+        # Helper for safer JSON loading
+        def safe_json(val):
+            if not val: return None
+            try: return json.loads(val)
+            except: return None
+
+        raw_source = safe_json(row["source_mapping"]) or []
+        source_mapping = []
+        for r in raw_source:
+            if isinstance(r, dict):
+                source_mapping.append(SourceReference(**r))
+            else:
+                source_mapping.append(r)
+
         return cls(
-            uuid=str(row[0]),
+            uuid=str(row["uuid"]),
             source_mapping=source_mapping,
-            status=str(row[2]),
-            export_filename=str(row[3]) if row[3] else None,
-            page_count_virt=int(row[4]) if row[4] else 0,
-            created_at=str(row[5]) if row[5] else None,
-            is_immutable=bool(row[6]),
-            type_tags=type_tags,
-            cached_full_text=str(row[8]) if row[8] else "",
-            last_used=str(row[9]) if row[9] else None,
-            last_processed_at=str(row[10]) if row[10] else None,
-            semantic_data=semantic_data,
-            sender=str(row[12]) if len(row) > 12 and row[12] else None,
-            doc_date=str(row[13]) if len(row) > 13 and row[13] else None,
-            amount=float(row[14]) if len(row) > 14 and row[14] else None,
-            tags=tags,
-            deleted_at=str(row[16]) if len(row) > 16 and row[16] else None,
-            locked_at=str(row[17]) if len(row) > 17 and row[17] else None,
-            exported_at=str(row[18]) if len(row) > 18 and row[18] else None,
-            thumbnail_path=str(row[7]) if len(row) > 7 and row[7] else None,
-            deleted=bool(row[11]) if len(row) > 11 else False,
+            status=str(row["status"]),
+            export_filename=str(row["export_filename"]) if row["export_filename"] else None,
+            last_used=str(row["last_used"]) if row["last_used"] else None,
+            last_processed_at=str(row["last_processed_at"]) if row["last_processed_at"] else None,
+            is_immutable=bool(row["is_immutable"]),
+            thumbnail_path=str(row["thumbnail_path"]) if "thumbnail_path" in row.keys() and row["thumbnail_path"] else None,
+            cached_full_text=str(row["cached_full_text"]) if "cached_full_text" in row.keys() and row["cached_full_text"] else "",
+            semantic_data=safe_json(row["semantic_data"] if "semantic_data" in row.keys() else None),
+            created_at=str(row["created_at"]) if "created_at" in row.keys() and row["created_at"] else None,
+            deleted=bool(row["deleted"]) if "deleted" in row.keys() else False,
+            page_count_virt=int(row["page_count_virt"]) if "page_count_virt" in row.keys() and row["page_count_virt"] else 0,
+            type_tags=safe_json(row["type_tags"] if "type_tags" in row.keys() else None) or [],
+            tags=safe_json(row["tags"] if "tags" in row.keys() else None) or [],
+            deleted_at=str(row["deleted_at"]) if "deleted_at" in row.keys() and row["deleted_at"] else None,
+            locked_at=str(row["locked_at"]) if "locked_at" in row.keys() and row["locked_at"] else None,
+            exported_at=str(row["exported_at"]) if "exported_at" in row.keys() and row["exported_at"] else None,
         )

@@ -12,10 +12,9 @@ Description:    Application entry point. Initializes the Qt environment,
 """
 
 import sys
-import shutil
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QTranslator
+from PyQt6.QtCore import QTranslator, QCoreApplication
 from PyQt6.QtGui import QIcon
 
 from core.vault import DocumentVault
@@ -23,40 +22,6 @@ from core.database import DatabaseManager
 from core.pipeline import PipelineProcessor
 from gui.main_window import MainWindow
 from core.config import AppConfig
-
-
-def migrate_database(app_config: AppConfig) -> Path:
-    """
-    Handles migration of the database file from local path to XDG data directory.
-
-    Args:
-        app_config: The application configuration manager.
-
-    Returns:
-        The resolved path to the database file.
-    """
-    db_filename = "kpaperflux.db"
-    data_dir = app_config.get_data_dir()
-    db_path = data_dir / db_filename
-    local_db_path = Path(".").resolve() / db_filename
-
-    if local_db_path.exists() and not db_path.exists():
-        print(f"Migrating Database from {local_db_path} to {db_path}...")
-        try:
-            shutil.move(str(local_db_path), str(db_path))
-            print("Database migration successful.")
-
-            # Move WAL/SHM files if they exist (SQLite temporary files)
-            for ext in ["-wal", "-shm"]:
-                wal_src = local_db_path.with_name(db_filename + ext)
-                wal_dst = db_path.with_name(db_filename + ext)
-                if wal_src.exists():
-                    shutil.move(str(wal_src), str(wal_dst))
-        except Exception as e:
-            print(f"Error migrating database: {e}")
-            # Fallback will be handled by returning the intended path (which might not exist)
-
-    return db_path
 
 
 def load_translations(app: QApplication, app_config: AppConfig) -> None:
@@ -89,7 +54,9 @@ def main() -> None:
     Initializes infrastructure and launches the GUI.
     """
     app = QApplication(sys.argv)
+    QCoreApplication.setApplicationName("kpaperflux")
     app.setWindowIcon(QIcon("resources/icon.png"))
+    
     app_config = AppConfig()
 
     load_translations(app, app_config)
@@ -98,7 +65,8 @@ def main() -> None:
     vault_path = app_config.get_vault_path()
     vault = DocumentVault(base_path=vault_path)
 
-    db_path = migrate_database(app_config)
+    # Database location is now strictly defined by XDG AppDataLocation via AppConfig
+    db_path = app_config.get_data_dir() / "kpaperflux.db"
     db = DatabaseManager(db_path=str(db_path))
     db.init_db()
 

@@ -52,9 +52,7 @@ class FilterConditionWidget(QWidget):
 
     FIELDS_BY_CAT = {
         "basis": {
-            "Absender": "sender",
             "Belegdatum": "doc_date",
-            "Betrag": "amount",
             "Belegtyp": "doc_type",
             "Status": "status",
             "Schlagworte (Tags)": "tags",
@@ -151,10 +149,18 @@ class FilterConditionWidget(QWidget):
         self.input_date.rangeChanged.connect(lambda: self.changed.emit())
         self.btn_remove.clicked.connect(self.remove_requested)
 
-    def update_metadata(self, extra_keys=None, available_tags=None):
+    def update_metadata(self, extra_keys=None, available_tags=None, available_system_tags=None):
         """Update available keys/tags and refresh UI without losing state."""
         if extra_keys is not None: self.extra_keys = extra_keys
         if available_tags is not None: self.available_tags = available_tags
+        if available_system_tags is not None: self.available_system_tags = available_system_tags
+
+        # Refresh active input if it depends on tags
+        if self.field_key in ["type_tags", "tags", "doc_type", "direction", "tenant_context"]:
+             # Force a refresh of the multi-select combo items
+             old_field = self.last_field
+             self.last_field = None # Force it to re-populate
+             self._on_field_changed(old_field)
 
     def _show_field_menu(self):
         menu = QMenu(self)

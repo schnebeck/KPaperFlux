@@ -131,9 +131,6 @@ class PipelineProcessor:
             status=virtual_doc.status,
             type_tags=virtual_doc.type_tags,
             tags=virtual_doc.tags,
-            sender=virtual_doc.sender,
-            doc_date=virtual_doc.doc_date,
-            amount=virtual_doc.amount,
             export_filename=virtual_doc.export_filename,
             deleted_at=virtual_doc.deleted_at,
             locked_at=virtual_doc.locked_at,
@@ -558,7 +555,7 @@ class PipelineProcessor:
         print(f"[Stage 0] Created {len(new_uuids)} entities from instructions.")
         return new_uuids
 
-    def process_batch_with_instructions(self, file_paths: List[str], instructions: List[Dict[str, Any]], move_source: bool = False) -> List[str]:
+    def process_batch_with_instructions(self, file_paths: List[str], instructions: List[Dict[str, Any]], move_source: bool = False, progress_callback=None) -> List[str]:
         """
         Stage 0 (Batch Instruction-Based):
         1. Ingest all physical files.
@@ -568,6 +565,7 @@ class PipelineProcessor:
             file_paths: List of paths to physical files.
             instructions: List of instructions, can reference multiple files.
             move_source: Whether to move source files.
+            progress_callback: Optional callable(current, total)
 
         Returns:
             A list of new entity UUIDs.
@@ -580,9 +578,12 @@ class PipelineProcessor:
                 path_to_uuid[path] = phys.uuid
 
         new_uuids: List[str] = []
+        total_instr = len(instructions)
 
         # 2. Process Instructions
-        for instr in instructions:
+        for idx, instr in enumerate(instructions):
+            if progress_callback:
+                progress_callback(idx + 1, total_instr)
             pages_data = instr.get("pages", [])
             if not pages_data:
                 continue

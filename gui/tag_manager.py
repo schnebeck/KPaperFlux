@@ -13,7 +13,7 @@ except ImportError:
 
 # Hilfsfunktion für Message Boxen (Fallback)
 try:
-    from gui.utils import show_selectable_message_box
+    from gui.utils import show_selectable_message_box, show_notification
 except ImportError:
     def show_selectable_message_box(parent, title, text, icon=QMessageBox.Icon.Information, buttons=QMessageBox.StandardButton.Ok):
         msg = QMessageBox(parent)
@@ -22,6 +22,9 @@ except ImportError:
         msg.setIcon(icon)
         msg.setStandardButtons(buttons)
         return msg.exec()
+
+    def show_notification(parent, title, text, duration=3000):
+        print(f"[Fallback-Notification] {title}: {text}")
 
 class TagManagerDialog(QDialog):
     def __init__(self, db_manager: DatabaseManager, parent=None):
@@ -138,7 +141,7 @@ class TagManagerDialog(QDialog):
         new_tag, ok = QInputDialog.getText(self, self.tr("Rename Tag"), self.tr("New Name:"), text=old_tag)
         if ok and new_tag and new_tag != old_tag:
             count = self.db_manager.rename_tag(old_tag, new_tag)
-            show_selectable_message_box(self, self.tr("Result"), self.tr(f"Updated {count} document(s)."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Result"), self.tr(f"Updated {count} document(s)."))
             self.refresh_tags()
 
     def merge_selected(self):
@@ -161,7 +164,7 @@ class TagManagerDialog(QDialog):
 
         if ok and target_tag:
             count = self.db_manager.merge_tags(tags, target_tag)
-            show_selectable_message_box(self, self.tr("Result"), self.tr(f"Merged tags. Updated {count} document(s)."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Result"), self.tr(f"Merged tags. Updated {count} document(s)."))
             self.refresh_tags()
 
     def delete_selected(self):
@@ -182,7 +185,7 @@ class TagManagerDialog(QDialog):
             total = 0
             for tag in tags:
                 total += self.db_manager.delete_tag(tag)
-            show_selectable_message_box(self, self.tr("Result"), self.tr(f"Removed tags from {total} document(s)."), icon=QMessageBox.Icon.Information)
+            show_notification(self, self.tr("Result"), self.tr(f"Removed tags from {total} document(s)."))
             self.refresh_tags()
 
     def _get_selected_rows(self):
