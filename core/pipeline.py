@@ -874,14 +874,15 @@ class PipelineProcessor:
         Returns:
             The generated filename string.
         """
-        sender = doc.sender or "Unknown"
+        sd = doc.semantic_data or {}
+        sender = sd.get("sender") or "Unknown"
         if doc.sender_company:
             sender = doc.sender_company
         elif doc.sender_name:
             sender = doc.sender_name
 
         doc_type = doc.doc_type or "Document"
-        date_part = str(doc.doc_date) if doc.doc_date else "UnknownDate"
+        date_part = str(sd.get("doc_date") or "UnknownDate")
 
         def clean(s: str) -> str:
             # Remove invalid chars for filenames
@@ -907,9 +908,7 @@ class PipelineProcessor:
             print(f"[Pipeline] Warning: Attempting to save non-existent entity {doc.uuid}")
             return
 
-        # 2. Update Fields
-        virtual_doc.sender_name = doc.sender
-        virtual_doc.doc_date = doc.doc_date
+        sd = doc.semantic_data or {}
 
         if doc.semantic_data:
             virtual_doc.semantic_data = doc.semantic_data
@@ -918,10 +917,11 @@ class PipelineProcessor:
             virtual_doc.semantic_data = {}
 
         # Ensure Financials in Semantic Data
-        if doc.amount is not None:
+        amt = sd.get("amount")
+        if amt is not None:
             if "summary" not in virtual_doc.semantic_data:
                 virtual_doc.semantic_data["summary"] = {}
-            virtual_doc.semantic_data["summary"]["net_amount"] = float(doc.amount)
+            virtual_doc.semantic_data["summary"]["net_amount"] = float(amt)
 
         # 3. Save
         self.logical_repo.save(virtual_doc)

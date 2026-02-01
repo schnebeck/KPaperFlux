@@ -88,14 +88,16 @@ class DocumentExporter:
 
         for i, doc in enumerate(documents):
             # Parse Date
+            sd = doc.semantic_data or {}
+            doc_date = sd.get("doc_date")
             dt: Optional[datetime] = None
-            if doc.doc_date:
+            if doc_date:
                 # Check known types
-                if isinstance(doc.doc_date, (datetime, d_date)):
-                    dt = doc.doc_date
-                elif isinstance(doc.doc_date, str):
+                if isinstance(doc_date, (datetime, d_date)):
+                    dt = doc_date
+                elif isinstance(doc_date, str):
                     try:
-                        dt = datetime.strptime(doc.doc_date, "%Y-%m-%d")
+                        dt = datetime.strptime(doc_date, "%Y-%m-%d")
                     except ValueError:
                         dt = None
 
@@ -116,9 +118,9 @@ class DocumentExporter:
             # Basic Columns
             row: Dict[str, Any] = {
                 "Date": dt,
-                "Sender": doc.sender_name or doc.sender_company or doc.sender,  # Fallback
+                "Sender": doc.sender_name or doc.sender_company or sd.get("sender"),  # Fallback
                 "Content": doc.text_content,  # User requested text content
-                "Amount (Net)": to_float(doc.amount),
+                "Amount (Net)": to_float(sd.get("amount")),
                 "Tax Rate": to_float(doc.tax_rate),
                 "Gross Amount": to_float(doc.gross_amount),
                 "Currency": doc.currency,

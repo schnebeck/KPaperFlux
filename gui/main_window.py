@@ -744,13 +744,13 @@ class MainWindow(QMainWindow):
                 for uuid in uuids:
                     # 0. If in Trash Mode, Purge Immediately
                     if is_trash_mode:
-                        if self.db_manager.purge_entity(uuid):
+                        if self.pipeline.delete_entity(uuid):
                              deleted_count += 1
                         continue
 
                     # 1. Try Deleting as Entity (Smart Delete)
                     # This removes the semantic row. If it was the last one, it trashes the source doc.
-                    if self.db_manager.delete_entity(uuid):
+                    if self.pipeline.delete_entity(uuid):
                         deleted_count += 1
                         continue
 
@@ -1634,7 +1634,7 @@ class MainWindow(QMainWindow):
     def purge_documents_slot(self, uuids: list[str]):
         count = 0
         for uid in uuids:
-            if self.db_manager.purge_entity(uid):
+            if self.pipeline.delete_entity(uid):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
