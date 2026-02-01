@@ -2,7 +2,8 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog,
     QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox, QStatusBar,
-    QStackedWidget, QToolBar, QAbstractItemView, QProgressDialog
+    QStackedWidget, QToolBar, QAbstractItemView, QProgressDialog, QToolButton, QSizePolicy,
+    QButtonGroup, QFrame
 )
 from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt, QSettings, QSize, QCoreApplication, QTimer
@@ -38,6 +39,7 @@ from gui.maintenance_dialog import MaintenanceDialog
 from gui.stamper_dialog import StamperDialog
 from gui.batch_tag_dialog import BatchTagDialog
 from gui.tag_manager import TagManagerDialog
+from gui.activity_widgets import BackgroundActivityStatusBar
 from gui.utils import (
     format_datetime,
     format_date,
@@ -78,6 +80,7 @@ class MainWindow(QMainWindow):
         if self.pipeline and not self.db_manager:
             self.db_manager = self.pipeline.db
 
+        self._last_selected_uuid = None
         self.current_search_text = "" # Phase 106: Persistent search terms
         self.setWindowTitle(self.tr("KPaperFlux"))
         self.setWindowIcon(QIcon("resources/icon.png"))
@@ -103,8 +106,7 @@ class MainWindow(QMainWindow):
                 print(f"[Error] Failed to migrate filter tree config: {e}")
 
         self.create_menu_bar()
-        self.create_tool_bar()
-        self.setup_shortcuts()
+        # Toolbar/Shortcuts moved down to ensure all widgets like list_widget exist before initial status update
 
         # --- Global Models ---
         self.filter_tree = FilterTree()
@@ -130,6 +132,7 @@ class MainWindow(QMainWindow):
 
         self.central_stack.addWidget(self.explorer_widget)
         self.central_stack.setCurrentIndex(0) # Start with Dashboard
+        self.central_stack.currentChanged.connect(self._on_tab_changed)
 
         # --- Left Pane (Filter | List | Editor) ---
         self.left_pane_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -223,19 +226,57 @@ class MainWindow(QMainWindow):
         self.main_splitter.setHandleWidth(4)
 
         self.setStatusBar(QStatusBar())
-        self.statusBar().showMessage(self.tr("Ready"))
+        
+        # Unified Status Container (Left Side)
+        self.status_container = QWidget()
+        self.status_layout = QHBoxLayout(self.status_container)
+        self.status_layout.setContentsMargins(5, 0, 5, 0)
+        self.status_layout.setSpacing(10)
+        
+        self.main_status_label = QLabel(self.tr("Ready"))
+        self.status_layout.addWidget(self.main_status_label)
+        
+        self.activity_panel = BackgroundActivityStatusBar()
+        self.status_layout.addWidget(self.activity_panel)
+        
+        self.status_layout.addStretch()
+        self.statusBar().addWidget(self.status_container, 1)
+
+        self.create_tool_bar()
+        self.setup_shortcuts()
 
         self.read_settings()
 
-        # Initial Refresh
+        # Initial Refresh & UI Sync
+        # We explicitly trigger _on_tab_changed(0) here to ensure the Dashboard looks active 
+        # and the Filter button is hidden from the very first frame.
+        self._on_tab_changed(0)
+
         if self.db_manager and hasattr(self, 'list_widget') and isinstance(self.list_widget, DocumentListWidget):
             self.list_widget.refresh_list()
+
+    def _sync_sub_modes(self, index):
+        """Synchronize toolbar buttons with internal filter tabs."""
+        if hasattr(self, 'sub_mode_buttons'):
+            btn = self.sub_mode_buttons.get(index)
+            if btn:
+                btn.blockSignals(True)
+                btn.setChecked(True)
+                btn.blockSignals(False)
 
         if self.pipeline:
              self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
              self.main_loop_worker.documents_processed.connect(self._on_pipeline_documents_processed)
              self.main_loop_worker.status_changed.connect(self._on_ai_status_changed)
              self.main_loop_worker.fatal_error.connect(self._on_fatal_pipeline_error)
+
+             # Activity Panel Connections
+             self.main_loop_worker.progress.connect(self.activity_panel.update_progress)
+             self.main_loop_worker.status_changed.connect(self.activity_panel.update_status)
+             self.main_loop_worker.pause_state_changed.connect(self.activity_panel.on_pause_state_changed)
+             self.activity_panel.pause_requested.connect(self.main_loop_worker.set_paused)
+             self.activity_panel.stop_requested.connect(self.main_loop_worker.stop)
+
              self.main_loop_worker.start()
 
     def _on_rule_apply_requested(self, rule, scope):
@@ -598,6 +639,7 @@ class MainWindow(QMainWindow):
         # Use the first document for Single-View components (PDF, Info)
         primary_doc = docs[0]
         uuid = primary_doc.uuid
+        self._last_selected_uuid = uuid
 
         # Load into PDF Viewer
         path = self._resolve_pdf_path(uuid)
@@ -860,7 +902,14 @@ class MainWindow(QMainWindow):
              return
 
         is_batch = any(item[0] == "BATCH" for item in import_items if isinstance(item, tuple))
-        count = len(import_items)
+        
+        # Calculate effective total (including sub-items in batches)
+        count = 0
+        for item in import_items:
+            if isinstance(item, tuple) and item[0] == "BATCH" and isinstance(item[1], list):
+                count += len(item[1])
+            else:
+                count += 1
 
         # Progress Dialog
         progress = QProgressDialog(self.tr("Initializing Import..."), self.tr("Cancel"), 0, count, self)
@@ -879,7 +928,7 @@ class MainWindow(QMainWindow):
         # Signals
         self.import_worker.progress.connect(
             lambda i, fname: (
-                progress.setLabelText(self.tr(f"Importing {i+1}/{count}: {os.path.basename(fname)}...")),
+                self.main_status_label.setText(self.tr(f"Importing {i+1}/{count}: {os.path.basename(fname)}...")),
                 progress.setValue(i)
             )
         )
@@ -939,7 +988,7 @@ class MainWindow(QMainWindow):
         uuids = [d.uuid for d in docs]
         query = {"field": "uuid", "op": "in", "value": uuids}
         self.list_widget.apply_advanced_filter(query, label="Semantic Data > Missing")
-        self.statusBar().showMessage(self.tr(f"Showing {count} documents missing semantic data."))
+        self.main_status_label.setText(self.tr(f"Showing {count} docs with missing semantic data."))
 
     def list_mismatched_semantic_data_slot(self):
         """Query DB for documents with mismatched data."""
@@ -954,7 +1003,7 @@ class MainWindow(QMainWindow):
         uuids = [d.uuid for d in docs]
         query = {"field": "uuid", "op": "in", "value": uuids}
         self.list_widget.apply_advanced_filter(query, label="Semantic Data > Mismatched")
-        self.statusBar().showMessage(self.tr(f"Showing {count} documents with data mismatches."))
+        self.main_status_label.setText(self.tr(f"Showing {count} docs with data mismatches."))
 
     def run_stage_2_selected_slot(self, uuids: list[str] = None):
         """Manually trigger Stage 2 for selected documents."""
@@ -982,7 +1031,7 @@ class MainWindow(QMainWindow):
         if to_full:
             self.reprocess_document_slot(to_full)
 
-        self.statusBar().showMessage(self.tr(f"Queued {len(uuids)} documents for extraction."))
+        self.main_status_label.setText(self.tr(f"Queued {len(uuids)} docs for extraction."))
 
     def run_stage_2_all_missing_slot(self):
         """Find all documents with empty semantic data and trigger processing."""
@@ -1012,7 +1061,7 @@ class MainWindow(QMainWindow):
             if to_full:
                 self.reprocess_document_slot(to_full)
 
-            self.statusBar().showMessage(self.tr(f"Queued {len(uuids)} documents for background extraction."))
+            self.main_status_label.setText(self.tr(f"Queued {len(uuids)} docs for background extraction."))
 
     def merge_documents_slot(self, uuids: list[str]):
         """Handle merge request."""
@@ -1032,7 +1081,7 @@ class MainWindow(QMainWindow):
                          for uid in uuids:
                              self.pipeline.delete_entity(uid)
 
-                    self.statusBar().showMessage(self.tr("Documents merged successfully."))
+                    self.main_status_label.setText(self.tr("Documents merged successfully."))
                     self.list_widget.refresh_list()
                 else:
                     show_selectable_message_box(self, self.tr("Error"), self.tr("Merge failed."), icon=QMessageBox.Icon.Warning)
@@ -1258,7 +1307,7 @@ class MainWindow(QMainWindow):
 
 
     def _on_ai_status_changed(self, msg):
-        self.statusBar().showMessage(msg)
+        self.main_status_label.setText(f"AI: {msg}")
 
     def export_documents_slot(self, uuids: list[str]):
         """Export selected documents via ListWidget dialog."""
@@ -1433,7 +1482,7 @@ class MainWindow(QMainWindow):
 
     def update_status_bar(self, visible_count: int, total_count: int):
         """Update status bar with document counts."""
-        self.statusBar().showMessage(self.tr(f"Documents: {visible_count} (Total: {total_count})"))
+        self.main_status_label.setText(self.tr(f"Docs: {visible_count}/{total_count}"))
 
         if visible_count == 0:
             if hasattr(self, 'pdf_viewer'):
@@ -1470,6 +1519,9 @@ class MainWindow(QMainWindow):
         if hasattr(self.list_widget, 'get_selected_uuids'):
              settings.setValue("selectedUUIDs", self.list_widget.get_selected_uuids())
 
+        if hasattr(self, 'main_loop_worker'):
+             settings.setValue("ai_paused", self.main_loop_worker.is_paused)
+
     def read_settings(self):
         settings = QSettings("KPaperFlux", "MainWindow")
         geometry = settings.value("geometry")
@@ -1483,6 +1535,12 @@ class MainWindow(QMainWindow):
         main_splitter = settings.value("mainSplitter")
         if main_splitter:
             self.main_splitter.restoreState(main_splitter)
+
+        # Restore AI Pause State
+        ai_paused = settings.value("ai_paused", type=bool)
+        if ai_paused and hasattr(self, 'main_loop_worker'):
+            self.main_loop_worker.set_paused(True)
+            self.activity_panel.on_pause_state_changed(True)
 
         left_splitter = settings.value("leftPaneSplitter")
         if left_splitter:
@@ -1520,14 +1578,14 @@ class MainWindow(QMainWindow):
         self.save_filter_tree()
         self.advanced_filter.load_known_filters()
 
-        self.statusBar().showMessage(self.tr(f"List '{name}' saved with {len(uuids)} items."), 3000)
+        self.main_status_label.setText(self.tr(f"List '{name}' saved with {len(uuids)} items."))
 
     def set_trash_mode(self, enabled: bool):
         self.list_widget.show_trash_bin(enabled)
         if enabled:
-            self.statusBar().showMessage(self.tr("Viewing Trash Bin"))
+            self.main_status_label.setText(self.tr("Viewing Trash Bin"))
         else:
-            self.statusBar().showMessage(self.tr("Ready"))
+            self.main_status_label.setText(self.tr("Ready"))
 
     def restore_documents_slot(self, uuids: list[str]):
         count = 0
@@ -1678,10 +1736,10 @@ class MainWindow(QMainWindow):
                   try:
                       if not instructions:
                           self.pipeline.delete_entity(uuid)
-                          self.statusBar().showMessage(self.tr("Document deleted (empty structure)."))
+                          self.main_status_label.setText(self.tr("Document deleted (empty structure)."))
                       else:
                           new_uuids = self.pipeline.apply_restructure_instructions(uuid, instructions)
-                          self.statusBar().showMessage(self.tr(f"Document updated ({len(new_uuids)} parts)."))
+                          self.main_status_label.setText(self.tr(f"Document updated ({len(new_uuids)} parts)."))
 
                       self.list_widget.refresh_list()
                       if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
@@ -1703,29 +1761,212 @@ class MainWindow(QMainWindow):
             self.dashboard_widget.refresh_stats()
 
     def create_tool_bar(self):
-        toolbar = QToolBar("Main Toolbar")
-        toolbar.setIconSize(QSize(24, 24))
-        toolbar.setMovable(False)
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
+        self.navbar = QToolBar("Navigation")
+        self.navbar.setIconSize(QSize(20, 20))
+        self.navbar.setMovable(False)
+        self.navbar.setStyleSheet("""
+            QToolBar {
+                background-color: #f5f5f5;
+                border-bottom: 1px solid #ddd;
+                padding-top: 12px;
+                spacing: 2px;
+            }
+            QToolButton {
+                padding: 6px 15px;
+                border: 1px solid transparent;
+                border-bottom: 3px solid transparent;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                font-weight: 500;
+                font-size: 14px; /* Enforce same height as sub-modes */
+                color: #666;
+            }
+            QToolButton:hover {
+                background-color: #eee;
+            }
+            /* Tab Container Styling */
+            QWidget#tabContainer {
+                background-color: transparent;
+                border: 1px solid transparent;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                margin-bottom: -1px;
+                margin-top: 10px; /* Explicit spacing to the menu bar */
+                min-height: 35px; /* Hard anchor for vertical height stability */
+            }
+            QWidget#tabContainer[active="true"] {
+                background-color: #ffffff;
+                border-color: #ddd;
+                border-bottom: 1px solid #ffffff;
+            }
+            QWidget#tabContainer[active="true"] QToolButton {
+                background-color: transparent;
+                border: 1px solid transparent;
+                color: #2c3e50;
+            }
+            /* Filter Button specific styling: Restore the button look with high specificity */
+            QWidget#tabContainer QToolButton#filterBtn {
+                margin: 0px 6px;
+                padding: 4px 10px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background-color: #f8f8f8;
+                font-size: 13px; /* Slightly smaller icon text is okay as long as padding is smaller */
+                color: #333;
+            }
+            QWidget#tabContainer QToolButton#filterBtn:hover {
+                background-color: #efefef;
+                border-color: #bbb;
+            }
+            QWidget#tabContainer QToolButton#filterBtn:checked {
+                background-color: #e3f2fd;
+                border: 1px solid #2196f3;
+                color: #1976d2;
+                font-weight: bold;
+            }
+            /* Sub-mode buttons: Fixed vertical padding to match main tabs */
+            QWidget#tabContainer QToolButton#subModeBtn {
+                background: transparent;
+                border: none;
+                border-bottom: 3px solid transparent;
+                border-radius: 0px;
+                padding: 6px 15px;
+                color: #888;
+                font-size: 14px;
+            }
+            QWidget#tabContainer QToolButton#subModeBtn:hover {
+                background-color: #f1f7fd; /* Light blue-gray tinted hover */
+                color: #1976d2;
+                border-bottom: 3px solid #d1e3f8; /* Subtle blue-ish underline on hover */
+            }
+            QWidget#tabContainer QToolButton#subModeBtn:checked {
+                color: #1976d2;
+                border-bottom: 3px solid #1976d2 !important;
+                background-color: #f0f7ff;
+                font-weight: 500;
+            }
+        """)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.navbar)
 
-        action_home = QAction(self.tr("Dashboard"), self)
-        action_home.triggered.connect(self.go_home_slot)
-        toolbar.addAction(action_home)
+        # Tab: Dashboard
+        self.dash_container = QWidget()
+        self.dash_container.setObjectName("tabContainer")
+        dash_layout = QHBoxLayout(self.dash_container)
+        dash_layout.setContentsMargins(0, 0, 0, 0)
+        dash_layout.setSpacing(0)
+        dash_layout.setAlignment(Qt.AlignmentFlag.AlignBottom) # Consistent bottom alignment
+        
+        self.btn_dashboard = QToolButton()
+        self.btn_dashboard.setText(self.tr("Dashboard"))
+        self.btn_dashboard.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_dashboard.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+        self.btn_dashboard.clicked.connect(self.go_home_slot)
+        dash_layout.addWidget(self.btn_dashboard)
+        self.navbar.addWidget(self.dash_container)
 
-        toolbar.addSeparator()
+        # Tab Area: Documents (Includes Filter)
+        self.doc_container = QWidget()
+        self.doc_container.setObjectName("tabContainer")
+        doc_layout = QHBoxLayout(self.doc_container)
+        doc_layout.setContentsMargins(0, 0, 0, 0)
+        doc_layout.setSpacing(0)
+        doc_layout.setAlignment(Qt.AlignmentFlag.AlignBottom) # Anchor to the bottom for the underline
 
-        action_list = QAction(self.tr("Documents"), self)
-        action_list.triggered.connect(lambda: self.central_stack.setCurrentIndex(1))
-        toolbar.addAction(action_list)
+        self.btn_documents = QToolButton()
+        self.btn_documents.setText(self.tr("Documents"))
+        self.btn_documents.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_documents.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_DirIcon))
+        self.btn_documents.clicked.connect(lambda: self.central_stack.setCurrentIndex(1))
+        doc_layout.addWidget(self.btn_documents)
 
-        toolbar.addSeparator()
-
-        self.action_toggle_filter = QAction("🔍 " + self.tr("Filter"), self)
+        # Filter Action (Integrated into the same "Tab area")
+        self.action_toggle_filter = QAction("🗂️ " + self.tr("Filter"), self)
         self.action_toggle_filter.setCheckable(True)
         self.action_toggle_filter.setChecked(True)
         self.action_toggle_filter.setShortcut(QKeySequence("Ctrl+Shift+F"))
         self.action_toggle_filter.triggered.connect(self._toggle_filter_view)
-        toolbar.addAction(self.action_toggle_filter)
+        
+        self.btn_filter = QToolButton()
+        self.btn_filter.setObjectName("filterBtn")
+        self.btn_filter.setDefaultAction(self.action_toggle_filter)
+        doc_layout.addWidget(self.btn_filter)
+
+        # Sub-Mode Navigation (Integrated into the same white tab area)
+        self.sub_mode_container = QWidget()
+        self.sub_mode_layout = QHBoxLayout(self.sub_mode_container)
+        self.sub_mode_layout.setContentsMargins(0, 0, 0, 0)
+        self.sub_mode_layout.setSpacing(1)
+        
+        # Vertical Separator
+        v_sep = QFrame()
+        v_sep.setFixedWidth(1)
+        v_sep.setStyleSheet("background-color: #ddd; margin: 6px 10px;") 
+        self.sub_mode_layout.addWidget(v_sep)
+
+        self.sub_mode_group = QButtonGroup(self)
+        self.sub_mode_group.setExclusive(True)
+        self.sub_mode_buttons = {}
+        
+        sub_modes = [
+            (0, "🔍 " + self.tr("Search")),
+            (1, "🎯 " + self.tr("Filter")),
+            (2, "🤖 " + self.tr("Rules"))
+        ]
+        
+        for idx, label in sub_modes:
+            btn = QToolButton()
+            btn.setObjectName("subModeBtn")
+            btn.setText(label)
+            btn.setCheckable(True)
+            # lambda captures idx correctly here via default argument
+            btn.clicked.connect(lambda checked, i=idx: self.advanced_filter.tabs.setCurrentIndex(i))
+            self.sub_mode_layout.addWidget(btn)
+            self.sub_mode_group.addButton(btn, idx)
+            self.sub_mode_buttons[idx] = btn
+            
+        doc_layout.addWidget(self.sub_mode_container)
+        self.sub_mode_container.setVisible(self.action_toggle_filter.isChecked())
+
+        # Connect to sync UI when tabs change internally (e.g. via shortcut)
+        if hasattr(self, 'advanced_filter'):
+            self.advanced_filter.tabs.currentChanged.connect(self._sync_sub_modes)
+            self._sync_sub_modes(self.advanced_filter.tabs.currentIndex())
+        
+        self.navbar.addWidget(self.doc_container)
+
+        # Spacer
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.navbar.addWidget(spacer)
+
+    def _on_tab_changed(self, index):
+        """Update navigation UI when stack changes."""
+        is_dashboard = (index == 0)
+        
+        # Update Tab Highlighting via properties for the containers
+        # Use boolean values for properties as it's cleaner for CSS [active="true"]
+        self.dash_container.setProperty("active", is_dashboard)
+        self.doc_container.setProperty("active", not is_dashboard)
+        
+        # Explicitly hide Filter button when on dashboard
+        self.btn_filter.setVisible(not is_dashboard)
+        if hasattr(self, 'sub_mode_container'):
+            self.sub_mode_container.setVisible(not is_dashboard and self.action_toggle_filter.isChecked())
+
+        # Regression Fix: Ensure selection is restored when switching to Documents
+        if index == 1 and hasattr(self, 'list_widget'):
+            if self._last_selected_uuid:
+                self.list_widget.target_uuid_to_restore = self._last_selected_uuid
+            self.list_widget.refresh_list(force_select_first=True)
+
+        # Force Style Refresh for containers and their children to apply CSS changes
+        for container in [self.dash_container, self.doc_container]:
+            container.style().unpolish(container)
+            container.style().polish(container)
+            # Ensure children are also refreshed specifically for text colors
+            for child in container.findChildren(QToolButton):
+                child.style().unpolish(child)
+                child.style().polish(child)
 
     def setup_shortcuts(self):
         """Initialize global keyboard shortcuts."""
@@ -1753,6 +1994,10 @@ class MainWindow(QMainWindow):
             self.advanced_filter.setVisible(checked)
             if hasattr(self, "action_toggle_filter"):
                 self.action_toggle_filter.setChecked(checked)
+            # Sync sub-modes visibility
+            if hasattr(self, 'sub_mode_container'):
+                 is_docs = (self.central_stack.currentIndex() == 1)
+                 self.sub_mode_container.setVisible(checked and is_docs)
 
     def open_tag_manager_slot(self):
         """Open the Tag Manager dialog."""
@@ -1769,4 +2014,4 @@ class MainWindow(QMainWindow):
     def _on_fatal_pipeline_error(self, title, message):
         """Called when a background worker hits a logic error."""
         show_selectable_message_box(self, title, message, icon=QMessageBox.Icon.Critical)
-        self.statusBar().showMessage(self.tr("Pipeline STOPPED due to fatal error."))
+        self.main_status_label.setText(self.tr("Pipeline STOPPED due to fatal error."))

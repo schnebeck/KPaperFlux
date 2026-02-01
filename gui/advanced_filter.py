@@ -88,6 +88,9 @@ class AdvancedFilterWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.tabs = QTabWidget()
+        # Phase 108: Navigation is consolidated into the main toolbar (MainWindow)
+        self.tabs.tabBar().hide()
+        self.tabs.setStyleSheet("QTabWidget::pane { border-top: 1px solid #ddd; background: white; margin-top: -1px; }")
         layout.addWidget(self.tabs)
 
         # --- TAB 1: Suche ---
