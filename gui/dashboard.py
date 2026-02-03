@@ -220,9 +220,9 @@ class DashboardWidget(QWidget):
                 pid = config["preset_id"]
                 if self.db_manager:
                     if pid == "NEW":
-                        query = {"status": "NEW"}
+                        query = {"field": "status", "op": "equals", "value": "NEW"}
                     elif pid == "PROCESSED":
-                        query = {"status": "PROCESSED"}
+                        query = {"field": "status", "op": "equals", "value": "PROCESSED"}
                     elif pid == "INVOICES":
                         query = {"operator": "AND", "conditions": [{"field": "type_tags", "op": "contains", "value": ["INVOICE"]}]}
                     else:

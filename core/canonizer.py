@@ -281,7 +281,8 @@ class CanonizerService:
 
             all_tags: List[str] = []
             for ent in detected_entities:
-                types = ent.get("entity_types", [])
+                # Strictly use type_tags from AI response
+                types = ent.get("type_tags") or []
                 for t in types:
                     if t and t not in all_tags:
                         all_tags.append(t)
@@ -310,9 +311,10 @@ class CanonizerService:
                 else:
                     split_candidates = []
                     for ent in detected_entities:
+                        c_types = ent.get("type_tags") or ["OTHER"]
                         split_candidates.append(
                             {
-                                "types": ent.get("entity_types", ["OTHER"]),
+                                "types": c_types,
                                 "pages": ent.get("page_indices", list(range(1, len(pages_text) + 1))),
                                 "confidence": ent.get("confidence", 1.0),
                                 "direction": ent.get("direction"),
@@ -369,7 +371,7 @@ class CanonizerService:
                 ent_data = detected_entities[idx]
                 target_doc.semantic_data.direction = ent_data.get("direction", "INBOUND")
                 target_doc.semantic_data.tenant_context = ent_data.get("tenant_context", "PRIVATE")
-                target_doc.semantic_data.entity_types = ent_data.get("entity_types", [])
+                target_doc.semantic_data.type_tags = ent_data.get("type_tags") or []
 
 
             # Transition to Stage 2 Readiness
@@ -423,7 +425,7 @@ class CanonizerService:
                     print("[Canonizer] Failed atomic lock for S2. Skipping.")
                     continue
 
-            s1_context = {"entity_types": c_types}
+            s1_context = {"type_tags": c_types}
 
             semantic_extraction = self.analyzer.run_stage_2(
                 raw_ocr_pages=entity_pages, stage_1_result=s1_context, stage_1_5_result=audit_res, pdf_path=pf.file_path if pf else None

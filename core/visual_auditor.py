@@ -229,16 +229,22 @@ class VisualAuditor:
         final_mode = AUDIT_MODE_NONE
 
         for entity in detected_entities:
-            dtype = str(entity.get('entity_type', 'OTHER')).upper()
-            if "." in dtype:
-                dtype = dtype.split(".")[-1]
+            # Check both for compatibility during transition, but prefer type_tags (plural)
+            types = entity.get('type_tags') or []
+            if not types and 'entity_type' in entity:
+                types = [entity['entity_type']]
+            
+            for dtype in types:
+                dtype = str(dtype).upper()
+                if "." in dtype:
+                    dtype = dtype.split(".")[-1]
 
-            req_mode = DOCTYPE_AUDIT_CONFIG.get(dtype, AUDIT_MODE_NONE)
-            level = AUDIT_LEVEL_MAP.get(req_mode, 0)
+                req_mode = DOCTYPE_AUDIT_CONFIG.get(dtype, AUDIT_MODE_NONE)
+                level = AUDIT_LEVEL_MAP.get(req_mode, 0)
 
-            if level > max_level:
-                max_level = level
-                final_mode = req_mode
+                if level > max_level:
+                    max_level = level
+                    final_mode = req_mode
         return final_mode
 
     def generate_audit_images_and_text(self, pdf_path: str, mode: str, text_content: Optional[str] = None, target_pages: Optional[List[int]] = None) -> Dict[str, Any]:
@@ -380,11 +386,19 @@ class VisualAuditor:
 
         # Prepare Prompt
         base_prompt = PROMPT_STAGE_1_5_FULL if audit_mode == AUDIT_MODE_FULL else PROMPT_STAGE_1_5_STAMP
-        entity_types = [ent.get('entity_type', 'OTHER') for ent in entities]
-
+        
+        all_doc_types = []
+        for ent in entities:
+            # Flatten type_tags list
+            tags = ent.get('type_tags') or ent.get('entity_type', [])
+            if isinstance(tags, list):
+                all_doc_types.extend(tags)
+            else:
+                all_doc_types.append(tags)
+        
         system_prompt = base_prompt.format(
             raw_ocr_page1=raw_ocr_page1,
-            expected_types=str(entity_types)
+            expected_types=str(list(set(all_doc_types)))
         )
 
         # Gemini Multimodal Content

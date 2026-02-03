@@ -105,7 +105,7 @@ class SemanticExtraction(BaseModel):
     workflow: Optional[WorkflowInfo] = Field(default_factory=WorkflowInfo)
     
     repaired_text: Optional[str] = None
-    entity_types: List[str] = Field(default_factory=list)
+    type_tags: List[str] = Field(default_factory=list)
     direction: Optional[str] = "INBOUND"
     tenant_context: Optional[str] = "PRIVATE"
     

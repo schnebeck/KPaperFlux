@@ -170,7 +170,7 @@ class MetadataNormalizer:
             data = data.model_dump()
         
         if not effective_type and data:
-            effective_type = data.get("entity_types")
+            effective_type = data.get("type_tags")
 
         # Normalize to a single string for config lookup
         if isinstance(effective_type, list) and effective_type:

@@ -12,7 +12,7 @@ def mock_db():
 def mock_analyzer():
     analyzer = MagicMock()
     analyzer.run_stage_1_adaptive.return_value = {
-        "detected_entities": [{"entity_types": ["INVOICE"], "page_indices": [1, 2]}]
+        "detected_entities": [{"type_tags": ["INVOICE"], "page_indices": [1, 2]}]
     }
     # Mock run_stage_2 to return minimal valid data
     analyzer.run_stage_2.return_value = {

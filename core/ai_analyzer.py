@@ -805,7 +805,7 @@ Return ONLY a valid JSON object.
   }},
   "detected_entities": [
     {{
-      "doc_types": ["INVOICE"],
+      "type_tags": ["INVOICE"],
       "page_indices": [1],
       "direction": "INBOUND | OUTBOUND | INTERNAL | UNKNOWN",
       "tenant_context": "PRIVATE | BUSINESS | UNKNOWN",
@@ -1521,10 +1521,11 @@ TASK:
         # 3. Extract Types
         detected_entities = stage_1_result.get("detected_entities", [])
         if not detected_entities:
-            types_to_extract = stage_1_result.get("doc_types", ["OTHER"])
+            # We strictly expect type_tags (plural) as identified in Stage 1
+            types_to_extract = stage_1_result.get("type_tags", ["OTHER"])
         else:
             primary = detected_entities[0]
-            types_to_extract = primary.get("doc_types", ["OTHER"])
+            types_to_extract = primary.get("type_tags") or ["OTHER"]
 
         types_to_extract = list(set([t for t in types_to_extract if t not in ["INBOUND", "OUTBOUND", "INTERNAL", "CTX_PRIVATE", "CTX_BUSINESS", "UNKNOWN"]]))
         if not types_to_extract:
