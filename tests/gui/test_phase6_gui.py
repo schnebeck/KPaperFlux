@@ -5,7 +5,8 @@ from PyQt6.QtWidgets import QTableWidget
 from gui.filter_widget import FilterWidget
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
+from core.models.semantic import SemanticExtraction, MetaHeader
 
 @pytest.fixture
 def db_manager(tmp_path):
@@ -17,9 +18,27 @@ def db_manager(tmp_path):
 @pytest.fixture
 def filled_db(db_manager):
     # Insert dummy docs
-    doc1 = Document(uuid="uuid-1", original_filename="doc1.pdf", doc_date="2023-01-01", type_tags=["Invoice"], tags=["paid"])
-    doc2 = Document(uuid="uuid-2", original_filename="doc2.pdf", doc_date="2023-06-01", type_tags=["Receipt"], tags=["food"])
-    doc3 = Document(uuid="uuid-3", original_filename="doc3.pdf", doc_date="2024-01-01", type_tags=["Invoice"], tags=["unpaid"])
+    doc1 = Document(
+        uuid="uuid-1", 
+        original_filename="doc1.pdf", 
+        semantic_data=SemanticExtraction(meta_header=MetaHeader(doc_date="2023-01-01")),
+        type_tags=["Invoice"], 
+        tags=["paid"]
+    )
+    doc2 = Document(
+        uuid="uuid-2", 
+        original_filename="doc2.pdf", 
+        semantic_data=SemanticExtraction(meta_header=MetaHeader(doc_date="2023-06-01")),
+        type_tags=["Receipt"], 
+        tags=["food"]
+    )
+    doc3 = Document(
+        uuid="uuid-3", 
+        original_filename="doc3.pdf", 
+        semantic_data=SemanticExtraction(meta_header=MetaHeader(doc_date="2024-01-01")),
+        type_tags=["Invoice"], 
+        tags=["unpaid"]
+    )
     
     db_manager.insert_document(doc1)
     db_manager.insert_document(doc2)
@@ -44,59 +63,45 @@ def test_document_list_filtering(qtbot, filled_db):
     qtbot.addWidget(widget)
     widget.refresh_list()
     
-    assert widget.tree.topLevelItemCount() == 3
-    assert not widget.tree.topLevelItem(0).isHidden()
-    assert not widget.tree.topLevelItem(1).isHidden()
-    assert not widget.tree.topLevelItem(2).isHidden()
+    # Discovery phase
+    header_labels = [widget.tree.headerItem().text(i) for i in range(widget.tree.columnCount())]
+    def get_col(label): return header_labels.index(label)
     
-    # Filter by Date (2023 only)
+    def get_row_by_uuid(uuid):
+        for i in range(widget.tree.topLevelItemCount()):
+            if widget.tree.topLevelItem(i).data(1, Qt.ItemDataRole.UserRole) == uuid:
+                return widget.tree.topLevelItem(i)
+        return None
+
+    col_type = get_col("Type Tags")
+    
+    assert widget.tree.topLevelItemCount() == 3
+    
+    # 1. Date Filter (2023 only)
+    # doc1 (2023-01-01), doc2 (2023-06-01), doc3 (2024-01-01)
     criteria = {'date_from': '2023-01-01', 'date_to': '2023-12-31'}
     widget.apply_filter(criteria)
     
-    # Rows: 0 (2023-01-01), 1 (2023-06-01), 2 (2024-01-01)
-    # Row 2 should be hidden
-    hidden_count = 0
-    for r in range(3):
-        if widget.tree.topLevelItem(r).isHidden():
-             hidden_count += 1
-             
-    assert hidden_count == 1 # Doc 3 hidden
+    assert get_row_by_uuid("uuid-1").isHidden() == False
+    assert get_row_by_uuid("uuid-2").isHidden() == False
+    assert get_row_by_uuid("uuid-3").isHidden() == True
     
-    # Filter by Type (Invoice)
+    # 2. Filter by Type (Invoice)
+    # doc1 (Invoice), doc2 (Receipt), doc3 (Invoice)
     criteria = {'type': 'Invoice'}
     widget.apply_filter(criteria)
     
-    # Doc 1 (Invoice), Doc 2 (Receipt), Doc 3 (Invoice)
-    # Doc 2 should be hidden. (Note: Previous hidden state cleared? No, apply_filter loops all rows and resets)
-    # apply_filter logic sets setRowHidden(row, not show). So it resets previous state.
+    assert "Invoice" in get_row_by_uuid("uuid-1").text(col_type)
+    assert get_row_by_uuid("uuid-1").isHidden() == False
+    assert "Receipt" in get_row_by_uuid("uuid-2").text(col_type)
+    assert get_row_by_uuid("uuid-2").isHidden() == True
+    assert get_row_by_uuid("uuid-3").isHidden() == False
     
-    # Check
-    # row 0: Invoice -> Show
-    # row 1: Receipt -> Hide
-    # row 2: Invoice -> Show
-    
-    # Note: row indices might correspond to sorted order? Sorting is disabled/enabled.
-    # refresh_list populates row 0, 1, 2 in order of get_all_documents (usually insertion or query order).
-    # Assuming order preserved for test.
-    
-    item0 = widget.tree.topLevelItem(0).text(6) # Type Tags
-    item1 = widget.tree.topLevelItem(1).text(6)
-    
-    # Ensure items match assumption
-    assert "Invoice" in item0
-    assert widget.tree.topLevelItem(0).isHidden() == False
-    
-    assert "Receipt" in item1
-    assert widget.tree.topLevelItem(1).isHidden() == True
-    
-    # Filter by Tags ("paid")
+    # 3. Filter by Tags ("paid")
+    # doc1 (paid), doc2 (food), doc3 (unpaid) -> unpaid contains paid!
     criteria = {'tags': 'paid'}
     widget.apply_filter(criteria)
     
-    # Doc 1 -> paid -> Show
-    # Doc 2 -> food -> Hide
-    # Doc 3 -> unpaid -> Show (unpaid contains paid)
-    
-    assert widget.tree.topLevelItem(0).isHidden() == False
-    assert widget.tree.topLevelItem(1).isHidden() == True
-    assert widget.tree.topLevelItem(2).isHidden() == False
+    assert get_row_by_uuid("uuid-1").isHidden() == False
+    assert get_row_by_uuid("uuid-2").isHidden() == True
+    assert get_row_by_uuid("uuid-3").isHidden() == False

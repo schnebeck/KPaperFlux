@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from core.similarity import SimilarityManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from PIL import Image
 
 @pytest.fixture

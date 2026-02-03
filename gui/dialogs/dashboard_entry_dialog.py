@@ -57,6 +57,17 @@ class DashboardEntryDialog(QDialog):
         self.combo_filter.setCurrentIndex(current_idx)
         layout.addWidget(self.combo_filter)
 
+        # Aggregation
+        layout.addWidget(QLabel("Aggregation Mode:"))
+        self.combo_agg = QComboBox()
+        self.combo_agg.addItem("Count documents", "count")
+        self.combo_agg.addItem("Sum amounts (€)", "sum")
+        
+        current_agg = self.entry_data.get("aggregation", "count")
+        idx_agg = self.combo_agg.findData(current_agg)
+        if idx_agg >= 0: self.combo_agg.setCurrentIndex(idx_agg)
+        layout.addWidget(self.combo_agg)
+
         # Color
         layout.addWidget(QLabel("Color Theme:"))
         self.btn_color = QPushButton()
@@ -89,6 +100,7 @@ class DashboardEntryDialog(QDialog):
         data = {
             "title": self.edit_title.text(),
             "color": self.current_color,
+            "aggregation": self.combo_agg.currentData(),
             "row": self.entry_data.get("row", 0), # Keep existing
             "col": self.entry_data.get("col", 0)
         }

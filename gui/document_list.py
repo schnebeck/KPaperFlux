@@ -92,12 +92,21 @@ class DocumentListWidget(QWidget):
         7: "Locked Date",
         8: "Autoprocessed Date",
         9: "Exported Date",
-        10: "Doc Data Date",
-        11: "Status",
-        12: "Type Tags",
-        13: "Tags"
+        10: "Status",
+        11: "Type Tags",
+        12: "Tags"
     }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
+
+    # Phase 2.1: Human Readable Labels for Semantic JSON Keys
+    SEMANTIC_LABELS = {
+        "doc_date": "Date",
+        "sender_name": "Sender",
+        "total_amount": "Amount",
+        "total_gross": "Gross Amount",
+        "total_net": "Net Amount",
+        "invoice_number": "Invoice #"
+    }
 
     def __init__(self, db_manager: DatabaseManager, pipeline: Optional[object] = None, filter_tree: Optional[object] = None):
         super().__init__()
@@ -110,7 +119,7 @@ class DocumentListWidget(QWidget):
         self.current_dashboard_query = None # Phase 105: Dashboard Precedence
         self.advanced_filter_active = True   # Phase 105: Active Rule Toggle
         self.target_uuid_to_restore = None   # Phase 105: Programmatic override
-        self.dynamic_columns = []
+        self.dynamic_columns = ["doc_date", "sender_name", "total_amount"]
         self.is_trash_mode = False
         self.view_context = "All Documents" # For Breadcrumb
 
@@ -218,8 +227,11 @@ class DocumentListWidget(QWidget):
         # Fixed Columns from dict
         labels = [self.tr(self.FIXED_COLUMNS[i]) for i in range(len(self.FIXED_COLUMNS))]
 
-        # Dynamic Columns
-        labels.extend(self.dynamic_columns)
+        # Dynamic Columns (with pretty labels for known semantic keys)
+        for key in self.dynamic_columns:
+            label = self.SEMANTIC_LABELS.get(key, key)
+            labels.append(self.tr(label))
+
         self.tree.setHeaderLabels(labels)
 
     def show_header_menu(self, pos: QPoint):
@@ -289,6 +301,11 @@ class DocumentListWidget(QWidget):
         available = []
         if self.db_manager:
             available = self.db_manager.get_available_extra_keys()
+            
+        # Add Semantic Shortcuts
+        for shortcut in ["doc_date", "sender_name", "total_amount"]:
+            if shortcut not in available:
+                available.append(shortcut)
 
         dlg = ColumnManagerDialog(self, self.FIXED_COLUMNS, self.dynamic_columns, available, self.tree.header())
 
@@ -406,7 +423,7 @@ class DocumentListWidget(QWidget):
     def restore_state(self):
         settings = QSettings("KPaperFlux", "DocumentList")
 
-        dyn_cols = settings.value("dynamicColumns", [])
+        dyn_cols = settings.value("dynamicColumns", ["doc_date", "sender_name", "total_amount"])
         if isinstance(dyn_cols, str): dyn_cols = [dyn_cols]
         elif not isinstance(dyn_cols, list): dyn_cols = []
 
@@ -809,8 +826,7 @@ class DocumentListWidget(QWidget):
         processed_str = format_datetime(doc.last_processed_at) or "-"
         used_str = format_datetime(doc.last_used) or "-"
 
-        # 4. Apply to Columns
-        sd = doc.semantic_data or {}
+        # 4. Apply to Fixed Columns
         target_item.setText(2, filename)
         target_item.setText(3, pages_str)
         target_item.setText(4, format_datetime(doc.created_at) or "-")
@@ -819,26 +835,46 @@ class DocumentListWidget(QWidget):
         target_item.setText(7, format_datetime(doc.locked_at) or "-")
         target_item.setText(8, format_datetime(doc.last_processed_at) or "-")
         target_item.setText(9, format_datetime(doc.exported_at) or "-")
-        target_item.setText(10, str(sd.get("doc_date") or "-"))
-        target_item.setText(11, doc.status or "NEW")
-        target_item.setText(12, ", ".join(self.sort_type_tags(type_tags)))
-        target_item.setText(13, ", ".join(doc.tags or []))
+        target_item.setText(10, doc.status or "NEW")
+        target_item.setText(11, ", ".join(self.sort_type_tags(type_tags)))
+        target_item.setText(12, ", ".join(doc.tags or []))
 
-        # 5. Dynamic Columns
+        # 5. Dynamic Columns (including semantic shortcuts)
         num_fixed = len(self.FIXED_COLUMNS)
         for d_idx, key in enumerate(self.dynamic_columns):
             col_idx = num_fixed + d_idx
+            
+            # Use getattr for properties/fields
             val = getattr(doc, key, None)
+            
+            # Fallback to semantic_data model_extra if not found as attribute
             if val is None and doc.semantic_data:
-                val = doc.semantic_data.get(key)
+                # Check for direct attribute on semantic_data
+                val = getattr(doc.semantic_data, key, None)
+                if val is None and hasattr(doc.semantic_data, "model_extra") and doc.semantic_data.model_extra:
+                    val = doc.semantic_data.model_extra.get(key)
 
-            if val is None: txt = "-"
-            elif isinstance(val, (list, dict)): txt = json.dumps(val)
-            else: txt = str(val)
+            # Special Formatting for Common Fields
+            if key in ["total_amount", "total_gross", "total_net"] and val is not None:
+                try:
+                    locale = QLocale.system()
+                    txt = locale.toCurrencyString(float(val))
+                    target_item.setData(col_idx, Qt.ItemDataRole.UserRole, float(val))
+                except:
+                    txt = str(val)
+            elif key == "doc_date" and val:
+                txt = str(val)
+                target_item.setData(col_idx, Qt.ItemDataRole.UserRole, txt)
+            elif val is None:
+                txt = "-"
+            elif isinstance(val, (list, dict)):
+                txt = json.dumps(val)
+                target_item.setData(col_idx, Qt.ItemDataRole.UserRole, txt)
+            else:
+                txt = str(val)
+                target_item.setData(col_idx, Qt.ItemDataRole.UserRole, txt)
 
             target_item.setText(col_idx, txt)
-            if val is not None:
-                target_item.setData(col_idx, Qt.ItemDataRole.UserRole, val)
 
     def apply_filter(self, criteria: dict):
         """
@@ -865,8 +901,7 @@ class DocumentListWidget(QWidget):
             doc = self.documents_cache.get(uuid)
 
             if date_from or date_to:
-                sd = doc.semantic_data or {}
-                date_val = str(sd.get("doc_date") or "")
+                date_val = doc.doc_date or ""
 
                 if not date_val:
                     if date_from or date_to: show = False
@@ -875,6 +910,7 @@ class DocumentListWidget(QWidget):
                         show = False
                     if date_to and date_val > date_to:
                         show = False
+
 
             if show and target_type:
                 type_tags = getattr(doc, "type_tags", []) or []
@@ -898,19 +934,14 @@ class DocumentListWidget(QWidget):
 
             if show and text_search and doc:
                 query = text_search.lower()
-                sd = doc.semantic_data or {}
                 haystack = [
-                    str(sd.get("sender") or ""),
+                    str(doc.sender_name or ""),
+                    str(doc.doc_date or ""),
+                    str(doc.total_amount or ""),
                     str(doc.type_tags or ""),
                     str(doc.tags or ""),
                     str(doc.original_filename or ""),
-                    str(doc.sender_address or ""),
                     str(doc.text_content or ""),
-                    str(doc.recipient_company or ""),
-                    str(doc.recipient_name or ""),
-                    str(doc.recipient_city or ""),
-                    str(doc.sender_company or ""),
-                    str(doc.sender_city or ""),
                     str(doc.page_count or ""),
                     str(doc.created_at or "")
                 ]
@@ -1072,8 +1103,12 @@ class DocumentListWidget(QWidget):
             locked_at_str = format_datetime(doc.locked_at) or "-"
             processed_str = format_datetime(doc.last_processed_at) or "-"
             exported_str = format_datetime(doc.exported_at) or "-"
-            sd = doc.semantic_data or {}
-            data_date_str = str(sd.get("doc_date") or "-")
+            sd = doc.semantic_data
+            if sd:
+                data_date_str = str(sd.document_date or "-")
+            else:
+                data_date_str = "-"
+
 
             col_data = [
                 "",                 # 0: #
@@ -1086,21 +1121,29 @@ class DocumentListWidget(QWidget):
                 locked_at_str,      # 7: Locked Date
                 processed_str,      # 8: Autoprocessed Date
                 exported_str,       # 9: Exported Date
-                data_date_str,      # 10: Doc Data Date
-                status,             # 11: Status
-                ", ".join(str(t) for t in combined_types if t), # 12: Type Tags
-                ", ".join(str(t) for t in (doc.tags or []) if t) # 13: Tags
+                status,             # 10: Status
+                ", ".join(str(t) for t in combined_types if t), # 11: Type Tags
+                ", ".join(str(t) for t in (doc.tags or []) if t), # 12: Tags
             ]
 
-            # Phase 102: Support Dynamic Columns
+            # Phase 102/110: Support Dynamic Columns (including semantic shortcuts)
             for key in self.dynamic_columns:
                 # Try to get from Doc attributes or semantic_data dict
                 val = getattr(doc, key, None)
                 if val is None and doc.semantic_data:
-                    val = doc.semantic_data.get(key)
+                    # Check for direct attribute on semantic_data
+                    val = getattr(doc.semantic_data, key, None)
+                    if val is None and hasattr(doc.semantic_data, "model_extra") and doc.semantic_data.model_extra:
+                        val = doc.semantic_data.model_extra.get(key)
 
-                # Format
-                if val is None:
+                # Consistent Formatting logic
+                if key in ["total_amount", "total_gross", "total_net"] and val is not None:
+                     try:
+                         locale = QLocale.system()
+                         txt = locale.toCurrencyString(float(val))
+                     except:
+                         txt = str(val)
+                elif val is None:
                     txt = "-"
                 elif isinstance(val, (list, dict)):
                     txt = json.dumps(val)
@@ -1121,15 +1164,15 @@ class DocumentListWidget(QWidget):
             item.setData(7, Qt.ItemDataRole.UserRole, str(doc.locked_at or ""))
             item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_processed_at or ""))
             item.setData(9, Qt.ItemDataRole.UserRole, str(doc.exported_at or ""))
-            item.setData(10, Qt.ItemDataRole.UserRole, str(sd.get("doc_date") or ""))
+            item.setData(10, Qt.ItemDataRole.UserRole, doc.status)
 
             if combined_types:
-                item.setToolTip(12, "\n".join(str(t) for t in combined_types if t))
+                item.setToolTip(11, "\n".join(str(t) for t in combined_types if t))
 
             if doc.tags:
                 tag_str = ", ".join(str(t) for t in doc.tags if t)
-                item.setData(13, Qt.ItemDataRole.UserRole, tag_str)
-                item.setToolTip(13, "\n".join(str(t) for t in doc.tags if t))
+                item.setData(12, Qt.ItemDataRole.UserRole, tag_str)
+                item.setToolTip(12, "\n".join(str(t) for t in doc.tags if t))
 
             # Dynamic Columns Sort Data
             for d_idx, key in enumerate(self.dynamic_columns):
@@ -1137,7 +1180,10 @@ class DocumentListWidget(QWidget):
 
                 val = getattr(doc, key, None)
                 if val is None and doc.semantic_data:
-                    val = doc.semantic_data.get(key)
+                    val = getattr(doc.semantic_data, key, None)
+                    if val is None and hasattr(doc.semantic_data, "model_extra") and doc.semantic_data.model_extra:
+                        val = doc.semantic_data.model_extra.get(key)
+
                 if val is not None:
                     item.setData(col_idx, Qt.ItemDataRole.UserRole, val)
 

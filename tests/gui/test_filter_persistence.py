@@ -4,7 +4,10 @@ from PyQt6.QtCore import Qt
 from datetime import date
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
+from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody
+from decimal import Decimal
+
 
 @pytest.fixture
 def db_manager():
@@ -21,8 +24,24 @@ def doc_list_widget(db_manager, qapp):
 
 def test_refresh_preserves_basic_filter(doc_list_widget, db_manager):
     # Setup Data
-    doc1 = Document(uuid="u1", original_filename="doc1.pdf", doc_date="2023-01-01", amount=10.0, tags=["tag1"])
-    doc2 = Document(uuid="u2", original_filename="doc2.pdf", doc_date="2023-02-01", amount=20.0, tags=["tag2"])
+    doc1 = Document(
+        uuid="u1", 
+        original_filename="doc1.pdf", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(doc_date="2023-01-01"),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+        ),
+        tags=["tag1"]
+    )
+    doc2 = Document(
+        uuid="u2", 
+        original_filename="doc2.pdf", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(doc_date="2023-02-01"),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("20.0"))}
+        ),
+        tags=["tag2"]
+    )
     db_manager.insert_document(doc1)
     db_manager.insert_document(doc2)
     
@@ -60,8 +79,20 @@ def test_refresh_preserves_basic_filter(doc_list_widget, db_manager):
     
 def test_refresh_preserves_advanced_filter(doc_list_widget, db_manager):
     # Setup Data
-    doc1 = Document(uuid="u1", original_filename="match.pdf", amount=100)
-    doc2 = Document(uuid="u2", original_filename="nomatch.pdf", amount=50)
+    doc1 = Document(
+        uuid="u1", 
+        original_filename="match.pdf", 
+        semantic_data=SemanticExtraction(
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("100.0"))}
+        )
+    )
+    doc2 = Document(
+        uuid="u2", 
+        original_filename="nomatch.pdf", 
+        semantic_data=SemanticExtraction(
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("50.0"))}
+        )
+    )
     db_manager.insert_document(doc1)
     db_manager.insert_document(doc2)
     

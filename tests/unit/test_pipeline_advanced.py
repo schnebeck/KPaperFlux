@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from core.pipeline import PipelineProcessor
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 
 @pytest.fixture
 def mock_pipeline():

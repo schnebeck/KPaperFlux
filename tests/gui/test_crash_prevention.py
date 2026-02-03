@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from PyQt6.QtCore import Qt
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from decimal import Decimal
 
 @pytest.fixture
@@ -11,13 +11,15 @@ def mock_db():
     db = MagicMock(spec=DatabaseManager)
     
     # Mock get_all_documents to return a valid document
+    from core.models.semantic import SemanticExtraction
     doc = Document(
         uuid="test-uuid",
         original_filename="test.pdf",
-        amount=Decimal("10.00"),
-        tax_rate=Decimal("19.0"),
-        gross_amount=Decimal("11.90")
+        semantic_data=SemanticExtraction(
+            bodies={"finance_body": {"total_gross": 11.90}}
+        )
     )
+
     db.get_all_documents.return_value = [doc]
     db.get_all_entities_view.return_value = [doc]
     db.search_documents.return_value = [doc]
@@ -50,11 +52,13 @@ def test_search_documents_columns(mock_db):
     real_db.init_db()
     
     # Insert a dummy document
+    from core.models.semantic import SemanticExtraction
     doc = Document(
         original_filename="test.pdf",
         text_content="invoice",
-        amount=Decimal("100.00"),
-        tax_rate=Decimal("19.00")
+        semantic_data=SemanticExtraction(
+            bodies={"finance_body": {"total_gross": 100.00}}
+        )
     )
     real_db.insert_document(doc)
     
@@ -63,7 +67,7 @@ def test_search_documents_columns(mock_db):
     
     assert len(results) == 1
     assert results[0].original_filename == "test.pdf"
-    assert results[0].tax_rate == Decimal("19.00")
+
     
     real_db.close()
 
@@ -81,7 +85,9 @@ def test_mainwindow_compatibility(mock_db, qtbot):
     
     # MainWindow usage: self.list_widget.selectedItems()
     assert hasattr(widget, 'selectedItems'), "Missing selectedItems() method required by MainWindow"
-    assert widget.selectedItems() == []
+    # Note: DocumentListWidget auto-selects if exactly one document is present
+    assert len(widget.selectedItems()) == (1 if widget.rowCount() == 1 else 0)
+
 
 def test_column_widths(mock_db, qtbot):
     """

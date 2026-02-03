@@ -19,9 +19,9 @@ def test_import_button_triggers_pipeline(qtbot, mock_pipeline):
         qtbot.addWidget(window)
         window.show()
 
-    # Find the button
-    button = window.findChild(QPushButton, "btn_import")
-    assert button is not None
+    # Trigger Import (Simulate menu action)
+    # Instead of finding a button that might be gone, we call the slot directly
+    # matching the action_import.triggered connection.
 
     # Mock QFileDialog to return a specific file path
     expected_path = "/tmp/test_doc.pdf"
@@ -32,17 +32,17 @@ def test_import_button_triggers_pipeline(qtbot, mock_pipeline):
 
     instructions = [{"pages": [{"file_path": expected_path, "file_page_index": 0, "rotation": 0}]}]
     
-    with patch.object(QFileDialog, 'getOpenFileNames', return_value=([expected_path], "PDF Files (*.pdf)")), \
-         patch('gui.splitter_dialog.SplitterDialog') as mock_dialog_class, \
+    with patch('gui.main_window.QFileDialog.getOpenFileNames', return_value=([expected_path], "PDF Files (*.pdf)")), \
+         patch('gui.main_window.SplitterDialog') as mock_dialog_class, \
          patch('gui.main_window.ImportWorker') as mock_worker_class, \
-         patch.object(QMessageBox, 'information'):
+         patch('gui.main_window.QMessageBox.information'):
         
         mock_dialog = mock_dialog_class.return_value
         mock_dialog.exec.return_value = QDialog.DialogCode.Accepted
         mock_dialog.import_instructions = instructions
         
-        # Simulate click
-        qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+        # Trigger the slot directly (simulating action trigger)
+        window.import_document_slot()
         
         # Verify ImportWorker was created
         mock_worker_class.assert_called_once()

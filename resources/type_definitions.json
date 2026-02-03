@@ -10,7 +10,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.invoice_number"
+                            "path": "bodies.finance_body.invoice_number"
                         },
                         {
                             "type": "fuzzy_key",
@@ -33,7 +33,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.main_date"
+                            "path": "meta_header.doc_date"
                         },
                         {
                             "type": "fuzzy_key",
@@ -54,7 +54,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.payment_terms.due_date"
+                            "path": "bodies.finance_body.due_date"
                         },
                         {
                             "type": "fuzzy_key",
@@ -76,7 +76,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.customer_id"
+                            "path": "bodies.finance_body.customer_id"
                         },
                         {
                             "type": "fuzzy_key",
@@ -97,7 +97,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.order_id"
+                            "path": "bodies.finance_body.order_number"
                         },
                         {
                             "type": "fuzzy_key",
@@ -119,7 +119,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.tax_amount"
+                            "path": "bodies.finance_body.total_tax"
                         },
                         {
                             "type": "fuzzy_key",
@@ -139,7 +139,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.tax_rate"
+                            "path": "bodies.finance_body.tax_rate"
                         },
                         {
                             "type": "fuzzy_key",
@@ -158,7 +158,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.iban"
+                            "path": "meta_header.sender.iban"
                         },
                         {
                             "type": "fuzzy_key",
@@ -176,7 +176,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.cost_center"
+                            "path": "bodies.finance_body.cost_center"
                         },
                         {
                             "type": "fuzzy_key",
@@ -195,7 +195,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.project_id"
+                            "path": "bodies.finance_body.project_id"
                         },
                         {
                             "type": "fuzzy_key",
@@ -214,7 +214,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.incoterms"
+                            "path": "bodies.finance_body.incoterms"
                         },
                         {
                             "type": "fuzzy_key",
@@ -233,7 +233,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.delivery_date"
+                            "path": "bodies.finance_body.delivery_date"
                         },
                         {
                             "type": "fuzzy_key",
@@ -257,7 +257,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.contract_id"
+                            "path": "bodies.legal_body.contract_id"
                         },
                         {
                             "type": "fuzzy_key",
@@ -279,7 +279,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.start_date"
+                            "path": "bodies.legal_body.effective_date"
                         },
                         {
                             "type": "fuzzy_key",
@@ -301,7 +301,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.end_date"
+                            "path": "bodies.legal_body.termination_date"
                         },
                         {
                             "type": "fuzzy_key",
@@ -323,7 +323,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.cancellation_period"
+                            "path": "bodies.legal_body.cancellation_period"
                         },
                         {
                             "type": "fuzzy_key",
@@ -348,7 +348,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "summary.subject"
+                            "path": "bodies.legal_body.subject"
                         },
                         {
                             "type": "fuzzy_key",

@@ -3,7 +3,7 @@ import pytest
 from gui.batch_tag_dialog import BatchTagDialog
 from gui.main_window import MainWindow
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from PyQt6.QtWidgets import QDialog
 from unittest.mock import MagicMock, patch
 
@@ -50,14 +50,16 @@ def test_manage_tags_logic(qtbot, db_for_tags):
     mw.list_widget = MagicMock()
     
     # Mock BatchTagDialog exec to return True and data
-    with patch('gui.batch_tag_dialog.BatchTagDialog') as MockDialog:
+    # We MUST patch where it is USED (gui.main_window)
+    with patch('gui.main_window.BatchTagDialog') as MockDialog, \
+         patch('gui.main_window.show_notification'), \
+         patch('gui.main_window.show_selectable_message_box'):
         instance = MockDialog.return_value
         instance.exec.return_value = True
         instance.get_data.return_value = (["new", "tax"], ["old"])
         
         # Call slot with both UUIDs
-        with patch('gui.main_window.QMessageBox'):
-             mw.manage_tags_slot(["1", "2"])
+        mw.manage_tags_slot(["1", "2"])
         
         # Verify DB updates
         doc1 = db_for_tags.get_document_by_uuid("1")

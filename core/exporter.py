@@ -20,7 +20,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from core.metadata_normalizer import MetadataNormalizer
 from core.semantic_translator import SemanticTranslator
 
@@ -88,18 +88,22 @@ class DocumentExporter:
 
         for i, doc in enumerate(documents):
             # Parse Date
-            sd = doc.semantic_data or {}
-            doc_date = sd.get("doc_date")
+            doc_date = doc.doc_date
             dt: Optional[datetime] = None
             if doc_date:
-                # Check known types
                 if isinstance(doc_date, (datetime, d_date)):
                     dt = doc_date
                 elif isinstance(doc_date, str):
                     try:
+                        # doc_date from V2 model is usually YYYY-MM-DD
                         dt = datetime.strptime(doc_date, "%Y-%m-%d")
                     except ValueError:
-                        dt = None
+                        # Try ISO if full timestamp
+                        try:
+                            dt = datetime.fromisoformat(doc_date)
+                        except ValueError:
+                            dt = None
+
 
             # Parse Amounts (ensure float)
             def to_float(val: Any) -> float:
@@ -118,17 +122,18 @@ class DocumentExporter:
             # Basic Columns
             row: Dict[str, Any] = {
                 "Date": dt,
-                "Sender": doc.sender_name or doc.sender_company or sd.get("sender"),  # Fallback
-                "Content": doc.text_content,  # User requested text content
-                "Amount (Net)": to_float(sd.get("amount")),
-                "Tax Rate": to_float(doc.tax_rate),
-                "Gross Amount": to_float(doc.gross_amount),
+                "Sender": doc.sender_name or "Unknown",
+                "Content": doc.text_content,
+                "Amount (Net)": to_float(doc.total_net or doc.total_amount),
+                "Tax Rate": to_float(doc.total_tax),
+                "Gross Amount": to_float(doc.total_gross),
                 "Currency": doc.currency,
-                "Recipient": doc.recipient_name or doc.recipient_company,
+                "Recipient": doc.recipient_name,
                 "IBAN": doc.iban,
                 "Filename": filename,
-                "ID": doc.uuid,  # Reference
+                "ID": doc.uuid,
             }
+
 
             # Semantic Columns (Phase 86)
             # Normalize to get flat dictionary of details

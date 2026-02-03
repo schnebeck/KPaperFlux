@@ -94,17 +94,6 @@ class MainWindow(QMainWindow):
 
         self.app_config = AppConfig()
         self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
-        
-        # Migration: Check if old config exists in CWD and move it
-        old_filter_config = Path("filter_tree.json").resolve()
-        # Ensure we don't overwrite if target exists, unless we want to merge? 
-        # For now, simplistic migration: if target missing and source exists, move.
-        if old_filter_config.exists() and not self.filter_config_path.exists():
-            try:
-                shutil.move(str(old_filter_config), str(self.filter_config_path))
-                print(f"[Info] Migrated filter tree config to {self.filter_config_path}")
-            except Exception as e:
-                print(f"[Error] Failed to migrate filter tree config: {e}")
 
         self.create_menu_bar()
         # Toolbar/Shortcuts moved down to ensure all widgets like list_widget exist before initial status update
@@ -130,8 +119,13 @@ class MainWindow(QMainWindow):
         # Main Splitter (Left Pane | Right Pane) -- Re-parented to explorer_layout
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         explorer_layout.addWidget(self.main_splitter)
-
         self.central_stack.addWidget(self.explorer_widget)
+        
+        # --- Page 2: Reporting ---
+        from gui.reporting import ReportingWidget
+        self.reporting_widget = ReportingWidget(self.db_manager)
+        self.central_stack.addWidget(self.reporting_widget)
+
         self.central_stack.setCurrentIndex(0) # Start with Dashboard
         self.central_stack.currentChanged.connect(self._on_tab_changed)
 
@@ -320,34 +314,6 @@ class MainWindow(QMainWindow):
         trash_exists = any(child.node_type == NodeType.TRASH for child in root.children)
         if not trash_exists:
             self.filter_tree.add_trash(root)
-
-        # Check for Legacy Filters (QSettings) and migrate
-        self.migrate_legacy_filters()
-
-    def migrate_legacy_filters(self):
-        settings = QSettings("KPaperFlux", "AdvancedFilters")
-        if settings.contains("saved_filters"):
-            try:
-                saved_json = settings.value("saved_filters")
-                if isinstance(saved_json, str):
-                    legacy_map = json.loads(saved_json)
-                    if legacy_map:
-                        # Create "Imported" folder
-                        folder = self.filter_tree.add_folder(self.filter_tree.root, "Imported (Legacy)")
-                        count = 0
-                        for name, query in legacy_map.items():
-                            self.filter_tree.add_filter(folder, name, query)
-                            count += 1
-
-                        print(f"Migrated {count} legacy filters.")
-
-                # Clean up "Dead Files"
-                settings.remove("saved_filters")
-                settings.sync()
-                print("Legacy filter config removed.")
-
-            except Exception as e:
-                print(f"Migration error: {e}")
 
     def save_filter_tree(self):
         """Save Filter Tree to JSON file."""
@@ -1537,7 +1503,10 @@ class MainWindow(QMainWindow):
             self.main_splitter.restoreState(main_splitter)
 
         # Restore AI Pause State
-        ai_paused = settings.value("ai_paused", type=bool)
+        try:
+            ai_paused = str(settings.value("ai_paused", "false")).lower() == "true"
+        except Exception:
+            ai_paused = False
         if ai_paused and hasattr(self, 'main_loop_worker'):
             self.main_loop_worker.set_paused(True)
             self.activity_panel.on_pause_state_changed(True)
@@ -1933,6 +1902,22 @@ class MainWindow(QMainWindow):
             self._sync_sub_modes(self.advanced_filter.tabs.currentIndex())
         
         self.navbar.addWidget(self.doc_container)
+        
+        # Tab Area: Reporting
+        self.report_container = QWidget()
+        self.report_container.setObjectName("tabContainer")
+        report_layout = QHBoxLayout(self.report_container)
+        report_layout.setContentsMargins(0, 0, 0, 0)
+        report_layout.setSpacing(0)
+        report_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        
+        self.btn_reports = QToolButton()
+        self.btn_reports.setText(self.tr("Reports"))
+        self.btn_reports.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_reports.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView))
+        self.btn_reports.clicked.connect(lambda: self.central_stack.setCurrentIndex(2))
+        report_layout.addWidget(self.btn_reports)
+        self.navbar.addWidget(self.report_container)
 
         # Spacer
         spacer = QWidget()
@@ -1942,24 +1927,37 @@ class MainWindow(QMainWindow):
     def _on_tab_changed(self, index):
         """Update navigation UI when stack changes."""
         is_dashboard = (index == 0)
+        is_explorer = (index == 1)
+        is_reporting = (index == 2)
         
-        # Update Tab Highlighting via properties for the containers
-        # Use boolean values for properties as it's cleaner for CSS [active="true"]
+        # Update Tab Highlighting
         self.dash_container.setProperty("active", is_dashboard)
-        self.doc_container.setProperty("active", not is_dashboard)
+        self.doc_container.setProperty("active", is_explorer)
+        self.report_container.setProperty("active", is_reporting)
         
-        # Explicitly hide Filter button when on dashboard
-        self.btn_filter.setVisible(not is_dashboard)
-        if hasattr(self, 'sub_mode_container'):
-            self.sub_mode_container.setVisible(not is_dashboard and self.action_toggle_filter.isChecked())
+        # Force Style Refresh
+        for container in [self.dash_container, self.doc_container, self.report_container]:
+            container.style().unpolish(container)
+            container.style().polish(container)
 
-        # Regression Fix: Ensure selection is restored when switching to Documents
+        self.btn_dashboard.setChecked(is_dashboard)
+        self.btn_documents.setChecked(is_explorer)
+        self.btn_reports.setChecked(is_reporting)
+        
+        # Toggle sub-mode visibility (only in Explorer)
+        if hasattr(self, 'sub_mode_container'):
+            self.sub_mode_container.setVisible(is_explorer and self.action_toggle_filter.isChecked())
+        
+        # Refresh Data for specific tabs
+        if is_dashboard:
+            self.dashboard_widget.refresh_stats()
+        elif is_reporting:
+            self.reporting_widget.refresh_data()
         if index == 1 and hasattr(self, 'list_widget'):
             if self._last_selected_uuid:
                 self.list_widget.target_uuid_to_restore = self._last_selected_uuid
             self.list_widget.refresh_list(force_select_first=True)
 
-        # Force Style Refresh for containers and their children to apply CSS changes
         for container in [self.dash_container, self.doc_container]:
             container.style().unpolish(container)
             container.style().polish(container)

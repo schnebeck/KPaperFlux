@@ -5,7 +5,7 @@ from gui.widgets.filter_group import FilterGroupWidget
 
 class MockDBManager:
     def get_available_extra_keys(self): return []
-    def get_available_tags(self): return []
+    def get_available_tags(self, system: bool = False): return []
 
 @pytest.fixture
 def filter_widget(qapp):

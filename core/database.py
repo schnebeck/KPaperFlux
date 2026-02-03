@@ -13,6 +13,7 @@ Description:    Central database manager for SQLite persistence. Handles
 """
 
 import json
+import logging
 import sqlite3
 import traceback
 import uuid
@@ -20,7 +21,11 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
+from core.models.semantic import SemanticExtraction
+
+# --- Central Logging Setup ---
+logger = logging.getLogger("KPaperFlux.Database")
 
 
 class DatabaseManager:
@@ -53,11 +58,16 @@ class DatabaseManager:
         Establishes a connection to the database and configures performance PRAGMAs.
         Enables WAL mode and foreign key constraints.
         """
-        # check_same_thread=False allows using the connection across worker threads
-        self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
-        self.connection.row_factory = sqlite3.Row  # Enable named column access
-        self.connection.execute("PRAGMA foreign_keys = ON")
-        self.connection.execute("PRAGMA journal_mode = WAL")
+        try:
+            # check_same_thread=False allows using the connection across worker threads
+            self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
+            self.connection.row_factory = sqlite3.Row  # Enable named column access
+            self.connection.execute("PRAGMA foreign_keys = ON")
+            self.connection.execute("PRAGMA journal_mode = WAL")
+            logger.info(f"Connected to database at {self.db_path} (WAL mode enabled)")
+        except sqlite3.Error as e:
+            logger.critical(f"Failed to connect to database: {e}")
+            raise
 
     def init_db(self) -> None:
         """
@@ -448,6 +458,37 @@ class DatabaseManager:
         cursor.execute(sql, params)
         return cursor.fetchone()[0]
 
+    def sum_documents_advanced(self, query: Dict[str, Any], field: str = "amount") -> float:
+        """
+        Calculates the sum of a numeric field for documents matching a query.
+        
+        Args:
+            query: Structured query dictionary.
+            field: The logical field name to sum (e.g., 'amount').
+            
+        Returns:
+            The total sum as a float.
+        """
+        if not self.connection:
+            return 0.0
+
+        where_clause, params = self._build_where_clause(query or {})
+        if "deleted" not in where_clause.lower():
+            where_clause = f"({where_clause}) AND deleted = 0"
+
+        expr = self._map_field_to_sql(field)
+        # Use CAST for safety with JSON values stored as strings
+        sql = f"SELECT SUM(CAST({expr} AS REAL)) FROM virtual_documents WHERE {where_clause}"
+        
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(sql, params)
+            result = cursor.fetchone()
+            return result[0] if result and result[0] is not None else 0.0
+        except sqlite3.Error as e:
+            print(f"[DB] Error in sum_documents_advanced: {e}")
+            return 0.0
+
     def _build_where_clause(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
         """
         Recursively translates a query node into SQL WHERE fragments.
@@ -511,26 +552,21 @@ class DatabaseManager:
             "original_filename": "export_filename",
             "deleted": "deleted",
             "type_tags": "type_tags",
-            "tags": "tags",
-            "sender": "json_extract(semantic_data, '$.sender')",
-            "doc_date": "json_extract(semantic_data, '$.doc_date')",
-            "amount": "json_extract(semantic_data, '$.amount')",
+            "sender": "json_extract(semantic_data, '$.meta_header.sender.name')",
+            "doc_date": "json_extract(semantic_data, '$.meta_header.doc_date')",
+            "amount": "CAST(json_extract(semantic_data, '$.bodies.finance_body.total_gross') AS REAL)",
             
             # Semantic shortcuts
             "direction": "json_extract(semantic_data, '$.direction')",
             "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
-            "confidence": "json_extract(semantic_data, '$.confidence')",
-            "reasoning": "json_extract(semantic_data, '$.reasoning')",
             "classification": "json_extract(type_tags, '$[0]')",
             "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
             
             # Forensic/Stamp aggregations
             "stamp_text": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.raw_content'), '')) "
-                          "FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), "
-                          "json_extract(semantic_data, '$.layer_stamps'))) AS s)",
+                          "FROM json_each(json_extract(semantic_data, '$.visual_audit.layer_stamps')) AS s)",
             "stamp_type": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.type'), '')) "
-                          "FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), "
-                          "json_extract(semantic_data, '$.layer_stamps'))) AS s)"
+                          "FROM json_each(json_extract(semantic_data, '$.visual_audit.layer_stamps')) AS s)"
         }
         
         if field in mapping:
@@ -643,27 +679,34 @@ class DatabaseManager:
             if not data:
                 return default
             try:
-                return json.loads(data)
+                if isinstance(data, (bytes, str)):
+                    return json.loads(data)
+                return data
             except (json.JSONDecodeError, TypeError):
                 return default
 
         type_tags = safe_json_load(row["type_tags"], [])
-        semantic_data = safe_json_load(row["semantic_data"], {})
+        semantic_raw = safe_json_load(row["semantic_data"], {})
         tags_raw = row["tags"]
         
-        # Original Filename fallback
-        orig_filename = row[3] if row[3] else f"Entity {str(row[0])[:8]}"
+        # 1. Hydrate Semantic Model
+        semantic_data = None
+        if semantic_raw:
+            try:
+                semantic_data = SemanticExtraction(**semantic_raw)
+            except Exception as e:
+                logger.warning(f"Metadata degradation for {row['uuid']}: {e}")
+                # Fallback: still try to use the raw dict if valid (extra='ignore' in Document will handle it)
+                semantic_data = None
 
         tags: List[str] = []
         if tags_raw:
             try:
-                tags = json.loads(tags_raw)
+                tags = json.loads(tags_raw) if isinstance(tags_raw, str) else tags_raw
                 if isinstance(tags, str):
                     tags = [t.strip() for t in tags.split(",") if t.strip()]
             except (json.JSONDecodeError, TypeError) as e:
-                print(f"[DB] Error parsing tags for {row['uuid']}: {e}")
-                if isinstance(tags_raw, str):
-                    tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+                logger.error(f"Error parsing tags for {row['uuid']}: {e}")
 
         doc_data = {
             "uuid": row["uuid"],
@@ -686,14 +729,10 @@ class DatabaseManager:
             "exported_at": row["exported_at"] if "exported_at" in row.keys() else None,
         }
 
-        # Semantic data remains encapsulated in the semantic_data field
-
         try:
             return Document(**doc_data)
         except Exception as e:
-            print(f"[DB] ValidationError for {doc_data.get('uuid')}: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"ValidationError for {doc_data.get('uuid')}: {e}")
             return None
 
     def search_documents(self, search_text: str) -> List[Document]:
@@ -834,7 +873,7 @@ class DatabaseManager:
             if not doc.type_tags or not doc.semantic_data:
                 continue
                 
-            bodies = doc.semantic_data.get("bodies", {})
+            bodies = doc.semantic_data.bodies
             if not bodies:
                 continue
                 
@@ -1235,6 +1274,80 @@ class DatabaseManager:
         with self.connection:
             self.connection.execute(sql, vals)
 
+    def rename_tag(self, old_tag: str, new_tag: str) -> int:
+        """
+        Renames a tag across all documents.
+        Returns the number of documents modified.
+        """
+        cursor = self.connection.cursor()
+        sql_find = "SELECT uuid, tags FROM virtual_documents WHERE tags LIKE ?"
+        cursor.execute(sql_find, (f'%"%s"%' % old_tag.replace('"', '""'),))
+        rows = cursor.fetchall()
+        
+        count = 0
+        for uid, tags_json in rows:
+            try:
+                tags = json.loads(tags_json or "[]")
+                if old_tag in tags:
+                    # Replace
+                    tags = [new_tag if t == old_tag else t for t in tags]
+                    # Unique
+                    tags = list(dict.fromkeys(tags))
+                    self.update_document_metadata(uid, {"tags": tags})
+                    count += 1
+            except Exception:
+                continue
+        return count
+
+    def delete_tag(self, tag: str) -> int:
+        """
+        Removes a tag from all documents.
+        """
+        cursor = self.connection.cursor()
+        sql_find = "SELECT uuid, tags FROM virtual_documents WHERE tags LIKE ?"
+        cursor.execute(sql_find, (f'%"%s"%' % tag.replace('"', '""'),))
+        rows = cursor.fetchall()
+        
+        count = 0
+        for uid, tags_json in rows:
+            try:
+                tags = json.loads(tags_json or "[]")
+                if tag in tags:
+                    tags = [t for t in tags if t != tag]
+                    self.update_document_metadata(uid, {"tags": tags})
+                    count += 1
+            except Exception:
+                continue
+        return count
+
+    def merge_tags(self, tags_to_merge: List[str], target_tag: str) -> int:
+        """
+        Merges multiple tags into a single target tag.
+        """
+        cursor = self.connection.cursor()
+        sql_find = "SELECT uuid, tags FROM virtual_documents"
+        cursor.execute(sql_find)
+        rows = cursor.fetchall()
+        
+        count = 0
+        merge_set = set(tags_to_merge)
+        for uid, tags_json in rows:
+            try:
+                tags = json.loads(tags_json or "[]")
+                current_set = set(tags)
+                if current_set.intersection(merge_set):
+                    # Remove merging tags
+                    new_tags = [t for t in tags if t not in merge_set]
+                    # Add target if not present
+                    if target_tag not in new_tags:
+                        new_tags.append(target_tag)
+                    
+                    self.update_document_metadata(uid, {"tags": new_tags})
+                    count += 1
+            except Exception:
+                continue
+        return count
+
     # --- Backwards Compatibility ---
     def get_all_documents(self) -> List[Document]:
         return self.get_all_entities_view()
@@ -1258,12 +1371,17 @@ class DatabaseManager:
         """
         try:
             with self.connection:
-                sd_json = json.dumps(doc.semantic_data or {})
+                if isinstance(doc.semantic_data, SemanticExtraction):
+                    sd_json = json.dumps(doc.semantic_data.model_dump(mode='json'))
+                else:
+                    sd_json = json.dumps(doc.semantic_data or {})
+
                 self.connection.execute(sql, (
                     doc.uuid, sm_json, doc.status or "NEW", doc.original_filename or "Unknown",
                     created, type_tags_json, sd_json, (doc.text_content or doc.cached_full_text),
                     user_tags_json,
                     doc.deleted_at, doc.locked_at, doc.exported_at
                 ))
-        except sqlite3.Error:
-            pass
+        except sqlite3.Error as e:
+            logger.error(f"Failed to insert legacy document {doc.uuid}: {e}")
+

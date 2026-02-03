@@ -1,7 +1,7 @@
 
 import pytest
 from core.metadata_normalizer import MetadataNormalizer
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 
 class TestMetadataNormalizer:
     

@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QMenu
 )
 from PyQt6.QtCore import Qt, QPoint
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 
 class DuplicateFinderDialog(QDialog):
@@ -143,8 +143,9 @@ class DuplicateFinderDialog(QDialog):
         sd = doc.semantic_data or {}
         return (
             f"<b>Filename:</b> {doc.original_filename}<br>"
-            f"<b>Date:</b> {sd.get('doc_date', '-')}<br>"
-            f"<b>Sender:</b> {sd.get('sender', '-')}<br>"
+            f"<b>Date:</b> {doc.doc_date or '-'}<br>"
+            f"<b>Sender:</b> {doc.sender_name or '-'}<br>"
+
             f"<b>UUID:</b> <small>{doc.uuid}</small><br>"
             f"<b>Created:</b> {doc.created_at}<br>"
             f"<b>Pages:</b> {doc.page_count}<br>"

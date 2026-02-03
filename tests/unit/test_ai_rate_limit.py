@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch, ANY
 import datetime
 import time
-from core.ai_analyzer import AIAnalyzer, AIAnalysisResult
+from core.ai_analyzer import AIAnalyzer
 
 @pytest.fixture
 def mock_genai():
@@ -57,10 +57,10 @@ def test_backoff_on_429(mock_genai):
     
     # Patch time.sleep to speed up test (but verify it was called)
     with patch("time.sleep") as mock_sleep:
-        result = analyzer.analyze_text("foo")
+        result = analyzer.ask_type_check(["page1"])
         
-        # Should return success
-        assert "Success" in result.type_tags
+        # Should return success (Dict from JSON)
+        assert result is not None
         
         # Should have called generate_content 3 times
         assert mock_model.generate_content.call_count == 3

@@ -4,7 +4,8 @@ from core.query_parser import QueryParser
 from gui.filter_widget import FilterWidget
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
+from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo
 from PyQt6.QtCore import QDate
 
 def test_query_parser():
@@ -49,9 +50,25 @@ def db_with_docs(tmp_path):
     db = DatabaseManager(str(db_path))
     db.init_db()
     
-    d1 = Document(uuid="1", original_filename="inv.pdf", doc_date="2024-05-01", sender="Amazon", type_tags=["Invoice"])
-    d2 = Document(uuid="2", original_filename="rec.pdf", doc_date="2023-05-01", sender="Google", type_tags=["Receipt"])
-    d3 = Document(uuid="3", original_filename="letter.pdf", doc_date="2024-06-01", sender="Ebay", type_tags=["Letter"], tags=["urgent"])
+    d1 = Document(
+        uuid="1", 
+        original_filename="inv.pdf", 
+        semantic_data=SemanticExtraction(meta_header=MetaHeader(doc_date="2024-05-01", sender=AddressInfo(name="Amazon"))),
+        type_tags=["Invoice"]
+    )
+    d2 = Document(
+        uuid="2", 
+        original_filename="rec.pdf", 
+        semantic_data=SemanticExtraction(meta_header=MetaHeader(doc_date="2023-05-01", sender=AddressInfo(name="Google"))),
+        type_tags=["Receipt"]
+    )
+    d3 = Document(
+        uuid="3", 
+        original_filename="letter.pdf", 
+        semantic_data=SemanticExtraction(meta_header=MetaHeader(doc_date="2024-06-01", sender=AddressInfo(name="Ebay"))),
+        type_tags=["Letter"], 
+        tags=["urgent"]
+    )
     
     db.insert_document(d1)
     db.insert_document(d2)
@@ -65,10 +82,14 @@ def test_smart_list_filtering(qtbot, db_with_docs):
     
     assert widget.tree.topLevelItemCount() == 3
     
+    # Discovery phase
+    header_labels = [widget.tree.headerItem().text(i) for i in range(widget.tree.columnCount())]
+    def get_col(label): return header_labels.index(label)
+    col_sender = get_col("Sender")
+
     # Query: "2024"
     widget.apply_filter({'date_from': '2024-01-01', 'date_to': '2024-12-31'})
     # Should hide 2023 (doc2) -> UUID 2
-    # Row indices might vary, verify visibility by content or count
     shown = 0
     for r in range(3):
         if not widget.tree.topLevelItem(r).isHidden(): shown += 1
@@ -80,17 +101,16 @@ def test_smart_list_filtering(qtbot, db_with_docs):
     for r in range(3):
         if not widget.tree.topLevelItem(r).isHidden(): 
             # Verify it is Amazon
-            sender = widget.tree.topLevelItem(r).text(7) # Sender index
+            sender = widget.tree.topLevelItem(r).text(col_sender)
             assert sender == "Amazon"
             shown += 1
     assert shown == 1
     
     # Query: "Letter urgent" (Type + Tag in text)
-    # QueryParser would output: type=Letter, text_search=urgent
     widget.apply_filter({'type': 'Letter', 'text_search': 'urgent'})
     shown = 0
     for r in range(3):
          if not widget.tree.topLevelItem(r).isHidden():
-             assert widget.tree.topLevelItem(r).text(7) == "Ebay"
+             assert widget.tree.topLevelItem(r).text(col_sender) == "Ebay"
              shown += 1
     assert shown == 1

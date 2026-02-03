@@ -1,8 +1,8 @@
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QWidget, QMessageBox
 from unittest.mock import MagicMock, patch
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from gui.main_window import MainWindow
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
@@ -91,12 +91,17 @@ def test_delete_protection(main_window, mock_db, qtbot):
     # Create Signal Catcher
     with qtbot.waitSignal(list_widget.delete_requested, timeout=1000) as blocker:
         # Trigger Delete (Simulate Context Menu or Call Direct)
-        # Mock QMessageBox to prevent blocking
-        with patch('PyQt6.QtWidgets.QMessageBox.information') as mock_msg:
+        # Mock show_selectable_message_box to prevent blocking in both List and Main Window
+        # Note: MainWindow.delete_document_slot is connected to delete_requested and also shows a box.
+        with patch('gui.document_list.show_selectable_message_box') as mock_msg_list, \
+             patch('gui.main_window.show_selectable_message_box', return_value=QMessageBox.StandardButton.Yes) as mock_msg_main:
+             
              list_widget.delete_selected_documents(["u1", "l1"])
              
-             # Verify Warning
-             assert mock_msg.called
+             # Verify Warning in list (for locked items)
+             assert mock_msg_list.called
+             # Verify Deletion confirmation in main window (for unlocked items)
+             assert mock_msg_main.called
              
     # Verify Signal Payload (Should only contain "u1")
     emitted_args = blocker.args[0] # The list of uuids

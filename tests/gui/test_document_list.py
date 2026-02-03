@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 from datetime import date
 from decimal import Decimal
 from gui.document_list import DocumentListWidget
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, AddressInfo
 
 @pytest.fixture
 def mock_db():
@@ -13,7 +14,16 @@ def test_document_list_population(qtbot, mock_db):
     """Test that the list widget populates correct data from DB."""
     # Data Setup
     docs = [
-        Document(original_filename="invoice.pdf", sender="Amazon", amount=Decimal("15.99"), doc_date=date(2023, 1, 1)),
+        Document(
+            original_filename="invoice.pdf", 
+            semantic_data=SemanticExtraction(
+                meta_header=MetaHeader(
+                    sender=AddressInfo(name="Amazon"),
+                    doc_date="2023-01-01"
+                ),
+                bodies={"finance_body": FinanceBody(total_gross=Decimal("15.99"))}
+            )
+        ),
         Document(original_filename="contract.pdf", type_tags=["Vertrag"])
     ]
     mock_db.get_all_documents.return_value = docs
@@ -26,20 +36,30 @@ def test_document_list_population(qtbot, mock_db):
     
     # Verify Rows
     assert widget.rowCount() == 2
-    
-    # Check Content (Row 0: Amazon Invoice)
-    # Columns: Date, Sender, Type, Amount, Filename (or similar)
-    # Let's assume order: Date, Sender, Type, Amount
-    
-    # Item at 0 (Row Item)
     item = widget.item(0, 0)
-    # Check UUID (Col 1)
-    # The default fixed columns put Entity ID (UUID) at index 1.
-    assert item.text(1) == docs[0].uuid
     
-    # Item at 0 (Row Item)
-    # Check Pages (Col 3) - Defaults to 0/None -> "0"
-    assert item.text(3) == "0"
+    # Find indices dynamically to avoid breakages on schema changes
+    header_item = widget.tree.headerItem()
+    header_labels = [header_item.text(i) for i in range(widget.tree.columnCount())]
+    
+    def get_col(label):
+        return header_labels.index(label)
+
+    # Fixed Columns
+    assert item.text(get_col("Entity ID")) == docs[0].uuid
+    assert item.text(get_col("Filename")) == "invoice.pdf"
+    
+    # Dynamic Semantic Columns (labeled via SEMANTIC_LABELS)
+    # Date
+    assert item.text(get_col("Date")) == "2023-01-01"
+    
+    # Sender
+    assert item.text(get_col("Sender")) == "Amazon"
+    
+    # Amount - Formatted as currency
+    amt_text = item.text(get_col("Amount"))
+    assert "15" in amt_text
+    assert "99" in amt_text
 
 def test_empty_state(qtbot, mock_db):
     """Test empty list behavior."""
@@ -61,9 +81,12 @@ def test_selection_emits_signal(qtbot, mock_db):
     widget = DocumentListWidget(db_manager=mock_db)
     qtbot.addWidget(widget)
     widget.refresh_list()
+    # refresh_list auto-selects if count=1. We clear it to test explicit selection.
+    widget.tree.clearSelection()
     
     with qtbot.waitSignal(widget.document_selected, timeout=1000) as blocker:
         widget.selectRow(0)
+
         
     # Check signal payload (Expects list of UUIDs)
     assert blocker.args[0] == [docs[0].uuid]

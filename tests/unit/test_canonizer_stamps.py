@@ -71,7 +71,8 @@ def test_canonizer_filters_stamps_by_page(mock_db, mock_analyzer, mock_repos):
             # The last save should have the final status and semantic data
             saved_doc = logical_repo.save.call_args[0][0]
             assert saved_doc.status == "PROCESSED"
-            assert "visual_audit" in saved_doc.semantic_data
-            stamps = saved_doc.semantic_data["visual_audit"].get("layer_stamps", [])
+            assert saved_doc.semantic_data.visual_audit is not None
+            stamps = saved_doc.semantic_data.visual_audit.get("layer_stamps", [])
             assert len(stamps) == 1
             assert stamps[0]["text"] == "Stamp P1"
+

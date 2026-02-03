@@ -4,7 +4,7 @@ from PyQt6.QtGui import QIcon
 from unittest.mock import MagicMock
 from gui.filter_manager import FilterManagerDialog, NodeType
 from core.filter_tree import FilterTree, FilterNode
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 
 @pytest.fixture
 def mock_db_manager():

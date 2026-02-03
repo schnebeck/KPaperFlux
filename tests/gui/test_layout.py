@@ -45,8 +45,9 @@ def test_layout_structure(qtbot, mock_db):
 def test_toggle_editor(qtbot, mock_db):
     mw = MainWindow(db_manager=mock_db)
     qtbot.addWidget(mw)
-    mw.show()
-    qtbot.waitForWindowShown(mw)
+    with qtbot.waitExposed(mw):
+        mw.show()
+
     
     editor = mw.editor_widget
     

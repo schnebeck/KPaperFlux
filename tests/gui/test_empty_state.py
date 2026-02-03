@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt
 from gui.main_window import MainWindow
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from unittest.mock import MagicMock, patch
 
 @pytest.fixture

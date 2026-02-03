@@ -44,75 +44,7 @@ from core.models.canonical_entity import (
 from core.models.identity import IdentityProfile
 
 
-class AIAnalysisResult(BaseModel):
-    """
-    Data container for AI analysis results.
-    
-    Attributes:
-        sender: Name of the sender.
-        doc_date: Date of the document.
-        amount: Net amount.
-        gross_amount: Gross amount.
-        postage: Postage costs.
-        packaging: Packaging costs.
-        tax_rate: Tax rate percentage.
-        currency: Currency code (e.g., EUR).
-        type_tags: List of classification tags.
-        sender_address: Full address of the sender.
-        iban: IBAN found in the document.
-        phone: Phone number found in the document.
-        tags: Suggested tags.
-        recipient_company: Name of the recipient company.
-        recipient_name: Name of the recipient person.
-        recipient_street: Recipient street address.
-        recipient_zip: Recipient ZIP code.
-        recipient_city: Recipient city.
-        recipient_country: Recipient country.
-        sender_company: Name of the sender company.
-        sender_name: Name of the sender person.
-        sender_street: Sender street address.
-        sender_zip: Sender ZIP code.
-        sender_city: Sender city.
-        sender_country: Sender country.
-        extra_data: Additional raw data.
-        semantic_data: Full structured semantic data tree.
-    """
-
-    sender: Optional[str] = None
-    doc_date: Optional[datetime.date] = None
-    amount: Optional[Decimal] = None
-
-    # Financial Details
-    gross_amount: Optional[Decimal] = None
-    postage: Optional[Decimal] = None
-    packaging: Optional[Decimal] = None
-    tax_rate: Optional[Decimal] = None
-    currency: Optional[str] = None
-
-    type_tags: List[str] = field(default_factory=list)
-    sender_address: Optional[str] = None
-    iban: Optional[str] = None
-    phone: Optional[str] = None
-    tags: Optional[str] = None
-
-    # Structured Details
-    recipient_company: Optional[str] = None
-    recipient_name: Optional[str] = None
-    recipient_street: Optional[str] = None
-    recipient_zip: Optional[str] = None
-    recipient_city: Optional[str] = None
-    recipient_country: Optional[str] = None
-
-    sender_company: Optional[str] = None
-    sender_name: Optional[str] = None
-    sender_street: Optional[str] = None
-    sender_zip: Optional[str] = None
-    sender_city: Optional[str] = None
-    sender_country: Optional[str] = None
-
-    # Metadata & Semantic Data
-    extra_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    semantic_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+# AIAnalysisResult and analyze_text removed as they were legacy. Use SemanticExtraction and structured extraction instead.
 
 
 class AIAnalyzer:
@@ -405,202 +337,8 @@ class AIAnalyzer:
         print(f"ABORT: AI Analysis failed after {self.MAX_RETRIES} attempts. Last error: {last_error}")
         return None
 
-    def analyze_text(self, text: str, image: Optional[Any] = None) -> AIAnalysisResult:
-        """
-        Analyzes the document text using Gemini and extracts semantic data.
 
-        Args:
-            text: The text content of the document.
-            image: Optional image data (first page).
-
-        Returns:
-            An AIAnalysisResult object containing extracted data.
-        """
-        # document_schema used by legacy analyze_text.
-        # Inlined for portability (GitHub Safe).
-        doc_schema = {
-          "type": "object",
-          "properties": {
-             "summary": { "type": "object", "properties": { "classification": { "type": "array", "items": { "type": "string" } }, "main_date": { "type": "string" } } },
-             "pages": { "type": "array", "items": { "type": "object" } }
-          }
-        }
-
-        # Create a simplified One-Shot Example to guide the model away from Schema copying
-        example_json = """
-        {
-          "summary": { "classification": ["Invoice"], "main_date": "2025-01-01", "language": "de" },
-          "pages": [
-            {
-              "page_number": 1,
-              "regions": [
-                {
-                   "role": "header",
-                   "blocks": [ { "type": "text", "content": "Header Text..." } ]
-                },
-                {
-                   "role": "body",
-                   "blocks": [
-                      { "type": "key_value", "pairs": [ { "key": "Date", "value": "2025-01-01" } ] }
-                   ]
-                }
-              ]
-            }
-          ]
-        }
-        """
-
-        prompt = f"""
-        You are a generic document data extraction engine.
-
-        ### 1. THE SCHEMA (TYPE DEFINITION)
-        Use this JSON Schema to understand the allowed structure and types.
-        {json.dumps(doc_schema, indent=2)}
-
-        ### 2. THE GOAL
-        EXTRACT data from the text below and FORMAT it as a valid JSON INSTANCE of the schema above.
-        - DO NOT return the schema definition itself.
-        - DO NOT return the "properties" or "type" keywords in your data.
-        - Return ONLY the data.
-
-        ### 3. ADVANCED EXTRACTION RULES
-        - **Visual Columns**: If you see Keys (left) and Values (right), merge them into `KeyValueBlock` pairs.
-        - **Composite Splitting**: Split composite keys "Date/No" -> "Date", "No".
-        - **Header Decomposition**: Break headers into structured KeyValue/Address blocks where possible.
-        - **Composite Types**: "Rechnung & AB" -> `["Invoice", "Order Confirmation"]`.
-        - **Stamps**: Detect ink stamps (e.g. "Received", date stamps) as `StampBlock`. Extract text and date if legible.
-
-        ### 4. EXAMPLE OUTPUT (for format reference)
-        {example_json}
-
-        ### 5. INPUT TEXT TO PROCESS
-        {text}
-
-        ### 6. YOUR JSON OUTPUT
-        """
-
-        self._print_debug_prompt("STAGE 2 AI REQUEST", prompt)
-
-        contents = [prompt]
-        if image:
-            contents.append(image)
-
-        response = self._generate_with_retry(contents)
-
-        if not response:
-            return AIAnalysisResult()
-
-        response_text = response.text
-
-        # Clean up markdown code blocks if present
-        if "```json" in response_text:
-            response_text = response_text.replace("```json", "").replace("```", "")
-        elif "```" in response_text:
-            response_text = response_text.replace("```", "")
-
-        try:
-            semantic_data = json.loads(response_text)
-            print(f"\n=== [STAGE 2 AI RESPONSE] ===\n{json.dumps(semantic_data, indent=2)}\n===========================\n")
-
-            # Hybrid Extraction: Flatten Semantic Data to SQL Columns
-            # We need to traverse the tree to find best candidates for:
-            # - doc_date (Main Date)
-            # - amount (Total Net)
-            # - gross_amount (Total Gross)
-            # - sender
-
-            # Helper to recursively find key/values
-            extracted = {
-                "doc_date": None,
-                "amount": None,
-                "gross_amount": None,
-                "sender": None,
-                "classification": None
-            }
-
-            # 1. Check Summary (Quick Path)
-            if "summary" in semantic_data:
-                summ = semantic_data["summary"]
-                extracted["doc_date"] = summ.get("main_date")
-                extracted["classification"] = summ.get("classification")
-
-            # 2. Traverse Blocks for Financials if missing
-            # A simple heuristic: Look for KeyValueBlocks with keys like "amount", "total", "net", "brutto"
-
-            def traverse(node):
-                if isinstance(node, dict):
-                    # Check for KeyValueBlock
-                    if node.get("type") == "key_value" and "pairs" in node:
-                        for pair in node["pairs"]:
-                            k = pair.get("key", "").lower()
-                            v = pair.get("value")
-
-                            # Heuristics
-                            if not extracted["amount"] and any(x in k for x in ["net", "netto", "total_net", "amount"]):
-                                extracted["amount"] = v
-                            if not extracted["gross_amount"] and any(x in k for x in ["gross", "brutto", "total_gross"]):
-                                extracted["gross_amount"] = v
-
-                    # Check for AddressBlock (Sender)
-                    if node.get("type") == "address" and node.get("role") == "sender":
-                        if "structured" in node and node["structured"].get("name"):
-                             extracted["sender"] = node["structured"]["name"]
-                        elif "raw_text" in node and not extracted["sender"]:
-                             extracted["sender"] = node["raw_text"].split("\n")[0] # First line?
-
-                    for _, val in node.items():
-                        traverse(val)
-                elif isinstance(node, list):
-                    for item in node:
-                        traverse(item)
-
-            traverse(semantic_data)
-
-            # Parse Date
-            doc_date = None
-            if extracted["doc_date"]:
-                try: doc_date = datetime.date.fromisoformat(extracted["doc_date"])
-                except: pass
-
-            # Parse Amounts
-            def to_decimal(val: Any) -> Optional[Decimal]:
-                """Safe conversion to Decimal."""
-                if val is not None:
-                    try:
-                        return Decimal(str(val))
-                    except (ValueError, TypeError, json.JSONDecodeError):
-                        pass
-                return None
-
-            # 2. Build Result Object
-            result = AIAnalysisResult(
-                doc_date=doc_date,
-                amount=to_decimal(extracted["amount"]),
-                gross_amount=to_decimal(extracted["gross_amount"]),
-                sender=extracted["sender"],
-                type_tags=extracted["classification"] if isinstance(extracted["classification"], list) else ([str(extracted["classification"])] if extracted["classification"] else []),
-                semantic_data=semantic_data
-            )
-
-            # Phase 80: Backfill Summary for Indexing
-            if "summary" not in semantic_data:
-                semantic_data["summary"] = {}
-
-            summ = semantic_data["summary"]
-            if extracted["amount"]:
-                summ["amount"] = str(extracted["amount"])
-            if extracted["gross_amount"]:
-                summ["gross_amount"] = str(extracted["gross_amount"])
-            if extracted["sender"]:
-                summ["sender_name"] = extracted["sender"]
-
-            return result
-
-        except Exception as e:
-            print(f"CRITICAL AI Analysis Error (Logic): {e}")
-            import traceback
-            traceback.print_exc()
-            return AIAnalysisResult()
+    # analyze_text removed (legacy). Use run_stage_2 for structured extraction.
     def identify_entities(self, text: str, semantic_data: Optional[Dict[str, Any]] = None, detected_entities: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """
         Phase 1.2 of Canonization: Identifies distinct documents within a file.
@@ -631,9 +369,13 @@ class AIAnalyzer:
         Returns:
             A list of dictionaries representing logical entities.
         """
+        if hasattr(semantic_data, "model_dump"):
+            semantic_data = semantic_data.model_dump()
+            
         # 1. Extract Existing Type Hints
         existing_types_str = "OTHER"
         summary = semantic_data.get("summary", {})
+
         if "classification" in summary:
             dt = summary["classification"]
             if isinstance(dt, list):
@@ -685,7 +427,11 @@ class AIAnalyzer:
 
     def _identify_entities_legacy(self, text: str, semantic_data: dict = None, detected_entities: List[dict] = None) -> List[dict]:
         # ... (Original identify_entities logic mooved here) ...
+        if hasattr(semantic_data, "model_dump"):
+            semantic_data = semantic_data.model_dump()
+
         if not text: return []
+
 
         # Build hints from semantic data or previous stage
         structural_hints = ""
@@ -893,7 +639,8 @@ class AIAnalyzer:
                      try:
                          # Ensure it's uppercase
                          raw_data["entity_type"] = raw_data["entity_type"].upper()
-                     except: pass
+                     except (AttributeError, TypeError):
+                         pass
 
                 # Attempt full validation if possible, or just coercion of known fields
                 # For now, let's minimally coerce 'total_amount' if it sits in specific_data or root?
@@ -1222,6 +969,9 @@ TASK:
             print(f"[AI] Error: Could not access response text: {e}")
             return None, f"Could not access response text: {e}"
 
+        if txt is None:
+            return None, "Response text is None"
+        
         # Clean control characters (null bytes, etc.) that break JSON
         txt = txt.replace("\x00", "") 
 
@@ -1930,7 +1680,14 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
         Pattern: YYYY-MM-DD__ENTITY__TYPE.pdf
         """
         
+        if semantic_data is None:
+            return "0000-00-00__Unknown__DOC.pdf"
+
+        if hasattr(semantic_data, "model_dump"):
+            semantic_data = semantic_data.model_dump()
+            
         # 1. Date (WANN)
+
         date_str = "0000-00-00"
         meta = semantic_data.get("meta_header", {})
         if meta.get("doc_date"):

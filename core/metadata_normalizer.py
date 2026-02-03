@@ -16,7 +16,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Generator
 
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 
 
 class MetadataNormalizer:
@@ -161,16 +161,16 @@ class MetadataNormalizer:
         Returns:
             A dictionary containing the standardized field values.
         """
-        if not doc.semantic_data:
-            return {}
-
-        # Determine Classification (favor type_tags over nested summary)
+        # Determine Classification (favor type_tags first)
         effective_type = doc.type_tags
-        if not effective_type and isinstance(doc.semantic_data, dict):
-            summary = doc.semantic_data.get("summary", {})
-            if isinstance(summary, dict):
-                # Use new classification field exclusively
-                effective_type = summary.get("classification", "Other")
+        
+        # Convert Pydantic to dict for JSON Path traversal
+        data = doc.semantic_data
+        if hasattr(data, "model_dump"):
+            data = data.model_dump()
+        
+        if not effective_type and data:
+            effective_type = data.get("entity_types")
 
         # Normalize to a single string for config lookup
         if isinstance(effective_type, list) and effective_type:
@@ -195,9 +195,10 @@ class MetadataNormalizer:
             for strategy in strategies:
                 st_type = strategy.get("type")
                 if st_type == "json_path":
-                    value = cls._resolve_json_path(doc.semantic_data, strategy.get("path"))
+                    value = cls._resolve_json_path(data, strategy.get("path"))
                 elif st_type == "fuzzy_key":
-                    value = cls._find_fuzzy_key(doc.semantic_data, strategy.get("aliases", []))
+                    value = cls._find_fuzzy_key(data, strategy.get("aliases", []))
+
 
                 if value:
                     break
@@ -233,6 +234,11 @@ class MetadataNormalizer:
         for part in parts:
             if isinstance(current, dict) and part in current:
                 current = current[part]
+            elif hasattr(current, "__getitem__"):
+                try:
+                    current = current[part]
+                except (KeyError, TypeError):
+                    return None
             else:
                 return None
         return current
@@ -298,20 +304,28 @@ class MetadataNormalizer:
             True if the update was successful.
         """
         if not doc.semantic_data:
-            doc.semantic_data = {"summary": {}}
-
+            from core.models.semantic import SemanticExtraction
+            doc.semantic_data = SemanticExtraction()
+ 
         effective_type = doc.type_tags
-        if not effective_type and isinstance(doc.semantic_data, dict):
-            summary = doc.semantic_data.get("summary", {})
-            if isinstance(summary, dict):
-                effective_type = summary.get("classification", "Other")
+        
+        # Working with dict for path updates
+        data = doc.semantic_data
+        was_model = False
+        if hasattr(data, "model_dump"):
+            data = data.model_dump()
+            was_model = True
 
+        if not effective_type:
+             effective_type = "Other"
+ 
         if isinstance(effective_type, list) and effective_type:
             effective_type = str(effective_type[0])
         elif effective_type:
             effective_type = str(effective_type)
         else:
             effective_type = "Other"
+
 
         config = cls.get_config()
         type_def = config.get("types", {}).get(effective_type) or config.get("types", {}).get("Other")
@@ -332,7 +346,23 @@ class MetadataNormalizer:
             return False
 
         # Execute Update
-        return cls._set_json_path(doc.semantic_data, target_path, new_value)
+        success = cls._set_json_path(data, target_path, new_value)
+        
+        if success and was_model:
+            # Sync back to model
+            from core.models.semantic import SemanticExtraction
+            try:
+                doc.semantic_data = SemanticExtraction(**data)
+            except Exception as e:
+                print(f"[MetadataNormalizer] Sync back failed: {e}")
+                # Fallback: keep as dict if it's really corrupted, 
+                # but VirtualDocument expect a model. 
+                # Most likely it stays a model anyway.
+        elif success and not was_model:
+            doc.semantic_data = data
+            
+        return success
+
 
     @staticmethod
     def _set_json_path(data: Dict[str, Any], path: str, value: Any) -> bool:

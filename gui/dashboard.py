@@ -20,10 +20,11 @@ class StatCard(QFrame):
     edit_requested = pyqtSignal()
     delete_requested = pyqtSignal()
 
-    def __init__(self, title, count, color_hex, filter_query, parent=None):
+    def __init__(self, title, value, color_hex, filter_query, aggregation="count", parent=None):
         super().__init__(parent)
         self.filter_query = filter_query
         self.color_hex = color_hex
+        self.aggregation = aggregation
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setObjectName("StatCard")
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -50,17 +51,31 @@ class StatCard(QFrame):
         """)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(20, 15, 20, 15)
         
-        # Title
+        # Title row
+        top_layout = QHBoxLayout()
         lbl_title = QLabel(title)
         lbl_title.setWordWrap(True)
-        lbl_title.setStyleSheet("color: #4b5563; font-weight: 500; font-size: 13pt;")
-        layout.addWidget(lbl_title, 0, Qt.AlignmentFlag.AlignTop)
+        lbl_title.setStyleSheet("color: #4b5563; font-weight: 500; font-size: 12pt;")
+        top_layout.addWidget(lbl_title)
         
-        # Count
-        self.lbl_count = QLabel(str(count))
-        self.lbl_count.setStyleSheet(f"color: {color_hex}; font-weight: 800; font-size: 32pt;")
+        # Aggregation indicator
+        self.lbl_agg = QLabel(aggregation.upper())
+        self.lbl_agg.setStyleSheet(f"color: {color_hex}; background-color: {color_hex}20; padding: 2px 6px; border-radius: 4px; font-size: 8pt; font-weight: bold;")
+        top_layout.addWidget(self.lbl_agg, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        
+        layout.addLayout(top_layout)
+        
+        # Value
+        display_val = ""
+        if aggregation == "sum":
+            display_val = f"{float(value):,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        else:
+            display_val = str(value)
+            
+        self.lbl_count = QLabel(display_val)
+        self.lbl_count.setStyleSheet(f"color: {color_hex}; font-weight: 800; font-size: 28pt;")
         self.lbl_count.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.lbl_count, 1)
 
@@ -157,7 +172,8 @@ class DashboardWidget(QWidget):
             self.cards_config = [
                 {"title": "Inbox", "preset_id": "NEW", "color": "#3b82f6", "row": 0, "col": 0},
                 {"title": "Total Documents", "preset_id": "ALL", "color": "#10b981", "row": 0, "col": 1},
-                {"title": "Processed", "preset_id": "PROCESSED", "color": "#6b7280", "row": 0, "col": 2}
+                {"title": "Total Invoiced", "preset_id": "INVOICES", "color": "#f59e0b", "aggregation": "sum", "row": 0, "col": 2},
+                {"title": "Processed", "preset_id": "PROCESSED", "color": "#6b7280", "row": 0, "col": 3}
             ]
 
     def save_config(self):
@@ -198,19 +214,24 @@ class DashboardWidget(QWidget):
             # Resolve count and query
             query = None
             count = 0
+            agg_type = config.get("aggregation", "count")
             
             if "preset_id" in config:
                 pid = config["preset_id"]
                 if self.db_manager:
                     if pid == "NEW":
-                        count = self.db_manager.count_entities("NEW")
                         query = {"status": "NEW"}
                     elif pid == "PROCESSED":
-                        count = self.db_manager.count_entities("PROCESSED")
                         query = {"status": "PROCESSED"}
+                    elif pid == "INVOICES":
+                        query = {"operator": "AND", "conditions": [{"field": "type_tags", "op": "contains", "value": ["INVOICE"]}]}
                     else:
-                        count = self.db_manager.count_entities(None)
                         query = {}
+                    
+                    if agg_type == "sum":
+                        count = self.db_manager.sum_documents_advanced(query)
+                    else:
+                        count = self.db_manager.count_documents_advanced(query)
                 else:
                     count = 0
                     query = {}
@@ -218,11 +239,14 @@ class DashboardWidget(QWidget):
             elif "filter_id" in config and self.filter_tree:
                 node = self.filter_tree.find_node_by_id(config["filter_id"])
                 if node:
+                    query = node.data
                     if self.db_manager:
-                        count = self.db_manager.count_documents_advanced(node.data)
+                        if agg_type == "sum":
+                            count = self.db_manager.sum_documents_advanced(query)
+                        else:
+                            count = self.db_manager.count_documents_advanced(query)
                     else:
                         count = 0
-                    query = node.data
                 else:
                     count = "ERR"
                     query = {}
@@ -232,6 +256,7 @@ class DashboardWidget(QWidget):
                 count, 
                 config.get("color", "#3b82f6"), 
                 query,
+                aggregation=agg_type,
                 parent=self.content_widget
             )
             card.filter_id = config.get("filter_id")

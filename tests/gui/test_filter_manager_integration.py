@@ -118,7 +118,7 @@ def test_quick_delete(advanced_widget, filter_tree):
     
     # Simulate Delete (bypass menu exec, call logic directly)
     # Mock confirmation dialog
-    with patch('PyQt6.QtWidgets.QMessageBox.question', return_value=QMessageBox.StandardButton.Yes):
+    with patch('gui.advanced_filter.show_selectable_message_box', return_value=QMessageBox.StandardButton.Yes):
         advanced_widget._delete_node(node)
         
     # Verify Removed from Tree

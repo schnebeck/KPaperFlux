@@ -14,6 +14,15 @@ class ColumnManagerDialog(QDialog):
         self.available_keys = sorted([k for k in available_keys if k not in self.dynamic_columns])
         self.header = header
         
+        self.PRETTY_LABELS = {
+            "doc_date": "Date",
+            "sender_name": "Sender",
+            "total_amount": "Amount",
+            "total_gross": "Gross Amount",
+            "total_net": "Net Amount",
+            "invoice_number": "Invoice #"
+        }
+        
         self.init_ui()
         self.load_columns()
         
@@ -86,7 +95,7 @@ class ColumnManagerDialog(QDialog):
             dyn_idx = l_idx - len(self.fixed_columns)
             if 0 <= dyn_idx < len(self.dynamic_columns):
                 key = self.dynamic_columns[dyn_idx]
-                label = key
+                label = self.PRETTY_LABELS.get(key, key)
                 is_new = False
             else:
                 return # Should not happen unless inconsistent
@@ -115,8 +124,8 @@ class ColumnManagerDialog(QDialog):
         if not key: return
         
         # Logic: Treat as "new".
-        # It doesn't have a logical index yet.
-        item = QListWidgetItem(key)
+        display_label = self.PRETTY_LABELS.get(key, key)
+        item = QListWidgetItem(display_label)
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
         item.setCheckState(Qt.CheckState.Checked)
         

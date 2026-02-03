@@ -335,8 +335,10 @@ class PdfViewerWidget(QWidget):
             # Cleanup old temp file after swap?
             # Note: We keep the PATH to the CURRENT temp file to delete it later
             if self.temp_pdf_path and os.path.exists(self.temp_pdf_path):
-                 try: os.remove(self.temp_pdf_path)
-                 except: pass
+                try:
+                    os.remove(self.temp_pdf_path)
+                except OSError:
+                    pass
             self.temp_pdf_path = temp_path
 
         except Exception as e:
@@ -623,8 +625,10 @@ class PdfViewerWidget(QWidget):
         self.btn_split.setVisible(False)
 
         if self.temp_pdf_path and os.path.exists(self.temp_pdf_path):
-             try: os.remove(self.temp_pdf_path)
-             except: pass
+             try:
+                 os.remove(self.temp_pdf_path)
+             except OSError:
+                 pass
              self.temp_pdf_path = None
 
     def keyPressEvent(self, event):
@@ -644,5 +648,7 @@ class PdfViewerWidget(QWidget):
     def __del__(self):
         """Force cleanup of temp files."""
         if self.temp_pdf_path and os.path.exists(self.temp_pdf_path):
-             try: os.remove(self.temp_pdf_path)
-             except: pass
+             try:
+                 os.remove(self.temp_pdf_path)
+             except OSError:
+                 pass

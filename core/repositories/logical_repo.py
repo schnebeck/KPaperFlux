@@ -20,15 +20,23 @@ from core.models.virtual import VirtualDocument
 from .base import BaseRepository
 
 
+from decimal import Decimal
+from pydantic import BaseModel
+
+
 class EnhancedJSONEncoder(json.JSONEncoder):
     """
-    Custom JSON encoder to handle datetime and date objects.
+    Custom JSON encoder to handle datetime, date, Decimal, and Pydantic models.
     Ensures that semantic data remains serializable even with complex types.
     """
 
     def default(self, obj: Any) -> Any:
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return float(obj)
+        if isinstance(obj, BaseModel):
+            return obj.model_dump()
         return super().default(obj)
 
 

@@ -27,7 +27,7 @@ from pdf2image import convert_from_path
 from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from core.models.physical import PhysicalFile
 from core.models.virtual import SourceReference, VirtualDocument
 from core.repositories import LogicalRepository, PhysicalRepository
@@ -94,51 +94,7 @@ class PipelineProcessor:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
-    def _virtual_to_legacy(self, virtual_doc: VirtualDocument) -> Document:
-        """
-        Converts a VirtualDocument back to a legacy Document for compatibility.
 
-        Args:
-            virtual_doc: The VirtualDocument to convert.
-
-        Returns:
-            A legacy Document object.
-        """
-        full_text: List[str] = []
-        original_filename = "virtual_doc.pdf"
-
-        # Resolve sources to get text and filename
-        if virtual_doc.source_mapping:
-            first = True
-            for src in virtual_doc.source_mapping:
-                pf = self.physical_repo.get_by_uuid(src.file_uuid)
-                if pf:
-                    if first:
-                        original_filename = pf.original_filename
-                        first = False
-
-                    if pf.raw_ocr_data:
-                        for p in src.pages:
-                            full_text.append(pf.raw_ocr_data.get(str(p), ""))
-
-        doc = Document(
-            uuid=virtual_doc.uuid,
-            original_filename=original_filename,
-            text_content="\n".join(full_text),
-            created_at=virtual_doc.created_at,
-            last_processed_at=virtual_doc.last_processed_at,
-            last_used=virtual_doc.last_used,
-            status=virtual_doc.status,
-            type_tags=virtual_doc.type_tags,
-            tags=virtual_doc.tags,
-            export_filename=virtual_doc.export_filename,
-            deleted_at=virtual_doc.deleted_at,
-            locked_at=virtual_doc.locked_at,
-            exported_at=virtual_doc.exported_at,
-            semantic_data=virtual_doc.semantic_data,
-            extra_data={"status": virtual_doc.status, "source_mapping": virtual_doc.to_source_mapping_json()},
-        )
-        return doc
         
     def _ingest_physical_file(self, file_path: str, move_source: bool = False) -> Optional[PhysicalFile]:
         """
@@ -203,9 +159,9 @@ class PipelineProcessor:
 
         return phys_file
 
-    def process_document(self, file_path: str, move_source: bool = False, skip_ai: bool = False) -> Optional[Document]:
+    def process_document(self, file_path: str, move_source: bool = False, skip_ai: bool = False) -> Optional[VirtualDocument]:
         """
-        Legacy/Default Ingest: One File -> One Document.
+        Ingest: One File -> One Document.
 
         Args:
             file_path: The path to the file to process.
@@ -213,7 +169,7 @@ class PipelineProcessor:
             skip_ai: Whether to skip AI analysis.
 
         Returns:
-            The created legacy Document object.
+            The created VirtualDocument object.
         """
         phys_file = self._ingest_physical_file(file_path, move_source)
         if not phys_file:
@@ -225,7 +181,8 @@ class PipelineProcessor:
         v_doc = VirtualDocument(
             uuid=new_uuid,
             created_at=datetime.datetime.now().isoformat(),
-            status="NEW"
+            status="NEW",
+            original_filename=phys_file.original_filename
         )
 
         # Map all pages from physical file
@@ -233,14 +190,8 @@ class PipelineProcessor:
         v_doc.add_source(phys_file.uuid, pages_list)
 
         # --- Phase C: Persistence ---
-        # 1. Shadow Insert (Legacy Persistence)
-        legacy_doc = self._virtual_to_legacy(v_doc)
-        # Backfill physical props
-        legacy_doc.phash = phys_file.phash
-        legacy_doc.page_count = phys_file.page_count_phys
-        legacy_doc.created_at = v_doc.created_at
-        legacy_doc.last_processed_at = datetime.datetime.now().isoformat()
-        legacy_doc.export_filename = self._generate_export_filename(legacy_doc)
+        v_doc.last_processed_at = datetime.datetime.now().isoformat()
+        v_doc.export_filename = self._generate_export_filename(v_doc)
 
         # 2. Save Logical Entity
         self.logical_repo.save(v_doc)
@@ -250,20 +201,19 @@ class PipelineProcessor:
         if not skip_ai:
             self._run_ai_analysis(v_doc, None)
 
-        return legacy_doc
+        return v_doc
 
-    def reprocess_document(self, uuid_str: str, skip_ai: bool = False) -> Optional[Document]:
+    def reprocess_document(self, uuid_str: str, skip_ai: bool = False) -> Optional[VirtualDocument]:
         """
-        Reprocesses an existing document.
+        Reprocesses an existing virtual document.
 
         Args:
             uuid_str: The UUID of the document to reprocess.
             skip_ai: Whether to skip AI analysis.
 
         Returns:
-            The updated legacy Document object, or None if not found.
+            The updated VirtualDocument object, or None if not found.
         """
-        # A. Try Logical Entity (V2)
         v_doc = self.logical_repo.get_by_uuid(uuid_str)
 
         if v_doc:
@@ -278,21 +228,10 @@ class PipelineProcessor:
                 # AI analysis logic handling (v_doc is passed to _run_ai_analysis)
                 self._run_ai_analysis(v_doc, f_path)
 
-            # Refresh
-            v_doc = self.logical_repo.get_by_uuid(uuid_str)
-            return self._virtual_to_legacy(v_doc)
+            # Refresh and return
+            return self.logical_repo.get_by_uuid(uuid_str)
 
-        # B. Legacy Fallback
-        doc = self.db.get_document_by_uuid(uuid_str)
-        if not doc:
-            return None
-
-        file_path = self.vault.get_file_path(doc.uuid)
-        # Re-run AI
-        if not skip_ai:
-            self._run_ai_analysis(doc, file_path)
-
-        return self.db.get_document_by_uuid(uuid_str)
+        return None
     
     def split_entity(self, entity_uuid: str, split_after_page_index: int) -> Tuple[str, str]:
         """
@@ -414,13 +353,14 @@ class PipelineProcessor:
                     current_pages.append(p_idx)
                 else:
                     if current_pages and current_file_uuid:
-                        mapping.append(SourceReference(current_file_uuid, current_pages, current_rot))
+                        mapping.append(SourceReference(file_uuid=current_file_uuid, pages=current_pages, rotation=current_rot))
                     current_file_uuid = f_uuid
                     current_rot = rot
                     current_pages = [p_idx]
 
             if current_pages and current_file_uuid:
-                mapping.append(SourceReference(current_file_uuid, current_pages, current_rot))
+                mapping.append(SourceReference(file_uuid=current_file_uuid, pages=current_pages, rotation=current_rot))
+
 
             if mapping:
                 new_doc = VirtualDocument(
@@ -678,17 +618,10 @@ class PipelineProcessor:
         print(f"[Pipeline] Logically merged {len(uuids)} documents into {merged_doc.uuid}")
         return True
 
-    def merge_documents_physical(self, uuids: List[str]) -> Optional[Document]:
+    def merge_documents_physical(self, uuids: List[str]) -> Optional[VirtualDocument]:
         """
-        Old physical merge implementation. (Keep for reference/export tools/legacy)
-
-        Args:
-            uuids: List of UUIDs to merge.
-
-        Returns:
-            Optional legacy Document object.
+        Physical merge implementation (deprecated, use logical merge instead).
         """
-        # (Implementation omitted or kept empty as in original)
         return None
 
     def _detect_and_extract_text(self, doc_uuid: str, path: Path) -> str:
@@ -875,16 +808,12 @@ class PipelineProcessor:
             The generated filename string.
         """
         sd = doc.semantic_data or {}
-        sender = sd.get("sender") or "Unknown"
-        if doc.sender_company:
-            sender = doc.sender_company
-        elif doc.sender_name:
-            sender = doc.sender_name
+        sender = doc.sender_name or "Unknown"
 
-        effective_type = "Document"
-        if doc.type_tags:
-            effective_type = str(doc.type_tags[0])
-        date_part = str(sd.get("doc_date") or "UnknownDate")
+
+        effective_type = doc.effective_type or "Document"
+        date_part = doc.doc_date or "UnknownDate"
+
 
         def clean(s: str) -> str:
             # Remove invalid chars for filenames
@@ -910,20 +839,12 @@ class PipelineProcessor:
             print(f"[Pipeline] Warning: Attempting to save non-existent entity {doc.uuid}")
             return
 
-        sd = doc.semantic_data or {}
-
+        # 2. Update Semantic Data if provided
         if doc.semantic_data:
             virtual_doc.semantic_data = doc.semantic_data
 
-        if not virtual_doc.semantic_data:
-            virtual_doc.semantic_data = {}
+        # Ensure Financials sync if needed (though it should be in doc.semantic_data already if V2)
 
-        # Ensure Financials in Semantic Data
-        amt = sd.get("amount")
-        if amt is not None:
-            if "summary" not in virtual_doc.semantic_data:
-                virtual_doc.semantic_data["summary"] = {}
-            virtual_doc.semantic_data["summary"]["net_amount"] = float(amt)
 
         # 3. Save
         self.logical_repo.save(virtual_doc)

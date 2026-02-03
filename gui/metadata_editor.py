@@ -5,8 +5,9 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog
 )
 import json
+from datetime import datetime
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 from core.models.canonical_entity import DocType
 
@@ -109,16 +110,19 @@ class NestedTableDialog(QDialog):
     def _parse_value(self, text: str) -> Any:
         try:
             val_clean = text.strip()
+            if not val_clean: return None
             if val_clean.startswith(("[", "{")):
                 return json.loads(val_clean)
             if val_clean.lower() == "true": return True
             if val_clean.lower() == "false": return False
-            if not val_clean: return None
+            
+            # Numeric conversion
             if "." in val_clean and val_clean.replace(".", "", 1).replace("-","",1).isdigit():
                 return float(val_clean)
             if val_clean.isdigit() or (val_clean.startswith("-") and val_clean[1:].isdigit()):
                 return int(val_clean)
-        except: pass
+        except (json.JSONDecodeError, ValueError):
+            pass # Return text as fallback
         return text
 
 class MetadataEditorWidget(QWidget):
@@ -145,9 +149,20 @@ class MetadataEditorWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         # Lock Checkbox
+        lock_layout = QHBoxLayout()
         self.chk_locked = QCheckBox("Locked (Immutable)")
         self.chk_locked.clicked.connect(self.on_lock_clicked)
-        layout.addWidget(self.chk_locked)
+        lock_layout.addWidget(self.chk_locked)
+        
+        lock_layout.addStretch()
+        
+        # Phase 111: Workflow Actions
+        self.btn_verify = QPushButton("✅ Verify Document")
+        self.btn_verify.setStyleSheet("background-color: #2e7d32; color: white; font-weight: bold; padding: 4px 12px;")
+        self.btn_verify.clicked.connect(self.on_verify_clicked)
+        lock_layout.addWidget(self.btn_verify)
+        
+        layout.addLayout(lock_layout)
 
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
@@ -159,6 +174,14 @@ class MetadataEditorWidget(QWidget):
         self.general_scroll.setWidget(self.general_content)
 
         general_layout = QFormLayout(self.general_content)
+        
+        self.workflow_lbl = QLabel()
+        self.workflow_lbl.setStyleSheet("font-weight: bold; color: #1976d2;")
+        general_layout.addRow("Workflow:", self.workflow_lbl)
+        
+        # PKV Toggle
+        self.chk_pkv = QCheckBox("Eligible for PKV Reimbursement")
+        general_layout.addRow("", self.chk_pkv)
 
         self.uuid_lbl = QLabel()
         self.uuid_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -327,6 +350,38 @@ class MetadataEditorWidget(QWidget):
         self.date_edit.dateChanged.connect(self._mark_dirty)
         self.stamps_table.itemChanged.connect(self._mark_dirty)
         self.semantic_table.itemChanged.connect(self._mark_dirty)
+        self.chk_pkv.toggled.connect(self._mark_dirty)
+
+    def on_verify_clicked(self):
+        """Action to sign off on AI extraction."""
+        if not self.current_uuids or not self.db_manager:
+            return
+            
+        # 1. Update Workflow Status in SD
+        for uuid in self.current_uuids:
+            doc = self.db_manager.get_document_by_uuid(uuid)
+            if not doc: continue
+            
+            sd = doc.semantic_data
+            if not sd: continue
+            
+            # Update workflow object
+            wf = getattr(sd, "workflow", None)
+            if wf:
+                wf.is_verified = True
+                wf.verified_at = datetime.now().isoformat()
+                wf.verified_by = "USER"
+                wf.current_step = "VERIFIED"
+                
+                # Update status to PROCESSED
+                self.db_manager.update_document_metadata(uuid, {
+                    "status": "PROCESSED",
+                    "locked": True,
+                    "semantic_data": sd
+                })
+        
+        self.metadata_saved.emit()
+        show_notification(self, "Verified", f"Marked {len(self.current_uuids)} items as verified.")
 
     def _mark_dirty(self):
         """Enable save button when user changes something."""
@@ -444,7 +499,8 @@ class MetadataEditorWidget(QWidget):
             self.tags_edit.setText(str(user_tags))
 
         # AI / Analysis Fields
-        sd = doc.semantic_data or {}
+        sd = doc.semantic_data  # This is a SemanticExtraction object in V2
+        sd_dict = sd.model_dump() if sd else {}
 
         # Doc Types (Dynamic via Enum)
         dt = doc.type_tags or []
@@ -454,12 +510,12 @@ class MetadataEditorWidget(QWidget):
         # Directions & Context (Dynamic via standard values)
         # Note: We keep these UNKNOWN by default if nothing found
         # They will grow as the system evolves.
-        self.direction_combo.setCurrentText(sd.get("direction", "UNKNOWN"))
-        self.context_combo.setCurrentText(sd.get("tenant_context", "UNKNOWN"))
+        self.direction_combo.setCurrentText(sd_dict.get("direction", "UNKNOWN"))
+        self.context_combo.setCurrentText(sd_dict.get("tenant_context", "UNKNOWN"))
 
         # Stage 1.5 Stamps (Phase 105 Fix)
         # Check both direct 'layer_stamps' and nested 'visual_audit'
-        audit_data = sd.get("visual_audit") or sd
+        audit_data = sd_dict.get("visual_audit") or sd_dict
         stamps = audit_data.get("layer_stamps") or audit_data.get("stamps") or []
 
         self.stamps_table.setRowCount(0)
@@ -495,22 +551,40 @@ class MetadataEditorWidget(QWidget):
         else:
             self.tab_widget.setTabVisible(idx_stamps, False)
 
-        # Semantic Data Table (Phase 110)
-        self._populate_semantic_table(sd)
+        self._populate_semantic_table(sd_dict)
+
+        # Workflow Display
+        wf = getattr(sd, "workflow", None)
+        if wf:
+            status = "VERIFIED" if wf.is_verified else "UNVERIFIED"
+            color = "#2e7d32" if wf.is_verified else "#d32f2f"
+            self.workflow_lbl.setText(status)
+            self.workflow_lbl.setStyleSheet(f"font-weight: bold; color: {color};")
+            self.btn_verify.setEnabled(not wf.is_verified)
+            with QSignalBlocker(self.chk_pkv):
+                self.chk_pkv.setChecked(wf.pkv_eligible)
+        else:
+            self.workflow_lbl.setText("UNKNOWN")
+            self.btn_verify.setEnabled(True)
+            with QSignalBlocker(self.chk_pkv):
+                self.chk_pkv.setChecked(False)
 
         # Extracted Data
-        self.sender_edit.setText(sd.get("sender", ""))
+        self.sender_edit.setText(doc.sender_name or "")
 
         # Date Handling
-        doc_date = sd.get("doc_date")
+        doc_date = doc.doc_date
         if doc_date:
+            from PyQt6.QtCore import QDate
             if isinstance(doc_date, str):
                 qdate = QDate.fromString(doc_date, Qt.DateFormat.ISODate)
                 if qdate.isValid(): self.date_edit.setDate(qdate)
             elif hasattr(doc_date, "isoformat"):
                 self.date_edit.setDate(QDate.fromString(doc_date.isoformat(), Qt.DateFormat.ISODate))
         else:
+            from PyQt6.QtCore import QDate
             self.date_edit.setDate(QDate(2000, 1, 1)) # Default
+
 
         # Source Mapping
         try: # Added try-except block for source mapping parsing
@@ -532,7 +606,15 @@ class MetadataEditorWidget(QWidget):
 
         # Display raw semantic data (AI Results) for debugging
         if hasattr(doc, "semantic_data") and doc.semantic_data:
-            self.semantic_viewer.setPlainText(json.dumps(doc.semantic_data, indent=2, ensure_ascii=False))
+            # Pydantic model dump for JSON serialization
+            try:
+                if hasattr(doc.semantic_data, "model_dump"):
+                    raw_data = doc.semantic_data.model_dump()
+                else:
+                    raw_data = doc.semantic_data
+                self.semantic_viewer.setPlainText(json.dumps(raw_data, indent=2, ensure_ascii=False, default=str))
+            except Exception as e:
+                self.semantic_viewer.setPlainText(f"Error displaying semantic data: {e}")
         else:
             self.semantic_viewer.setPlainText("{}")
         
@@ -743,29 +825,33 @@ class MetadataEditorWidget(QWidget):
 
         # 2. Semantic Metadata (Extracted Data)
         # We merge existing semantic_data with UI changes
-        sd = self.doc.semantic_data if self.doc else {}
-        if sd is None: sd = {}
-        sd["entity_types"] = doc_types
-        sd["direction"] = direction
-        sd["tenant_context"] = context
+        from core.models.semantic import SemanticExtraction
+        sd = self.doc.semantic_data if self.doc else None
+        if not sd:
+            sd = SemanticExtraction()
+
+        sd.entity_types = doc_types
+        sd.direction = direction
+        sd.tenant_context = context
+        
+        # Workflow Persistence
+        if not sd.workflow:
+            from core.models.semantic import WorkflowInfo
+            sd.workflow = WorkflowInfo()
+        sd.workflow.pkv_eligible = self.chk_pkv.isChecked()
 
         # Phase 107: Automatic Pruning of mismatched semantic bodies
-        # Logic: If entity_types changed, remove bodies that don't belong to any of the NEW types.
         mapping = {
             "INVOICE": "finance_body", "RECEIPT": "finance_body", "ORDER_CONFIRMATION": "finance_body",
             "DUNNING": "finance_body", "BANK_STATEMENT": "ledger_body", "CONTRACT": "legal_body",
             "OFFICIAL_LETTER": "legal_body", "PAYSLIP": "hr_body", "MEDICAL_DOCUMENT": "health_body",
             "UTILITY_BILL": "finance_body", "EXPENSE_REPORT": "travel_body"
         }
-        if "bodies" in sd:
-            allowed_bodies = {mapping.get(dt.upper()) for dt in doc_types if mapping.get(dt.upper())}
-            # Keep bodies that are either allowed OR not in our known mapping (to avoid accidental data loss of custom bodies)
-            new_bodies = {k: v for k, v in sd["bodies"].items() if k in allowed_bodies or k not in mapping.values()}
-            if len(new_bodies) != len(sd["bodies"]):
-                print(f"[Phase 107] Pruned semantic bodies due to type change: {list(sd['bodies'].keys())} -> {list(new_bodies.keys())}")
-                sd["bodies"] = new_bodies
+        allowed_bodies = {mapping.get(dt.upper()) for dt in doc_types if mapping.get(dt.upper())}
+        # Keep bodies that are either allowed OR not in our known mapping
+        sd.bodies = {k: v for k, v in sd.bodies.items() if k in allowed_bodies or k not in mapping.values()}
 
-        # 3. Stamps Persistence (Phase 105 Fix: Handle hierarchy & overwriting)
+        # 3. Stamps Persistence
         stamps_list = []
         for r in range(self.stamps_table.rowCount()):
             try:
@@ -778,14 +864,10 @@ class MetadataEditorWidget(QWidget):
             raw_type = self.stamps_table.item(r, 0).text()
             val = self.stamps_table.item(r, 1).text()
 
-            # Un-flatten: "TYPE: Label" -> type=TYPE, form_field={label: Label, value: val}
             if ":" in raw_type:
                 parts = [p.strip() for p in raw_type.split(":", 1)]
                 s_type = parts[0]
                 label = parts[1]
-
-                # Check if we already have a block for this type on this page
-                # (Simplification: treat each row as its own block for now, or group by type/page)
                 stamps_list.append({
                     "type": s_type,
                     "page": page_val,
@@ -798,25 +880,16 @@ class MetadataEditorWidget(QWidget):
             else:
                 stamps_list.append({
                     "type": raw_type,
-                    "raw_content": val,
+                    "text": val,
                     "page": page_val,
                     "confidence": conf_val
                 })
 
-        # Persist as 'layer_stamps' inside visual_audit for consistency with filters
-        if stamps_list or "visual_audit" in sd:
-            if "visual_audit" not in sd: sd["visual_audit"] = {}
-            # Overwrite both locations to stay safe
-            sd["visual_audit"]["layer_stamps"] = stamps_list
-            sd["visual_audit"]["stamps"] = stamps_list
-            # Also check if it exists at root (Phase 105 AI compatibility)
-            if "layer_stamps" in sd:
-                sd["layer_stamps"] = stamps_list
+        sd_dict = sd.model_dump()
+        sd_dict["visual_audit"] = sd_dict.get("visual_audit") or {}
+        sd_dict["visual_audit"]["layer_stamps"] = stamps_list
 
-        # 4. Semantic Table Sync (Phase 110)
-        # We read changes back into sd. We reconstruct nested structures from dotted keys.
-        if "custom_fields" not in sd: sd["custom_fields"] = {}
-
+        # 4. Semantic Table Persistence (Mapping Back)
         for r in range(self.semantic_table.rowCount()):
             item_sec = self.semantic_table.item(r, 0)
             item_key = self.semantic_table.item(r, 1)
@@ -824,60 +897,51 @@ class MetadataEditorWidget(QWidget):
             if not item_sec or not item_key or not item_val: continue
 
             section = item_sec.text()
-            field_path = item_key.text().strip()
+            field_path = item_key.text()
             val_text = item_val.text()
             if not field_path: continue
 
             # Map back to target dict
-            root = sd
+            root = sd_dict
             if section == "Meta":
-                if "meta_header" not in sd: sd["meta_header"] = {}
-                root = sd["meta_header"]
+                if "meta_header" not in sd_dict: sd_dict["meta_header"] = {}
+                root = sd_dict["meta_header"]
             elif section == "Custom":
-                if "custom_fields" not in sd: sd["custom_fields"] = {}
-                root = sd["custom_fields"]
+                if "custom_fields" not in sd_dict: sd_dict["custom_fields"] = {}
+                root = sd_dict["custom_fields"]
             else:
-                # Check if it's in a body or other root key
                 body_key = section.lower() + "_body"
-                if "bodies" in sd and (body_key in sd["bodies"] or section.lower() in sd["bodies"]):
-                    if body_key in sd["bodies"]: root = sd["bodies"][body_key]
-                    else: root = sd["bodies"][section.lower()]
-                elif section.lower() in sd:
-                    root = sd[section.lower()]
-                elif body_key in sd:
-                    root = sd[body_key]
+                if "bodies" in sd_dict and (body_key in sd_dict["bodies"] or section.lower() in sd_dict["bodies"]):
+                    if body_key in sd_dict["bodies"]: root = sd_dict["bodies"][body_key]
+                    else: root = sd_dict["bodies"][section.lower()]
+                elif section.lower() in sd_dict:
+                    root = sd_dict[section.lower()]
+                elif body_key in sd_dict:
+                    root = sd_dict[body_key]
                 else:
-                    # New dynamic section
-                    if "bodies" not in sd: sd["bodies"] = {}
-                    sd["bodies"][body_key] = {}
-                    root = sd["bodies"][body_key]
+                    if "bodies" not in sd_dict: sd_dict["bodies"] = {}
+                    sd_dict["bodies"][body_key] = {}
+                    root = sd_dict["bodies"][body_key]
 
-            # Reconstruct Nested Path
             parts = field_path.split(".")
             target = root
             for i, part in enumerate(parts[:-1]):
-                # If part is numeric, we might be inside a list?
-                # For simplicity, if Target is a list and part is digit, use index
-                # If Target is dict, use key.
                 if part.isdigit():
                     idx = int(part)
                     if isinstance(target, list):
                         while len(target) <= idx: target.append({})
                         target = target[idx]
                     else:
-                        # Fallback for ill-formed data
                         if part not in target: target[part] = {}
                         target = target[part]
                 else:
                     if part not in target:
-                        # Peek at next part to decide if list or dict
                         if i + 1 < len(parts) and parts[i+1].isdigit():
                             target[part] = []
                         else:
                             target[part] = {}
                     target = target[part]
 
-            # Set Value
             last_key = parts[-1]
             typed_val = val_text
             try:
@@ -890,7 +954,7 @@ class MetadataEditorWidget(QWidget):
                     typed_val = float(val_text)
                 elif val_text.isdigit():
                     typed_val = int(val_text)
-            except:
+            except (json.JSONDecodeError, ValueError):
                 pass
 
             if isinstance(target, list) and last_key.isdigit():
@@ -900,14 +964,17 @@ class MetadataEditorWidget(QWidget):
             else:
                 target[last_key] = typed_val
 
-        # Update semantic_data
-        sd["sender"] = self.sender_edit.text().strip()
+        # Update root metadata in sd_dict
+        if sd_dict.get("meta_header") is None: sd_dict["meta_header"] = {}
+        if sd_dict["meta_header"].get("sender") is None: sd_dict["meta_header"]["sender"] = {}
+        sd_dict["meta_header"]["sender"]["name"] = self.sender_edit.text().strip()
         
-        # doc_date is now purely semantic (JSON)
         if self.date_edit.date().year() > 2000:
-             sd["doc_date"] = self.date_date_str = self.date_edit.date().toString(Qt.DateFormat.ISODate)
+             sd_dict["meta_header"]["doc_date"] = self.date_edit.date().toString(Qt.DateFormat.ISODate)
         
-        updates["semantic_data"] = sd
+        # Re-validate back to SemanticExtraction model
+        from core.models.semantic import SemanticExtraction
+        updates["semantic_data"] = SemanticExtraction.model_validate(sd_dict)
 
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)

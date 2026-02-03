@@ -1,33 +1,21 @@
-
-import unittest
+import pytest
 from unittest.mock import MagicMock, patch
-from PyQt6.QtWidgets import QApplication, QMessageBox
-import sys
-
-# Create execution instance if needed
-app = QApplication.instance() or QApplication(sys.argv)
-
+from PyQt6.QtWidgets import QMessageBox, QDialog
 from gui.main_window import MainWindow
 
-class TestDashboardRefreshRepro(unittest.TestCase):
-    
-    @patch('gui.workers.ImportWorker')
-    @patch('gui.workers.MainLoopWorker') 
-    @patch('gui.main_window.TagManagerDialog') 
-    @patch('PyQt6.QtWidgets.QProgressDialog')
-    @patch('PyQt6.QtWidgets.QMessageBox')
-    def test_import_refresh_dashboard_called(self, mock_msgbox, mock_progress, MockTagManager, MockAIWorker, MockWorker):
-        """
-        Reproduce: Dashboard refresh must be called after import.
-        """
-        # 1. Setup
+def test_import_refresh_dashboard_called(qtbot):
+    """
+    Reproduce: Dashboard refresh must be called after import.
+    """
+    # 1. Setup
+    with patch('gui.main_window.MainLoopWorker'), \
+         patch('gui.main_window.show_selectable_message_box'):
         mw = MainWindow(db_manager=MagicMock(), pipeline=MagicMock())
+        qtbot.addWidget(mw)
         mw.dashboard_widget = MagicMock()
         mw.filter_tree_widget = MagicMock()
-        mw.ai_worker = MagicMock()
         
         # 2. Simulate Import Finished
-        # Configure Mock DB to return a doc with page_count=1 to avoid splitter logic/type errors
         mock_doc = MagicMock()
         mock_doc.page_count = 1
         mw.db_manager.get_document_by_uuid.return_value = mock_doc
@@ -36,37 +24,29 @@ class TestDashboardRefreshRepro(unittest.TestCase):
         mw._on_import_finished(1, 1, ["uuid-123"], None, MagicMock())
         
         # 3. Assertions
-        # Dashboard refresh check
-        if not mw.dashboard_widget.refresh_stats.called:
-             self.fail("Dashboard refresh_stats() was NOT called after import!")
-             
-        # Filter Tree refresh check
-        if not mw.filter_tree_widget.load_tree.called:
-             self.fail("Filter Tree load_tree() was NOT called after import!")
-             
-    @patch('PyQt6.QtWidgets.QMessageBox')
-    def test_delete_refresh_dashboard_called(self, mock_msgbox):
-        """
-        Reproduce: Dashboard refresh must be called after delete.
-        """
-        # 1. Setup
+        assert mw.dashboard_widget.refresh_stats.called
+        assert mw.filter_tree_widget.load_tree.called
+
+def test_delete_refresh_dashboard_called(qtbot):
+    """
+    Reproduce: Dashboard refresh must be called after delete.
+    """
+    # 1. Setup
+    with patch('gui.main_window.MainLoopWorker'), \
+         patch('gui.main_window.show_selectable_message_box') as mock_msgbox:
         mw = MainWindow(db_manager=MagicMock(), pipeline=MagicMock())
+        qtbot.addWidget(mw)
         mw.dashboard_widget = MagicMock()
         mw.list_widget = MagicMock()
         
-        # Mock Delete Confirmation (using instance and exec)
-        mock_msgbox.return_value.exec.return_value = QMessageBox.StandardButton.Yes.value
+        # Mock Delete Confirmation
+        mock_msgbox.return_value = QMessageBox.StandardButton.Yes
         # Mock DB delete
         mw.db_manager.delete_document.return_value = True
         mw.list_widget.get_selected_uuids.return_value = ["uuid-to-delete"]
         
         # 2. Simulate Delete Slot being called
-        # Note: delete_document_slot may take arguments or use list selection
         mw.delete_document_slot(["uuid-to-delete"])
         
         # 3. Assertions
-        if not mw.dashboard_widget.refresh_stats.called:
-             self.fail("Dashboard refresh_stats() was NOT called after delete!")
-
-if __name__ == '__main__':
-    unittest.main()
+        assert mw.dashboard_widget.refresh_stats.called

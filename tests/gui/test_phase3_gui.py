@@ -5,10 +5,9 @@ import tempfile
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from gui.document_list import DocumentListWidget
-from gui.document_detail import DocumentDetailWidget
 from gui.pdf_viewer import PdfViewerWidget
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from unittest.mock import MagicMock
 
 # Ensure QApplication exists
@@ -32,18 +31,19 @@ def mock_vault():
 
 def test_document_list_columns(qapp, mock_db):
     widget = DocumentListWidget(mock_db)
-    # Check headers: Date, Sender, Type, Tags, Amount, Filename
-    # Access internal tree
-    tree = widget.tree
-    header = tree.header()
-    headers = [tree.headerItem().text(i) for i in range(tree.columnCount())]
-    assert "Type Tags" in headers
-    assert "Sender" in headers
-    assert "Date" in headers
-    assert "Amount" in headers
+    headers = [widget.tree.headerItem().text(i) for i in range(widget.tree.columnCount())]
+    
+    # Verify System Columns (Fixed)
+    for label in widget.FIXED_COLUMNS.values():
+        assert label in headers
+    
+    # Verify Dynamic Semantic Columns (Defaults)
+    for key in widget.dynamic_columns:
+        expected_label = widget.SEMANTIC_LABELS.get(key, key)
+        assert expected_label in headers
     
     # Check sorting enabled
-    assert tree.isSortingEnabled()
+    assert widget.tree.isSortingEnabled()
 
 def test_pdf_viewer_load(qapp):
     viewer = PdfViewerWidget()
@@ -69,18 +69,3 @@ def test_pdf_viewer_load(qapp):
         if os.path.exists(path):
             os.remove(path)
 
-def test_detail_widget_display(qapp, mock_db, mock_vault):
-    widget = DocumentDetailWidget(mock_db, mock_vault)
-    
-    doc = Document(
-        uuid="test-uuid",
-        original_filename="foo.pdf",
-        sender="Test Sender",
-        tags=["tag1", "tag2"]
-    )
-    
-    widget.display_document(doc)
-    
-    assert widget.sender_edit.text() == "Test Sender"
-    assert widget.tags_edit.text() == "tag1, tag2"
-    assert widget.uuid_lbl.text() == "test-uuid"

@@ -39,7 +39,7 @@ def test_adaptive_delay_increase(analyzer_and_mock):
     
     # Mock sleep to intercept calls
     with patch("time.sleep") as mock_sleep:
-        analyzer.analyze_text("foo")
+        analyzer._generate_with_retry("foo")
         
         # Check delay progression
         # Start: 0.0
@@ -64,7 +64,7 @@ def test_adaptive_delay_decrease(analyzer_and_mock):
     mock_model.generate_content.return_value = success_response
     
     with patch("time.sleep") as mock_sleep:
-        analyzer.analyze_text("foo")
+        analyzer._generate_with_retry("foo")
         
         # Verify result
         assert AIAnalyzer.get_adaptive_delay() == 2.0
@@ -79,5 +79,5 @@ def test_adaptive_delay_snap_to_zero(analyzer_and_mock):
     mock_model.generate_content.return_value = MagicMock(text="{}")
     
     with patch("time.sleep"):
-        analyzer.analyze_text("foo")
+        analyzer._generate_with_retry("foo")
         assert AIAnalyzer.get_adaptive_delay() == 0.0

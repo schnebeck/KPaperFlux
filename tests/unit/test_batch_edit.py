@@ -1,9 +1,12 @@
 import pytest
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
+
 from PyQt6.QtWidgets import QLineEdit, QTextEdit
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from gui.metadata_editor import MetadataEditorWidget
 from core.database import DatabaseManager
+from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody
 
 @pytest.fixture
 def mock_db():
@@ -16,8 +19,22 @@ def editor(qtbot, mock_db):
     return widget
 
 def test_display_documents_mixed(editor):
-    doc1 = Document(uuid="1", original_filename="a.pdf", semantic_data={"sender": "Company A", "amount": 10.0})
-    doc2 = Document(uuid="2", original_filename="b.pdf", semantic_data={"sender": "Company B", "amount": 10.0}) 
+    doc1 = Document(
+        uuid="1", 
+        original_filename="a.pdf", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(sender=AddressInfo(name="Company A")),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+        )
+    )
+    doc2 = Document(
+        uuid="2", 
+        original_filename="b.pdf", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(sender=AddressInfo(name="Company B")),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+        )
+    ) 
     
     docs = [doc1, doc2]
     editor.display_documents(docs)
@@ -28,8 +45,22 @@ def test_display_documents_mixed(editor):
     
 def test_save_changes_batch(editor, mock_db):
     # Setup two documents with same metadata
-    doc1 = Document(uuid="1", original_filename="a.pdf", semantic_data={"sender": "Company A", "amount": 10.0})
-    doc2 = Document(uuid="2", original_filename="b.pdf", semantic_data={"sender": "Company B", "amount": 10.0})
+    doc1 = Document(
+        uuid="1", 
+        original_filename="a.pdf", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(sender=AddressInfo(name="Company A")),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+        )
+    )
+    doc2 = Document(
+        uuid="2", 
+        original_filename="b.pdf", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(sender=AddressInfo(name="Company B")),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+        )
+    )
     
     # We must patch self.doc in the editor because save_changes relies on it for merging
     editor.doc = doc1 
@@ -48,4 +79,7 @@ def test_save_changes_batch(editor, mock_db):
     args, _ = mock_db.update_document_metadata.call_args_list[0]
     uuid, updates = args
     assert uuid == "1"
-    assert updates["semantic_data"]["sender"] == "Common Sender"
+    # updates["semantic_data"] is now a SemanticExtraction object
+    assert updates["semantic_data"].sender_summary == "Common Sender"
+
+

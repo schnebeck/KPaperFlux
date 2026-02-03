@@ -1,7 +1,8 @@
 
 import pytest
 from core.similarity import SimilarityManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody
 from core.database import DatabaseManager
 from unittest.mock import MagicMock
 import datetime
@@ -35,22 +36,41 @@ def test_calculate_similarity_jaccard():
 def test_metadata_boost():
     # Low text similarity but Perfect Metadata
     today = "2024-01-01"
-    doc_a = Document(original_filename="a.pdf", text_content="invoice amazon delivery", semantic_data={"amount": 10.00, "doc_date": today})
-    doc_b = Document(original_filename="b.pdf", text_content="invoice google play", semantic_data={"amount": 10.00, "doc_date": today})
+    doc_a = Document(
+        original_filename="a.pdf", 
+        text_content="invoice amazon delivery", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(doc_date=today),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.00"))}
+        )
+    )
+    doc_b = Document(
+        original_filename="b.pdf", 
+        text_content="invoice google play", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(doc_date=today),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.00"))}
+        )
+    )
     
     manager = SimilarityManager(None)
     # Text Jaccard: "invoice" (1) / "amazon", "delivery", "google", "play", "invoice" (5) = 0.2
-    # Metadata Boost: +0.2 (Date) + 0.3 (Amount) = +0.5?? No logic says if score >= 0.5 boost by 0.2.
-    # Wait, logic:
-    # metadata_score = 0.2 + 0.3 = 0.5.
-    # if metadata_score >= 0.5: final += 0.2.
-    # So final = 0.2 + 0.2 = 0.4.
+    # Metadata Boost: Date match (+0.2) + Amount match (+0.3) = 0.5.
+    # Score >= 0.5 triggers +0.2 boost.
+    # Final = 0.2 + 0.2 = 0.4.
     
     score = manager.calculate_similarity(doc_a, doc_b)
     assert score >= 0.4
     
     # High text sim + metadata
-    doc_c = Document(original_filename="c.pdf", text_content="invoice amazon delivery items", semantic_data={"amount": 10.00, "doc_date": today})
+    doc_c = Document(
+        original_filename="c.pdf", 
+        text_content="invoice amazon delivery items", 
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(doc_date=today),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.00"))}
+        )
+    )
     # Jaccard ~ 0.6
     # Final = 0.6 + 0.2 = 0.8.
     score2 = manager.calculate_similarity(doc_a, doc_c)

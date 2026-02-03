@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch, ANY
 import os
 from pathlib import Path
 from core.pipeline import PipelineProcessor
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from core.models.physical import PhysicalFile
 from core.models.virtual import VirtualDocument
 import datetime
@@ -46,18 +46,12 @@ def test_process_document_success(pipeline, mock_vault, mock_db):
     
     # Run
     with patch.object(pipeline, '_run_ai_analysis') as mock_ai:
-         with patch.object(pipeline, '_virtual_to_legacy') as mock_v2l:
-             legacy_doc = Document(
-                 uuid=str(uuid.uuid4()), original_filename="fake_scan.pdf", 
-                 created_at=datetime.datetime.now().isoformat()
-             )
-             mock_v2l.return_value = legacy_doc
-             
-             result = pipeline.process_document(source_path)
-             
-             assert result == legacy_doc
-             pipeline.logical_repo.save.assert_called()
-             mock_ai.assert_called()
+        result = pipeline.process_document(source_path)
+         
+        assert result is not None
+        assert result.original_filename == "fake_scan.pdf"
+        pipeline.logical_repo.save.assert_called()
+        mock_ai.assert_called()
 
 def test_reprocess_document_success(pipeline):
     """Test reprocessing an existing V2 entity."""
@@ -69,16 +63,12 @@ def test_reprocess_document_success(pipeline):
     )
     pipeline.logical_repo.get_by_uuid.return_value = v_doc
     
-    # Mock Repos for _virtual_to_legacy
     pipeline._run_ai_analysis = MagicMock()
     
-    # Needs to fallback to _virtual_to_legacy
-    with patch.object(pipeline, '_virtual_to_legacy') as mock_v2l:
-        mock_v2l.return_value = Document(uuid=entity_id, original_filename="repro.pdf", created_at=v_doc.created_at)
-        
-        res = pipeline.reprocess_document(entity_id)
-        assert res.uuid == entity_id
-        pipeline._run_ai_analysis.assert_called()
+    res = pipeline.reprocess_document(entity_id)
+    assert res is not None
+    assert res.uuid == entity_id
+    pipeline._run_ai_analysis.assert_called()
 
 def test_pipeline_handles_missing_file(pipeline):
     """Test that pipeline raises error for missing input file."""

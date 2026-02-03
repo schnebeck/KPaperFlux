@@ -5,6 +5,7 @@ import datetime
 from core.database import DatabaseManager
 from core.repositories import LogicalRepository
 from core.models.virtual import VirtualDocument, SourceReference
+from core.models.semantic import SemanticExtraction
 
 @pytest.fixture
 def memory_db():
@@ -31,13 +32,16 @@ def test_insert_virtual_document(logical_repo):
         uuid=str(uuid.uuid4()),
         status="NEW",
         created_at=datetime.datetime.now().isoformat(),
-        semantic_data={"parties": {"sender": {"name": "TestSender"}}}
+        semantic_data=SemanticExtraction(
+            meta_header={"sender": {"name": "TestSender"}}
+        )
     )
     logical_repo.save(v_doc)
     
     retrieved = logical_repo.get_by_uuid(v_doc.uuid)
     assert retrieved is not None
-    assert retrieved.semantic_data["parties"]["sender"]["name"] == "TestSender"
+    assert retrieved.semantic_data.meta_header.sender.name == "TestSender"
+
     
 def test_get_document_by_uuid_stage0(memory_db, logical_repo):
     v_uuid = str(uuid.uuid4())
@@ -53,7 +57,7 @@ def test_get_document_by_uuid_stage0(memory_db, logical_repo):
     
     assert doc is not None
     assert doc.uuid == v_uuid
-    assert doc.original_filename == "TestExport" # export_filename is mapped to original_filename in compatibility Document
+    assert doc.original_filename == "TestExport"
 
 def test_delete_document_soft(memory_db, logical_repo):
     v_uuid = str(uuid.uuid4())
@@ -68,8 +72,7 @@ def test_delete_document_soft(memory_db, logical_repo):
     retrieved = logical_repo.get_by_uuid(v_uuid)
     assert retrieved.deleted is True
     
-    # Legacy DB check (via get_document_by_uuid)
-    # The Document wrapper in DatabaseManager doesn't currently expose deleted in the simplified view 
+    # Verify table state directly
     # but we can check the table.
     cursor = memory_db.connection.cursor()
     cursor.execute("SELECT deleted FROM virtual_documents WHERE uuid = ?", (v_uuid,))

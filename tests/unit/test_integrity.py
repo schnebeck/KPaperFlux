@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 from core.database import DatabaseManager
 from core.vault import DocumentVault
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from core.integrity import IntegrityManager
 
 @pytest.fixture

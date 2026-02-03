@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from core.models.virtual import VirtualDocument
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository

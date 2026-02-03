@@ -3,19 +3,20 @@ import os
 import zipfile
 import pandas as pd
 from datetime import datetime
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from core.exporter import DocumentExporter
+from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody
+from decimal import Decimal
 
 def test_export_to_zip(tmp_path):
     # Setup Data
     doc1 = Document(
         uuid="uuid1",
         original_filename="invoice.pdf",
-        semantic_data={
-            "doc_date": "2023-10-25",
-            "amount": 123.45,
-            "sender": "Amazon"
-        },
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(doc_date="2023-10-25", sender=AddressInfo(name="Amazon")),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("123.45"))}
+        ),
         file_path=str(tmp_path / "invoice.pdf")
     )
     # Create dummy PDF file
@@ -25,10 +26,10 @@ def test_export_to_zip(tmp_path):
     doc2 = Document(
         uuid="uuid2", 
         original_filename="receipt.pdf",
-        semantic_data={
-            "amount": 50.00,
-            "sender": "Edeka"
-        }
+        semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(sender=AddressInfo(name="Edeka")),
+            bodies={"finance_body": FinanceBody(total_gross=Decimal("50.00"))}
+        )
     )
     # doc2 has no file
     
@@ -102,12 +103,12 @@ def test_export_semantic_fields(tmp_path, monkeypatch):
                     {
                         "id": "invoice_number", 
                         "label_key": "lbl_inv_num",
-                        "strategies": [{"type": "json_path", "path": "summary.invoice_number"}]
+                        "strategies": [{"type": "json_path", "path": "bodies.finance_body.invoice_number"}]
                     },
                     {
                         "id": "iban", 
                         "label_key": "lbl_iban",
-                        "strategies": [{"type": "json_path", "path": "summary.iban"}]
+                        "strategies": [{"type": "json_path", "path": "bodies.finance_body.iban"}]
                     }
                 ]
             }
@@ -121,12 +122,14 @@ def test_export_semantic_fields(tmp_path, monkeypatch):
         original_filename="sem.pdf",
         type_tags=["Invoice"]
     )
-    doc.semantic_data = {
-        "summary": {
-            "invoice_number": "INV-2023-999",
-            "iban": "DE123456789"
+    doc.semantic_data = SemanticExtraction(
+        bodies={
+            "finance_body": FinanceBody(
+                invoice_number="INV-2023-999",
+                iban="DE123456789"
+            )
         }
-    }
+    )
     
     zip_path = tmp_path / "semantic_export.zip"
     DocumentExporter.export_to_zip([doc], str(zip_path), include_pdfs=False)

@@ -3,7 +3,7 @@ import os
 import shutil
 from pathlib import Path
 from core.vault import DocumentVault
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 
 @pytest.fixture
 def temp_vault(tmp_path):

@@ -5,7 +5,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from core.vault import DocumentVault
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 
 @pytest.fixture
 def vault_dir():

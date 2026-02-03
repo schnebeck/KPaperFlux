@@ -2,7 +2,7 @@ import pytest
 from PyQt6.QtWidgets import QApplication
 from unittest.mock import MagicMock, patch
 from gui.main_window import MainWindow
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 from gui.dialogs.save_list_dialog import SaveListDialog
 from PyQt6.QtCore import Qt
 

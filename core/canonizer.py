@@ -21,7 +21,8 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.semantic import SemanticExtraction
+from core.models.virtual import VirtualDocument as Document
 from core.models.canonical_entity import CanonicalEntity, DocType
 from core.models.identity import IdentityProfile
 from core.models.virtual import SourceReference, VirtualDocument
@@ -230,8 +231,9 @@ class CanonizerService:
                     "types": v_doc.type_tags or ["OTHER"],
                     "pages": list(range(1, len(pages_text) + 1)),
                     "confidence": 1.0,
-                    "direction": v_doc.semantic_data.get("direction") if v_doc.semantic_data else None,
-                    "tenant_context": v_doc.semantic_data.get("tenant_context") if v_doc.semantic_data else None,
+                    "direction": v_doc.semantic_data.direction if v_doc.semantic_data else None,
+                    "tenant_context": v_doc.semantic_data.tenant_context if v_doc.semantic_data else None,
+
                 }
             ]
             # Restore detected_entities for context in Stage 2
@@ -342,7 +344,8 @@ class CanonizerService:
                 target_doc = v_doc  # Reuse existing
             else:
                 # Create NEW Split Entity
-                target_doc = VirtualDocument(uuid=str(uuid.uuid4()), status="NEW", created_at=v_doc.created_at)
+                target_doc = VirtualDocument(uuid=str(uuid.uuid4()), status="NEW", created_at=v_doc.created_at, semantic_data=SemanticExtraction())
+
 
             candidate_types = candidate.get("types", [])
             final_tags = list(candidate_types)
@@ -359,7 +362,15 @@ class CanonizerService:
             target_doc.source_mapping = [SourceReference(file_uuid=base_ref.file_uuid, pages=new_source_pages, rotation=base_ref.rotation)]
 
             if idx < len(detected_entities):
-                target_doc.semantic_data = detected_entities[idx]
+                # detected_entities are dicts from Stage 1.1 JSON
+                if target_doc.semantic_data is None:
+                    target_doc.semantic_data = SemanticExtraction()
+                
+                ent_data = detected_entities[idx]
+                target_doc.semantic_data.direction = ent_data.get("direction", "INBOUND")
+                target_doc.semantic_data.tenant_context = ent_data.get("tenant_context", "PRIVATE")
+                target_doc.semantic_data.entity_types = ent_data.get("entity_types", [])
+
 
             # Transition to Stage 2 Readiness
             target_doc.status = "STAGE2_PENDING"
@@ -388,8 +399,9 @@ class CanonizerService:
 
                 if audit_res:
                     if target_doc.semantic_data is None:
-                        target_doc.semantic_data = {}
-                    target_doc.semantic_data["visual_audit"] = audit_res
+                        target_doc.semantic_data = SemanticExtraction()
+                    target_doc.semantic_data.visual_audit = audit_res
+
 
                     target_doc.status = "PROCESSING_S1_5"
                     self.logical_repo.save(target_doc)
@@ -418,43 +430,28 @@ class CanonizerService:
             )
 
             if semantic_extraction is None:
-                print(f"[Canonizer] Stage 2 AI Analysis failed after all retries. Setting STAGE2_HOLD for {target_doc.uuid}.")
-                target_doc.status = "STAGE2_HOLD"
+                print(f"[Canonizer] Stage 2 FAILED for {target_doc.uuid}. Aborting hydration.")
+                target_doc.status = "STAGE2_PENDING" # Re-queue for later
                 self.logical_repo.save(target_doc)
-                return False
+                continue
 
-            target_doc.semantic_data.update(semantic_extraction)
+            # Stage 2 result is a Dict from run_stage_2
+            # We need to hydrate it into our model
+            try:
+                new_semantic = SemanticExtraction(**semantic_extraction)
+                if target_doc.semantic_data:
+                    # Merge existing fields (like visual_audit from Stage 1.5)
+                    new_semantic.visual_audit = target_doc.semantic_data.visual_audit
+                target_doc.semantic_data = new_semantic
+            except Exception as e:
+                print(f"[Canonizer] Error hydrating Stage 2 result: {e}")
+                # Fallback: keep partial data if possible
+                if target_doc.semantic_data is None:
+                    target_doc.semantic_data = SemanticExtraction()
 
-            # --- PHASE 105: Sync Top-Level Semantic Helpers ---
-            header = semantic_extraction.get("meta_header", {})
-            bodies = semantic_extraction.get("bodies", {})
-            
-            # Ensure sender and doc_date are in the root of semantic_data
-            if header.get("doc_date"):
-                target_doc.semantic_data["doc_date"] = header["doc_date"]
-            
-            sender_obj = header.get("sender")
-            if sender_obj:
-                if isinstance(sender_obj, dict):
-                    target_doc.semantic_data["sender"] = sender_obj.get("name")
-                else:
-                    target_doc.semantic_data["sender"] = str(sender_obj)
+            # Generate Filename using hydrated data
+            smart_name = self.analyzer.generate_smart_filename(target_doc.semantic_data, target_doc.type_tags)
 
-            # Heuristic for top-level amount in semantic_data
-            amt = None
-            if "finance_body" in bodies:
-                fb = bodies["finance_body"]
-                amt = fb.get("total_gross") or fb.get("total_net") or fb.get("total_due") or fb.get("total_amount")
-            elif "ledger_body" in bodies:
-                amt = bodies["ledger_body"].get("end_balance")
-
-            if amt is not None:
-                try:
-                    target_doc.semantic_data["amount"] = float(amt)
-                except:
-                    pass
-
-            smart_name = self.analyzer.generate_smart_filename(semantic_extraction, target_doc.type_tags)
             target_doc.export_filename = smart_name
             target_doc.cached_full_text = semantic_extraction.get("repaired_text") or entity_text
             target_doc.status = "PROCESSED"

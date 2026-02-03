@@ -21,7 +21,7 @@ from pdf2image import convert_from_path
 from PIL import Image, ImageChops
 
 from core.database import DatabaseManager
-from core.document import Document
+from core.models.virtual import VirtualDocument as Document
 
 
 class SimilarityManager:
@@ -90,18 +90,15 @@ class SimilarityManager:
         """
         # 1. Critical Metadata Check (Veto Power)
         # If dates are present and differ, these are likely different monthly invoices.
-        sd_a = doc_a.semantic_data or {}
-        sd_b = doc_b.semantic_data or {}
-        
-        date_a = sd_a.get("doc_date")
-        date_b = sd_b.get("doc_date")
+        date_a = doc_a.doc_date
+        date_b = doc_b.doc_date
         
         if date_a and date_b and date_a != date_b:
             return 0.0
 
         # If amounts are present and differ significantly, likely different files.
-        amt_a = sd_a.get("amount")
-        amt_b = sd_b.get("amount")
+        amt_a = doc_a.total_amount
+        amt_b = doc_b.total_amount
 
         if amt_a is not None and amt_b is not None and amt_a != amt_b:
             return 0.1

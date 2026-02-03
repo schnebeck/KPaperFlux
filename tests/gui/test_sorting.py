@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QTreeWidget
 from unittest.mock import MagicMock
 from gui.document_list import DocumentListWidget, SortableTreeWidgetItem
 from core.database import DatabaseManager, Document
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, AddressInfo
 
 @pytest.fixture
 def mock_db():
@@ -22,66 +23,71 @@ def document_list(qtbot, mock_db):
 
 def test_date_sorting(document_list, mock_db):
     """Verify that dates sort chronologically, not alphabetically."""
-    # Create docs with dates that would sort wrongly as strings:
-    # "02.01.2024" (Newer, starts with 0) vs "15.01.2023" (Older, starts with 1).
-    # Alphabetically: "02..." < "15...".
-    # Chronologically: 2023 < 2024.
+    doc1 = Document(
+        uuid="1", 
+        original_filename="Newer.pdf",
+        semantic_data=SemanticExtraction(meta_header=MetaHeader(doc_date="2024-01-02"))
+    ) # 02.01.2024
+    doc2 = Document(
+        uuid="2", 
+        original_filename="Older.pdf",
+        semantic_data=SemanticExtraction(meta_header=MetaHeader(doc_date="2023-01-15"))
+    ) # 15.01.2023
     
-    doc1 = Document(uuid="1", doc_date=datetime.date(2024, 1, 2), original_filename="Newer.pdf") # 02.01.2024
-    doc2 = Document(uuid="2", doc_date=datetime.date(2023, 1, 15), original_filename="Older.pdf") # 15.01.2023
-    
-    mock_db.search_documents.return_value = [doc1, doc2]
     mock_db.get_all_entities_view.return_value = [doc1, doc2]
     
     document_list.refresh_list()
-    
     tree = document_list.tree
     
-    # Check Col 8 (Date)
-    # Access Logical index 1 (UUID) for identification
+    # Discovery phase
+    header_labels = [tree.headerItem().text(i) for i in range(tree.columnCount())]
+    def get_col(label): return header_labels.index(label)
+    
+    col_date = get_col("Date")
+    col_uuid_user_role = 1 # Entity ID column usually carries the UUID in UserRole
     
     # Verify we populated the tree
     assert tree.topLevelItemCount() == 2
     
     # Sort Ascending (Oldest First)
-    tree.sortItems(8, Qt.SortOrder.AscendingOrder)
+    tree.sortItems(col_date, Qt.SortOrder.AscendingOrder)
     
     # Expected: 2023 (Older) then 2024 (Newer)
-    first_item = tree.topLevelItem(0)
-    second_item = tree.topLevelItem(1)
-    
-    # UUID is in Col 1, UserRole
-    assert first_item.data(1, Qt.ItemDataRole.UserRole) == "2" # Older
-    assert second_item.data(1, Qt.ItemDataRole.UserRole) == "1" # Newer
+    assert tree.topLevelItem(0).data(col_uuid_user_role, Qt.ItemDataRole.UserRole) == "2" # Older
+    assert tree.topLevelItem(1).data(col_uuid_user_role, Qt.ItemDataRole.UserRole) == "1" # Newer
     
     # Sort Descending (Newest First)
-    tree.sortItems(8, Qt.SortOrder.DescendingOrder)
-    
-    first_item = tree.topLevelItem(0)
-    assert first_item.data(1, Qt.ItemDataRole.UserRole) == "1" # Newer
+    tree.sortItems(col_date, Qt.SortOrder.DescendingOrder)
+    assert tree.topLevelItem(0).data(col_uuid_user_role, Qt.ItemDataRole.UserRole) == "1" # Newer
 
 def test_number_sorting(document_list, mock_db):
     """Verify numeric columns sort numerically."""
-    # Amount is Col 9.
-    # "10.00" vs "2.00"
-    # String sort: "10.00" < "2.00".
-    # Numeric sort: 2.00 < 10.00.
+    doc1 = Document(
+        uuid="A", 
+        original_filename="a.pdf",
+        semantic_data=SemanticExtraction(bodies={"finance_body": FinanceBody(total_gross=Decimal("10.00"))})
+    )
+    doc2 = Document(
+        uuid="B", 
+        original_filename="b.pdf",
+        semantic_data=SemanticExtraction(bodies={"finance_body": FinanceBody(total_gross=Decimal("2.00"))})
+    )
     
-    doc1 = Document(uuid="A", amount=Decimal("10.00"), original_filename="a.pdf")
-    doc2 = Document(uuid="B", amount=Decimal("2.00"), original_filename="b.pdf")
-    
-    mock_db.search_documents.return_value = [doc1, doc2]
     mock_db.get_all_entities_view.return_value = [doc1, doc2]
     
     document_list.refresh_list()
     tree = document_list.tree
     
+    # Discovery phase
+    header_labels = [tree.headerItem().text(i) for i in range(tree.columnCount())]
+    def get_col(label): return header_labels.index(label)
+    
+    col_amount = get_col("Amount")
+    col_uuid = 1
+    
     # Sort Ascending (Smallest First)
-    tree.sortItems(9, Qt.SortOrder.AscendingOrder)
+    tree.sortItems(col_amount, Qt.SortOrder.AscendingOrder)
     
-    first_item = tree.topLevelItem(0)
-    assert first_item.data(1, Qt.ItemDataRole.UserRole) == "B" # 2.00
-    
-    second_item = tree.topLevelItem(1)
-    assert second_item.data(1, Qt.ItemDataRole.UserRole) == "A" # 10.00
+    assert tree.topLevelItem(0).data(col_uuid, Qt.ItemDataRole.UserRole) == "B" # 2.00
+    assert tree.topLevelItem(1).data(col_uuid, Qt.ItemDataRole.UserRole) == "A" # 10.00
 
