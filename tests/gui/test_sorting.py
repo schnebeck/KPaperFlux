@@ -23,6 +23,7 @@ def document_list(qtbot, mock_db):
 
 def test_date_sorting(document_list, mock_db):
     """Verify that dates sort chronologically, not alphabetically."""
+    # Data Setup
     doc1 = Document(
         uuid="1", 
         original_filename="Newer.pdf",
@@ -36,6 +37,10 @@ def test_date_sorting(document_list, mock_db):
     
     mock_db.get_all_entities_view.return_value = [doc1, doc2]
     
+    # Explicitly enable Date column
+    document_list.dynamic_columns = ["doc_date"]
+    document_list.update_headers()
+    
     document_list.refresh_list()
     tree = document_list.tree
     
@@ -44,7 +49,7 @@ def test_date_sorting(document_list, mock_db):
     def get_col(label): return header_labels.index(label)
     
     col_date = get_col("Date")
-    col_uuid_user_role = 1 # Entity ID column usually carries the UUID in UserRole
+    col_uuid = get_col("Entity ID")
     
     # Verify we populated the tree
     assert tree.topLevelItemCount() == 2
@@ -53,12 +58,12 @@ def test_date_sorting(document_list, mock_db):
     tree.sortItems(col_date, Qt.SortOrder.AscendingOrder)
     
     # Expected: 2023 (Older) then 2024 (Newer)
-    assert tree.topLevelItem(0).data(col_uuid_user_role, Qt.ItemDataRole.UserRole) == "2" # Older
-    assert tree.topLevelItem(1).data(col_uuid_user_role, Qt.ItemDataRole.UserRole) == "1" # Newer
+    assert tree.topLevelItem(0).text(col_uuid) == "2" # Older
+    assert tree.topLevelItem(1).text(col_uuid) == "1" # Newer
     
     # Sort Descending (Newest First)
     tree.sortItems(col_date, Qt.SortOrder.DescendingOrder)
-    assert tree.topLevelItem(0).data(col_uuid_user_role, Qt.ItemDataRole.UserRole) == "1" # Newer
+    assert tree.topLevelItem(0).text(col_uuid) == "1" # Newer
 
 def test_number_sorting(document_list, mock_db):
     """Verify numeric columns sort numerically."""
@@ -75,6 +80,10 @@ def test_number_sorting(document_list, mock_db):
     
     mock_db.get_all_entities_view.return_value = [doc1, doc2]
     
+    # Explicitly enable Amount column (total_amount property)
+    document_list.dynamic_columns = ["total_amount"]
+    document_list.update_headers()
+    
     document_list.refresh_list()
     tree = document_list.tree
     
@@ -83,11 +92,10 @@ def test_number_sorting(document_list, mock_db):
     def get_col(label): return header_labels.index(label)
     
     col_amount = get_col("Amount")
-    col_uuid = 1
+    col_uuid = get_col("Entity ID")
     
     # Sort Ascending (Smallest First)
     tree.sortItems(col_amount, Qt.SortOrder.AscendingOrder)
     
-    assert tree.topLevelItem(0).data(col_uuid, Qt.ItemDataRole.UserRole) == "B" # 2.00
-    assert tree.topLevelItem(1).data(col_uuid, Qt.ItemDataRole.UserRole) == "A" # 10.00
-
+    assert tree.topLevelItem(0).text(col_uuid) == "B" # 2.00
+    assert tree.topLevelItem(1).text(col_uuid) == "A" # 10.00

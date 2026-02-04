@@ -14,6 +14,12 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
+import logging
+
+# Internal Imports
+from core.utils.validation import validate_iban, validate_bic
+
+logger = logging.getLogger("KPaperFlux.Semantic")
 
 
 class AddressInfo(BaseModel):
@@ -28,7 +34,36 @@ class AddressInfo(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     iban: Optional[str] = None
+    bic: Optional[str] = None
+    bank_name: Optional[str] = None
     tax_id: Optional[str] = None
+
+    @field_validator("iban", "bic", mode="before")
+    @classmethod
+    def clean_bank_fields(cls, v: Any) -> Optional[str]:
+        """Removes spaces and ensures uppercase for IBAN and BIC."""
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            return str(v)
+        
+        # Remove all whitespace
+        cleaned = "".join(v.split()).upper()
+        
+        # Validation (Logging only, don't block hydration)
+        if "IBAN" in str(cls): # Poor man's check which field we are in via field name in validator
+            pass # field_validator knows the field name if we ask
+        
+        return cleaned if cleaned else None
+
+    @model_validator(mode="after")
+    def validate_bank_integrity(self) -> 'AddressInfo':
+        """Optional integrity check for IBAN/BIC."""
+        if self.iban and not validate_iban(self.iban):
+            logger.warning(f"Invalid IBAN detected for '{self.name or self.company}': {self.iban}")
+        if self.bic and not validate_bic(self.bic):
+            logger.warning(f"Invalid BIC detected for '{self.name or self.company}': {self.bic}")
+        return self
 
 
 class MetaHeader(BaseModel):
@@ -55,6 +90,10 @@ class FinanceBody(BaseModel):
     customer_id: Optional[str] = None
     
     line_items: List[Dict[str, Any]] = Field(default_factory=list)
+    
+    # Detailed Bank Info (Phase 110)
+    payment_accounts: List[Dict[str, Any]] = Field(default_factory=list)
+    payment_details: Dict[str, Any] = Field(default_factory=dict)
     
     # Tax breakdown: { "19%": 19.50, "7%": 2.10 }
     tax_details: Dict[str, Decimal] = Field(default_factory=dict)

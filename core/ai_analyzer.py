@@ -1105,14 +1105,14 @@ TASK:
             "name": "String (Official Company Name or Person Name)",
             "address": cls.get_address_schema(),
             "contact": cls.get_contact_schema(),
+            "iban": "String (International Bank Account Number)",
+            "bic": "String (Bank Identifier Code / SWIFT)",
+            "bank_name": "String (Name of the financial institution)",
             "identifiers": {
                 "vat_id": "String (USt-IdNr)",
                 "tax_id": "String (Steuernummer)",
                 "commercial_register": "String (HRB/HRA Number + Court)",
-                "customer_id": "String (My ID at this company)",
-                "creditor_id": "String (Gläubiger-ID)",
-                "personnel_number": "String (Personalnummer)",
-                "insurance_id": "String (Versichertennummer)"
+                "customer_id": "String (My ID at this company)"
             }
         }
 
@@ -1636,7 +1636,28 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                 repair_mission=prompt_repair_instruction
             )
             try:
-                extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {entity_type}", images=images_payload)
+                # Validation & Retry Loop for Stage 2
+                max_s2_retries = 1
+                s2_attempt = 0
+                extraction = None
+                
+                while s2_attempt <= max_s2_retries:
+                    extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {entity_type} (Attempt {s2_attempt+1})", images=images_payload)
+                    if not extraction:
+                        print(f"[AI] STAGE 2: {entity_type} -> FAILED (JSON Error or Truncation)")
+                        return None
+
+                    # Perform Validation
+                    s2_errors = self.validate_semantic_extraction(extraction, entity_type)
+                    if not s2_errors:
+                        break
+                    
+                    s2_attempt += 1
+                    if s2_attempt <= max_s2_retries:
+                        print(f"[AI] STAGE 2: Validation Failed for {entity_type}: {s2_errors}. Retrying...")
+                        error_msg = "\n".join(f"- {e}" for e in s2_errors)
+                        prompt += f"\n\n### ⚠️ VALIDATION FAILED ⚠️\nYour previous extraction had these errors:\n{error_msg}\n\nPlease review the source text and image again and provide a fixed JSON."
+
                 if extraction:
                     found_keys = []
                     for key, value in extraction.items():
@@ -1655,9 +1676,6 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                     if extraction.get("repaired_text"):
                         if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
                             final_semantic_data["repaired_text"] = extraction["repaired_text"]
-                else:
-                    print(f"[AI] STAGE 2: {entity_type} -> FAILED (JSON Error or Truncation after retries)")
-                    return None
             except Exception as e:
                 print(f"[AI] Stage 2 Error ({entity_type}): {e}")
                 return None
@@ -1673,6 +1691,48 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
         cat_str = "category" if bodies_count == 1 else "categories"
         print(f"[AI] Stage 2 (Extraction) [DONE] -> Success ({bodies_count} {cat_str}: {', '.join(final_semantic_data['bodies'].keys())})")
         return final_semantic_data
+
+    def validate_semantic_extraction(self, extraction: Dict, entity_type: str) -> List[str]:
+        """Validates AI extraction for critical fields and bank info."""
+        from core.utils.validation import validate_iban
+        errors = []
+        
+        meta = extraction.get("meta_header", {})
+        sender = meta.get("sender", {})
+        
+        # 1. IBAN Check for Financial Documents
+        if entity_type.upper() in ["INVOICE", "RECEIPT", "DUNNING", "UTILITY_BILL"]:
+            # Check sender IBAN
+            iban = None
+            if isinstance(sender, dict):
+                iban = sender.get("iban")
+            
+            # Also check finance_body -> payment_accounts
+            if not iban:
+                body = extraction.get("finance_body", {})
+                accs = body.get("payment_accounts", [])
+                if accs and isinstance(accs[0], dict):
+                    iban = accs[0].get("iban")
+            
+            if iban:
+                # Clean and check
+                clean_iban = "".join(iban.split()).upper()
+                if not validate_iban(clean_iban):
+                    errors.append(f"INVALID_IBAN: The identified IBAN '{iban}' has an invalid checksum. Please re-read carefully.")
+            else:
+                 # Optional: missing IBAN is not an error if not present on doc, 
+                 # but for INVOICE it's a high signal. We might just note it.
+                 pass
+
+        # 2. Critical Fields per Type
+        if entity_type.upper() == "INVOICE":
+            body = extraction.get("finance_body", {})
+            if not body.get("total_gross"):
+                errors.append("MISSING_TOTAL: The 'total_gross' amount could not be found.")
+            if not meta.get("doc_date"):
+                errors.append("MISSING_DATE: The document date is missing.")
+
+        return errors
 
     def generate_smart_filename(self, semantic_data: Dict, entity_types: List[str]) -> str:
         """

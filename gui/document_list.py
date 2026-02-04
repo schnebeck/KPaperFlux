@@ -107,6 +107,15 @@ class DocumentListWidget(QWidget):
         "total_net": "Net Amount",
         "invoice_number": "Invoice #"
     }
+    
+    # Phase 125: Humand Readable Mappings for technical Tags
+    TAG_MAPPING = {
+        "CTX_PRIVATE": "Private",
+        "CTX_BUSINESS": "Business",
+        "INBOUND": "Inbound",
+        "OUTBOUND": "Outbound",
+        "INTERNAL": "Internal"
+    }
 
     def __init__(self, db_manager: DatabaseManager, pipeline: Optional[object] = None, filter_tree: Optional[object] = None):
         super().__init__()
@@ -119,7 +128,7 @@ class DocumentListWidget(QWidget):
         self.current_dashboard_query = None # Phase 105: Dashboard Precedence
         self.advanced_filter_active = True   # Phase 105: Active Rule Toggle
         self.target_uuid_to_restore = None   # Phase 105: Programmatic override
-        self.dynamic_columns = ["doc_date", "sender_name", "total_amount"]
+        self.dynamic_columns = []
         self.is_trash_mode = False
         self.view_context = "All Documents" # For Breadcrumb
 
@@ -175,38 +184,24 @@ class DocumentListWidget(QWidget):
         self.tree.header().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.header().customContextMenuRequested.connect(self.show_header_menu)
         self.tree.header().setSectionsMovable(True) # Explicitly enable DnD reordering
-
         layout.addWidget(self.tree)
 
-        # Initial update
+        # 5. Initialization and Restoration
         self.update_breadcrumb()
-
-        # Restore State
+        
+        # Enforce Resize Modes and sane defaults
+        header = self.tree.header()
+        
+        # Restore State (loads columns and visibility)
         self.restore_state()
 
         if self.db_manager:
             self.refresh_list()
 
-        # Enforce Resize Modes and sane defaults
-        header = self.tree.header()
-
-        settings = QSettings("KPaperFlux", "DocumentList")
-        header_state = settings.value("headerState")
-
-        # If columns are squashed (first run), fix them
-        # Avoid squashing if we already have a saved state
-        if not header_state and header.sectionSize(1) < 50:
-             for i in range(self.tree.columnCount()):
-                 self.tree.resizeColumnToContents(i)
-                 if header.sectionSize(i) < 50:
-                     header.resizeSection(i, 100)
-
-        for i in range(self.tree.columnCount()):
-            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
-
+        # Final Header setup
         header.setStretchLastSection(False)
         header.setCascadingSectionResizes(True)
-        header.setSectionsMovable(True) # Force enable DnD reordering LAST
+        header.setSectionsMovable(True) 
 
         # Persistence: Auto-save on move/resize/sort (Debounced)
         self._save_timer = QTimer()
@@ -214,9 +209,9 @@ class DocumentListWidget(QWidget):
         self._save_timer.setInterval(1000) # 1 second delay
         self._save_timer.timeout.connect(self.save_state)
 
-        header.sectionMoved.connect(lambda: self.schedule_save())
-        header.sectionResized.connect(lambda: self.schedule_save())
-        header.sortIndicatorChanged.connect(lambda: self.schedule_save())
+        header.sectionMoved.connect(lambda *args: self.schedule_save())
+        header.sectionResized.connect(lambda *args: self.schedule_save())
+        header.sortIndicatorChanged.connect(lambda *args: self.schedule_save())
 
     def schedule_save(self):
         """Debounce save operation."""
@@ -423,22 +418,25 @@ class DocumentListWidget(QWidget):
     def restore_state(self):
         settings = QSettings("KPaperFlux", "DocumentList")
 
-        dyn_cols = settings.value("dynamicColumns", ["doc_date", "sender_name", "total_amount"])
+        # Use an empty list as default if no settings exist
+        dyn_cols = settings.value("dynamicColumns", [])
         if isinstance(dyn_cols, str): dyn_cols = [dyn_cols]
         elif not isinstance(dyn_cols, list): dyn_cols = []
 
-        if dyn_cols:
-            self.dynamic_columns = dyn_cols
-            self.update_headers()
+        self.dynamic_columns = dyn_cols
+        self.update_headers()
 
         state = settings.value("headerState")
+        header = self.tree.header()
         if state:
-            self.tree.header().restoreState(state)
-            # FORCE Enable DnD because restoreState might reset it to False (legacy state)
-            self.tree.header().setSectionsMovable(True)
-        else:
-            # Default Hiding: Everything visible in Stage 0/1
-            pass
+            header.restoreState(state)
+            header.setSectionsMovable(True)
+        
+        # Enforce resize modes
+        for i in range(self.tree.columnCount()):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
+        header.setStretchLastSection(False)
+        header.setCascadingSectionResizes(True)
 
     def get_view_state(self):
         """Capture current filter and layout state for Saved Views."""
@@ -694,7 +692,7 @@ class DocumentListWidget(QWidget):
         current_sig = tuple(
             (d.uuid, d.status, str(d.last_processed_at), str(d.last_used), str(d.deleted_at), str(d.locked_at))
             for d in docs
-        )
+        ) + tuple(self.dynamic_columns)
 
         if not force_select_first and hasattr(self, '_last_refresh_sig') and self._last_refresh_sig == current_sig:
              # [SILENT] Data is identical to what is currently shown.
@@ -836,7 +834,8 @@ class DocumentListWidget(QWidget):
         target_item.setText(8, format_datetime(doc.last_processed_at) or "-")
         target_item.setText(9, format_datetime(doc.exported_at) or "-")
         target_item.setText(10, doc.status or "NEW")
-        target_item.setText(11, ", ".join(self.sort_type_tags(type_tags)))
+        formatted_types = [self.format_tag(t) for t in self.sort_type_tags(type_tags)]
+        target_item.setText(11, ", ".join(formatted_types))
         target_item.setText(12, ", ".join(doc.tags or []))
 
         # 5. Dynamic Columns (including semantic shortcuts)
@@ -1122,7 +1121,7 @@ class DocumentListWidget(QWidget):
                 processed_str,      # 8: Autoprocessed Date
                 exported_str,       # 9: Exported Date
                 status,             # 10: Status
-                ", ".join(str(t) for t in combined_types if t), # 11: Type Tags
+                ", ".join(self.format_tag(t) for t in combined_types if t), # 11: Type Tags
                 ", ".join(str(t) for t in (doc.tags or []) if t), # 12: Tags
             ]
 
@@ -1135,6 +1134,7 @@ class DocumentListWidget(QWidget):
                     val = getattr(doc.semantic_data, key, None)
                     if val is None and hasattr(doc.semantic_data, "model_extra") and doc.semantic_data.model_extra:
                         val = doc.semantic_data.model_extra.get(key)
+
 
                 # Consistent Formatting logic
                 if key in ["total_amount", "total_gross", "total_net"] and val is not None:
@@ -1167,7 +1167,7 @@ class DocumentListWidget(QWidget):
             item.setData(10, Qt.ItemDataRole.UserRole, doc.status)
 
             if combined_types:
-                item.setToolTip(11, "\n".join(str(t) for t in combined_types if t))
+                item.setToolTip(11, "\n".join(self.format_tag(t) for t in combined_types if t))
 
             if doc.tags:
                 tag_str = ", ".join(str(t) for t in doc.tags if t)
@@ -1293,6 +1293,20 @@ class DocumentListWidget(QWidget):
             return 1 # DocTypes
 
         return sorted(list(tags), key=lambda x: (tag_priority(x), str(x).upper()))
+
+    def format_tag(self, tag: str) -> str:
+        """Translates technical tags into pretty UI labels."""
+        if not tag: return ""
+        t_str = str(tag).replace("_", " ")
+        t_upper = t_str.upper()
+        
+        # 1. Check explicit mapping (using underscored keys from TAG_MAPPING)
+        orig_upper = str(tag).upper()
+        if orig_upper in self.TAG_MAPPING:
+            return self.tr(self.TAG_MAPPING[orig_upper])
+            
+        # 2. Heuristic for DocTypes (ORDER_CONFIRMATION -> Order Confirmation)
+        return self.tr(t_str.title())
 
     def save_as_list(self):
         # Determine if selection exists

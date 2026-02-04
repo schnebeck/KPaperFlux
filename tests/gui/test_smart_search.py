@@ -77,6 +77,10 @@ def db_with_docs(tmp_path):
 
 def test_smart_list_filtering(qtbot, db_with_docs):
     widget = DocumentListWidget(db_with_docs)
+    # Explicitly enable Sender column for verification
+    widget.dynamic_columns = ["sender_name"]
+    widget.update_headers()
+    
     qtbot.addWidget(widget)
     widget.refresh_list()
     
@@ -86,31 +90,37 @@ def test_smart_list_filtering(qtbot, db_with_docs):
     header_labels = [widget.tree.headerItem().text(i) for i in range(widget.tree.columnCount())]
     def get_col(label): return header_labels.index(label)
     col_sender = get_col("Sender")
+    col_uuid = get_col("Entity ID")
 
     # Query: "2024"
     widget.apply_filter({'date_from': '2024-01-01', 'date_to': '2024-12-31'})
-    # Should hide 2023 (doc2) -> UUID 2
-    shown = 0
-    for r in range(3):
-        if not widget.tree.topLevelItem(r).isHidden(): shown += 1
-    assert shown == 2 # Amazon (2024), Ebay (2024)
+    shown_uuids = []
+    for r in range(widget.tree.topLevelItemCount()):
+        item = widget.tree.topLevelItem(r)
+        if not item.isHidden():
+            shown_uuids.append(item.text(col_uuid))
+    
+    assert "1" in shown_uuids # Amazon (2024)
+    assert "3" in shown_uuids # Ebay (2024)
+    assert "2" not in shown_uuids
+    assert len(shown_uuids) == 2
     
     # Query: "Amazon" (Text)
     widget.apply_filter({'text_search': 'amazon'})
-    shown = 0
-    for r in range(3):
-        if not widget.tree.topLevelItem(r).isHidden(): 
-            # Verify it is Amazon
-            sender = widget.tree.topLevelItem(r).text(col_sender)
-            assert sender == "Amazon"
-            shown += 1
-    assert shown == 1
+    shown_count = 0
+    for r in range(widget.tree.topLevelItemCount()):
+        item = widget.tree.topLevelItem(r)
+        if not item.isHidden(): 
+            assert item.text(col_sender) == "Amazon"
+            shown_count += 1
+    assert shown_count == 1
     
     # Query: "Letter urgent" (Type + Tag in text)
     widget.apply_filter({'type': 'Letter', 'text_search': 'urgent'})
-    shown = 0
-    for r in range(3):
-         if not widget.tree.topLevelItem(r).isHidden():
-             assert widget.tree.topLevelItem(r).text(col_sender) == "Ebay"
-             shown += 1
-    assert shown == 1
+    shown_count = 0
+    for r in range(widget.tree.topLevelItemCount()):
+        item = widget.tree.topLevelItem(r)
+        if not item.isHidden():
+             assert item.text(col_sender) == "Ebay"
+             shown_count += 1
+    assert shown_count == 1

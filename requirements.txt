@@ -10,3 +10,4 @@ pdf2image
 Pillow
 reportlab
 python-sane
+qrcode[pil]

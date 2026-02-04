@@ -442,8 +442,20 @@ class CanonizerService:
             try:
                 new_semantic = SemanticExtraction(**semantic_extraction)
                 if target_doc.semantic_data:
-                    # Merge existing fields (like visual_audit from Stage 1.5)
+                    # 1. Merge existing fields from Stage 1.5 (Visual Audit)
                     new_semantic.visual_audit = target_doc.semantic_data.visual_audit
+                    
+                    # 2. Merge classification context from Stage 1.1
+                    # Only overwrite if Stage 2 explicitly provided a non-empty/non-default value
+                    if not semantic_extraction.get("direction") and target_doc.semantic_data.direction:
+                        new_semantic.direction = target_doc.semantic_data.direction
+                    
+                    if not semantic_extraction.get("tenant_context") and target_doc.semantic_data.tenant_context:
+                        new_semantic.tenant_context = target_doc.semantic_data.tenant_context
+                        
+                    if not semantic_extraction.get("type_tags") and target_doc.semantic_data.type_tags:
+                        new_semantic.type_tags = target_doc.semantic_data.type_tags
+
                 target_doc.semantic_data = new_semantic
             except Exception as e:
                 print(f"[Canonizer] Error hydrating Stage 2 result: {e}")

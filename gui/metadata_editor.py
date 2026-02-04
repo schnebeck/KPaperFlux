@@ -2,14 +2,17 @@ from typing import Dict, List, Optional, Any
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QMessageBox, QTabWidget, QCheckBox, QComboBox, QDateEdit,
-    QTableWidget, QTableWidgetItem, QHeaderView, QDialog
+    QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QFrame
 )
+from PyQt6.QtGui import QPixmap, QImage
 import json
+import io
 from datetime import datetime
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 from core.models.canonical_entity import DocType
+from core.utils.girocode import GiroCodeGenerator
 
 # GUI Imports
 from gui.utils import format_datetime, show_selectable_message_box, show_notification
@@ -138,7 +141,12 @@ class MetadataEditorWidget(QWidget):
         self.current_uuids = []
         self.doc = None
         self._locked_for_load = False
-
+        
+        # Debounce timer for GiroCode updates
+        self.giro_timer = QTimer()
+        self.giro_timer.setSingleShot(True)
+        self.giro_timer.timeout.connect(self.refresh_girocode)
+        
         self._init_ui()
 
     def set_db_manager(self, db_manager: DatabaseManager):
@@ -220,15 +228,18 @@ class MetadataEditorWidget(QWidget):
 
         # Core Selectors
         self.doc_types_combo = MultiSelectComboBox()
-        self.doc_types_combo.addItems(sorted([t.value for t in DocType]))
+        # Sort and clean DocType labels
+        for t in sorted([t.value for t in DocType]):
+            label = t.replace("_", " ").title()
+            self.doc_types_combo.addItem(self.tr(label), data=t)
         analysis_layout.addRow(self.tr("Document Types:"), self.doc_types_combo)
 
         self.direction_combo = QComboBox()
-        self.direction_combo.addItems(["INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"])
+        self.direction_combo.addItems(["Inbound", "Outbound", "Internal", "Unknown"])
         analysis_layout.addRow(self.tr("Direction:"), self.direction_combo)
 
         self.context_combo = QComboBox()
-        self.context_combo.addItems(["PRIVATE", "BUSINESS", "UNKNOWN"])
+        self.context_combo.addItems(["Private", "Business", "Unknown"])
         analysis_layout.addRow(self.tr("Tenant Context:"), self.context_combo)
 
         analysis_layout.addRow(QLabel("--- " + self.tr("Extracted Data") + " ---"))
@@ -244,6 +255,80 @@ class MetadataEditorWidget(QWidget):
         # Reasoning field removed to save space/tokens in AI output
 
         self.tab_widget.addTab(self.analysis_scroll, self.tr("Analysis"))
+        
+        # Move Payment Tab initialization up to prevent AttributeError (Crash Fix)
+        self.payment_scroll = QScrollArea()
+        self.payment_scroll.setWidgetResizable(True)
+        self.payment_tab = QWidget()
+        self.payment_scroll.setWidget(self.payment_tab)
+        
+        # Redesign: Horizontal Split
+        payment_master_layout = QHBoxLayout(self.payment_tab)
+        
+        # Left Side: Input Fields
+        self.fields_container = QWidget()
+        fields_layout = QVBoxLayout(self.fields_container)
+        payment_form = QFormLayout()
+        
+        self.pay_recipient_edit = QLineEdit()
+        self.pay_iban_edit = QLineEdit()
+        self.pay_bic_edit = QLineEdit()
+        self.pay_amount_edit = QLineEdit()
+        self.pay_purpose_edit = QLineEdit()
+
+        payment_form.addRow(self.tr("Recipient:"), self.pay_recipient_edit)
+        payment_form.addRow(self.tr("IBAN:"), self.pay_iban_edit)
+        payment_form.addRow(self.tr("BIC:"), self.pay_bic_edit)
+        payment_form.addRow(self.tr("Amount:"), self.pay_amount_edit)
+        payment_form.addRow(self.tr("Purpose:"), self.pay_purpose_edit)
+        
+        fields_layout.addStretch()
+        fields_layout.addLayout(payment_form)
+        fields_layout.addStretch()
+        payment_master_layout.addWidget(self.fields_container, 2)
+        
+        # Right Side: GiroCode & Actions
+        self.qr_container = QWidget()
+        self.qr_container.setMinimumWidth(320)
+        qr_sub_layout = QVBoxLayout(self.qr_container)
+        qr_sub_layout.addStretch()
+        
+        giro_header = QLabel(self.tr("GiroCode (EPC)"))
+        giro_header.setStyleSheet("font-weight: bold; color: #1565c0; font-size: 14px;")
+        giro_header.setToolTip(self.tr("Standardized QR code for SEPA transfers (EPC-QR)."))
+        
+        qr_btn_row = QHBoxLayout()
+        qr_btn_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        qr_image_col = QVBoxLayout()
+        qr_image_col.setAlignment(Qt.AlignmentFlag.AlignTop)
+        qr_image_col.addWidget(giro_header, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        self.qr_label = QLabel()
+        self.qr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.qr_label.setFixedSize(150, 150) 
+        self.qr_label.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Sunken)
+        self.qr_label.setStyleSheet("background-color: white; border: 1px solid #ccc;")
+        qr_image_col.addWidget(self.qr_label)
+        
+        qr_btn_row.addLayout(qr_image_col)
+        
+        btn_col = QVBoxLayout()
+        btn_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        btn_col.addSpacing(20) 
+        
+        self.btn_copy_pay_payload = QPushButton(self.tr("Copy Payload"))
+        self.btn_copy_pay_payload.setToolTip(self.tr("Copy the raw GiroCode data for banking apps"))
+        self.btn_copy_pay_payload.clicked.connect(self.copy_girocode_payload)
+        btn_col.addWidget(self.btn_copy_pay_payload)
+        
+        qr_btn_row.addLayout(btn_col)
+        qr_sub_layout.addLayout(qr_btn_row)
+        qr_sub_layout.addStretch()
+        payment_master_layout.addWidget(self.qr_container)
+
+        self.tab_widget.addTab(self.payment_scroll, self.tr("Payment"))
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.payment_scroll), False)
 
         # --- Tab: Stamps (Stage 1.5) - Phase 105 ---
         self.stamps_tab = QWidget()
@@ -315,6 +400,8 @@ class MetadataEditorWidget(QWidget):
 
         self.tab_widget.addTab(self.source_tab, self.tr("Source Mapping"))
 
+
+
         # --- Tab 3: Raw Semantic Data ---
         self.semantic_tab = QWidget()
         semantic_layout = QVBoxLayout(self.semantic_tab)
@@ -351,6 +438,18 @@ class MetadataEditorWidget(QWidget):
         self.stamps_table.itemChanged.connect(self._mark_dirty)
         self.semantic_table.itemChanged.connect(self._mark_dirty)
         self.chk_pkv.toggled.connect(self._mark_dirty)
+
+        # Payment field changes
+        self.pay_recipient_edit.textChanged.connect(self._trigger_giro_refresh)
+        self.pay_iban_edit.textChanged.connect(self._trigger_giro_refresh)
+        self.pay_bic_edit.textChanged.connect(self._trigger_giro_refresh)
+        self.pay_amount_edit.textChanged.connect(self._trigger_giro_refresh)
+        self.pay_purpose_edit.textChanged.connect(self._trigger_giro_refresh)
+        
+        # Connect change signals for dirty tracking (also)
+        for w in [self.pay_recipient_edit, self.pay_iban_edit, self.pay_bic_edit, 
+                  self.pay_amount_edit, self.pay_purpose_edit]:
+            w.textChanged.connect(self._mark_dirty)
 
     def on_verify_clicked(self):
         """Action to sign off on AI extraction."""
@@ -508,10 +607,15 @@ class MetadataEditorWidget(QWidget):
         self.doc_types_combo.setPlaceholderText("") # Clear any residual placeholder
 
         # Directions & Context (Dynamic via standard values)
-        # Note: We keep these UNKNOWN by default if nothing found
-        # They will grow as the system evolves.
-        self.direction_combo.setCurrentText(sd_dict.get("direction", "UNKNOWN"))
-        self.context_combo.setCurrentText(sd_dict.get("tenant_context", "UNKNOWN"))
+        # Robust case-insensitive sync
+        dir_val = str(sd_dict.get("direction", "Unknown")).title()
+        ctx_val = str(sd_dict.get("tenant_context", "Unknown")).title()
+        
+        # Inbound vs INBOUND mapping
+        if dir_val == "Inbound": dir_val = "Inbound" # Standardized
+        
+        self.direction_combo.setCurrentText(dir_val)
+        self.context_combo.setCurrentText(ctx_val)
 
         # Stage 1.5 Stamps (Phase 105 Fix)
         # Check both direct 'layer_stamps' and nested 'visual_audit'
@@ -585,6 +689,30 @@ class MetadataEditorWidget(QWidget):
             from PyQt6.QtCore import QDate
             self.date_edit.setDate(QDate(2000, 1, 1)) # Default
 
+        # Payment / GiroCode Logic
+        idx_payment = self.tab_widget.indexOf(self.payment_scroll)
+        
+        # Robust lookup for bank info
+        # Check both the primary fields and fallback (Phase 125 Improved)
+        iban = doc.iban or ""
+        total = doc.total_amount
+        sender = doc.sender_name or ""
+        
+        # Show payment tab for financial documents OR if payment info exists
+        is_financial = any(t in ["INVOICE", "RECEIPT", "UTILITY_BILL", "EXPENSE_REPORT"] for t in (doc.type_tags or []))
+        
+        if is_financial or iban or (total and float(total) > 0):
+            self.tab_widget.setTabVisible(idx_payment, True)
+            self.pay_recipient_edit.setText(sender)
+            self.pay_iban_edit.setText(iban)
+            self.pay_bic_edit.setText(doc.bic or "")
+            self.pay_amount_edit.setText(f"{float(total or 0):.2f}" if total is not None else "")
+            self.pay_purpose_edit.setText(doc.doc_number or "")
+            self.refresh_girocode()
+        else:
+            self.tab_widget.setTabVisible(idx_payment, False)
+            self.qr_label.setPixmap(QPixmap())
+
 
         # Source Mapping
         try: # Added try-except block for source mapping parsing
@@ -602,7 +730,7 @@ class MetadataEditorWidget(QWidget):
             print(f"Error displaying source mapping: {e}")
 
         # Full Text & Semantic Data
-        self.full_text_viewer.setPlainText(getattr(doc, "text_content", "")) # Document object uses 'text_content'
+        self.full_text_viewer.setPlainText(getattr(doc, "cached_full_text", ""))
 
         # Display raw semantic data (AI Results) for debugging
         if hasattr(doc, "semantic_data") and doc.semantic_data:
@@ -775,6 +903,96 @@ class MetadataEditorWidget(QWidget):
         else:
             self.tab_widget.setTabVisible(idx_tab, False)
 
+    def _trigger_giro_refresh(self):
+        """Debounced GiroCode refresh."""
+        self.giro_timer.start(500) # 500ms delay
+
+    def refresh_girocode(self):
+        """Generates and displays the EPC-QR Code (GiroCode)."""
+        recipient = self.pay_recipient_edit.text().strip()
+        iban = self.pay_iban_edit.text().strip()
+        bic = self.pay_bic_edit.text().strip()
+        amount_str = self.pay_amount_edit.text().strip().replace(",", ".")
+        purpose = self.pay_purpose_edit.text().strip()
+
+        if not all([recipient, iban, amount_str]):
+            missing = []
+            if not recipient: missing.append(self.tr("Recipient"))
+            if not iban: missing.append(self.tr("IBAN"))
+            if not amount_str: missing.append(self.tr("Amount"))
+            
+            self.qr_label.setText(self.tr("Incomplete data for GiroCode:\nMissing ") + ", ".join(missing))
+            self.qr_label.setPixmap(QPixmap())
+            return
+
+        # Phase 125: Strict IBAN Checksum Verification before QR generation
+        from core.utils.validation import validate_iban
+        is_valid_iban = validate_iban(iban)
+        
+        # UI Feedback for IBAN field
+        if iban and not is_valid_iban:
+            self.pay_iban_edit.setStyleSheet("background-color: #ffebee; border: 1px solid #c62828;")
+        else:
+            self.pay_iban_edit.setStyleSheet("")
+
+        if not is_valid_iban:
+            self.qr_label.setText(self.tr("Invalid IBAN Checksum!\nCannot generate Payment Code."))
+            self.qr_label.setPixmap(QPixmap())
+            return
+
+        try:
+            amount = float(amount_str)
+            payload = GiroCodeGenerator.generate_payload(
+                recipient_name=recipient,
+                iban=iban,
+                amount=amount,
+                purpose=purpose,
+                bic=bic
+            )
+            
+            img = GiroCodeGenerator.get_qr_image(payload)
+            if img:
+                # Convert PIL to QPixmap
+                buffer = io.BytesIO()
+                img.save(buffer, format="PNG")
+                qimg = QImage.fromData(buffer.getvalue())
+                self.qr_label.setPixmap(QPixmap.fromImage(qimg).scaled(
+                    150, 150, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+                ))
+            else:
+                self.qr_label.setText(self.tr("QR Library not installed.\nPlease install 'qrcode' package."))
+                self.qr_label.setPixmap(QPixmap())
+        except ValueError:
+            self.qr_label.setText(self.tr("Invalid Amount format."))
+            self.qr_label.setPixmap(QPixmap())
+        except Exception as e:
+            self.qr_label.setText(self.tr("Error generating QR: ") + str(e))
+            self.qr_label.setPixmap(QPixmap())
+
+    def copy_girocode_payload(self):
+        """Copies the current GiroCode payload to the clipboard."""
+        recipient = self.pay_recipient_edit.text().strip()
+        iban = self.pay_iban_edit.text().strip()
+        amount_str = self.pay_amount_edit.text().strip().replace(",", ".")
+        
+        if not all([recipient, iban, amount_str]):
+            show_notification(self, self.tr("Cannot copy: Incomplete GiroCode data."))
+            return
+
+        try:
+            payload = GiroCodeGenerator.generate_payload(
+                recipient_name=recipient,
+                iban=iban,
+                amount=float(amount_str),
+                purpose=self.pay_purpose_edit.text().strip(),
+                bic=self.pay_bic_edit.text().strip()
+            )
+            from PyQt6.QtWidgets import QApplication
+            QApplication.clipboard().setText(payload)
+            show_notification(self, self.tr("GiroCode payload copied to clipboard."))
+        except Exception as e:
+            show_selectable_message_box(self, self.tr("Copy Error"), str(e), icon=QMessageBox.Icon.Critical)
+
     def clear(self):
         self.current_uuids = []
         self.doc = None
@@ -804,10 +1022,14 @@ class MetadataEditorWidget(QWidget):
 
         # 3. Reconstruct full type_tags (System + Custom)
         final_tags = list(doc_types) # Start with doc types
-        if direction != "UNKNOWN" and direction not in final_tags:
-            final_tags.append(direction)
-        if context != "UNKNOWN":
-            ctx_tag = f"CTX_{context}"
+        dir_upper = direction.upper()
+        ctx_upper = context.upper()
+        
+        if dir_upper != "UNKNOWN" and dir_upper not in final_tags:
+            final_tags.append(dir_upper)
+            
+        if ctx_upper != "UNKNOWN":
+            ctx_tag = f"CTX_{ctx_upper}"
             if ctx_tag not in final_tags:
                 final_tags.append(ctx_tag)
 
@@ -831,8 +1053,8 @@ class MetadataEditorWidget(QWidget):
             sd = SemanticExtraction()
 
         sd.entity_types = doc_types
-        sd.direction = direction
-        sd.tenant_context = context
+        sd.direction = direction.upper()
+        sd.tenant_context = context.upper()
         
         # Workflow Persistence
         if not sd.workflow:

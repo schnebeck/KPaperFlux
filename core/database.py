@@ -259,8 +259,13 @@ class DatabaseManager:
         if "tags" in filtered and isinstance(filtered["tags"], list):
             filtered["tags"] = json.dumps(filtered["tags"])
 
-        if "semantic_data" in filtered and isinstance(filtered["semantic_data"], dict):
-            filtered["semantic_data"] = json.dumps(filtered["semantic_data"], ensure_ascii=False)
+        if "semantic_data" in filtered:
+            sd = filtered["semantic_data"]
+            if hasattr(sd, "model_dump"):
+                # Use model_dump(mode='json') to handle Decimal, UUID, etc.
+                filtered["semantic_data"] = json.dumps(sd.model_dump(mode='json'), ensure_ascii=False)
+            elif isinstance(sd, (dict, list)):
+                filtered["semantic_data"] = json.dumps(sd, ensure_ascii=False)
 
         if filtered:
             self._update_table("virtual_documents", uuid, filtered, pk_col="uuid")

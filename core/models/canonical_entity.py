@@ -63,6 +63,9 @@ class Party(BaseModel):
     zip_code: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = None
+    iban: Optional[str] = None
+    bic: Optional[str] = None
+    bank_name: Optional[str] = None
 
 
 class Parties(BaseModel):

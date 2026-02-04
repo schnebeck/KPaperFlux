@@ -132,12 +132,38 @@ class VirtualDocument(BaseModel):
     @property
     def sender_name(self) -> Optional[str]:
         """Human readable sender name/company."""
-        return self.semantic_data.sender_summary if self.semantic_data else None
+        if not self.semantic_data: return None
+        if hasattr(self.semantic_data, "sender_summary"):
+             return self.semantic_data.sender_summary
+        
+        # Fallback for dict
+        meta = self.semantic_data.get("meta_header", {}) if isinstance(self.semantic_data, dict) else getattr(self.semantic_data, "meta_header", None)
+        if meta:
+            if isinstance(meta, dict):
+                sender = meta.get("sender", {})
+                return sender.get("company") or sender.get("name")
+            else:
+                s = getattr(meta, "sender", None)
+                if s: return getattr(s, "company", None) or getattr(s, "name", None)
+        return None
 
     @property
     def recipient_name(self) -> Optional[str]:
         """Human readable recipient name/company."""
-        return self.semantic_data.recipient_summary if self.semantic_data else None
+        if not self.semantic_data: return None
+        if hasattr(self.semantic_data, "recipient_summary"):
+             return self.semantic_data.recipient_summary
+             
+        # Fallback for dict
+        meta = self.semantic_data.get("meta_header", {}) if isinstance(self.semantic_data, dict) else getattr(self.semantic_data, "meta_header", None)
+        if meta:
+            if isinstance(meta, dict):
+                recp = meta.get("recipient", {})
+                return recp.get("company") or recp.get("name")
+            else:
+                r = getattr(meta, "recipient", None)
+                if r: return getattr(r, "company", None) or getattr(r, "name", None)
+        return None
 
     @property
     def doc_date(self) -> Optional[str]:
@@ -146,8 +172,29 @@ class VirtualDocument(BaseModel):
 
     @property
     def doc_number(self) -> Optional[str]:
-        """Extracted document/invoice number."""
-        return self.semantic_data.document_number if self.semantic_data else None
+        """Extracted document/invoice number with deep fallback."""
+        if not self.semantic_data: return None
+        
+        # 1. Primary from meta_header
+        val = None
+        if hasattr(self.semantic_data, "document_number"):
+            val = self.semantic_data.document_number
+        else:
+            meta = self.semantic_data.get("meta_header", {}) if isinstance(self.semantic_data, dict) else getattr(self.semantic_data, "meta_header", None)
+            if meta:
+                val = meta.get("doc_number") if isinstance(meta, dict) else getattr(meta, "doc_number", None)
+        
+        if val: return val
+        
+        # 2. Deep fallback to bodies
+        bodies = self.semantic_data.get("bodies", {}) if isinstance(self.semantic_data, dict) else getattr(self.semantic_data, "bodies", {})
+        for b in bodies.values():
+            for key in ["invoice_number", "document_number", "order_number", "ref"]:
+                if isinstance(b, dict):
+                    if b.get(key): return str(b[key])
+                else:
+                    if getattr(b, key, None): return str(getattr(b, key))
+        return None
 
 
 
@@ -169,8 +216,56 @@ class VirtualDocument(BaseModel):
 
     @property
     def iban(self) -> Optional[str]:
-        if self.semantic_data and self.semantic_data.meta_header and self.semantic_data.meta_header.sender:
-            return self.semantic_data.meta_header.sender.iban
+        if not self.semantic_data: return None
+        # 1. From Sender
+        sender = self._get_sender_obj()
+        if sender:
+            val = sender.get("iban") if isinstance(sender, dict) else getattr(sender, "iban", None)
+            if val: return val
+        
+        # 2. From FinanceBody Payment Accounts
+        return self._get_nested_finance_value("iban")
+
+    @property
+    def bic(self) -> Optional[str]:
+        if not self.semantic_data: return None
+        # 1. From Sender
+        sender = self._get_sender_obj()
+        if sender:
+            val = sender.get("bic") if isinstance(sender, dict) else getattr(sender, "bic", None)
+            if val: return val
+            
+        # 2. From FinanceBody Payment Accounts
+        return self._get_nested_finance_value("bic")
+
+    @property
+    def bank_name(self) -> Optional[str]:
+        if not self.semantic_data: return None
+        # 1. From Sender
+        sender = self._get_sender_obj()
+        if sender:
+            val = sender.get("bank_name") if isinstance(sender, dict) else getattr(sender, "bank_name", None)
+            if val: return val
+            
+        # 2. From FinanceBody Payment Accounts
+        return self._get_nested_finance_value("bank_name")
+
+    def _get_sender_obj(self) -> Any:
+        if not self.semantic_data: return None
+        meta = self.semantic_data.get("meta_header", {}) if isinstance(self.semantic_data, dict) else getattr(self.semantic_data, "meta_header", None)
+        if meta:
+            return meta.get("sender") if isinstance(meta, dict) else getattr(meta, "sender", None)
+        return None
+
+    def _get_nested_finance_value(self, field: str) -> Optional[str]:
+        if not self.semantic_data: return None
+        bodies = self.semantic_data.get("bodies", {}) if isinstance(self.semantic_data, dict) else getattr(self.semantic_data, "bodies", {})
+        fb = bodies.get("finance_body")
+        if fb:
+            accs = fb.get("payment_accounts", []) if isinstance(fb, dict) else getattr(fb, "payment_accounts", [])
+            if accs and isinstance(accs, list) and len(accs) > 0:
+                first = accs[0]
+                return first.get(field) if isinstance(first, dict) else getattr(first, field, None)
         return None
 
 

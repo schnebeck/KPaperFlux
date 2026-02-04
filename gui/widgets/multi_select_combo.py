@@ -25,10 +25,15 @@ class MultiSelectComboBox(QComboBox):
         opt = QStyleOptionComboBox()
         self.initStyleOption(opt)
         
-        # Determine text to show
-        checked = self.getCheckedItems()
-        if checked:
-            opt.currentText = ", ".join(checked)
+        # Determine text to show (Labels)
+        checked_labels = []
+        for i in range(self.model.rowCount()):
+            item = self.model.item(i)
+            if item.checkState() == Qt.CheckState.Checked:
+                checked_labels.append(item.text())
+        
+        if checked_labels:
+            opt.currentText = ", ".join(checked_labels)
         else:
             opt.currentText = "" # Or placeholder
             
@@ -62,18 +67,26 @@ class MultiSelectComboBox(QComboBox):
         self.showPopup()
 
     def getCheckedItems(self) -> list[str]:
+        """Returns the list of technical values (UserData) for checked items."""
         items = []
         for i in range(self.model.rowCount()):
             item = self.model.item(i)
             if item.checkState() == Qt.CheckState.Checked:
-                items.append(item.text())
+                val = item.data(Qt.ItemDataRole.UserRole)
+                if val is None: val = item.text()
+                items.append(str(val))
         return items
 
     def setCheckedItems(self, items: list[str]):
+        """Sets check states based on technical values (UserData)."""
         self.model.blockSignals(True)
+        items = [str(i) for i in items]
         for i in range(self.model.rowCount()):
             item = self.model.item(i)
-            state = Qt.CheckState.Checked if item.text() in items else Qt.CheckState.Unchecked
+            val = item.data(Qt.ItemDataRole.UserRole)
+            if val is None: val = item.text()
+            
+            state = Qt.CheckState.Checked if str(val) in items else Qt.CheckState.Unchecked
             item.setCheckState(state)
         self.model.blockSignals(False)
         self.update()
