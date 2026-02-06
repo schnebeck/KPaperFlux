@@ -1,0 +1,44 @@
+{
+    "id": "invoice_en",
+    "name": "Invoice (EN)",
+    "match_tags": [
+        "INVOICE",
+        "RECHNUNG"
+    ],
+    "sections": [
+        {
+            "title": "💰 Financial Summary",
+            "type": "table",
+            "fields": [
+                {
+                    "path": "bodies.finance_body.monetary_summation.grand_total_amount",
+                    "label": "Total Amount (Gross)",
+                    "format": "currency",
+                    "important": true
+                },
+                {
+                    "path": "bodies.finance_body.monetary_summation.tax_basis_total_amount",
+                    "label": "Net Amount",
+                    "format": "currency"
+                },
+                {
+                    "path": "bodies.finance_body.monetary_summation.tax_total_amount",
+                    "label": "Tax Amount",
+                    "format": "currency"
+                },
+                {
+                    "path": "bodies.finance_body.due_date",
+                    "label": "Due Date",
+                    "format": "date",
+                    "icon": "🚨"
+                }
+            ]
+        },
+        {
+            "title": "💳 Payment & Bank",
+            "type": "list",
+            "source": "bodies.finance_body.payment_accounts",
+            "item_template": "* **{bank_name}**: `{iban}`"
+        }
+    ]
+}

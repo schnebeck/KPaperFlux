@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 import collections
 
-TS_FILE = 'resources/translations/kpaperflux_de.ts'
+TS_FILE = 'resources/l10n/de/gui_strings.ts'
 
 def deduplicate_ts():
     print(f"Deduplicating {TS_FILE}...")

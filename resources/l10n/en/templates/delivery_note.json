@@ -1,0 +1,26 @@
+{
+    "id": "delivery_note_en",
+    "name": "Delivery Note (EN)",
+    "match_tags": [
+        "DELIVERY_NOTE",
+        "LIEFERSCHEIN"
+    ],
+    "sections": [
+        {
+            "title": "📦 Delivery Info",
+            "type": "key_value",
+            "fields": [
+                {
+                    "path": "meta_header.doc_number",
+                    "label": "Delivery Note #",
+                    "icon": "🔢"
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Delivery Date",
+                    "format": "date"
+                }
+            ]
+        }
+    ]
+}

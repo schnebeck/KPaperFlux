@@ -25,9 +25,11 @@ The goal is now to leverage the "treasure" of extracted data. Reporting in this 
 *   **Tax Preparation:** Automated export (CSV/ZIP) for tax consultants, grouped by categories and tax rates.
 *   **Expense Dashboard:** Visualization of cash flow and burn rates (e.g., "Software Subscriptions", "Insurance").
 
-### B. Process Management & Workflow (Dynamics)
-*   **Inbox Zero:** Using status states (`NEW`, `PAID`, `TO_PAY`) to manage the bureaucracy workflow.
-*   **Deadline Monitoring:** Automatic calculation of due dates (document date + n days) with visual warning signals (traffic light system) in the UI.
+### B. Process Management & Workflow (Task-Based Interaction)
+*   **Generic State Machine:** Moving from a hard-coded "Processing" state to a freely-definable Workflow Engine (Finite State Machine).
+*   **Inbox Zero:** Managing the bureaucracy lifecycle (e.g., `NEW` -> `VERIFIED` -> `PAID` -> `DONE`).
+*   **Deadline Monitoring:** Proactive calculation of due dates and discount periods (Skonto) with a unified "Traffic Light" warning system.
+*   **Dynamic UI Orchestration:** The Metadata Editor adapts its fields and buttons based on the document's current workflow step.
 
 ### C. Context & Relations (Knowledge)
 *   **Knowledge Graph:** Linking documents (e.g., Quote <-> Invoice).
@@ -70,11 +72,31 @@ A "Watchdog" module assesses data health (Anomaly Detection).
 *   **GiroCode Generator:** Integration of a QR code generator (EPC standard), based on extracted IBAN/amount data from Stage 2.
 *   **Dashboard Integration:** Initial graphical evaluations in the main window (bar charts for expenses).
 
-### Phase 3: Workflow & Quality
-*   Introduction of the **Anomaly Checker** (warning on price deviations).
-*   Implementation of **Smart Folder Export** (physical sorting on HDD based on metadata).
+### Phase 3: Generic Workflow Engine (State Machine)
+*   **Workflow Schema:** Definition of YAML/JSON-based state machines (States, Transitions, Requirements).
+*   **Shared Templates:** Library of community-driven workflows (e.g., "Health Reimbursement", "Tax Deductibles").
+*   **Adaptive UI:** Dynamic button/input rendering in the Metadata Editor based on current state.
+
+### Phase 4: Quality & Smart Exports
+*   **Anomaly Checker:** Machine Learning based warning on unusual price or IBAN deviations.
+*   **Smart Folder Export:** Automatic physical sorting on HDD based on finalized workflow results.
 
 ---
 
-## 5. Conclusion
-KPaperFlux is now transitioning from the **Data Acquisition** phase into the **Data Utilization** phase. The architectural decision for JSON metadata is proving to be the decisive accelerator, as complex reports can operate flexibly on the `semantic_data` layer.
+## 6. Infrastructure: The Generic State Machine
+
+The core shift is from **"What is this document?"** to **"What needs to be done with this document?"**.
+
+### I. Programmable Lifecycle
+Workflows are treated as "Playbooks". A playbook defines:
+1.  **Triggers:** Events that start the process (e.g., Tag `INVOICE` added).
+2.  **Steps:** Specific states (e.g., `WAITING_FOR_PAYMENT`).
+3.  **Requirements:** Data fields that must be filled before transitioning (e.g., `IBAN` must be valid).
+4.  **Transitions:** Named actions (e.g., "Confirm Reimbursement").
+
+### II. Community & Sharing
+By decoupling the workflow logic from the Python code, users can share their "State Machines" (e.g., a specific German 'DATEV' export workflow or a complex medical reimbursement flow).
+
+## 7. Conclusion
+
+KPaperFlux is transitioning from **Data Acquisition** to **Task-Based Knowledge Management**. The architectural decision for JSON metadata and the new Generic State Machine allows the system to guide the user through complex bureaucratic processes, rather than just displaying data.

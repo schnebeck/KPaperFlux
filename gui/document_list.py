@@ -80,6 +80,7 @@ class DocumentListWidget(QWidget):
     save_list_requested = pyqtSignal(str, list) # name, uuids
     restore_requested = pyqtSignal(list) # Phase 92: Trash Restore
     apply_rule_requested = pyqtSignal(object, str) # rule_node, scope ("SELECTED")
+    show_generic_requested = pyqtSignal(str) # UUID
     # Logical Index -> Label Mapping (Fixed Columns)
     FIXED_COLUMNS = {
         0: "#",
@@ -521,6 +522,13 @@ class DocumentListWidget(QWidget):
             edit_action = menu.addAction(self.tr("Edit Document..."))
 
         reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
+        
+        # Phase 112: Debug Option
+        debug_action = None
+        if len(selected_items) == 1:
+            menu.addSeparator()
+            debug_action = menu.addAction(self.tr("Show generic Document"))
+            menu.addSeparator()
 
         # --- Semantic Data Submenu ---
         semantic_submenu = menu.addMenu(self.tr("Semantic Data"))
@@ -599,6 +607,8 @@ class DocumentListWidget(QWidget):
              self.tags_update_requested.emit(uuids)
         elif action == stamp_action:
             self.stamp_requested.emit(uuids)
+        elif action == debug_action:
+            self.show_generic_requested.emit(uuid)
         elif action == export_action:
             # Get selected documents
             docs = []

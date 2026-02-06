@@ -33,11 +33,11 @@ def test_german_translation_loading(app_config, qtbot):
     translator = QTranslator()
     
     # Locate the generated .qm file
-    # It should be in resources/translations/kpaperflux_de.qm
+    # New centralized l10n structure
     base_dir = Path(__file__).resolve().parent.parent.parent
-    qm_path = base_dir / "resources" / "translations" / "kpaperflux_de.qm"
+    qm_path = base_dir / "resources" / "l10n" / "de" / "gui_strings.qm"
     
-    assert qm_path.exists(), f"Translation file not found at {qm_path}"
+    assert qm_path.exists(), f"GUI Translation file not found at {qm_path}. Did you run lrelease?"
 
     # 2. Action: Load the translator
     loaded = translator.load(str(qm_path))

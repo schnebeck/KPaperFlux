@@ -30,7 +30,13 @@ KPaperFlux employs a multi-stage, intelligent analysis pipeline to understand do
 *   **Stage 1 - "Pre-Flight":** Decides in milliseconds whether the input is a book, an invoice, or a stack of documents.
 *   **Stage 1.5 - Visual Auditor (X-Ray Mode):** A forensic module that visually separates stamps, notes, and signatures from the original text.
     *   *Feature:* Detects handwritten "Paid" notes or accounting stamps and extracts their data separately.
-*   **Stage 2 - Semantic Extraction:** Extracts structured JSON data (Sender, Date, Line Items) using a schema capable of understanding complex documents like DigiKey invoices with 50+ line items.
+*   **Stage 2 - Semantic Extraction:** Extracts structured JSON data (Sender, Date, Line Items) using a schema compliant with EN 16931 / ZUGFeRD 2.2. Handles complex documents like DigiKey invoices with 50+ line items.
+*   **Electronic Invoicing (ZUGFeRD/Factur-X):** Deep integration for embedded XML data in PDF/A files. Automatically extracts invoice metadata, line items, and bank details without AI overhead.
+
+### 🌍 Localization (l10n & i18n)
+*   **Centralized Architecture:** Unified management of translations, unit codes, and render templates in `resources/l10n/`.
+*   **Multi-Language Support:** Full support for German and English, including locale-specific formatting for currencies (1.234,56 € vs € 1,234.56) and dates.
+*   **Professional Audit View:** DIN 5008 compliant PDF rendering with support for advanced fields like Cost Centers (BT-19), Project IDs (BT-11), and Service Dates (BT-7).
 
 ### ⚡ Performance & Token Efficiency
 *   **Sandwich Mode:** For large manuals, only the start and end are scanned to save AI costs.

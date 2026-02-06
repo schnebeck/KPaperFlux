@@ -18,6 +18,8 @@ from core.utils.girocode import GiroCodeGenerator
 from gui.utils import format_datetime, show_selectable_message_box, show_notification
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.tag_input import TagInputWidget
+from gui.widgets.workflow_controls import WorkflowControlsWidget
+from gui.audit_window import AuditWindow
 
 class NestedTableDialog(QDialog):
     """Dialog for editing lists of objects (tables in tables)."""
@@ -56,7 +58,7 @@ class NestedTableDialog(QDialog):
                     val = item if c == 0 else ""
 
                 if isinstance(val, (dict, list)):
-                    val = json.dumps(val, ensure_ascii=False)
+                    val = json.dumps(val, ensure_ascii=False, default=str)
 
                 self.table.setItem(r, c, QTableWidgetItem(str(val) if val is not None else ""))
 
@@ -141,6 +143,7 @@ class MetadataEditorWidget(QWidget):
         self.current_uuids = []
         self.doc = None
         self._locked_for_load = False
+        self.audit_window = None
         
         # Debounce timer for GiroCode updates
         self.giro_timer = QTimer()
@@ -164,11 +167,16 @@ class MetadataEditorWidget(QWidget):
         
         lock_layout.addStretch()
         
-        # Phase 111: Workflow Actions
-        self.btn_verify = QPushButton("✅ Verify Document")
-        self.btn_verify.setStyleSheet("background-color: #2e7d32; color: white; font-weight: bold; padding: 4px 12px;")
-        self.btn_verify.clicked.connect(self.on_verify_clicked)
-        lock_layout.addWidget(self.btn_verify)
+        # Phase 111: Dynamic Workflow Controls
+        self.workflow_controls = WorkflowControlsWidget()
+        self.workflow_controls.transition_triggered.connect(self.on_workflow_transition)
+        self.workflow_controls.playbook_changed.connect(self.on_playbook_changed)
+        lock_layout.addWidget(self.workflow_controls)
+        
+        self.btn_audit = QPushButton(self.tr("🔍 Audit"))
+        self.btn_audit.setToolTip(self.tr("Open side-by-side verification window"))
+        self.btn_audit.clicked.connect(self.open_audit_window)
+        lock_layout.addWidget(self.btn_audit)
         
         layout.addLayout(lock_layout)
 
@@ -182,10 +190,6 @@ class MetadataEditorWidget(QWidget):
         self.general_scroll.setWidget(self.general_content)
 
         general_layout = QFormLayout(self.general_content)
-        
-        self.workflow_lbl = QLabel()
-        self.workflow_lbl.setStyleSheet("font-weight: bold; color: #1976d2;")
-        general_layout.addRow("Workflow:", self.workflow_lbl)
         
         # PKV Toggle
         self.chk_pkv = QCheckBox("Eligible for PKV Reimbursement")
@@ -420,6 +424,23 @@ class MetadataEditorWidget(QWidget):
         semantic_layout.addWidget(self.full_text_viewer)
         self.tab_widget.addTab(self.semantic_tab, self.tr("Debug Data"))
 
+        # --- Tab: Workflow History (Phase 112) ---
+        self.history_tab = QWidget()
+        history_layout = QVBoxLayout(self.history_tab)
+        
+        self.history_table = QTableWidget()
+        self.history_table.setColumnCount(4)
+        self.history_table.setHorizontalHeaderLabels([
+            self.tr("Time"), self.tr("Action"), self.tr("User"), self.tr("Comment")
+        ])
+        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.history_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.history_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        history_layout.addWidget(self.history_table)
+        
+        self.tab_widget.addTab(self.history_tab, self.tr("History"))
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.history_tab), False)
+
         # Buttons
         self.btn_save = QPushButton(self.tr("Save Changes"))
         self.btn_save.clicked.connect(self.save_changes)
@@ -451,44 +472,105 @@ class MetadataEditorWidget(QWidget):
                   self.pay_amount_edit, self.pay_purpose_edit]:
             w.textChanged.connect(self._mark_dirty)
 
-    def on_verify_clicked(self):
-        """Action to sign off on AI extraction."""
-        if not self.current_uuids or not self.db_manager:
+    def on_workflow_transition(self, action: str, target_state: str):
+        """Action handler for workflow button clicks."""
+        if not self.current_uuids or not self.db_manager or not self.doc:
             return
             
-        # 1. Update Workflow Status in SD
-        for uuid in self.current_uuids:
-            doc = self.db_manager.get_document_by_uuid(uuid)
-            if not doc: continue
-            
-            sd = doc.semantic_data
-            if not sd: continue
-            
-            # Update workflow object
-            wf = getattr(sd, "workflow", None)
-            if wf:
-                wf.is_verified = True
-                wf.verified_at = datetime.now().isoformat()
-                wf.verified_by = "USER"
-                wf.current_step = "VERIFIED"
-                
-                # Update status to PROCESSED
-                self.db_manager.update_document_metadata(uuid, {
-                    "status": "PROCESSED",
-                    "locked": True,
-                    "semantic_data": sd
-                })
+        print(f"[Workflow-GUI] Triggering ACTION '{action}' -> '{target_state}'")
         
+        # 1. Update In-Memory Object
+        sd = self.doc.semantic_data
+        if sd and sd.workflow:
+            sd.workflow.apply_transition(action, target_state, user="USER", comment="Action triggered via UI")
+            
+            # If target state is 'PAID', we might want to update status to 'DONE' etc.
+            # But the playbook should ideally define if a state is 'final'.
+            # For now, we also sync the STATUS combo if it's a final state.
+            
+            # 2. Persist to DB
+            for u in self.current_uuids:
+                # In most cases it's just one, but we support batch if needed.
+                self.db_manager.update_document_metadata(u, {"semantic_data": sd})
+        
+        # 3. Refresh UI
+        self.display_documents([self.doc]) 
         self.metadata_saved.emit()
-        show_notification(self, "Verified", f"Marked {len(self.current_uuids)} items as verified.")
+        show_notification(self, "Workflow Updated", f"State transitioned to {target_state}")
+
+    def on_playbook_changed(self, new_pb_id: str):
+        """Handler for manual playbook reassignment."""
+        if not self.current_uuids or not self.db_manager or not self.doc:
+            return
+            
+        print(f"[Workflow-GUI] Changing Playbook to '{new_pb_id}'")
+        
+        sd = self.doc.semantic_data
+        if not sd: return
+        
+        if not sd.workflow:
+            from core.models.semantic import WorkflowInfo
+            sd.workflow = WorkflowInfo()
+            
+        sd.workflow.playbook_id = new_pb_id if new_pb_id else None
+        # Reset step to NEW if changing playbook? Usually yes.
+        sd.workflow.current_step = "NEW"
+        
+        # Log it
+        from core.models.semantic import WorkflowLog
+        sd.workflow.history.append(WorkflowLog(
+            action=f"AGENT_CHANGE: {new_pb_id or 'NONE'}",
+            comment="Manual reassignment"
+        ))
+        
+        # Persist
+        for u in self.current_uuids:
+            self.db_manager.update_document_metadata(u, {"semantic_data": sd})
+            
+        self.display_documents([self.doc])
+        self.metadata_saved.emit()
+        show_notification(self, "Agent Updated", f"Workflow assigned: {new_pb_id or 'None'}")
+        
+        # Live Update Audit Window
+        if self.audit_window and self.audit_window.isVisible():
+            self.audit_window.display_document(self.doc)
+
+    def open_audit_window(self):
+        """Launches the non-modal audit/verification interface."""
+        if not self.doc:
+            show_notification(self, "Audit", "Please select a document first.")
+            return
+
+        if not self.audit_window:
+            self.audit_window = AuditWindow(pipeline=getattr(self.db_manager, 'pipeline', None))
+            self.audit_window.workflow_triggered.connect(self.on_workflow_transition)
+            self.audit_window.closed.connect(self._on_audit_closed)
+            
+        self.audit_window.display_document(self.doc)
+        self.audit_window.show()
+        self.audit_window.raise_()
+
+    def _on_audit_closed(self):
+        self.audit_window = None
 
     def _mark_dirty(self):
-        """Enable save button when user changes something."""
+        """Enable save button and update live workflow previews."""
         if getattr(self, "_locked_for_load", False):
             return
         self.btn_save.setEnabled(True)
-        # Visual hint: subtle green background for the active save button
         self.btn_save.setStyleSheet("background-color: #e8f5e9; font-weight: bold; border: 1px solid #c8e6c9;")
+        
+        # Phase 111: Hot-update workflow buttons as the user types
+        if self.doc and self.doc.semantic_data:
+            wf = self.doc.semantic_data.workflow
+            if wf and wf.playbook_id:
+                # Mock current data for the check
+                current_data = {
+                    "total_gross": self.pay_amount_edit.text(),
+                    "iban": self.pay_iban_edit.text(),
+                    "sender_name": self.sender_edit.text(),
+                }
+                self.workflow_controls.update_workflow(wf.playbook_id, wf.current_step, current_data)
 
     def _reset_dirty(self):
         """Disable save button and reset style."""
@@ -657,21 +739,50 @@ class MetadataEditorWidget(QWidget):
 
         self._populate_semantic_table(sd_dict)
 
-        # Workflow Display
-        wf = getattr(sd, "workflow", None)
-        if wf:
-            status = "VERIFIED" if wf.is_verified else "UNVERIFIED"
-            color = "#2e7d32" if wf.is_verified else "#d32f2f"
-            self.workflow_lbl.setText(status)
-            self.workflow_lbl.setStyleSheet(f"font-weight: bold; color: {color};")
-            self.btn_verify.setEnabled(not wf.is_verified)
-            with QSignalBlocker(self.chk_pkv):
-                self.chk_pkv.setChecked(wf.pkv_eligible)
-        else:
-            self.workflow_lbl.setText("UNKNOWN")
-            self.btn_verify.setEnabled(True)
-            with QSignalBlocker(self.chk_pkv):
-                self.chk_pkv.setChecked(False)
+        # Workflow Logic (Dynamic)
+        wf_data = getattr(sd, "workflow", None)
+        playbook_id = wf_data.playbook_id if wf_data else None
+        current_step = wf_data.current_step if wf_data else "NEW"
+        
+        # Prepare flat data for requirement check (e.g. amount, iban, etc.)
+        # + Virtual time-based fields (Phase 112)
+        now = datetime.now()
+        
+        doc_data_for_wf = {
+            "total_gross": doc.total_amount,
+            "iban": doc.iban,
+            "sender_name": doc.sender_name,
+            "doc_date": doc.doc_date,
+            "doc_number": doc.doc_number,
+            "AGE_DAYS": 0,
+            "DAYS_IN_STATE": 0,
+            "DAYS_UNTIL_DUE": 999
+        }
+        
+        try:
+            if doc.created_at:
+                doc_data_for_wf["AGE_DAYS"] = (now - datetime.fromisoformat(doc.created_at)).days
+            
+            if wf_data and wf_data.history:
+                last_ts = wf_data.history[-1].timestamp
+                doc_data_for_wf["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
+                
+            if doc.due_date:
+                # Handle YYYY-MM-DD by ensuring it looks like ISO
+                dd_str = doc.due_date
+                if len(dd_str) == 10: dd_str += "T00:00:00"
+                doc_data_for_wf["DAYS_UNTIL_DUE"] = (datetime.fromisoformat(dd_str) - now).days
+        except Exception as e:
+            logger.debug(f"Time calculation failed: {e}")
+
+        self.workflow_controls.update_workflow(playbook_id, current_step, doc_data_for_wf)
+        
+        # PKV Sync
+        with QSignalBlocker(self.chk_pkv):
+            self.chk_pkv.setChecked(wf_data.pkv_eligible if wf_data else False)
+
+        # 112: Populate History
+        self._populate_history_table(wf_data)
 
         # Extracted Data
         self.sender_edit.setText(doc.sender_name or "")
@@ -713,6 +824,10 @@ class MetadataEditorWidget(QWidget):
             self.tab_widget.setTabVisible(idx_payment, False)
             self.qr_label.setPixmap(QPixmap())
 
+        # Sync Audit Window if visible
+        if self.audit_window and self.audit_window.isVisible():
+            self.audit_window.display_document(doc)
+
 
         # Source Mapping
         try: # Added try-except block for source mapping parsing
@@ -721,7 +836,7 @@ class MetadataEditorWidget(QWidget):
                 try:
                     if isinstance(mapping, str): mapping_data = json.loads(mapping)
                     else: mapping_data = mapping
-                    self.source_viewer.setPlainText(json.dumps(mapping_data, indent=2, ensure_ascii=False))
+                    self.source_viewer.setPlainText(json.dumps(mapping_data, indent=2, ensure_ascii=False, default=str))
                 except json.JSONDecodeError: # Specific exception for JSON parsing
                     self.source_viewer.setPlainText(str(mapping)) # Fallback to string if not valid JSON
             else:
@@ -763,6 +878,31 @@ class MetadataEditorWidget(QWidget):
         for row in indices:
             self.stamps_table.removeRow(row)
 
+    def _populate_history_table(self, wf_data):
+        """Displays the audit log of workflow transitions."""
+        self.history_table.setRowCount(0)
+        idx_history = self.tab_widget.indexOf(self.history_tab)
+        
+        if not wf_data or not wf_data.history:
+            self.tab_widget.setTabVisible(idx_history, False)
+            return
+            
+        self.tab_widget.setTabVisible(idx_history, True)
+        # Reverse display to show newest first
+        for entry in reversed(wf_data.history):
+            row = self.history_table.rowCount()
+            self.history_table.insertRow(row)
+            
+            # Timestamp formatting
+            ts = format_datetime(entry.timestamp)
+            
+            self.history_table.setItem(row, 0, QTableWidgetItem(ts))
+            self.history_table.setItem(row, 1, QTableWidgetItem(entry.action))
+            self.history_table.setItem(row, 2, QTableWidgetItem(entry.user or "SYSTEM"))
+            self.history_table.setItem(row, 3, QTableWidgetItem(entry.comment or ""))
+            
+        self.history_table.resizeRowsToContents()
+
     def _add_semantic_row(self):
         row = self.semantic_table.rowCount()
         self.semantic_table.insertRow(row)
@@ -786,7 +926,7 @@ class MetadataEditorWidget(QWidget):
                 dlg = NestedTableDialog(data, f"Edit List: {key_path}", self)
                 if dlg.exec():
                     new_data = dlg.get_data()
-                    new_json = json.dumps(new_data, ensure_ascii=False)
+                    new_json = json.dumps(new_data, ensure_ascii=False, default=str)
 
                     # Update background item (which save_changes reads)
                     if it:
@@ -826,7 +966,7 @@ class MetadataEditorWidget(QWidget):
                         # Rule: list of dicts or more than 3 elements (for readability)
                         is_complex = any(isinstance(x, dict) for x in v)
                         if is_complex or (len(v) > 3 and all(not isinstance(x, (dict, list)) for x in v)):
-                             rows.append((section, key_path, json.dumps(v, ensure_ascii=False), "NESTED_TABLE"))
+                             rows.append((section, key_path, json.dumps(v, ensure_ascii=False, default=str), "NESTED_TABLE"))
                         elif not v: # Empty list
                              rows.append((section, key_path, "[]"))
                         else:
@@ -837,7 +977,7 @@ class MetadataEditorWidget(QWidget):
             elif isinstance(data, (str, int, float, bool)) or data is None:
                 rows.append((section, prefix, str(data) if data is not None else ""))
             else:
-                rows.append((section, prefix, json.dumps(data, ensure_ascii=False)))
+                rows.append((section, prefix, json.dumps(data, ensure_ascii=False, default=str)))
 
         # 1. Known Main Sections
         if "meta_header" in sd:
@@ -1052,7 +1192,7 @@ class MetadataEditorWidget(QWidget):
         if not sd:
             sd = SemanticExtraction()
 
-        sd.entity_types = doc_types
+        sd.type_tags = final_tags
         sd.direction = direction.upper()
         sd.tenant_context = context.upper()
         

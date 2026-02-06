@@ -30,10 +30,12 @@ class AppConfig:
     KEY_GEMINI_MODEL: str = "gemini_model"
     KEY_LANGUAGE: str = "language"
     KEY_API_KEY: str = "api_key"
+    KEY_AI_RETRIES: str = "ai_retries"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
     DEFAULT_MODEL: str = "gemini-1.5-flash"
+    DEFAULT_AI_RETRIES: int = 2
 
     APP_ID: str = "kpaperflux"
 
@@ -271,3 +273,21 @@ class AppConfig:
             json_str: The JSON profile string.
         """
         self._set_setting("Identity", "business_profile", json_str)
+
+    def get_ai_retries(self) -> int:
+        """
+        Retrieves the max number of AI validation correction loops.
+
+        Returns:
+            The number of retries.
+        """
+        return int(self._get_setting("AI", self.KEY_AI_RETRIES, self.DEFAULT_AI_RETRIES))
+
+    def set_ai_retries(self, retries: int) -> None:
+        """
+        Saves the max number of AI validation correction loops.
+
+        Args:
+            retries: The number of retries.
+        """
+        self._set_setting("AI", self.KEY_AI_RETRIES, retries)

@@ -1,0 +1,36 @@
+{
+    "id": "letter_de",
+    "name": "Brief (DE)",
+    "match_tags": [
+        "LETTER",
+        "BRIEF",
+        "CORRESPONDENCE"
+    ],
+    "sections": [
+        {
+            "title": "Brief-Info",
+            "type": "key_value",
+            "fields": [
+                {
+                    "path": "meta_header.sender.company",
+                    "label": "Absender",
+                    "icon": "🏢"
+                },
+                {
+                    "path": "meta_header.sender.name",
+                    "label": "Ansprechpartner"
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Datum",
+                    "format": "date"
+                },
+                {
+                    "path": "meta_header.doc_number",
+                    "label": "Referenz",
+                    "icon": "📝"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,50 @@
+{
+    "id": "letter_standard",
+    "name": "Korrespondenz / Brief",
+    "match_tags": [
+        "LETTER",
+        "BRIEF",
+        "CORRESPONDENCE"
+    ],
+    "sections": [
+        {
+            "title": "✉️ Brief-Info",
+            "type": "key_value",
+            "fields": [
+                {
+                    "path": "meta_header.sender.company",
+                    "label": "Absender",
+                    "icon": "🏢"
+                },
+                {
+                    "path": "meta_header.sender.name",
+                    "label": "Ansprechpartner"
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Datum",
+                    "format": "date"
+                },
+                {
+                    "path": "meta_header.doc_number",
+                    "label": "Aktenzeichen / Ref",
+                    "icon": "📝"
+                }
+            ]
+        },
+        {
+            "title": "📍 Adresse",
+            "type": "key_value",
+            "fields": [
+                {
+                    "path": "meta_header.sender.street",
+                    "label": "Straße"
+                },
+                {
+                    "path": "meta_header.sender.city",
+                    "label": "Ort"
+                }
+            ]
+        }
+    ]
+}

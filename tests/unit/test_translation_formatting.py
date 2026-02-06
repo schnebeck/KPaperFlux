@@ -2,7 +2,7 @@ import pytest
 import xml.etree.ElementTree as ET
 import os
 
-TS_FILE = os.path.join(os.path.dirname(__file__), '../../resources/translations/kpaperflux_de.ts')
+TS_FILE = os.path.join(os.path.dirname(__file__), '../../resources/l10n/de/gui_strings.ts')
 
 def test_translation_file_exists():
     assert os.path.exists(TS_FILE), f"Translation file not found at {TS_FILE}"

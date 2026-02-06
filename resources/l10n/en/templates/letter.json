@@ -1,0 +1,36 @@
+{
+    "id": "letter_en",
+    "name": "Letter (EN)",
+    "match_tags": [
+        "LETTER",
+        "BRIEF",
+        "CORRESPONDENCE"
+    ],
+    "sections": [
+        {
+            "title": "✉️ Letter Info",
+            "type": "key_value",
+            "fields": [
+                {
+                    "path": "meta_header.sender.company",
+                    "label": "Sender",
+                    "icon": "🏢"
+                },
+                {
+                    "path": "meta_header.sender.name",
+                    "label": "Contact Person"
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Date",
+                    "format": "date"
+                },
+                {
+                    "path": "meta_header.doc_number",
+                    "label": "Reference",
+                    "icon": "📝"
+                }
+            ]
+        }
+    ]
+}

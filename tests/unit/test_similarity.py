@@ -2,7 +2,7 @@
 import pytest
 from core.similarity import SimilarityManager
 from core.models.virtual import VirtualDocument as Document
-from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, MonetarySummation
 from core.database import DatabaseManager
 from unittest.mock import MagicMock
 import datetime
@@ -41,7 +41,11 @@ def test_metadata_boost():
         text_content="invoice amazon delivery", 
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(doc_date=today),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.00"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.00"))
+                )
+            }
         )
     )
     doc_b = Document(
@@ -49,7 +53,11 @@ def test_metadata_boost():
         text_content="invoice google play", 
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(doc_date=today),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.00"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.00"))
+                )
+            }
         )
     )
     
@@ -68,9 +76,17 @@ def test_metadata_boost():
         text_content="invoice amazon delivery items", 
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(doc_date=today),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.00"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.00"))
+                )
+            }
         )
     )
+    # Jaccard ~ 0.6
+    # Final = 0.6 + 0.2 = 0.8.
+    score2 = manager.calculate_similarity(doc_a, doc_c)
+    assert score2 >= 0.8
     # Jaccard ~ 0.6
     # Final = 0.6 + 0.2 = 0.8.
     score2 = manager.calculate_similarity(doc_a, doc_c)

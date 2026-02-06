@@ -4,7 +4,7 @@ from decimal import Decimal
 from core.reporting import ReportGenerator
 from core.utils.girocode import GiroCodeGenerator
 from core.models.virtual import VirtualDocument
-from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody
+from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody, MonetarySummation
 
 @pytest.fixture
 def sample_docs():
@@ -17,7 +17,14 @@ def sample_docs():
                 sender=AddressInfo(company="Sender A", iban="DE123456789")
             ),
             bodies={
-                "finance_body": FinanceBody(total_gross=Decimal("119.00"), total_net=Decimal("100.00"), total_tax=Decimal("19.00"), tax_details={"19%": 19.00})
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(
+                        grand_total_amount=Decimal("119.00"), 
+                        tax_basis_total_amount=Decimal("100.00"), 
+                        tax_total_amount=Decimal("19.00")
+                    ),
+                    tax_details={"19%": 19.00}
+                )
             }
         )
     )
@@ -30,7 +37,9 @@ def sample_docs():
                 sender=AddressInfo(name="Store B")
             ),
             bodies={
-                "finance_body": FinanceBody(total_gross=Decimal("50.00"))
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("50.00"))
+                )
             }
         )
     )
@@ -43,7 +52,9 @@ def sample_docs():
                 sender=AddressInfo(company="Sender C")
             ),
             bodies={
-                "finance_body": FinanceBody(total_gross=Decimal("200.00"))
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("200.00"))
+                )
             }
         )
     )

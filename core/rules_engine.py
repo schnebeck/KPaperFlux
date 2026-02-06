@@ -58,6 +58,9 @@ class RulesEngine:
         # Use set for efficient tag operations
         current_tags: Set[str] = set(v_doc.tags or [])
         original_tags: Set[str] = current_tags.copy()
+        
+        new_workflow: Optional[str] = None
+        modified = False
 
         for rule in rules:
             # Evaluate if the document matches the rule's filter criteria
@@ -69,10 +72,24 @@ class RulesEngine:
                 # 2. Remove specified tags
                 if rule.tags_to_remove:
                     current_tags.difference_update(set(rule.tags_to_remove))
+                
+                # 3. Assign Workflow
+                if rule.assign_workflow:
+                    new_workflow = rule.assign_workflow
 
-        # Check for changes
+        # Check for tag changes
         if current_tags != original_tags:
             v_doc.tags = sorted(list(current_tags))
-            return True
+            modified = True
+            
+        # Check for workflow changes
+        if new_workflow:
+            if not v_doc.semantic_data:
+                from core.models.semantic import SemanticExtraction
+                v_doc.semantic_data = SemanticExtraction()
+            
+            if v_doc.semantic_data.workflow.playbook_id != new_workflow:
+                v_doc.semantic_data.workflow.playbook_id = new_workflow
+                modified = True
 
-        return False
+        return modified

@@ -52,6 +52,7 @@ class FilterNode:
         # Phase 106: Rule Extension
         self.tags_to_add: List[str] = []
         self.tags_to_remove: List[str] = []
+        self.assign_workflow: Optional[str] = None
         self.auto_apply: bool = False
         self.is_enabled: bool = True
 
@@ -69,6 +70,7 @@ class FilterNode:
             "data": self.data,
             "tags_to_add": self.tags_to_add,
             "tags_to_remove": self.tags_to_remove,
+            "assign_workflow": self.assign_workflow,
             "auto_apply": self.auto_apply,
             "is_enabled": self.is_enabled,
             "children": [child.to_dict() for child in self.children]
@@ -261,6 +263,7 @@ class FilterTree:
         # Rule Fields
         node.tags_to_add = data.get("tags_to_add", [])
         node.tags_to_remove = data.get("tags_to_remove", [])
+        node.assign_workflow = data.get("assign_workflow")
         node.auto_apply = bool(data.get("auto_apply", False))
         node.is_enabled = bool(data.get("is_enabled", True))
 
@@ -332,3 +335,24 @@ class FilterTree:
             return None
 
         return _recurse(self.root)
+
+    def find_workflow_usages(self, playbook_id: str) -> List[FilterNode]:
+        """
+        Finds all filter nodes that assign the given workflow playbook.
+        
+        Args:
+            playbook_id: The ID of the agent to search for.
+            
+        Returns:
+            A list of FilterNode objects using this agent.
+        """
+        results: List[FilterNode] = []
+        
+        def _recurse(node: FilterNode) -> None:
+            if node.assign_workflow == playbook_id:
+                results.append(node)
+            for child in node.children:
+                _recurse(child)
+                
+        _recurse(self.root)
+        return results

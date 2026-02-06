@@ -597,6 +597,12 @@ class PdfViewerWidget(QWidget):
         settings.setValue("zoomFactor", self.view.zoomFactor())
         settings.setValue("zoomMode", self.view.zoomMode().value)
 
+    def set_zoom_mode(self, mode: QPdfView.ZoomMode):
+        """Set zoom mode programmatically."""
+        self.view.setZoomMode(mode)
+        self.btn_fit.setChecked(mode == QPdfView.ZoomMode.FitInView)
+        self._update_scrollbar_policy()
+
     def restore_zoom_state(self):
         settings = QSettings("KPaperFlux", "PdfViewer")
         try:

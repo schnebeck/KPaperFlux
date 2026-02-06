@@ -1,0 +1,88 @@
+{
+    "id": "smart_dunning_agent",
+    "name": "Intelligenter Mahn-Agent",
+    "description": "Automatische Eskalationsstufen basierend auf Liegezeit und Fälligkeit.",
+    "states": {
+        "NEW": {
+            "label": "Posteingang",
+            "transitions": [
+                {
+                    "action": "prüfen",
+                    "target": "WAITING_FOR_PAYMENT",
+                    "required_fields": [
+                        "monetary_summation.grand_total_amount",
+                        "iban"
+                    ]
+                }
+            ]
+        },
+        "WAITING_FOR_PAYMENT": {
+            "label": "Warten auf Zahlung",
+            "transitions": [
+                {
+                    "action": "bezahlt",
+                    "target": "PAID"
+                },
+                {
+                    "action": "erinnern",
+                    "target": "REMINDER_1",
+                    "comment": "Nur sichtbar wenn seit 10 Tagen unbezahlt",
+                    "conditions": [
+                        {
+                            "field": "DAYS_IN_STATE",
+                            "op": ">",
+                            "value": 10
+                        }
+                    ]
+                },
+                {
+                    "action": "sofort_zahlen",
+                    "target": "PAID",
+                    "comment": "Erscheint nur wenn Fälligkeit in weniger als 2 Tagen",
+                    "conditions": [
+                        {
+                            "field": "DAYS_UNTIL_DUE",
+                            "op": "<",
+                            "value": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        "REMINDER_1": {
+            "label": "1. Mahnstufe",
+            "transitions": [
+                {
+                    "action": "bezahlt",
+                    "target": "PAID"
+                },
+                {
+                    "action": "rechtsabteilung",
+                    "target": "LEGAL",
+                    "comment": "Eskalation nach 30 Tagen in Mahnstufe 1",
+                    "conditions": [
+                        {
+                            "field": "DAYS_IN_STATE",
+                            "op": ">",
+                            "value": 30
+                        }
+                    ]
+                }
+            ]
+        },
+        "PAID": {
+            "label": "Abgeschlossen",
+            "final": true
+        },
+        "LEGAL": {
+            "label": "Inkasso / Recht",
+            "final": true
+        }
+    },
+    "triggers": {
+        "type_tags": [
+            "INVOICE",
+            "RECHNUNG"
+        ]
+    }
+}

@@ -1,0 +1,52 @@
+{
+    "id": "invoice_standard",
+    "name": "Standard Invoice Manager",
+    "description": "Handles standard invoice verification and payment workflow.",
+    "triggers": {
+        "type_tags": [
+            "INVOICE"
+        ]
+    },
+    "states": {
+        "NEW": {
+            "label": "Incoming Invoice",
+            "transitions": [
+                {
+                    "action": "verify",
+                    "target": "VERIFIED",
+                    "required_fields": [
+                        "monetary_summation.grand_total_amount",
+                        "iban",
+                        "doc_date",
+                        "sender_name"
+                    ]
+                },
+                {
+                    "action": "reject",
+                    "target": "REJECTED"
+                }
+            ]
+        },
+        "VERIFIED": {
+            "label": "Ready for Payment",
+            "transitions": [
+                {
+                    "action": "mark_as_paid",
+                    "target": "PAID"
+                },
+                {
+                    "action": "reset",
+                    "target": "NEW"
+                }
+            ]
+        },
+        "PAID": {
+            "label": "Paid & Archived",
+            "final": true
+        },
+        "REJECTED": {
+            "label": "Rejected / Spam",
+            "final": true
+        }
+    }
+}

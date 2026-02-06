@@ -1,0 +1,26 @@
+{
+    "id": "delivery_note_de",
+    "name": "Lieferschein (DE)",
+    "match_tags": [
+        "DELIVERY_NOTE",
+        "LIEFERSCHEIN"
+    ],
+    "sections": [
+        {
+            "title": "Lieferinformation",
+            "type": "key_value",
+            "fields": [
+                {
+                    "path": "meta_header.doc_number",
+                    "label": "Lieferscheinnummer",
+                    "icon": "🔢"
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Lieferdatum",
+                    "format": "date"
+                }
+            ]
+        }
+    ]
+}

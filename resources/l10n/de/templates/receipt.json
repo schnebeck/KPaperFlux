@@ -1,0 +1,37 @@
+{
+    "id": "receipt_de",
+    "name": "Quittung (DE)",
+    "match_tags": [
+        "RECEIPT",
+        "QUITTUNG"
+    ],
+    "sections": [
+        {
+            "title": "Belegdaten",
+            "type": "table",
+            "fields": [
+                {
+                    "path": "bodies.finance_body.monetary_summation.grand_total_amount",
+                    "label": "Betrag",
+                    "format": "currency",
+                    "important": true
+                },
+                {
+                    "path": "bodies.finance_body.payment_method",
+                    "label": "Zahlart",
+                    "icon": "💳"
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Datum",
+                    "format": "date"
+                },
+                {
+                    "path": "meta_header.sender.name",
+                    "label": "Händler",
+                    "icon": "🏪"
+                }
+            ]
+        }
+    ]
+}

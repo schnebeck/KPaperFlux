@@ -46,6 +46,7 @@ from gui.utils import (
     show_selectable_message_box,
     show_notification
 )
+from gui.workflow_manager import WorkflowManagerWidget
 
 class MergeConfirmDialog(QDialog):
     def __init__(self, count, parent=None):
@@ -126,6 +127,10 @@ class MainWindow(QMainWindow):
         self.reporting_widget = ReportingWidget(self.db_manager)
         self.central_stack.addWidget(self.reporting_widget)
 
+        # --- Page 3: Workflow Agents ---
+        self.workflow_manager = WorkflowManagerWidget(filter_tree=self.filter_tree)
+        self.central_stack.addWidget(self.workflow_manager)
+
         self.central_stack.setCurrentIndex(0) # Start with Dashboard
         self.central_stack.currentChanged.connect(self._on_tab_changed)
 
@@ -167,6 +172,7 @@ class MainWindow(QMainWindow):
             self.list_widget.purge_requested.connect(self.purge_documents_slot)
             self.list_widget.stage2_requested.connect(self.run_stage_2_selected_slot)
             self.list_widget.active_filter_changed.connect(self._on_view_filter_changed)
+            self.list_widget.show_generic_requested.connect(self.open_debug_audit_window)
 
             # Phase 105: Active Filter Precedence
             self.advanced_filter.chk_active.toggled.connect(self.list_widget.set_advanced_filter_active)
@@ -379,9 +385,20 @@ class MainWindow(QMainWindow):
         action_extra = QAction(self.tr("Show Extra Data"), self)
         action_extra.setShortcut("Ctrl+E")
         action_extra.setCheckable(True)
-        action_extra.setChecked(True) # Default Checked?
+        action_extra.setChecked(True)
         action_extra.triggered.connect(self.toggle_editor_visibility)
         view_menu.addAction(action_extra)
+
+        view_menu.addSeparator()
+
+        # Action toggle_filter is created later in create_tool_bar, but we need it here
+        # or we create it here and reuse it there. Let's move its creation here.
+        self.action_toggle_filter = QAction("🗂️ " + self.tr("Filter Panel"), self)
+        self.action_toggle_filter.setCheckable(True)
+        self.action_toggle_filter.setChecked(True)
+        self.action_toggle_filter.setShortcut(QKeySequence("Ctrl+Shift+F"))
+        self.action_toggle_filter.triggered.connect(self._toggle_filter_view)
+        view_menu.addAction(self.action_toggle_filter)
 
         # -- Maintenance Menu --
         maintenance_menu = menubar.addMenu(self.tr("&Maintenance"))
@@ -1608,6 +1625,27 @@ class MainWindow(QMainWindow):
         if count > 0:
             self.list_widget.refresh_list()
             show_notification(self, self.tr("Deleted"), self.tr(f"Permanently deleted {count} document(s)."))
+    def open_debug_audit_window(self, uuid: str):
+        """Opens the Audit Window in debug/generic mode with only a Close button."""
+        from gui.audit_window import AuditWindow
+        doc = self.db_manager.get_document_by_uuid(uuid)
+        if not doc:
+            return
+
+        # Create a non-modal debug window
+        win = AuditWindow(pipeline=self.pipeline)
+        win.set_debug_mode(True)
+        win.display_document(doc)
+        
+        # Ensure it stays alive while open
+        if not hasattr(self, '_debug_windows'):
+            self._debug_windows = []
+        self._debug_windows.append(win)
+        win.closed.connect(lambda: self._debug_windows.remove(win) if win in self._debug_windows else None)
+        
+        win.show()
+        win.raise_()
+
 
     def navigate_to_list_filter(self, payload: dict):
         """Switch to Explorer View and apply filter."""
@@ -1771,16 +1809,28 @@ class MainWindow(QMainWindow):
             QWidget#tabContainer[active="true"] QToolButton {
                 background-color: transparent;
                 border: 1px solid transparent;
-                color: #2c3e50;
+                color: #1976d2; /* Blue accent for active tab */
+                font-weight: bold;
             }
-            /* Filter Button specific styling: Restore the button look with high specificity */
+            /* Visual underline for active tab */
+            QWidget#tabContainer[active="true"]::after {
+                /* Note: QWidget doesn't support ::after, using border-top instead or just the button underline */
+            }
+            
+            /* Underline for the main tab button when active */
+            QToolButton#mainTabBtn[active="true"] {
+                border-bottom: 3px solid #1976d2;
+                color: #1976d2;
+            }
+
+            /* Filter Button specific styling */
             QWidget#tabContainer QToolButton#filterBtn {
                 margin: 0px 6px;
                 padding: 4px 10px;
                 border: 1px solid #ccc;
                 border-radius: 4px;
                 background-color: #f8f8f8;
-                font-size: 13px; /* Slightly smaller icon text is okay as long as padding is smaller */
+                font-size: 13px;
                 color: #333;
             }
             QWidget#tabContainer QToolButton#filterBtn:hover {
@@ -1793,7 +1843,7 @@ class MainWindow(QMainWindow):
                 color: #1976d2;
                 font-weight: bold;
             }
-            /* Sub-mode buttons: Fixed vertical padding to match main tabs */
+            /* Sub-mode buttons */
             QWidget#tabContainer QToolButton#subModeBtn {
                 background: transparent;
                 border: none;
@@ -1804,15 +1854,14 @@ class MainWindow(QMainWindow):
                 font-size: 14px;
             }
             QWidget#tabContainer QToolButton#subModeBtn:hover {
-                background-color: #f1f7fd; /* Light blue-gray tinted hover */
+                background-color: #f1f7fd;
                 color: #1976d2;
-                border-bottom: 3px solid #d1e3f8; /* Subtle blue-ish underline on hover */
             }
             QWidget#tabContainer QToolButton#subModeBtn:checked {
                 color: #1976d2;
-                border-bottom: 3px solid #1976d2 !important;
+                border-bottom: 3px solid #1976d2;
                 background-color: #f0f7ff;
-                font-weight: 500;
+                font-weight: bold;
             }
         """)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.navbar)
@@ -1826,6 +1875,8 @@ class MainWindow(QMainWindow):
         dash_layout.setAlignment(Qt.AlignmentFlag.AlignBottom) # Consistent bottom alignment
         
         self.btn_dashboard = QToolButton()
+        self.btn_dashboard.setObjectName("mainTabBtn")
+        self.btn_dashboard.setCheckable(True)
         self.btn_dashboard.setText(self.tr("Dashboard"))
         self.btn_dashboard.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn_dashboard.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
@@ -1842,6 +1893,8 @@ class MainWindow(QMainWindow):
         doc_layout.setAlignment(Qt.AlignmentFlag.AlignBottom) # Anchor to the bottom for the underline
 
         self.btn_documents = QToolButton()
+        self.btn_documents.setObjectName("mainTabBtn")
+        self.btn_documents.setCheckable(True)
         self.btn_documents.setText(self.tr("Documents"))
         self.btn_documents.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn_documents.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_DirIcon))
@@ -1849,11 +1902,7 @@ class MainWindow(QMainWindow):
         doc_layout.addWidget(self.btn_documents)
 
         # Filter Action (Integrated into the same "Tab area")
-        self.action_toggle_filter = QAction("🗂️ " + self.tr("Filter"), self)
-        self.action_toggle_filter.setCheckable(True)
-        self.action_toggle_filter.setChecked(True)
-        self.action_toggle_filter.setShortcut(QKeySequence("Ctrl+Shift+F"))
-        self.action_toggle_filter.triggered.connect(self._toggle_filter_view)
+        # Note: self.action_toggle_filter now created in create_menu_bar
         
         self.btn_filter = QToolButton()
         self.btn_filter.setObjectName("filterBtn")
@@ -1912,12 +1961,32 @@ class MainWindow(QMainWindow):
         report_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
         
         self.btn_reports = QToolButton()
+        self.btn_reports.setObjectName("mainTabBtn")
+        self.btn_reports.setCheckable(True)
         self.btn_reports.setText(self.tr("Reports"))
         self.btn_reports.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn_reports.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView))
         self.btn_reports.clicked.connect(lambda: self.central_stack.setCurrentIndex(2))
         report_layout.addWidget(self.btn_reports)
         self.navbar.addWidget(self.report_container)
+
+        # Tab Area: Workflows
+        self.wf_container = QWidget()
+        self.wf_container.setObjectName("tabContainer")
+        wf_layout = QHBoxLayout(self.wf_container)
+        wf_layout.setContentsMargins(0, 0, 0, 0)
+        wf_layout.setSpacing(0)
+        wf_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        
+        self.btn_workflows = QToolButton()
+        self.btn_workflows.setObjectName("mainTabBtn")
+        self.btn_workflows.setCheckable(True)
+        self.btn_workflows.setText("🤖 " + self.tr("Agents"))
+        self.btn_workflows.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_workflows.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_CommandLink))
+        self.btn_workflows.clicked.connect(lambda: self.central_stack.setCurrentIndex(3))
+        wf_layout.addWidget(self.btn_workflows)
+        self.navbar.addWidget(self.wf_container)
 
         # Spacer
         spacer = QWidget()
@@ -1929,22 +1998,37 @@ class MainWindow(QMainWindow):
         is_dashboard = (index == 0)
         is_explorer = (index == 1)
         is_reporting = (index == 2)
+        is_workflow = (index == 3)
         
         # Update Tab Highlighting
         self.dash_container.setProperty("active", is_dashboard)
         self.doc_container.setProperty("active", is_explorer)
         self.report_container.setProperty("active", is_reporting)
+        self.wf_container.setProperty("active", is_workflow)
         
         # Force Style Refresh
-        for container in [self.dash_container, self.doc_container, self.report_container]:
+        for btn in [self.btn_dashboard, self.btn_documents, self.btn_reports, self.btn_workflows]:
+            btn.setProperty("active", False)
+            if (is_dashboard and btn == self.btn_dashboard) or \
+               (is_explorer and btn == self.btn_documents) or \
+               (is_reporting and btn == self.btn_reports) or \
+               (is_workflow and btn == self.btn_workflows):
+                btn.setProperty("active", True)
+            
+        for container in [self.dash_container, self.doc_container, self.report_container, self.wf_container]:
             container.style().unpolish(container)
             container.style().polish(container)
 
         self.btn_dashboard.setChecked(is_dashboard)
         self.btn_documents.setChecked(is_explorer)
         self.btn_reports.setChecked(is_reporting)
+        self.btn_workflows.setChecked(is_workflow)
         
-        # Toggle sub-mode visibility (only in Explorer)
+        # Toggle filter visibility (only in Explorer)
+        if hasattr(self, 'btn_filter'):
+            self.btn_filter.setVisible(is_explorer)
+        
+        # Toggle sub-mode visibility (only in Explorer AND if filter is active)
         if hasattr(self, 'sub_mode_container'):
             self.sub_mode_container.setVisible(is_explorer and self.action_toggle_filter.isChecked())
         
@@ -1953,12 +2037,14 @@ class MainWindow(QMainWindow):
             self.dashboard_widget.refresh_stats()
         elif is_reporting:
             self.reporting_widget.refresh_data()
+        elif is_workflow:
+            self.workflow_manager.load_workflows()
         if index == 1 and hasattr(self, 'list_widget'):
             if self._last_selected_uuid:
                 self.list_widget.target_uuid_to_restore = self._last_selected_uuid
             self.list_widget.refresh_list(force_select_first=True)
 
-        for container in [self.dash_container, self.doc_container]:
+        for container in [self.dash_container, self.doc_container, self.report_container, self.wf_container]:
             container.style().unpolish(container)
             container.style().polish(container)
             # Ensure children are also refreshed specifically for text colors

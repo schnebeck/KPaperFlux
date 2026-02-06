@@ -1,0 +1,37 @@
+{
+    "id": "delivery_note_standard",
+    "name": "Lieferschein",
+    "match_tags": [
+        "DELIVERY_NOTE",
+        "LIEFERSCHEIN"
+    ],
+    "sections": [
+        {
+            "title": "📦 Lieferinformation",
+            "type": "key_value",
+            "fields": [
+                {
+                    "path": "meta_header.doc_number",
+                    "label": "Lieferscheinnummer",
+                    "icon": "🔢"
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Lieferdatum",
+                    "format": "date"
+                },
+                {
+                    "path": "bodies.finance_body.order_number",
+                    "label": "Bestellnummer",
+                    "icon": "🛒"
+                }
+            ]
+        },
+        {
+            "title": "🚚 Sendungsdetails",
+            "type": "list",
+            "source": "bodies.finance_body.line_items",
+            "item_template": "* {quantity}x {description}"
+        }
+    ]
+}

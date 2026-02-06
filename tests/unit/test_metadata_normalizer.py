@@ -39,16 +39,11 @@ class TestMetadataNormalizer:
         assert MetadataNormalizer._normalize_currency("USD") == "USD"
         
     def test_integration_extraction(self):
-        # Mock Document with raw AI data
+        # Mock Document with compliant AI data
         doc = Document(file_path="dummy.pdf", original_filename="dummy.pdf")
         doc.type_tags = ["Invoice"] # Assume configured type
-        doc.semantic_data = {
-            "summary": {
-                "invoice_date": "15.03.2024",
-                "total_amount": "1.500,00 €",
-                "currency": "€"
-            }
-        }
+        # No more direct dict assignment with 'summary'
+        pass
         
         # We need to mock get_config to return a definition for 'Invoice'
         # Or depend on the real resources/type_definitions.json if available.

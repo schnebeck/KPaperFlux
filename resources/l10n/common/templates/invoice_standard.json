@@ -1,0 +1,60 @@
+{
+    "id": "standard_invoice",
+    "name": "Standard Rechnung",
+    "match_tags": [
+        "INVOICE",
+        "RECHNUNG"
+    ],
+    "sections": [
+        {
+            "title": "💰 Finanzübersicht",
+            "type": "table",
+            "fields": [
+                {
+                    "path": "bodies.finance_body.monetary_summation.grand_total_amount",
+                    "label": "Gesamtbetrag (Brutto)",
+                    "format": "currency",
+                    "important": true
+                },
+                {
+                    "path": "bodies.finance_body.monetary_summation.tax_basis_total_amount",
+                    "label": "Nettobetrag",
+                    "format": "currency"
+                },
+                {
+                    "path": "bodies.finance_body.monetary_summation.tax_total_amount",
+                    "label": "Umsatzsteuer",
+                    "format": "currency"
+                },
+                {
+                    "path": "bodies.finance_body.due_date",
+                    "label": "Fällig am",
+                    "format": "date",
+                    "icon": "🚨"
+                }
+            ]
+        },
+        {
+            "title": "💳 Zahlungsziel & Bank",
+            "type": "list",
+            "source": "bodies.finance_body.payment_accounts",
+            "item_template": "* **{bank_name}**: `{iban}`"
+        },
+        {
+            "title": "📦 Positionen",
+            "type": "table",
+            "source": "bodies.finance_body.line_items",
+            "columns": [
+                {
+                    "key": "description",
+                    "label": "Beschreibung"
+                },
+                {
+                    "key": "amount",
+                    "label": "Betrag",
+                    "format": "currency"
+                }
+            ]
+        }
+    ]
+}

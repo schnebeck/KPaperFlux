@@ -4,7 +4,7 @@ import glob
 import xml.etree.ElementTree as ET
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
-TS_FILE = os.path.join(PROJECT_ROOT, 'resources/translations/kpaperflux_de.ts')
+TS_FILE = os.path.join(PROJECT_ROOT, 'resources/l10n/de/gui_strings.ts')
 GUI_DIR = os.path.join(PROJECT_ROOT, 'gui')
 
 class TranslationExtractor(ast.NodeVisitor):

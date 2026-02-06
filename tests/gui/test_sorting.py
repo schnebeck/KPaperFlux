@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QTreeWidget
 from unittest.mock import MagicMock
 from gui.document_list import DocumentListWidget, SortableTreeWidgetItem
 from core.database import DatabaseManager, Document
-from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, AddressInfo
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, AddressInfo, MonetarySummation
 
 @pytest.fixture
 def mock_db():
@@ -70,12 +70,24 @@ def test_number_sorting(document_list, mock_db):
     doc1 = Document(
         uuid="A", 
         original_filename="a.pdf",
-        semantic_data=SemanticExtraction(bodies={"finance_body": FinanceBody(total_gross=Decimal("10.00"))})
+        semantic_data=SemanticExtraction(
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.00"))
+                )
+            }
+        )
     )
     doc2 = Document(
         uuid="B", 
         original_filename="b.pdf",
-        semantic_data=SemanticExtraction(bodies={"finance_body": FinanceBody(total_gross=Decimal("2.00"))})
+        semantic_data=SemanticExtraction(
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("2.00"))
+                )
+            }
+        )
     )
     
     mock_db.get_all_entities_view.return_value = [doc1, doc2]

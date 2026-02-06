@@ -1,0 +1,37 @@
+{
+    "id": "standard_contract",
+    "name": "Standard Vertrag",
+    "match_tags": [
+        "CONTRACT",
+        "VERTRAG"
+    ],
+    "sections": [
+        {
+            "title": "⚖️ Vertragsdetails",
+            "type": "key_value",
+            "fields": [
+                {
+                    "path": "bodies.legal_body.contract_type",
+                    "label": "Vertragstyp",
+                    "icon": "📄"
+                },
+                {
+                    "path": "bodies.legal_body.effective_date",
+                    "label": "Gültig ab",
+                    "format": "date"
+                },
+                {
+                    "path": "bodies.legal_body.termination_date",
+                    "label": "Gültig bis",
+                    "format": "date"
+                }
+            ]
+        },
+        {
+            "title": "👥 Parteien",
+            "type": "list",
+            "source": "bodies.legal_body.parties",
+            "item_template": "* {item}"
+        }
+    ]
+}

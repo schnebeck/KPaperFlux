@@ -23,7 +23,9 @@ def test_document_optional_fields():
                 sender=AddressInfo(name="Company A")
             ),
             bodies={
-                "finance_body": FinanceBody(total_gross=Decimal("12.99"))
+                "finance_body": FinanceBody(
+                    monetary_summation={"grand_total_amount": Decimal("12.99")}
+                )
             }
         ),
         type_tags=["Rechnung"],

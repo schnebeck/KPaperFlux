@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
-    QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit
+    QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
+    QSpinBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 import json
@@ -110,6 +111,12 @@ class SettingsDialog(QDialog):
         self.edit_api_key.setPlaceholderText("google_api_key_...")
         form.addRow(self.tr("API Key:"), self.edit_api_key)
 
+        # AI Retries
+        self.spin_ai_retries = QSpinBox()
+        self.spin_ai_retries.setRange(0, 10)
+        self.spin_ai_retries.setSuffix(f" {self.tr('Retries')}")
+        form.addRow(self.tr("AI Validation Retries:"), self.spin_ai_retries)
+
         self.tabs.addTab(general_tab, self.tr("General"))
 
         # --- Vocabulary Tab ---
@@ -166,6 +173,7 @@ class SettingsDialog(QDialog):
         self.edit_ocr.setText(self.config.get_ocr_binary())
         self.combo_model.setCurrentText(self.config.get_gemini_model())
         self.edit_api_key.setText(self.config.get_api_key())
+        self.spin_ai_retries.setValue(self.config.get_ai_retries())
 
         self.edit_sig_private.setPlainText(self.config.get_private_signature())
         self.edit_sig_business.setPlainText(self.config.get_business_signature())
@@ -186,6 +194,7 @@ class SettingsDialog(QDialog):
         self.config.set_ocr_binary(self.edit_ocr.text())
         self.config.set_gemini_model(self.combo_model.currentText())
         self.config.set_api_key(self.edit_api_key.text())
+        self.config.set_ai_retries(self.spin_ai_retries.value())
 
         self.config.set_private_signature(self.edit_sig_private.toPlainText())
         self.config.set_business_signature(self.edit_sig_business.toPlainText())

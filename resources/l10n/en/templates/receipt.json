@@ -1,0 +1,37 @@
+{
+    "id": "receipt_en",
+    "name": "Receipt (EN)",
+    "match_tags": [
+        "RECEIPT",
+        "QUITTUNG"
+    ],
+    "sections": [
+        {
+            "title": "🧾 Receipt Details",
+            "type": "table",
+            "fields": [
+                {
+                    "path": "bodies.finance_body.monetary_summation.grand_total_amount",
+                    "label": "Amount",
+                    "format": "currency",
+                    "important": true
+                },
+                {
+                    "path": "bodies.finance_body.payment_method",
+                    "label": "Payment Method",
+                    "icon": "💳"
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Date",
+                    "format": "date"
+                },
+                {
+                    "path": "meta_header.sender.name",
+                    "label": "Merchant",
+                    "icon": "🏪"
+                }
+            ]
+        }
+    ]
+}

@@ -21,6 +21,7 @@ try:
     from gui.widgets.filter_group import FilterGroupWidget
     from gui.widgets.filter_condition import FilterConditionWidget
     from gui.workers import BatchTaggingWorker
+    from core.workflow import WorkflowRegistry
 except ImportError as e:
     print(f"Warnung: Importfehler in advanced_filter.py: {e}")
     # --- MOCKS START ---
@@ -185,7 +186,7 @@ class AdvancedFilterWidget(QWidget):
 
         # --- TAB 3: Auto-Tagging Rules ---
         self._init_rules_tab()
-        self.tabs.addTab(self.rules_tab, "🤖 " + self.tr("Auto-Tagging"))
+        self.tabs.addTab(self.rules_tab, "🤖 " + self.tr("Rules"))
 
     def _init_rules_tab(self):
         self.rules_tab = QWidget()
@@ -227,6 +228,17 @@ class AdvancedFilterWidget(QWidget):
         self.edit_tags_rem.tagsChanged.connect(self._set_rule_dirty)
         meta_row.addWidget(self.edit_tags_rem, 1)
         rules_layout.addLayout(meta_row)
+
+        # Phase 126: Workflow Assignment Row
+        wf_row = QHBoxLayout()
+        wf_row.addWidget(QLabel(self.tr("Assign Agent:")))
+        self.combo_assign_wf = QComboBox()
+        self.combo_assign_wf.currentIndexChanged.connect(self._set_rule_dirty)
+        wf_row.addWidget(self.combo_assign_wf, 1)
+        wf_row.addStretch()
+        rules_layout.addLayout(wf_row)
+        
+        self._populate_wf_combo()
 
         # Conditions Area (Mirrored FilterGroupWidget)
         self.rules_scroll = QScrollArea()
@@ -280,6 +292,17 @@ class AdvancedFilterWidget(QWidget):
         # Populate rules combo
         self._load_rules_to_combo()
 
+    def _populate_wf_combo(self):
+        """Fill the workflow assignment combo with available playbooks."""
+        self.combo_assign_wf.blockSignals(True)
+        self.combo_assign_wf.clear()
+        self.combo_assign_wf.addItem(self.tr("--- No Change ---"), None)
+        
+        registry = WorkflowRegistry()
+        for pb in registry.list_playbooks():
+            self.combo_assign_wf.addItem(pb.name or pb.id, pb.id)
+        self.combo_assign_wf.blockSignals(False)
+
     def _load_rules_to_combo(self):
         self.combo_rules.blockSignals(True)
         self.combo_rules.clear()
@@ -319,6 +342,15 @@ class AdvancedFilterWidget(QWidget):
         self.rules_root_group.blockSignals(True)
         self.rules_root_group.set_query(rule.data)
         self.rules_root_group.blockSignals(False)
+
+        # Load Workflow assignment
+        self.combo_assign_wf.blockSignals(True)
+        if rule.assign_workflow:
+            idx = self.combo_assign_wf.findData(rule.assign_workflow)
+            self.combo_assign_wf.setCurrentIndex(idx if idx >= 0 else 0)
+        else:
+            self.combo_assign_wf.setCurrentIndex(0)
+        self.combo_assign_wf.blockSignals(False)
 
         self._reset_rule_dirty()
 
@@ -366,6 +398,7 @@ class AdvancedFilterWidget(QWidget):
         self.chk_rule_enabled.setChecked(True)
         self.chk_rule_auto.setChecked(True)
         self.rules_root_group.clear()
+        self.combo_assign_wf.setCurrentIndex(0)
         self._reset_rule_dirty()
 
     def manage_rules(self):
@@ -452,6 +485,7 @@ class AdvancedFilterWidget(QWidget):
             current_node.data = query
             current_node.tags_to_add = tags_add
             current_node.tags_to_remove = tags_rem
+            current_node.assign_workflow = self.combo_assign_wf.currentData()
             current_node.is_enabled = self.chk_rule_enabled.isChecked()
             current_node.auto_apply = self.chk_rule_auto.isChecked()
         else:
@@ -465,6 +499,7 @@ class AdvancedFilterWidget(QWidget):
             new_node = self.filter_tree.add_filter(parent, name, query)
             new_node.tags_to_add = tags_add
             new_node.tags_to_remove = tags_rem
+            new_node.assign_workflow = self.combo_assign_wf.currentData()
             new_node.is_enabled = self.chk_rule_enabled.isChecked()
             new_node.auto_apply = self.chk_rule_auto.isChecked()
 

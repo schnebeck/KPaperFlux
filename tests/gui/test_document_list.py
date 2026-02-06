@@ -21,7 +21,13 @@ def test_document_list_population(qtbot, mock_db):
                     sender=AddressInfo(name="Amazon"),
                     doc_date="2023-01-01"
                 ),
-                bodies={"finance_body": FinanceBody(total_gross=Decimal("15.99"))}
+                bodies={
+                    "finance_body": FinanceBody(
+                        monetary_summation={
+                            "grand_total_amount": Decimal("15.99")
+                        }
+                    )
+                }
             )
         ),
         Document(original_filename="contract.pdf", type_tags=["Vertrag"])

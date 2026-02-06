@@ -265,7 +265,7 @@ class DatabaseManager:
                 # Use model_dump(mode='json') to handle Decimal, UUID, etc.
                 filtered["semantic_data"] = json.dumps(sd.model_dump(mode='json'), ensure_ascii=False)
             elif isinstance(sd, (dict, list)):
-                filtered["semantic_data"] = json.dumps(sd, ensure_ascii=False)
+                filtered["semantic_data"] = json.dumps(sd, ensure_ascii=False, default=str)
 
         if filtered:
             self._update_table("virtual_documents", uuid, filtered, pk_col="uuid")
@@ -559,7 +559,7 @@ class DatabaseManager:
             "type_tags": "type_tags",
             "sender": "json_extract(semantic_data, '$.meta_header.sender.name')",
             "doc_date": "json_extract(semantic_data, '$.meta_header.doc_date')",
-            "amount": "CAST(json_extract(semantic_data, '$.bodies.finance_body.total_gross') AS REAL)",
+            "amount": "CAST(json_extract(semantic_data, '$.bodies.finance_body.monetary_summation.grand_total_amount') AS REAL)",
             
             # Semantic shortcuts
             "direction": "json_extract(semantic_data, '$.direction')",
@@ -1379,7 +1379,7 @@ class DatabaseManager:
                 if isinstance(doc.semantic_data, SemanticExtraction):
                     sd_json = json.dumps(doc.semantic_data.model_dump(mode='json'))
                 else:
-                    sd_json = json.dumps(doc.semantic_data or {})
+                    sd_json = json.dumps(doc.semantic_data or {}, default=str)
 
                 self.connection.execute(sql, (
                     doc.uuid, sm_json, doc.status or "NEW", doc.original_filename or "Unknown",

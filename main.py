@@ -36,16 +36,17 @@ def load_translations(app: QApplication, app_config: AppConfig) -> None:
     if lang != "en":
         translator = QTranslator()
         base_dir = Path(__file__).resolve().parent
-        qm_path = base_dir / "resources" / "translations" / f"kpaperflux_{lang}.qm"
+        # New central l10n structure
+        qm_path = base_dir / "resources" / "l10n" / lang / "gui_strings.qm"
 
         if qm_path.exists():
             if translator.load(str(qm_path)):
                 app.installTranslator(translator)
-                print(f"Loaded translation: {qm_path}")
+                print(f"Loaded GUI translation: {qm_path}")
             else:
-                print(f"Failed to load translation: {qm_path}")
+                print(f"Failed to load GUI translation: {qm_path}")
         else:
-            print(f"Translation file not found: {qm_path}")
+            print(f"GUI Translation file not found: {qm_path}")
 
 
 def main() -> None:

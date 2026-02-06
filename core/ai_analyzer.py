@@ -42,6 +42,8 @@ from core.models.canonical_entity import (
     VehicleData,
 )
 from core.models.identity import IdentityProfile
+from core.models.semantic import SemanticExtraction
+from pydantic import ValidationError
 
 
 # AIAnalysisResult and analyze_text removed as they were legacy. Use SemanticExtraction and structured extraction instead.
@@ -384,7 +386,7 @@ class AIAnalyzer:
                 existing_types_str = str(dt)
 
         # 2. Serialize semantic_data
-        json_str = json.dumps(semantic_data, ensure_ascii=False)
+        json_str = json.dumps(semantic_data, ensure_ascii=False, default=str)
 
         prompt = f"""
         You are a Semantic Document Architect.
@@ -822,7 +824,7 @@ Return ONLY a valid JSON object.
 
         try:
             # --- START VALIDATOR LOOP ---
-            max_retries = 2
+            max_retries = self.config.get_ai_retries()
             attempt = 0
             chat_history = []
 
@@ -1042,7 +1044,7 @@ TASK:
             
             if res_json is not None:
                 # NEW: Debug Output for AI Response (Requested for Stage 1.5+)
-                print(f"\n=== [AI RESPONSE: {stage_label}] ===\n{json.dumps(res_json, indent=2, ensure_ascii=False)}\n==============================\n")
+                print(f"\n=== [AI RESPONSE: {stage_label}] ===\n{json.dumps(res_json, indent=2, ensure_ascii=False, default=str)}\n==============================\n")
                 
                 # Phase 107: Strict Truncation Handling
                 # If the AI response was truncated, the data is incomplete.
@@ -1127,319 +1129,67 @@ TASK:
         }
 
     # ==============================================================================
-    # STAGE 2: SCHEMA REGISTRY
+    # STAGE 2: SCHEMA REGISTRY (EN 16931 / ZUGFeRD 2.2)
     # ==============================================================================
 
-    def get_target_schema(self, entity_type: str, include_repair: bool = True) -> Dict:
+    def get_target_schema(self, entity_type: str, include_repair: bool = True) -> str:
         """
-        Phase 2.1: Schema Registry.
-        Detailed polymorph schemas for each document type.
+        Generates a detailed, EN 16931 aligned JSON schema hint for the LLM.
+        Uses Pydantic's model_json_schema and enriches it with ZUGFeRD terminology.
         """
-        dt = entity_type.upper()
+        from core.models.semantic import SemanticExtraction
+        schema_dict = SemanticExtraction.model_json_schema()
         
-        # BASIS: Common Header (immer dabei)
-        base_header = {
-            "doc_date": "YYYY-MM-DD (Date written on document)",
-            "summary": "String (1 sentence content summary)",
-            
-            # Granular Parties
-            "sender": self.get_party_schema(),
-            "recipient": self.get_party_schema(),
-            
-            # Life Context
-            "subject_context": {
-                "entity_name": "String (e.g. 'Sommerurlaub 2025', 'Lego Set', 'Python Kurs', 'Wintermantel')",
-                "entity_type": "SELF | FAMILY | PET | ASSET | PROPERTY | VEHICLE | HOBBY | PROJECT | BUSINESS | HEALTH | HOLIDAY | JOURNEY | FOOD | TOY | DEVICE | DEVELOPMENT | SERVICE | CLOTHING | CLEANING | COSMETIC | GIFT | OTHER",
-                "relation": "String (e.g. 'Owner', 'Participant', 'Consumer', 'Buyer')"
-            }
-        }
+        # 1. Cleanup technical boilerplate for better LLM performance
+        def clean_schema(d):
+            if not isinstance(d, dict): return
+            keys_to_drop = ["title", "additionalProperties", "default", "populate_by_name"]
+            for k in keys_to_drop: d.pop(k, None)
+            for v in d.values():
+                if isinstance(v, dict): clean_schema(v)
+                elif isinstance(v, list):
+                    for item in v: clean_schema(item)
 
-        # --- GROUP 1: FINANCE & TRANSACTIONAL ---
-        if dt in ["INVOICE", "RECEIPT", "CREDIT_NOTE", "CASH_EXPENSE"]:
-            schema = {
-                "meta_header": base_header,
-                "finance_body": {
-                    "invoice_number": "String",
-                    "order_number": "String",
-                    "total_net": "Number (Float)",
-                    "total_tax": "Number (Float)",
-                    "total_gross": "Number (Float)",
-                    "currency": "EUR | USD | ...",
-                    
-                    # Detailed Bank Info
-                    "payment_accounts": [self.get_bank_account_schema()],
-                    
-                    "payment_details": {
-                        "reference": "String (Verwendungszweck)",
-                        "due_date": "YYYY-MM-DD",
-                        "payment_terms": "String (e.g. '14 days net')"
-                    },
-                    
-                    "line_items": [
-                        {
-                            "pos_no": "String",
-                            "description": "String",
-                            "article_id": "String (SKU/EAN)",
-                            "quantity": "Number",
-                            "unit": "String (pcs, kg, h)",
-                            "unit_price": "Number",
-                            "tax_rate": "Number",
-                            "total_price": "Number"
-                        }
-                    ]
-                }
-            }
-
-        elif dt == "DUNNING":
-            schema = {
-                "meta_header": base_header,
-                "finance_body": {
-                    "total_due": "Number (Float)",
-                    "dunning_level": "String (e.g. '1. Mahnung')",
-                    "original_invoice_ref": "String",
-                    "fees": "Number",
-                    "deadline": "YYYY-MM-DD",
-                    "payment_accounts": [self.get_bank_account_schema()]
-                }
-            }
-
-        # --- GROUP 2: TRADE & COMMERCE ---
-        elif dt in ["QUOTE", "ORDER", "ORDER_CONFIRMATION"]:
-            schema = {
-                "meta_header": base_header,
-                "trade_body": {
-                    "document_number": "String (Offer/Order No)",
-                    "valid_until": "YYYY-MM-DD",
-                    "total_amount": "Number",
-                    "terms_of_payment": "String",
-                    "line_items": [
-                        {
-                            "pos_no": "String",
-                            "description": "String",
-                            "article_id": "String",
-                            "quantity": "Number",
-                            "unit_price": "Number",
-                            "total_price": "Number"
-                        }
-                    ]
-                }
-            }
-            
-        elif dt == "DELIVERY_NOTE":
-            schema = {
-                "meta_header": base_header,
-                "logistics_body": {
-                    "delivery_number": "String",
-                    "order_reference": "String",
-                    "shipping_date": "YYYY-MM-DD",
-                    "carrier": "String",
-                    "tracking_number": "String",
-                    "weight_kg": "Number",
-                    "delivered_items": [
-                        {
-                            "pos_no": "String",
-                            "description": "String",
-                            "article_id": "String",
-                            "quantity_ordered": "Number",
-                            "quantity_delivered": "Number",
-                            "unit": "String"
-                        }
-                    ]
-                }
-            }
-
-        # --- GROUP 3: CONTRACTS & LEGAL ---
-        elif dt in ["CONTRACT", "INSURANCE_POLICY", "APPLICATION"]:
-            schema = {
-                "meta_header": base_header,
-                "legal_body": {
-                    "contract_id": "String",
-                    "contract_partners": [self.get_party_schema()], 
-                    "start_date": "YYYY-MM-DD",
-                    "end_date": "YYYY-MM-DD | null (if indefinite)",
-                    "cancellation_period": "String (e.g. '3 months to year end')",
-                    "renewal_clause": "String",
-                    "cost_recurring": {
-                        "amount": "Number",
-                        "interval": "MONTHLY | YEARLY | QUARTERLY"
-                    }
-                },
-                "verification": {
-                     "is_signed": "Boolean (from Visual Audit)"
-                }
-            }
-
-        elif dt in ["LEGAL_CORRESPONDENCE", "OFFICIAL_LETTER"]:
-            schema = {
-                "meta_header": base_header,
-                "legal_body": {
-                    "our_reference": "String (Unser Zeichen)",
-                    "your_reference": "String (Ihr Zeichen/Aktenzeichen)",
-                    "subject": "String",
-                    "court_file_number": "String (Aktenzeichen Gericht)",
-                    "deadlines": [{"reason": "String", "date": "YYYY-MM-DD"}]
-                }
-            }
-
-        # --- GROUP 4: HR & HEALTH ---
-        elif dt == "PAYSLIP":
-            schema = {
-                "meta_header": base_header,
-                "hr_body": {
-                    "employee_id": "String",
-                    "period": "YYYY-MM",
-                    "net_salary": "Number",
-                    "gross_salary": "Number",
-                    "payout_date": "YYYY-MM-DD",
-                    "tax_class": "String",
-                    "social_security_id": "String"
-                }
-            }
-
-        elif dt in ["SICK_NOTE", "MEDICAL_DOCUMENT"]:
-            schema = {
-                "meta_header": base_header,
-                "health_body": {
-                    "patient": self.get_party_schema(),
-                    "provider": self.get_party_schema(), # Doctor/Clinic
-                    "type": "INITIAL | FOLLOW_UP | PRESCRIPTION | LETTER",
-                    "incapacity_period": {
-                        "start": "YYYY-MM-DD",
-                        "end": "YYYY-MM-DD",
-                        "estimated_return": "YYYY-MM-DD"
-                    },
-                    "insurance_provider": "String",
-                    "diagnoses_icd": [
-                        {
-                            "icd_code": "String (e.g. J06.9)",
-                            "description": "String",
-                            "certainty": "String"
-                        }
-                    ],
-                    "medication_plan": [
-                        {
-                            "name": "String",
-                            "pzn": "String",
-                            "dosage": "String",
-                            "form": "String",
-                            "instructions": "String",
-                            "prescribed_amount": "String"
-                        }
-                    ]
-                }
-            }
-
-        # --- GROUP 5: TRAVEL ---
-        elif dt in ["TRAVEL_REQUEST", "EXPENSE_REPORT"]:
-            schema = {
-                "meta_header": base_header,
-                "travel_body": {
-                    "traveler": self.get_party_schema(),
-                    "destination": "String",
-                    "start_date": "YYYY-MM-DD",
-                    "end_date": "YYYY-MM-DD",
-                    "total_cost": "Number",
-                    "expenses": [
-                        {
-                            "date": "YYYY-MM-DD",
-                            "category": "String (Hotel, Meal, Transport)",
-                            "description": "String",
-                            "amount": "Number",
-                            "currency": "String"
-                        }
-                    ]
-                }
-            }
-
-        # --- GROUP 6: BANKING & TAX ---
-        elif dt == "BANK_STATEMENT":
-            schema = {
-                "meta_header": base_header,
-                "ledger_body": {
-                    "account_info": self.get_bank_account_schema(),
-                    "statement_number": "String",
-                    "period_start": "YYYY-MM-DD",
-                    "period_end": "YYYY-MM-DD",
-                    "start_balance": "Number",
-                    "end_balance": "Number",
-                    "transactions": [
-                        {
-                            "date": "YYYY-MM-DD",
-                            "counterparty_name": "String",
-                            "description": "String",
-                            "amount": "Number (negative for debit)",
-                            "category": "String"
-                        }
-                    ]
-                }
-            }
-
-        elif dt in ["TAX_ASSESSMENT", "UTILITY_BILL"]:
-            schema = {
-                "meta_header": base_header,
-                "finance_body": {
-                    "assessment_year": "YYYY",
-                    "total_amount": "Number (Positive=Payment, Negative=Refund)",
-                    "due_date": "YYYY-MM-DD",
-                    "tax_id": "String"
-                }
-            }
-
-        # --- GROUP 7: TECHNICAL & ASSETS ---
-        elif dt == "VEHICLE_REGISTRATION":
-            schema = {
-                "meta_header": base_header,
-                "asset_body": {
-                    "vin": "String",
-                    "license_plate": "String",
-                    "vehicle_model": "String",
-                    "manufacturer": "String",
-                    "first_registration": "YYYY-MM-DD",
-                    "owner": self.get_party_schema()
-                }
-            }
-
-        elif dt in ["DATASHEET", "MANUAL", "TECHNICAL_DOC"]:
-            schema = {
-                "meta_header": base_header,
-                "technical_body": {
-                    "product_name": "String",
-                    "model_number": "String",
-                    "version": "String",
-                    "manufacturer": "String",
-                    "specs": [{"label": "String", "value": "String"}]
-                }
-            }
-
-        elif dt == "CERTIFICATE":
-            schema = {
-                "meta_header": base_header,
-                "career_body": {
-                    "title": "String",
-                    "issued_by": "String",
-                    "recipient": "String",
-                    "date_issued": "YYYY-MM-DD",
-                    "grade": "String",
-                    "expiry_date": "YYYY-MM-DD"
-                }
-            }
-
-        # Fallback
-        else:
-            schema = {
-                "meta_header": base_header,
-                "generic_body": {
-                    "subject": "String",
-                    "keywords": ["String", "String"],
-                    "content_summary": "String"
-                }
-            }
-
-        # Ensure Common Root Fields
+        clean_schema(schema_dict)
+        
+        # 2. Add ZUGFeRD (EN 16931) MAPPING GUIDES
+        zugferd_guide = """
+### 📋 EXTRACTION DIRECTIVES (EN 16931 / ZUGFeRD 2.2)
+Use the following standardized terminology for extraction:
+- **BT-1 (Invoice ID):** -> "invoice_number"
+- **BT-2 (Issue Date):** -> "invoice_date" (ISO 8601: YYYY-MM-DD)
+- **BT-9 (Due Date):** -> "due_date" (ISO 8601: YYYY-MM-DD)
+- **BT-5 (Currency):** -> "currency" (ISO 4217, default: "EUR")
+- **BT-13 (Order ID):** -> "order_number"
+- **BT-7 (Service Date):** -> "service_date" (Leistungsdatum, often separate from invoice date)
+- **BT-46 (Customer ID):** -> "customer_id" (Internal number assigned to recipient)
+- **BT-10 (Buyer Reference):** -> "buyer_reference"
+- **BT-11 (Project ID):** -> "project_reference"
+- **BT-19 (Cost Center):** -> "accounting_reference" (Buyer accounting reference)
+- **BT-20 (Payment Terms):** -> "payment_terms" (Cash discounts, valid for 10 days, etc.)
+- **Line Items (IncludedSupplyChainTradeLineItem):**
+  - BT-126 (ID) -> "pos"
+  - BT-153 (Description) -> "description"
+  - BT-129 (Quantity) -> "quantity"
+  - BT-146 (Price) -> "unit_price"
+  - BT-131 (Net Amount) -> "total_price"
+- **Monetary Summation (Totals):**
+  - BT-109 (Tax Basis) -> "tax_basis_total_amount"
+  - BT-110 (Tax Total) -> "tax_total_amount"
+  - BT-112 (Grand Total) -> "grand_total_amount"
+  - BT-115 (Payable) -> "due_payable_amount"
+"""
+        
+        import json
+        schema_json = json.dumps(schema_dict, indent=2)
+        
         if include_repair:
-             schema["repaired_text"] = "String (The FULL, corrected, and plausible text of ALL pages. Use === PAGE X === separators.)"
-        
-        return schema
+            # Note: We still want the AI to fix the text
+            schema_json_dict = json.loads(schema_json)
+            schema_json_dict["repaired_text"] = "The complete document text with errors fixed."
+            schema_json = json.dumps(schema_json_dict, indent=2)
+
+        return f"{schema_json}\n{zugferd_guide}"
 
     def assemble_best_text_source(self, raw_ocr_pages: List[str], stage_1_5_result: Dict) -> str:
         """
@@ -1586,6 +1336,7 @@ These data points have ALREADY been processed and mapped to the system.
      - If the document is hybrid and contains other data, you may fill multiple body keys.
      - **BEWARE:** Do NOT return generic data under a wrong key. Ensure the category names match the TARGET SCHEMA exactly.
   5. **Strict Omission:** Do NOT return keys with null or empty values. Omit them entirely from the JSON.
+  6. **Strict Flattening:** Never create nested sub-objects (like `address` or `contact`) unless they are explicitly defined in the PROVIDED SCHEMA. Follow the provided schema key-for-key.
 
 ### 5. TARGET SCHEMA
 {target_schema_json}
@@ -1602,6 +1353,14 @@ Return ONLY valid JSON.
         sig_data = {}
         if stage_1_5_result and "signatures" in stage_1_5_result:
             sig_data = stage_1_5_result["signatures"]
+
+        # 1. Stage 2.0: ZUGFeRD / Factur-X Pre-Extraction (Ground Truth)
+        zugferd_data = None
+        if pdf_path:
+            from core.utils.zugferd_extractor import ZugferdExtractor
+            zugferd_data = ZugferdExtractor.extract_from_pdf(pdf_path)
+            if zugferd_data:
+                print(f"[AI] ZUGFeRD XML detected (will be merged as priority ground-truth).")
 
         if types_to_extract:
             print(f"[AI] Stage 2 (Extraction) [START] -> Types: {', '.join(types_to_extract)}, Vision: {bool(pdf_path)}")
@@ -1626,6 +1385,8 @@ In addition to the JSON fields, you MUST provide the field `repaired_text`.
 Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separators. This text will be used for future indexing and searching.
 """
             
+            # Keep AI "sharp": No hint about internal XML data.
+            # It should extract as if it's the only source of truth.
             prompt = PROMPT_TEMPLATE.format(
                 entity_type=entity_type,
                 document_text=best_text[:limit],
@@ -1637,7 +1398,7 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
             )
             try:
                 # Validation & Retry Loop for Stage 2
-                max_s2_retries = 1
+                max_s2_retries = self.config.get_ai_retries()
                 s2_attempt = 0
                 extraction = None
                 
@@ -1654,16 +1415,28 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                     
                     s2_attempt += 1
                     if s2_attempt <= max_s2_retries:
-                        print(f"[AI] STAGE 2: Validation Failed for {entity_type}: {s2_errors}. Retrying...")
                         error_msg = "\n".join(f"- {e}" for e in s2_errors)
-                        prompt += f"\n\n### ⚠️ VALIDATION FAILED ⚠️\nYour previous extraction had these errors:\n{error_msg}\n\nPlease review the source text and image again and provide a fixed JSON."
+                        print(f"[AI] STAGE 2: Validation Failed (Attempt {s2_attempt}). ERRORS:\n{error_msg}")
+                        
+                        # Scold the AI in the next prompt
+                        prompt += f"\n\n### ⚠️ CRITICAL SCHEMA VIOLATION ⚠️\nYour previous JSON response was INVALID and REJECTED by the system validator.\n\nERRORS DETECTED:\n{error_msg}\n\nCORRECTION INSTRUCTIONS:\n- Strictly follow the JSON schema provided in section 5.\n- DO NOT create nested 'address', 'contact', or 'identifiers' objects.\n- Flatten all data as defined in the schema (e.g., use 'sender.city', NOT 'sender.address.city').\n- Provide a CORRECTED, FULL JSON response now."
+                    else:
+                        print(f"[AI] STAGE 2: {entity_type} -> GIVING UP after {s2_attempt} failed validation attempts.")
 
                 if extraction:
                     found_keys = []
+                    # 1. Standard Merge: AI might return bodies as top-level keys or inside 'bodies'
+                    source_bodies = extraction.get("bodies", {}) if isinstance(extraction.get("bodies"), dict) else {}
+                    
+                    # Also consider top-level keys as potential bodies
                     for key, value in extraction.items():
                         if key.endswith("_body") or key in ["internal_routing", "verification", "travel_body"]:
-                            final_semantic_data["bodies"][key] = value
-                            found_keys.append(key)
+                            source_bodies[key] = value
+                    
+                    # Apply to final result
+                    for key, value in source_bodies.items():
+                        final_semantic_data["bodies"][key] = value
+                        found_keys.append(key)
                     
                     if not found_keys:
                          print(f"[AI] STAGE 2: {entity_type} -> Success (But NO body-data found!)")
@@ -1672,10 +1445,47 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
 
                     if not final_semantic_data["meta_header"]:
                         final_semantic_data["meta_header"] = extraction.get("meta_header", {})
-
+                    else:
+                        # Merge meta_header (Partners/Dates/Numbers) from subsequent extractions
+                        # but keep existing values if they are more specific (like from ZUGFeRD)
+                        new_meta = extraction.get("meta_header", {})
+                        for k, v in new_meta.items():
+                            if v and not final_semantic_data["meta_header"].get(k):
+                                final_semantic_data["meta_header"][k] = v
+                    
                     if extraction.get("repaired_text"):
                         if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
                             final_semantic_data["repaired_text"] = extraction["repaired_text"]
+
+                    # 3. Final Overlay: ZUGFeRD priority (Ground Truth)
+                    if zugferd_data and entity_type.upper() in ["INVOICE", "RECEIPT", "UTILITY_BILL"]:
+                        # Merge XML Meta (Parties)
+                        xml_meta = zugferd_data.get("meta_data", {})
+                        for k, v in xml_meta.items():
+                             if v: final_semantic_data["meta_header"][k] = v
+                        
+                        # Deep Merge Financial Data
+                        xml_finance = zugferd_data.get("finance_data", {})
+                        if xml_finance:
+                            existing_finance = final_semantic_data["bodies"].get("finance_body", {})
+                            if not isinstance(existing_finance, dict): existing_finance = {}
+                            
+                            # Update existing with XML (XML wins on specific fields)
+                            for k, v in xml_finance.items():
+                                if k == "line_items":
+                                    # Fallback: only use XML items if they exist
+                                    if v: existing_finance["line_items"] = v
+                                elif k == "monetary_summation":
+                                    # Deep merge totals
+                                    existing_ms = existing_finance.get("monetary_summation", {})
+                                    if not isinstance(existing_ms, dict): existing_ms = {}
+                                    existing_ms.update(v)
+                                    existing_finance["monetary_summation"] = existing_ms
+                                else:
+                                    if v: existing_finance[k] = v
+                            
+                            final_semantic_data["bodies"]["finance_body"] = existing_finance
+                            print(f"[AI] ZUGFeRD Ground Truth merged into finance_body.")
             except Exception as e:
                 print(f"[AI] Stage 2 Error ({entity_type}): {e}")
                 return None
@@ -1693,10 +1503,33 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
         return final_semantic_data
 
     def validate_semantic_extraction(self, extraction: Dict, entity_type: str) -> List[str]:
-        """Validates AI extraction for critical fields and bank info."""
+        """Validates AI extraction for schema compliance, critical fields, and bank info."""
         from core.utils.validation import validate_iban
         errors = []
-        
+
+        # -- 1. Manual Nesting Check (to catch AI hallucinations before Pydantic fixes them) --
+        meta = extraction.get("meta_header", {})
+        for party_key in ["sender", "recipient"]:
+            party = meta.get(party_key, {})
+            if isinstance(party, dict):
+                for forbidden in ["address", "contact", "identifiers"]:
+                    if forbidden in party:
+                        errors.append(f"STRICTNESS_ERROR: Nested object '{party_key} -> {forbidden}' is NOT allowed. You must flatten all fields (street, city, zip_code, phone, etc.) directly into the '{party_key}' object.")
+
+        # -- 2. Schema Validation (Pydantic V2) --
+        try:
+            # Note: Our model has 'mode="before"' validators that fix some things, 
+            # but 'extra="forbid"' will still catch truly unknown fields.
+            SemanticExtraction.model_validate(extraction)
+        except ValidationError as e:
+            for error in e.errors():
+                loc = " -> ".join([str(x) for x in error["loc"]])
+                msg = error["msg"]
+                errors.append(f"REASONING_ERROR: Field '{loc}': {msg}. Please strictly follow the provided JSON schema without nesting.")
+        except Exception as e:
+            errors.append(f"CRITICAL_VALIDATION_ERROR: {str(e)}")
+
+        # -- 3. Manual Logic Checks (Specific to Business Logic) --
         meta = extraction.get("meta_header", {})
         sender = meta.get("sender", {})
         
@@ -1709,7 +1542,10 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
             
             # Also check finance_body -> payment_accounts
             if not iban:
-                body = extraction.get("finance_body", {})
+                # Robust body lookup
+                body = extraction.get("finance_body") or (extraction.get("bodies") or {}).get("finance_body", {})
+                if not isinstance(body, dict): body = {}
+                
                 accs = body.get("payment_accounts", [])
                 if accs and isinstance(accs[0], dict):
                     iban = accs[0].get("iban")
@@ -1726,11 +1562,31 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
 
         # 2. Critical Fields per Type
         if entity_type.upper() == "INVOICE":
-            body = extraction.get("finance_body", {})
-            if not body.get("total_gross"):
-                errors.append("MISSING_TOTAL: The 'total_gross' amount could not be found.")
-            if not meta.get("doc_date"):
-                errors.append("MISSING_DATE: The document date is missing.")
+            # Strict lookup: following the Pydantic schema (nested in 'bodies')
+            bodies = extraction.get("bodies")
+            if not isinstance(bodies, dict):
+                errors.append("SCHEMA_ERROR: The 'bodies' object is missing. All technical data (finance_body, etc.) MUST be inside the 'bodies' key.")
+                bodies = {}
+
+            body = bodies.get("finance_body", {})
+            if not body:
+                 # Check if the AI hallucinated the body at the root
+                 if "finance_body" in extraction:
+                     errors.append("STRICTNESS_ERROR: 'finance_body' found at root. It MUST be nested inside the 'bodies' object.")
+                 else:
+                     errors.append("MISSING_BODY: No 'finance_body' found inside 'bodies' for this Invoice.")
+            
+            ms = body.get("monetary_summation", {})
+            total = ms.get("grand_total_amount")
+            
+            # Error ONLY if total is completely missing or null
+            if total is None:
+                errors.append("MISSING_TOTAL: The 'monetary_summation.grand_total_amount' (BT-112) is missing or null. If the document has no total, explicitly set it to 0.")
+            
+            # Date check (strictly in meta_header or finance_body)
+            doc_date = meta.get("doc_date") or body.get("invoice_date")
+            if not doc_date:
+                errors.append("MISSING_DATE: The document date (BT-2) is missing in both 'meta_header' and 'finance_body'.")
 
         return errors
 

@@ -125,9 +125,7 @@ class VirtualDocument(BaseModel):
     @property
     def total_amount(self) -> Optional[Union[Decimal, float]]:
         """Helper to access financial totals across different semantic bodies."""
-        if self.semantic_data:
-            return self.semantic_data.get_financial_value("amount")
-        return None
+        return self.total_gross
 
     @property
     def sender_name(self) -> Optional[str]:
@@ -200,19 +198,24 @@ class VirtualDocument(BaseModel):
 
     @property
     def total_gross(self) -> Optional[Union[Decimal, float]]:
-        return self.semantic_data.get_financial_value("total_gross") if self.semantic_data else None
+        return self.semantic_data.get_financial_value("monetary_summation.grand_total_amount") if self.semantic_data else None
 
     @property
     def total_net(self) -> Optional[Union[Decimal, float]]:
-        return self.semantic_data.get_financial_value("total_net") if self.semantic_data else None
+        return self.semantic_data.get_financial_value("monetary_summation.tax_basis_total_amount") if self.semantic_data else None
 
     @property
     def total_tax(self) -> Optional[Union[Decimal, float]]:
-        return self.semantic_data.get_financial_value("total_tax") if self.semantic_data else None
+        return self.semantic_data.get_financial_value("monetary_summation.tax_total_amount") if self.semantic_data else None
 
     @property
     def currency(self) -> Optional[str]:
         return self.semantic_data.get_financial_value("currency") if self.semantic_data else None
+
+    @property
+    def due_date(self) -> Optional[str]:
+        """Extracted due date for financial documents."""
+        return self.semantic_data.get_financial_value("due_date") if self.semantic_data else None
 
     @property
     def iban(self) -> Optional[str]:

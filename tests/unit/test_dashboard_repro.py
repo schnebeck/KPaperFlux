@@ -14,7 +14,11 @@ def test_import_refresh_dashboard_called(qtbot):
         qtbot.addWidget(mw)
         mw.dashboard_widget = MagicMock()
         mw.filter_tree_widget = MagicMock()
+        mw.list_widget = MagicMock()
         
+        # Prevent pickling errors in QSettings during teardown
+        mw.main_loop_worker.is_paused = False
+        mw.list_widget.get_selected_uuids.return_value = []
         # 2. Simulate Import Finished
         mock_doc = MagicMock()
         mock_doc.page_count = 1
@@ -39,6 +43,9 @@ def test_delete_refresh_dashboard_called(qtbot):
         mw.dashboard_widget = MagicMock()
         mw.list_widget = MagicMock()
         
+        # Prevent pickling errors in QSettings during teardown
+        mw.main_loop_worker.is_paused = False
+        mw.list_widget.get_selected_uuids.return_value = ["uuid-to-delete"]
         # Mock Delete Confirmation
         mock_msgbox.return_value = QMessageBox.StandardButton.Yes
         # Mock DB delete

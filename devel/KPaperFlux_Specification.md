@@ -67,3 +67,32 @@ The user-facing logical document.
 *   `type_tags`: JSON list (e.g., `["INVOICE", "INBOUND"]`).
 *   `semantic_data`: Dynamic JSON block containing the "Canonized" extraction.
 *   `cached_full_text`: Consolidated text for FTS indexing.
+
+## **5. Localization (l10n) & Rendering**
+
+KPaperFlux uses a centralized localization architecture to manage internationalization (i18n) and visual rendering consistency.
+
+### **5.1 Centralized l10n Structure**
+All language-specific assets are consolidated in `resources/l10n/`:
+
+*   **GUI Strings:** Qt Translation files (`gui_strings.ts` / `.qm`) for translating the desktop interface.
+*   **Unit Codes:** ISO/UN standard codes (e.g., `C62` for "Stück") are mapped in `units.json`.
+*   **Render Templates:** JSON-based templates for converting raw semantic extraction into human-readable HTML/Markdown or professional PDFs.
+
+### **5.2 Directory Schema**
+```text
+resources/l10n/
+├── de/
+│   ├── gui_strings.ts|.qm  # UI Translations
+│   ├── units.json          # ISO Unit Mappings
+│   └── templates/          # Localized Render Templates
+├── en/
+│   ├── ...
+└── common/
+    └── templates/          # Global standard fallbacks
+```
+
+### **5.3 Logic Fallbacks**
+1.  **Rendering:** Primary lookup in the current locale folder (`l10n/<lang>/templates`). Fallback to `l10n/common/templates`.
+2.  **Units:** Primary lookup in the current locale. Fallback to English (`l10n/en/units.json`).
+3.  **Formatting:** The `SemanticRenderer` provides l10n-aware formatters for currencies (e.g., `1.234,56 €`), dates (`DD.MM.YYYY`), and unit codes.

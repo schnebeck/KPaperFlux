@@ -1,0 +1,32 @@
+{
+    "id": "medical_bill_en",
+    "name": "Medical Bill (EN)",
+    "match_tags": [
+        "MEDICAL_BILL",
+        "ARZTRECHNUNG"
+    ],
+    "sections": [
+        {
+            "title": "🩺 Medical Billing",
+            "type": "table",
+            "fields": [
+                {
+                    "path": "bodies.finance_body.monetary_summation.grand_total_amount",
+                    "label": "Amount Due",
+                    "format": "currency",
+                    "important": true
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Treatment Date",
+                    "format": "date"
+                },
+                {
+                    "path": "workflow.pkv_eligible",
+                    "label": "Private Health Insurance?",
+                    "icon": "🏥"
+                }
+            ]
+        }
+    ]
+}

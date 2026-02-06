@@ -119,7 +119,7 @@
                     "strategies": [
                         {
                             "type": "json_path",
-                            "path": "bodies.finance_body.total_tax"
+                            "path": "bodies.finance_body.monetary_summation.tax_total_amount"
                         },
                         {
                             "type": "fuzzy_key",

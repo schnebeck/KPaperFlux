@@ -4,7 +4,7 @@ from decimal import Decimal
 from core.database import DatabaseManager
 from core.repositories import LogicalRepository
 from core.models.virtual import VirtualDocument
-from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, AddressInfo
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, AddressInfo, MonetarySummation
 
 @pytest.fixture
 def db_manager():
@@ -53,7 +53,11 @@ def test_filter_by_amount_range(db_manager, repo):
     v1 = VirtualDocument(
         uuid=u1,
         semantic_data=SemanticExtraction(
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("150.00"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("150.00"))
+                )
+            }
         )
     )
     repo.save(v1)
@@ -62,7 +66,11 @@ def test_filter_by_amount_range(db_manager, repo):
     v2 = VirtualDocument(
         uuid=u2,
         semantic_data=SemanticExtraction(
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("50.00"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("50.00"))
+                )
+            }
         )
     )
     repo.save(v2)

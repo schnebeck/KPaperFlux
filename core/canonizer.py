@@ -30,6 +30,7 @@ from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
 from core.rules_engine import RulesEngine
 from core.visual_auditor import VisualAuditor
+from core.workflow import WorkflowRegistry
 
 if TYPE_CHECKING:
     from core.filter_tree import FilterTree
@@ -77,6 +78,11 @@ class CanonizerService:
 
         self.visual_auditor = VisualAuditor(self.analyzer)
         self.rules_engine = RulesEngine(db, filter_tree) if filter_tree else None
+        
+        # Phase 3: Workflow Engine
+        self.workflow_registry = WorkflowRegistry()
+        # Note: In production, the path might be different, but for now we use relative
+        self.workflow_registry.load_from_directory("resources/workflows")
 
     def process_pending_documents(self, limit: int = 10) -> int:
         """
@@ -468,6 +474,14 @@ class CanonizerService:
 
             target_doc.export_filename = smart_name
             target_doc.cached_full_text = semantic_extraction.get("repaired_text") or entity_text
+            
+            # Phase 3: Workflow Assignment
+            if target_doc.semantic_data and not target_doc.semantic_data.workflow.playbook_id:
+                pb = self.workflow_registry.find_playbook_for_tags(target_doc.type_tags)
+                if pb:
+                    target_doc.semantic_data.workflow.playbook_id = pb.id
+                    print(f"[Workflow] Assigned playbook '{pb.id}' to {target_doc.uuid}")
+
             target_doc.status = "PROCESSED"
             target_doc.last_processed_at = datetime.now().isoformat()
 

@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime
 from core.models.virtual import VirtualDocument as Document
 from core.exporter import DocumentExporter
-from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody
+from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody, MonetarySummation
 from decimal import Decimal
 
 def test_export_to_zip(tmp_path):
@@ -15,7 +15,11 @@ def test_export_to_zip(tmp_path):
         original_filename="invoice.pdf",
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(doc_date="2023-10-25", sender=AddressInfo(name="Amazon")),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("123.45"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("123.45"))
+                )
+            }
         ),
         file_path=str(tmp_path / "invoice.pdf")
     )
@@ -28,7 +32,11 @@ def test_export_to_zip(tmp_path):
         original_filename="receipt.pdf",
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(sender=AddressInfo(name="Edeka")),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("50.00"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("50.00"))
+                )
+            }
         )
     )
     # doc2 has no file
@@ -108,7 +116,7 @@ def test_export_semantic_fields(tmp_path, monkeypatch):
                     {
                         "id": "iban", 
                         "label_key": "lbl_iban",
-                        "strategies": [{"type": "json_path", "path": "bodies.finance_body.iban"}]
+                        "strategies": [{"type": "json_path", "path": "meta_header.sender.iban"}]
                     }
                 ]
             }
@@ -123,10 +131,10 @@ def test_export_semantic_fields(tmp_path, monkeypatch):
         type_tags=["Invoice"]
     )
     doc.semantic_data = SemanticExtraction(
+        meta_header=MetaHeader(sender=AddressInfo(iban="DE123456789")),
         bodies={
             "finance_body": FinanceBody(
-                invoice_number="INV-2023-999",
-                iban="DE123456789"
+                invoice_number="INV-2023-999"
             )
         }
     )

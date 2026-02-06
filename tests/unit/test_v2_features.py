@@ -4,7 +4,7 @@ from decimal import Decimal
 from core.database import DatabaseManager
 from core.repositories import LogicalRepository
 from core.models.virtual import VirtualDocument
-from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, WorkflowInfo, WorkflowLog
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, WorkflowInfo, WorkflowLog, MonetarySummation
 
 @pytest.fixture
 def db_manager():
@@ -30,7 +30,11 @@ def test_sum_documents_advanced(db_manager, repo):
             uuid=uid,
             type_tags=[dtype],
             semantic_data=SemanticExtraction(
-                bodies={"finance_body": FinanceBody(total_gross=Decimal(str(amt)))}
+                bodies={
+                    "finance_body": FinanceBody(
+                        monetary_summation=MonetarySummation(grand_total_amount=Decimal(str(amt)))
+                    )
+                }
             )
         )
         repo.save(v)
@@ -107,12 +111,18 @@ def test_model_serialization(db_manager, repo):
     """Requirement: SemanticExtraction can be dumped to dict for UI/JSON usage."""
     from decimal import Decimal
     sd = SemanticExtraction(
-        bodies={"finance_body": FinanceBody(total_gross=Decimal("42.50"))}
+        bodies={
+            "finance_body": FinanceBody(
+                monetary_summation=MonetarySummation(grand_total_amount=Decimal("42.50"))
+            )
+        }
     )
     # 1. Test model_dump
     out_dict = sd.model_dump()
     assert isinstance(out_dict["bodies"]["finance_body"], dict)
-    assert out_dict["bodies"]["finance_body"]["total_gross"] == Decimal("42.50")
+    # Field name is monetary_summation now
+    ms = out_dict["bodies"]["finance_body"]["monetary_summation"]
+    assert ms["grand_total_amount"] == Decimal("42.50")
     
     # 2. Test JSON compatibility (simulating GUI debug-view)
     import json

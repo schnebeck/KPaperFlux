@@ -1,0 +1,32 @@
+{
+    "id": "medical_bill_de",
+    "name": "Arztrechnung (DE)",
+    "match_tags": [
+        "MEDICAL_BILL",
+        "ARZTRECHNUNG"
+    ],
+    "sections": [
+        {
+            "title": "Medizinische Abrechnung",
+            "type": "table",
+            "fields": [
+                {
+                    "path": "bodies.finance_body.monetary_summation.grand_total_amount",
+                    "label": "Gorderungsbetrag",
+                    "format": "currency",
+                    "important": true
+                },
+                {
+                    "path": "meta_header.doc_date",
+                    "label": "Behandlungsdatum",
+                    "format": "date"
+                },
+                {
+                    "path": "workflow.pkv_eligible",
+                    "label": "PKV Relevant?",
+                    "icon": "🏥"
+                }
+            ]
+        }
+    ]
+}

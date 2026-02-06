@@ -1,0 +1,143 @@
+{
+    "id": "invoice_de",
+    "name": "Rechnung (DE)",
+    "match_tags": [
+        "INVOICE",
+        "RECHNUNG",
+        "ORDER_CONFIRMATION",
+        "DELIVERY_NOTE"
+    ],
+    "layout": "DIN_5008_STYLE",
+    "sections": [
+        {
+            "id": "sender_block",
+            "type": "sender_info",
+            "title": "Absender"
+        },
+        {
+            "id": "recipient_block",
+            "type": "recipient_info",
+            "title": "Empfänger"
+        },
+        {
+            "id": "meta_block",
+            "type": "key_value",
+            "title": "Dokumenteninfo",
+            "fields": [
+                {
+                    "path": "bodies.finance_body.invoice_date",
+                    "label": "Rechnungsdatum",
+                    "format": "date"
+                },
+                {
+                    "path": "bodies.finance_body.service_date",
+                    "label": "Leistungsdatum",
+                    "format": "date"
+                },
+                {
+                    "path": "meta_header.doc_number",
+                    "label": "Belegnummer"
+                },
+                {
+                    "path": "bodies.finance_body.order_number",
+                    "label": "Auftragsnummer"
+                },
+                {
+                    "path": "bodies.finance_body.customer_id",
+                    "label": "Kundennummer"
+                },
+                {
+                    "path": "bodies.finance_body.buyer_reference",
+                    "label": "Kundenreferenz"
+                },
+                {
+                    "path": "bodies.finance_body.project_reference",
+                    "label": "Projektnummer"
+                },
+                {
+                    "path": "bodies.finance_body.accounting_reference",
+                    "label": "Kostenstelle"
+                },
+                {
+                    "path": "bodies.finance_body.payment_terms",
+                    "label": "Zahlungsbedingungen"
+                }
+            ]
+        },
+        {
+            "id": "items_block",
+            "type": "item_list",
+            "title": "Positionen",
+            "source": "bodies.finance_body.line_items",
+            "columns": [
+                {
+                    "path": "pos",
+                    "label": "Pos"
+                },
+                {
+                    "path": "quantity",
+                    "label": "Menge"
+                },
+                {
+                    "path": "unit",
+                    "label": "Einheit",
+                    "format": "unit"
+                },
+                {
+                    "path": "description",
+                    "label": "Bezeichnung"
+                },
+                {
+                    "path": "net_price",
+                    "label": "Einzelpreis",
+                    "format": "currency"
+                },
+                {
+                    "path": "total",
+                    "label": "Gesamt",
+                    "format": "currency"
+                }
+            ]
+        },
+        {
+            "id": "totals_block",
+            "type": "table",
+            "title": "Zusammenfassung",
+            "fields": [
+                {
+                    "path": "bodies.finance_body.monetary_summation.tax_basis_total_amount",
+                    "label": "Netto Summe",
+                    "format": "currency"
+                },
+                {
+                    "path": "bodies.finance_body.monetary_summation.tax_total_amount",
+                    "label": "Umsatzsteuer",
+                    "format": "currency"
+                },
+                {
+                    "path": "bodies.finance_body.shipping_costs",
+                    "label": "Verpackung/Versand",
+                    "format": "currency"
+                },
+                {
+                    "path": "bodies.finance_body.monetary_summation.grand_total_amount",
+                    "label": "Brutto Summe",
+                    "format": "currency",
+                    "important": true
+                },
+                {
+                    "path": "bodies.finance_body.due_date",
+                    "label": "Zahlbar bis",
+                    "format": "date"
+                }
+            ]
+        },
+        {
+            "id": "payment_block",
+            "type": "list",
+            "title": "Bezahlhinweise",
+            "source": "bodies.finance_body.payment_accounts",
+            "item_template": "IBAN: {iban} ({bank_name})"
+        }
+    ]
+}

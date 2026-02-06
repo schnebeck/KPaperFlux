@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QLineEdit, QTextEdit
 from core.models.virtual import VirtualDocument as Document
 from gui.metadata_editor import MetadataEditorWidget
 from core.database import DatabaseManager
-from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody
+from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody, MonetarySummation
 
 @pytest.fixture
 def mock_db():
@@ -24,7 +24,11 @@ def test_display_documents_mixed(editor):
         original_filename="a.pdf", 
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(sender=AddressInfo(name="Company A")),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.0"))
+                )
+            }
         )
     )
     doc2 = Document(
@@ -32,7 +36,11 @@ def test_display_documents_mixed(editor):
         original_filename="b.pdf", 
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(sender=AddressInfo(name="Company B")),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.0"))
+                )
+            }
         )
     ) 
     
@@ -50,7 +58,11 @@ def test_save_changes_batch(editor, mock_db):
         original_filename="a.pdf", 
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(sender=AddressInfo(name="Company A")),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.0"))
+                )
+            }
         )
     )
     doc2 = Document(
@@ -58,7 +70,11 @@ def test_save_changes_batch(editor, mock_db):
         original_filename="b.pdf", 
         semantic_data=SemanticExtraction(
             meta_header=MetaHeader(sender=AddressInfo(name="Company B")),
-            bodies={"finance_body": FinanceBody(total_gross=Decimal("10.0"))}
+            bodies={
+                "finance_body": FinanceBody(
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.0"))
+                )
+            }
         )
     )
     
