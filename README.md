@@ -33,20 +33,18 @@ KPaperFlux employs a multi-stage, intelligent analysis pipeline to understand do
 *   **Stage 2 - Semantic Extraction:** Extracts structured JSON data (Sender, Date, Line Items) using a schema compliant with EN 16931 / ZUGFeRD 2.2. Handles complex documents like DigiKey invoices with 50+ line items.
 *   **Electronic Invoicing (ZUGFeRD/Factur-X):** Deep integration for embedded XML data in PDF/A files. Automatically extracts invoice metadata, line items, and bank details without AI overhead.
 
-### 🌍 Localization (l10n & i18n)
-*   **Centralized Architecture:** Unified management of translations, unit codes, and render templates in `resources/l10n/`.
-*   **Multi-Language Support:** Full support for German and English, including locale-specific formatting for currencies (1.234,56 € vs € 1,234.56) and dates.
-*   **Professional Audit View:** DIN 5008 compliant PDF rendering with support for advanced fields like Cost Centers (BT-19), Project IDs (BT-11), and Service Dates (BT-7).
+*   **Financial Intelligence (GiroCode & Reports):**
+    *   *GiroCode (EPC-QR):* One-click generation of SEPA payment codes from extracted invoice data.
+    *   *Reporting Engine:* Monthly summaries, tax breakdowns, and Excel-optimized CSV exports (UTF-8 BOM, semicolon) for effortless bookkeeping.
 
-### ⚡ Performance & Token Efficiency
-*   **Sandwich Mode:** For large manuals, only the start and end are scanned to save AI costs.
-*   **Header Scan:** For document stacks, the system analyzes only the header regions.
-*   **Flash Optimization:** Dynamically leverages the 1M Context Window of Gemini 2.x for complex analyses.
+### 🤖 Automation & Process Control
+*   **Dynamic Workflows (Agents):** Define custom process logic via "Playbooks". Transition documents through states like `DRAFT` -> `TO_PAY` -> `ARCHIVED` based on AI evaluations or human verification.
+*   **Workflow Manager:** A full graphical editor to build and manage your own document agents.
 
 ### 🛡️ Hybrid Workflow
+*   **Audit Window:** A professional side-by-side view of the original PDF and the semantic reconstruction, powered by DIN 5008 compliant rendering.
+*   **Metadata Editor:** A powerful editor to verify and correct AI results with real-time feedback.
 *   **SANE Integration:** Direct control of scanners under Linux.
-*   **Drag & Drop:** Easy import of PDF files.
-*   **Metadata Editor:** A powerful editor to verify and correct AI results.
 
 ---
 
