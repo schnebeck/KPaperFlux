@@ -17,7 +17,7 @@ def mock_db():
 
 @pytest.fixture
 def document_list(qtbot, mock_db):
-    widget = DocumentListWidget(mock_db, pipeline=None)
+    widget = DocumentListWidget(mock_db)
     qtbot.addWidget(widget)
     return widget
 

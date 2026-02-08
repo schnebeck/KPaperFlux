@@ -729,11 +729,3 @@ class CanonizerService:
                 entity.direction = "INCOMING"
                 return
 
-    def _save_entity(self, entity: CanonicalEntity) -> None:
-        """
-        Unchanged legacy helper (if used).
-
-        Args:
-            entity: The entity to save.
-        """
-        pass

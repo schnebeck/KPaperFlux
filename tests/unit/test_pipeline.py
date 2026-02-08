@@ -3,9 +3,8 @@ from unittest.mock import MagicMock, patch, ANY
 import os
 from pathlib import Path
 from core.pipeline import PipelineProcessor
-from core.models.virtual import VirtualDocument as Document
 from core.models.physical import PhysicalFile
-from core.models.virtual import VirtualDocument
+from core.models.virtual import VirtualDocument, VirtualDocument as Document, SourceReference
 import datetime
 import uuid
 

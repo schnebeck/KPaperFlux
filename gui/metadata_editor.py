@@ -582,7 +582,7 @@ class MetadataEditorWidget(QWidget):
             return
         new_state = self.chk_locked.isChecked()
         for uuid in self.current_uuids:
-             self.db_manager.update_document_metadata(uuid, {"locked": new_state})
+             self.db_manager.update_document_metadata(uuid, {"is_immutable": new_state})
         self.toggle_lock(new_state)
         self.metadata_saved.emit()
 
@@ -607,9 +607,9 @@ class MetadataEditorWidget(QWidget):
 
         # Batch Display (Simplified)
         with QSignalBlocker(self.chk_locked):
-            locked_values = {d.locked for d in docs}
-            if len(locked_values) == 1:
-                 val = locked_values.pop()
+            is_immutable_values = {d.is_immutable for d in docs}
+            if len(is_immutable_values) == 1:
+                 val = is_immutable_values.pop()
                  self.chk_locked.setTristate(False)
                  self.chk_locked.setChecked(val)
                  self.toggle_lock(val)
@@ -656,8 +656,8 @@ class MetadataEditorWidget(QWidget):
         self.doc = doc
 
         with QSignalBlocker(self.chk_locked):
-             self.chk_locked.setChecked(doc.locked)
-        self.toggle_lock(doc.locked)
+             self.chk_locked.setChecked(doc.is_immutable)
+        self.toggle_lock(doc.is_immutable)
 
         self.uuid_lbl.setText(doc.uuid)
         self.created_at_lbl.setText(format_datetime(doc.created_at) or "-")

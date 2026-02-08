@@ -1,7 +1,7 @@
 # KPaperFlux: Strategic Evaluation & Reporting Concept
 
-**Date:** 2026-02-01
-**Status:** Planning / Architecture Review (Post-Refactoring v2.0)
+**Date:** 2026-02-06
+**Status:** Post-Clean-up & Plugin-System-Design (Phase Transition)
 
 ## 1. Status Quo: The Modernized Foundation
 
@@ -13,6 +13,8 @@ Following a successful refactoring, KPaperFlux has reached a new technological t
     *   **Stage 1.5 (Visual Audit):** Focus on forensics (stamps, signatures, integrity).
     *   **Stage 2 (Semantics):** Full extraction of financial data and cross-page text repair.
 *   **Stable UI:** All components (List View, Metadata Editor, Duplicate Check) have been successfully synchronized with the new architecture.
+*   **Transfer Infrastructure:** A dedicated Transfer folder for manual Import/Export has been implemented, providing a clean "Pre-Ingest" and "Post-Process" staging area.
+*   **Plugin System Foundation:** A master specification for an extensible Plugin API with GUI support and specialized PDF (Hybrid/Signed) handling has been drafted.
 
 ---
 

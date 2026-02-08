@@ -11,3 +11,5 @@ Pillow
 reportlab
 python-sane
 qrcode[pil]
+opencv-python-headless
+numpy

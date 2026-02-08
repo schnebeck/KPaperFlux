@@ -27,9 +27,8 @@ from pdf2image import convert_from_path
 from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
 from core.database import DatabaseManager
-from core.models.virtual import VirtualDocument as Document
 from core.models.physical import PhysicalFile
-from core.models.virtual import SourceReference, VirtualDocument
+from core.models.virtual import VirtualDocument, VirtualDocument as Document, SourceReference
 from core.repositories import LogicalRepository, PhysicalRepository
 from core.vault import DocumentVault
 from core.vocabulary import VocabularyManager
@@ -488,6 +487,7 @@ class PipelineProcessor:
                 source_mapping=mapping,
                 status="READY_FOR_PIPELINE",
                 created_at=datetime.datetime.now().isoformat(),
+                is_immutable=instr.get("locked", False)
             )
             self.logical_repo.save(v_doc)
             new_uuids.append(v_doc.uuid)
@@ -572,7 +572,8 @@ class PipelineProcessor:
                     source_mapping=mapping,
                     status="READY_FOR_PIPELINE",
                     created_at=datetime.datetime.now().isoformat(),
-                    last_processed_at=datetime.datetime.now().isoformat()
+                    last_processed_at=datetime.datetime.now().isoformat(),
+                    is_immutable=instr.get("locked", False)
                 )
                 self.logical_repo.save(v_doc)
                 new_uuids.append(v_doc.uuid)
@@ -768,10 +769,9 @@ class PipelineProcessor:
             print(f"Error counting pages for {path}: {e}")
             return 0
 
-    def _run_ai_analysis(self, doc_obj: Union[Document, VirtualDocument], file_path: Optional[str] = None) -> None:
+    def _run_ai_analysis(self, doc_obj: Document, file_path: Optional[str] = None) -> None:
         """
         Runs AI analysis on the document.
-        Supports both legacy Document and VirtualDocument objects.
 
         Args:
             doc_obj: The document object to analyze.
@@ -782,17 +782,9 @@ class PipelineProcessor:
         # Instantiate Canonizer with Repos
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
 
-        if isinstance(doc_obj, VirtualDocument):
+        if isinstance(doc_obj, (VirtualDocument, Document)):
             print(f"[{doc_obj.uuid}] Starting Intelligent Analysis (Phase 2)...")
             canonizer.process_virtual_document(doc_obj)
-        elif isinstance(doc_obj, Document):
-            # Resolve DTO to VirtualDocument
-            virtual_doc = self.logical_repo.get_by_uuid(doc_obj.uuid)
-            if virtual_doc:
-                print(f"[{doc_obj.uuid}] Resolved DTO to Entity. Starting Analysis...")
-                canonizer.process_virtual_document(virtual_doc)
-            else:
-                print(f"[{doc_obj.uuid}] Error: Could not resolve to VirtualDocument.")
         else:
             print(f"[{getattr(doc_obj, 'uuid', '?')}] Unknown object type for analysis.")
 
@@ -802,7 +794,7 @@ class PipelineProcessor:
         Pattern: Sender_Type_Date
 
         Args:
-            doc: The legacy Document object.
+            doc: The Document object.
 
         Returns:
             The generated filename string.
@@ -825,13 +817,12 @@ class PipelineProcessor:
         base = f"{clean(sender)}_{clean(effective_type)}_{clean(date_part)}"
         return base
 
-    def save_document(self, doc: Document) -> None:
+    def save_updated_document(self, doc: Document) -> None:
         """
-        Saves an updated legacy Document DTO to the V2 backend.
-        Maps DTO fields back to VirtualDocument and persists via LogicalRepo.
+        Saves an updated Document to the backend.
 
         Args:
-            doc: The legacy Document object to save.
+            doc: The Document object to save.
         """
         # 1. Fetch existing Entity
         virtual_doc = self.logical_repo.get_by_uuid(doc.uuid)

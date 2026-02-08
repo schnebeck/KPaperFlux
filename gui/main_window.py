@@ -23,6 +23,7 @@ from core.stamper import DocumentStamper
 from core.filter_tree import FilterTree, NodeType
 from core.config import AppConfig
 from core.integrity import IntegrityManager
+from core.utils.forensics import check_pdf_immutable
 
 # GUI Imports
 from gui.workers import ImportWorker, MainLoopWorker, SimilarityWorker, ReprocessWorker
@@ -47,6 +48,8 @@ from gui.utils import (
     show_notification
 )
 from gui.workflow_manager import WorkflowManagerWidget
+from core.plugins.manager import PluginManager
+from core.plugins.base import ApiContext
 
 class MergeConfirmDialog(QDialog):
     def __init__(self, count, parent=None):
@@ -95,6 +98,25 @@ class MainWindow(QMainWindow):
 
         self.app_config = AppConfig()
         self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
+
+        # --- Phase 200: Plugin System ---
+        plugin_dirs = [str(self.app_config.get_plugins_dir())]
+        
+        # Absolute path to project root
+        project_root = Path(__file__).resolve().parent.parent
+        local_plugins = project_root / "plugins"
+        
+        if local_plugins.exists():
+            plugin_dirs.append(str(local_plugins))
+            
+        self.plugin_api = ApiContext(
+            db=self.db_manager,
+            vault=getattr(self.pipeline, 'vault', None) if self.pipeline else None,
+            config=self.app_config,
+            main_window=self
+        )
+        self.plugin_manager = PluginManager(plugin_dirs=plugin_dirs, api_context=self.plugin_api)
+        self.plugin_manager.discover_plugins()
 
         self.create_menu_bar()
         # Toolbar/Shortcuts moved down to ensure all widgets like list_widget exist before initial status update
@@ -146,7 +168,7 @@ class MainWindow(QMainWindow):
         self.left_pane_splitter.addWidget(self.advanced_filter)
 
         if self.db_manager:
-            self.list_widget = DocumentListWidget(self.db_manager, filter_tree=self.filter_tree)
+            self.list_widget = DocumentListWidget(self.db_manager, filter_tree=self.filter_tree, plugin_manager=self.plugin_manager)
             self.list_widget.document_selected.connect(self._on_document_selected)
             self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
@@ -344,6 +366,11 @@ class MainWindow(QMainWindow):
         action_import.triggered.connect(self.import_document_slot)
         file_menu.addAction(action_import)
 
+        self.action_import_transfer = QAction(self.tr("Import from Transfer"), self)
+        self.action_import_transfer.triggered.connect(self.import_from_transfer_slot)
+        file_menu.addAction(self.action_import_transfer)
+        self._update_transfer_menu_visibility()
+
         action_scan = QAction(self.tr("&Scan..."), self)
         action_scan.setShortcut("Ctrl+S")
         action_scan.triggered.connect(self.open_scanner_slot)
@@ -421,6 +448,10 @@ class MainWindow(QMainWindow):
         purge_all_action = QAction(self.tr("Purge All Data (Reset)"), self)
         purge_all_action.triggered.connect(self.purge_data_slot)
         tools_menu.addAction(purge_all_action)
+        
+        tools_menu.addSeparator()
+        self.plugin_submenu = tools_menu.addMenu(self.tr("External Plugins"))
+        self._refresh_plugin_menu()
 
         # -- Debug Menu (Phase 102) --
         debug_menu = menubar.addMenu(self.tr("&Debug"))
@@ -483,6 +514,36 @@ class MainWindow(QMainWindow):
         action_about = QAction(self.tr("&About"), self)
         action_about.triggered.connect(self.show_about_dialog)
         help_menu.addAction(action_about)
+
+    def _refresh_plugin_menu(self):
+        """Populates the Plugins submenu with actions from loaded plugins."""
+        if not hasattr(self, 'plugin_submenu') or not self.plugin_manager:
+            return
+            
+        self.plugin_submenu.clear()
+        
+        found_any = False
+        for plugin in self.plugin_manager.plugins:
+            try:
+                actions = plugin.get_tool_actions(parent=self)
+                if actions:
+                    found_any = True
+                    for action in actions:
+                        self.plugin_submenu.addAction(action)
+            except Exception as e:
+                print(f"[PluginError] Error loading tools from {plugin.__class__.__name__}: {e}")
+                
+        if not found_any:
+            load_errors = getattr(self.plugin_manager, 'load_errors', {})
+            if load_errors:
+                self.plugin_submenu.addAction(self.tr("Plugin Loading Errors...")).setEnabled(False)
+                self.plugin_submenu.addSeparator()
+                err_menu = self.plugin_submenu.addMenu(self.tr("Details"))
+                for path, err in load_errors.items():
+                    err_menu.addAction(f"{Path(path).name}: {err}").setEnabled(False)
+            else:
+                self.plugin_submenu.addAction(self.tr("No plugin actions")).setEnabled(False)
+
 
     # --- Debug Handlers ---
     def _debug_show_orphans_slot(self):
@@ -865,17 +926,37 @@ class MainWindow(QMainWindow):
 
         # 1. Handle PDFs via Batch Assistant
         if pdf_files:
-            dialog = SplitterDialog(self.pipeline, self)
-            dialog.load_for_batch_import(pdf_files)
+            # Separate immutable PDFs
+            immutable_pdfs = [f for f in pdf_files if check_pdf_immutable(f)]
+            standard_pdfs = [f for f in pdf_files if f not in immutable_pdfs]
+            
+            # Standard PDFs go through splitter
+            if standard_pdfs:
+                dialog = SplitterDialog(self.pipeline, self)
+                dialog.load_for_batch_import(standard_pdfs)
 
-            if dialog.exec() == QDialog.DialogCode.Accepted:
-                instrs = dialog.import_instructions
-                # New Logic: If instructions is a LIST of DOCS, we need a "Batch Mode" in ImportWorker.
-
-                # For now, let's pass a special item to ImportWorker if it's a batch.
-                import_items.append(("BATCH", instrs))
-            else:
-                print("PDF Import cancelled by user.")
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    instrs = dialog.import_instructions
+                    import_items.append(("BATCH", instrs))
+                else:
+                    print("PDF Import cancelled by user.")
+            
+            # Immutable PDFs are imported as-is (1:1) and locked
+            for f in immutable_pdfs:
+                try:
+                    doc = fitz.open(f)
+                    instr = {
+                        "pages": [{
+                            "file_path": f,
+                            "file_page_index": i,
+                            "rotation": 0
+                        } for i in range(doc.page_count)],
+                        "locked": True
+                    }
+                    import_items.append(("BATCH", [instr]))
+                    doc.close()
+                except Exception as e:
+                    print(f"Error preparing immutable import for {f}: {e}")
 
         # 2. Handle non-PDFs (Direct)
         for fpath in other_files:
@@ -956,6 +1037,45 @@ class MainWindow(QMainWindow):
 
     def on_settings_changed(self):
         self.list_widget.refresh_list()
+        self._update_transfer_menu_visibility()
+
+    def _update_transfer_menu_visibility(self):
+        """Show/Hide transfer action based on config."""
+        path = self.app_config.get_transfer_path()
+        exists = os.path.exists(path) if path else False
+        self.action_import_transfer.setVisible(exists)
+
+    def import_from_transfer_slot(self):
+        """Imports all files from the defined transfer folder."""
+        path = self.app_config.get_transfer_path()
+        if not path or not os.path.exists(path):
+            return
+
+        # Collect files
+        files = []
+        try:
+            for item in os.listdir(path):
+                full_path = os.path.join(path, item)
+                if os.path.isfile(full_path) and not item.startswith('.'):
+                    # Check extension via PreFlightImporter
+                    _, ext = os.path.splitext(item)
+                    if ext.lower() == '.pdf' or ext.lower() in PreFlightImporter.ALLOWED_EXTENSIONS:
+                        files.append(full_path)
+        except Exception as e:
+            show_selectable_message_box(self, self.tr("Error"), f"Could not read transfer folder: {e}", icon=QMessageBox.Icon.Critical)
+            return
+
+        if not files:
+            show_notification(self, self.tr("Transfer"), self.tr("No compatible files found in transfer folder."))
+            return
+
+        msg = self.tr(f"Found {len(files)} files in transfer folder. Do you want to import them now?")
+        reply = show_selectable_message_box(self, self.tr("Import from Transfer"), msg, 
+                                           icon=QMessageBox.Icon.Question,
+                                           buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.start_import_process(files, move_source=False)
 
     # --- Stage 2: Semantic Data Management Slots ---
 

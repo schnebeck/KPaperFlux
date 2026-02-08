@@ -83,6 +83,15 @@ class SettingsDialog(QDialog):
         h_ocr.addWidget(self.btn_ocr)
         form.addRow(self.tr("OCR Binary:"), h_ocr)
 
+        # Transfer Path (Phase 2.1)
+        self.edit_transfer = QLineEdit()
+        self.btn_transfer = QPushButton(self.tr("Browse..."))
+        self.btn_transfer.clicked.connect(self._browse_transfer)
+        h_transfer = QHBoxLayout()
+        h_transfer.addWidget(self.edit_transfer)
+        h_transfer.addWidget(self.btn_transfer)
+        form.addRow(self.tr("Transfer Folder:"), h_transfer)
+
         # Gemini Model
         model_layout = QHBoxLayout()
         self.combo_model = QComboBox()
@@ -171,6 +180,7 @@ class SettingsDialog(QDialog):
         self.combo_lang.setCurrentText(self.config.get_language())
         self.edit_vault.setText(self.config.get_vault_path())
         self.edit_ocr.setText(self.config.get_ocr_binary())
+        self.edit_transfer.setText(self.config.get_transfer_path())
         self.combo_model.setCurrentText(self.config.get_gemini_model())
         self.edit_api_key.setText(self.config.get_api_key())
         self.spin_ai_retries.setValue(self.config.get_ai_retries())
@@ -188,10 +198,16 @@ class SettingsDialog(QDialog):
         if path:
             self.edit_ocr.setText(path)
 
+    def _browse_transfer(self):
+        path = QFileDialog.getExistingDirectory(self, self.tr("Select Transfer Directory"), self.edit_transfer.text())
+        if path:
+            self.edit_transfer.setText(path)
+
     def _save_settings(self):
         self.config.set_language(self.combo_lang.currentText())
         self.config.set_vault_path(self.edit_vault.text())
         self.config.set_ocr_binary(self.edit_ocr.text())
+        self.config.set_transfer_path(self.edit_transfer.text())
         self.config.set_gemini_model(self.combo_model.currentText())
         self.config.set_api_key(self.edit_api_key.text())
         self.config.set_ai_retries(self.spin_ai_retries.value())

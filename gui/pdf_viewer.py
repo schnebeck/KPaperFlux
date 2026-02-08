@@ -1,660 +1,656 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QSpinBox, QFrame, QMessageBox, QFileDialog, QSizePolicy,
-    QLineEdit
+    QFrame, QMessageBox, QLineEdit, QSplitter, QGraphicsDropShadowEffect, QScrollArea
 )
-from gui.utils import show_selectable_message_box
-from PyQt6.QtPdf import QPdfDocument
-from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import QUrl, Qt, QPointF, pyqtSignal, QSettings, QTemporaryFile, QTimer, pyqtSlot
-from pathlib import Path
-from PyQt6.QtGui import QAction, QIcon, QKeySequence, QShortcut
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize, QRect, QPoint, QEvent
+from PyQt6.QtGui import QImage, QPixmap, QPainter, QColor, QGuiApplication, QIntValidator, QPalette, QWheelEvent
 import fitz
 import os
-import shutil
 import tempfile
-import json
+import sys
 
 from core.models.virtual import SourceReference
 
+class PdfDisplayLabel(QLabel):
+    """
+    Spezialisierte Anzeige-Komponente für das PDF-Bild.
+    Zeichnet die exakten Wort-Highlights der Selektion.
+    """
+    text_selected = pyqtSignal(QRect)
+    word_double_clicked = pyqtSignal(QPoint)
+    clicked_empty = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.selection_start = None
+        self.selection_end = None
+        self.is_selecting = False
+        self.highlight_rects = [] # Liste von QRects für die Wort-Hinterlegung
+        self.setMouseTracking(True)
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+
+    def set_highlights(self, rects):
+        """Setzt die Liste der einzufärbenden Wort-Rechtecke."""
+        self.highlight_rects = rects
+        self.update()
+
+    def clear_selection(self):
+        """Löscht alle visuellen Markierungen."""
+        self.highlight_rects = []
+        self.selection_start = None
+        self.selection_end = None
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.selection_start = event.pos()
+            self.selection_end = event.pos()
+            self.is_selecting = True
+            # Bei Klick erst mal alles visuell zurücksetzen
+            self.clear_selection()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.is_selecting:
+            self.selection_end = event.pos()
+            self.update()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self.is_selecting:
+            self.is_selecting = False
+            # Guard: Sicherstellen, dass Start und Ende nicht None sind
+            if self.selection_start is not None and self.selection_end is not None:
+                rect = QRect(self.selection_start, self.selection_end).normalized()
+                
+                # Wenn der Rahmen signifikant groß ist -> Selektion auslösen
+                if rect.width() > 5 and rect.height() > 5:
+                    self.text_selected.emit(rect)
+                else:
+                    # Nur ein Klick -> Deselektion
+                    self.clicked_empty.emit()
+            
+            self.selection_start = None
+            self.selection_end = None
+            self.update()
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.word_double_clicked.emit(event.pos())
+        super().mouseDoubleClickEvent(event)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        highlight_color = self.palette().color(QPalette.ColorRole.Highlight)
+        
+        # 1. Zeichne die exakten Wort-Highlights (hinterlegter Text)
+        if self.highlight_rects:
+            # Etwas transparenter für die Wort-Hinterlegung
+            brush_color = QColor(highlight_color.red(), highlight_color.green(), highlight_color.blue(), 80)
+            painter.setBrush(brush_color)
+            painter.setPen(Qt.PenStyle.NoPen)
+            for r in self.highlight_rects:
+                painter.drawRect(r)
+                
+        # 2. Zeichne den aktiven Auswahlrahmen während des Ziehens
+        if self.is_selecting and self.selection_start is not None and self.selection_end is not None:
+            painter.setPen(QColor(highlight_color.red(), highlight_color.green(), highlight_color.blue(), 200))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(QRect(self.selection_start, self.selection_end).normalized())
+
+class PdfCanvas(QScrollArea):
+    """
+    Haupt-Leinwand für das PDF. Verwaltet Rendering und die intelligente Textextraktion.
+    """
+    page_changed = pyqtSignal(int)
+    zoom_changed = pyqtSignal(float)
+
+    FIT_FIXED_FRAME = 15.0    
+    FIT_COMFORT_SCALE = 1.0
+    SUPERSAMPLING = 3.0 
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWidgetResizable(True)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.setBackgroundRole(QPalette.ColorRole.Mid)
+        self.viewport().setBackgroundRole(QPalette.ColorRole.Mid)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        
+        self.display_label = PdfDisplayLabel()
+        self.display_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.display_label.setBackgroundRole(QPalette.ColorRole.Mid)
+        self.display_label.setAutoFillBackground(True)
+        
+        # Signale verbinden
+        self.display_label.text_selected.connect(self.extract_text_from_rect)
+        self.display_label.word_double_clicked.connect(self.extract_word_at_pos)
+        self.display_label.clicked_empty.connect(self.display_label.clear_selection)
+        
+        self.setWidget(self.display_label)
+        
+        # Kopier-Hinweis
+        self.copy_hint = QLabel("Kopiert!", self)
+        self.copy_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.copy_hint.setFixedSize(80, 30)
+        self.copy_hint.hide()
+        tip_bg = self.palette().color(QPalette.ColorRole.ToolTipBase).name()
+        tip_text = self.palette().color(QPalette.ColorRole.ToolTipText).name()
+        self.copy_hint.setStyleSheet(f"background: {tip_bg}; color: {tip_text}; border: 1px solid #adb5bd; border-radius: 5px; font-weight: bold;")
+        
+        self.doc = None
+        self.current_page_idx = 0
+        self.zoom_factor = 1.0
+
+    def show_copy_feedback(self, widget_pos):
+        canvas_pos = self.mapFromGlobal(self.display_label.mapToGlobal(widget_pos))
+        self.copy_hint.move(canvas_pos.x() - 40, canvas_pos.y() - 40)
+        self.copy_hint.show()
+        self.copy_hint.raise_()
+        QTimer.singleShot(1000, self.copy_hint.hide)
+
+    def set_document(self, fitz_doc):
+        self.doc = fitz_doc
+        self.current_page_idx = 0
+        print(f"[DEBUG_CANVAS] Dokument geladen: {len(fitz_doc)} Seiten.", flush=True)
+        self.render_current_page()
+
+    def jump_to_page(self, index, block_signals=False):
+        if self.doc and 0 <= index < len(self.doc):
+            self.current_page_idx = index
+            self.display_label.clear_selection()
+            if not block_signals:
+                self.page_changed.emit(index)
+            self.render_current_page()
+
+    def set_zoom(self, factor, block_signals=False):
+        factor = max(0.1, min(10.0, factor))
+        if abs(factor - self.zoom_factor) > 0.0001:
+            self.zoom_factor = factor
+            if not block_signals:
+                self.zoom_changed.emit(factor)
+            self.render_current_page()
+
+    def render_current_page(self):
+        if not self.doc:
+            self.display_label.clear()
+            return
+        self.display_label.setUpdatesEnabled(False)
+        try:
+            page = self.doc[self.current_page_idx]
+            dpr = self.devicePixelRatioF()
+            mat = fitz.Matrix(self.zoom_factor * dpr * self.SUPERSAMPLING, self.zoom_factor * dpr * self.SUPERSAMPLING)
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format.Format_RGB888).copy()
+            qimg.setDevicePixelRatio(dpr * self.SUPERSAMPLING)
+            self.display_label.setPixmap(QPixmap.fromImage(qimg))
+        finally:
+            self.display_label.setUpdatesEnabled(True)
+
+    def wheelEvent(self, event: QWheelEvent):
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            self.set_zoom(self.zoom_factor * (1.1 if delta > 0 else 0.9))
+            event.accept()
+        else:
+            super().wheelEvent(event)
+
+    def _get_pdf_coords(self, pos: QPoint):
+        if not self.doc: return None
+        pixmap = self.display_label.pixmap()
+        if not pixmap: return None
+        dpr_total = pixmap.devicePixelRatio()
+        offset_x = (self.display_label.width() - (pixmap.width() / dpr_total)) / 2
+        offset_y = (self.display_label.height() - (pixmap.height() / dpr_total)) / 2
+        return (pos.x() - offset_x) / self.zoom_factor, (pos.y() - offset_y) / self.zoom_factor
+
+    def _get_widget_coords(self, pdf_x, pdf_y):
+        """Rechnet PDF-Punkte zurück in Widget-Pixel (für Highlighting)."""
+        pixmap = self.display_label.pixmap()
+        if not pixmap: return QPoint(0, 0)
+        dpr_total = pixmap.devicePixelRatio()
+        offset_x = (self.display_label.width() - (pixmap.width() / dpr_total)) / 2
+        offset_y = (self.display_label.height() - (pixmap.height() / dpr_total)) / 2
+        return QPoint(int(pdf_x * self.zoom_factor + offset_x), int(pdf_y * self.zoom_factor + offset_y))
+
+    def extract_word_at_pos(self, pos):
+        if not self.doc: return
+        coords = self._get_pdf_coords(pos)
+        if not coords: return
+        page = self.doc[self.current_page_idx]
+        for w in page.get_text("words"):
+            if w[0] <= coords[0] <= w[2] and w[1] <= coords[1] <= w[3]:
+                QGuiApplication.clipboard().setText(w[4])
+                # Visuelles Highlight für das Wort setzen
+                p_tl = self._get_widget_coords(w[0], w[1])
+                p_br = self._get_widget_coords(w[2], w[3])
+                self.display_label.set_highlights([QRect(p_tl, p_br)])
+                self.show_copy_feedback(pos)
+                return
+
+    def extract_text_from_rect(self, qrect):
+        """Findet alle Wörter im Bereich und markiert sie einzeln."""
+        if not self.doc: return
+        p1 = self._get_pdf_coords(qrect.topLeft())
+        p2 = self._get_pdf_coords(qrect.bottomRight())
+        if not p1 or not p2: return
+        
+        fitz_rect = fitz.Rect(p1[0], p1[1], p2[0], p2[1])
+        page = self.doc[self.current_page_idx]
+        
+        # Alle Wörter finden, die im Selektions-Rechteck liegen
+        words_in_rect = []
+        full_text = []
+        for w in page.get_text("words"):
+            # Prüfen ob Wort-Zentrum oder Box das Rechteck schneidet
+            w_rect = fitz.Rect(w[0], w[1], w[2], w[3])
+            if w_rect.intersects(fitz_rect):
+                # Umrechnung zurück in Widget-Pixel für die Anzeige
+                tl = self._get_widget_coords(w[0], w[1])
+                br = self._get_widget_coords(w[2], w[3])
+                words_in_rect.append(QRect(tl, br))
+                full_text.append(w[4])
+        
+        if words_in_rect:
+            QGuiApplication.clipboard().setText(" ".join(full_text))
+            self.display_label.set_highlights(words_in_rect)
+            self.show_copy_feedback(qrect.center())
+            print(f"[DEBUG_SELECTION] {len(words_in_rect)} Wörter markiert.", flush=True)
+
+    def get_page_count(self): return len(self.doc) if self.doc else 0
+
+    def get_page_size(self, index):
+        if self.doc and 0 <= index < len(self.doc):
+            r = self.doc[index].rect
+            return QSize(int(r.width), int(r.height))
+        return QSize(0, 0)
+
+    def get_manual_fit_factor(self) -> float:
+        if not self.doc: return 1.0
+        page_rect = self.doc[self.current_page_idx].rect
+        view_size = self.viewport().size()
+        if page_rect.width <= 0 or view_size.width() <= 0: return 1.0
+        avail_w = max(10, view_size.width() - (self.FIT_FIXED_FRAME * 2))
+        avail_h = max(10, view_size.height() - (self.FIT_FIXED_FRAME * 2))
+        return min(avail_w / page_rect.width, avail_h / page_rect.height) * self.FIT_COMFORT_SCALE
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        viewer = self._find_viewer_parent()
+        if viewer and viewer.is_fit_mode: QTimer.singleShot(50, viewer._on_viewport_resized)
+
+    def _find_viewer_parent(self):
+        p = self.parent()
+        while p:
+            if isinstance(p, PdfViewerWidget): return p
+            p = p.parent()
+        return None
+
+class DualPdfViewerWidget(QWidget):
+    """
+    Zentraler Controller für die Vergleichsansicht.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
+        
+        self._sync_active = False 
+        self._zoom_delta = 0.0
+
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        mid_color = self.palette().color(QPalette.ColorRole.Mid).name()
+        self.splitter.setStyleSheet(f"QSplitter::handle {{ background: {mid_color}; width: 1px; }}")
+        
+        pipeline = getattr(parent, 'pipeline', None)
+        self.left_viewer = PdfViewerWidget(pipeline=pipeline, controller=self, is_slave=False)
+        self.right_viewer = PdfViewerWidget(pipeline=pipeline, controller=self, is_slave=True)
+        
+        from core.utils.hybrid_engine import HybridEngine
+        self.engine = HybridEngine()
+
+        self.splitter.addWidget(self.left_viewer)
+        self.splitter.addWidget(self.right_viewer)
+        self.layout.addWidget(self.splitter)
+
+        self._init_floating_buttons()
+        self._setup_sync_connections()
+        self.splitter.handle(1).installEventFilter(self)
+        QTimer.singleShot(200, self._reposition_link_button)
+
+    def eventFilter(self, source, event):
+        if source == self.splitter.handle(1) and event.type() == QEvent.Type.Move:
+            self._reposition_link_button()
+        return super().eventFilter(source, event)
+
+    def _init_floating_buttons(self):
+        highlight = self.palette().color(QPalette.ColorRole.Highlight).name()
+        btn_bg = self.palette().color(QPalette.ColorRole.Button).name()
+        
+        self.btn_link = QPushButton("∞", self)
+        self.btn_link.setCheckable(True)
+        self.btn_link.setChecked(True)
+        self.btn_link.setFixedSize(28, 28)
+        self.btn_link.setStyleSheet(f"""
+            QPushButton {{ background: {btn_bg}; border: 1px solid #adb5bd; border-radius: 14px; color: #6c757d; font-size: 18px; }}
+            QPushButton:checked {{ background: {highlight}; color: white; border-color: {highlight}; }}
+        """)
+        
+        self.btn_diff = QPushButton("Δ", self)
+        self.btn_diff.setCheckable(True)
+        self.btn_diff.setFixedSize(28, 28)
+        self.btn_diff.setStyleSheet(f"""
+            QPushButton {{ background: {btn_bg}; border: 1px solid #adb5bd; border-radius: 14px; color: #dc3545; font-size: 16px; font-weight: bold; }}
+            QPushButton:checked {{ background: #dc3545; color: white; border-color: #a71d2a; }}
+        """)
+
+        for btn in [self.btn_link, self.btn_diff]:
+            shadow = QGraphicsDropShadowEffect(self)
+            shadow.setBlurRadius(8)
+            shadow.setOffset(0, 1)
+            shadow.setColor(QColor(0,0,0,80))
+            btn.setGraphicsEffect(shadow)
+        self.btn_link.toggled.connect(self._on_link_toggled)
+
+    def _on_link_toggled(self, checked):
+        self.left_viewer.set_sync_active(checked)
+        self.right_viewer.set_sync_active(checked)
+        if checked: self._sync_right_to_left()
+
+    def _setup_sync_connections(self):
+        self.left_viewer.canvas.page_changed.connect(self._on_master_page_changed)
+        self.right_viewer.canvas.page_changed.connect(self._on_slave_page_changed)
+        self.left_viewer.canvas.zoom_changed.connect(self._on_master_zoom_changed)
+        self.left_viewer.canvas.verticalScrollBar().valueChanged.connect(lambda v: self._sync_scroll('v', v, True))
+        self.left_viewer.canvas.horizontalScrollBar().valueChanged.connect(lambda v: self._sync_scroll('h', v, True))
+        self.right_viewer.canvas.verticalScrollBar().valueChanged.connect(lambda v: self._sync_scroll('v', v, False))
+        self.right_viewer.canvas.horizontalScrollBar().valueChanged.connect(lambda v: self._sync_scroll('h', v, False))
+        self.left_viewer.fit_toggled.connect(self._on_master_fit_toggled)
+        self.right_viewer.fit_toggled.connect(self._on_slave_fit_toggled)
+
+    def _activate_slave_zoom_receiver(self):
+        try: self.right_viewer.canvas.zoom_changed.disconnect(self._on_slave_zoom_changed)
+        except: pass
+        self.right_viewer.canvas.zoom_changed.connect(self._on_slave_zoom_changed)
+
+    def _reposition_link_button(self):
+        handle = self.splitter.handle(1)
+        if not handle: return
+        pos = self.splitter.mapTo(self, handle.pos())
+        center_x = pos.x() + (handle.width() // 2)
+        self.btn_link.move(center_x - 14, (self.height() // 2) - 14)
+        self.btn_diff.move(center_x - 14, 60)
+        self.btn_link.raise_()
+        self.btn_diff.raise_()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._reposition_link_button()
+
+    def _on_master_page_changed(self, page):
+        if self.btn_link.isChecked() and not self._sync_active:
+            self._sync_active = True
+            try:
+                self.right_viewer.canvas.jump_to_page(page, block_signals=True)
+                self.right_viewer.update_ui_state(page)
+                self._sync_right_to_left()
+            finally: self._sync_active = False
+
+    def _on_slave_page_changed(self, page):
+        if self.btn_link.isChecked() and not self._sync_active:
+            self._sync_active = True
+            try:
+                self.left_viewer.canvas.jump_to_page(page, block_signals=True)
+                self.left_viewer.update_ui_state(page)
+                self._sync_right_to_left()
+            finally: self._sync_active = False
+
+    def _on_master_zoom_changed(self, factor):
+        if self.btn_link.isChecked() and not self._sync_active: self._sync_right_to_left()
+
+    def _on_slave_zoom_changed(self, factor):
+        if self._sync_active or not self.btn_link.isChecked(): return
+        m_zoom = self.left_viewer.canvas.zoom_factor
+        p_m = self.left_viewer.canvas.get_page_size(self.left_viewer.canvas.current_page_idx)
+        p_s = self.right_viewer.canvas.get_page_size(self.right_viewer.canvas.current_page_idx)
+        if p_m.width() < 10 or p_s.width() < 10: return
+        self._zoom_delta = factor - (m_zoom * (p_m.width() / p_s.width()))
+        if abs(self._zoom_delta) < 0.005: self._zoom_delta = 0.0
+        self.right_viewer.update_zoom_label(factor)
+
+    def _sync_right_to_left(self):
+        m, s = self.left_viewer, self.right_viewer
+        m_zoom = m.canvas.get_manual_fit_factor() if m.is_fit_mode else m.canvas.zoom_factor
+        if m.is_fit_mode: m.canvas.set_zoom(m_zoom, block_signals=True)
+        p_m = m.canvas.get_page_size(m.canvas.current_page_idx)
+        p_s = s.canvas.get_page_size(s.canvas.current_page_idx)
+        ratio = p_m.width() / p_s.width() if p_m.width() > 10 and p_s.width() > 10 else 1.0
+        target_zoom = (m_zoom * ratio) + self._zoom_delta
+        s.canvas.set_zoom(target_zoom, block_signals=True)
+        s.btn_fit.blockSignals(True)
+        s.btn_fit.setChecked(m.is_fit_mode)
+        s.btn_fit.blockSignals(False)
+        s.is_fit_mode = m.is_fit_mode
+        s.update_zoom_label(target_zoom)
+
+    def _sync_scroll(self, orient, value, m_is_src):
+        if self._sync_active or not self.btn_link.isChecked(): return
+        self._sync_active = True
+        try:
+            src = self.left_viewer.canvas if m_is_src else self.right_viewer.canvas
+            dst = self.right_viewer.canvas if m_is_src else self.left_viewer.canvas
+            s_bar = src.verticalScrollBar() if orient == 'v' else src.horizontalScrollBar()
+            d_bar = dst.verticalScrollBar() if orient == 'v' else dst.horizontalScrollBar()
+            if s_bar.maximum() > 0: d_bar.setValue(int((s_bar.value() / s_bar.maximum()) * d_bar.maximum()))
+        finally: self._sync_active = False
+
+    def load_documents(self, left_path, right_path):
+        try: self.right_viewer.canvas.zoom_changed.disconnect(self._on_slave_zoom_changed)
+        except: pass
+        self._zoom_delta = 0.0 
+        self.left_viewer.load_document(left_path)
+        self.right_viewer.load_document(right_path)
+        QTimer.singleShot(800, lambda: (self._sync_right_to_left(), self._activate_slave_zoom_receiver(), self._reposition_link_button()))
+
+    def _on_master_fit_toggled(self, is_fit):
+        if self.btn_link.isChecked(): self.right_viewer.set_fit_mode(is_fit, block_signals=True), self._sync_right_to_left()
+
+    def _on_slave_fit_toggled(self, is_fit):
+        if self.btn_link.isChecked(): self.left_viewer.set_fit_mode(is_fit, block_signals=True), self._sync_right_to_left()
+
 class PdfViewerWidget(QWidget):
     """
-    High-Performance PDF Viewer / Editor.
-    Uses QPdfView for fluid zooming/navigation and fitz for real-time virtual document previews.
+    Standard Viewer mit Toolbar und Bearbeitungstools.
     """
-    # Signals
+    fit_toggled = pyqtSignal(bool)
+    document_changed = pyqtSignal()
+    split_requested = pyqtSignal(str)
     stamp_requested = pyqtSignal(str)
     tags_update_requested = pyqtSignal(list)
     reprocess_requested = pyqtSignal(list)
     export_requested = pyqtSignal(list)
     delete_requested = pyqtSignal(str)
-    split_requested = pyqtSignal(str)
-    document_changed = pyqtSignal()
 
-    def __init__(self, pipeline=None, parent=None):
-        super().__init__(parent)
+    def __init__(self, pipeline=None, controller=None, is_slave=False):
+        super().__init__()
         self.pipeline = pipeline
+        self.controller = controller 
+        self.is_slave = is_slave
+        self.is_fit_mode = True
+        self.sync_active = True 
         self.current_uuid = None
-
-        # State
+        self.current_pages_data = []
         self.temp_pdf_path = None
-        self.current_pages_data = [] # List of {file_path, page_index, rotation}
-        self.highlight_text = "" # Global search text to highlight
-        self.doc_search_text = "" # Local search text to highlight
-
-        # Phase 106: Deferred Navigation (Wait for Ready)
-        self._pending_page_index = -1
-        self._jump_timer = QTimer(self)
-        self._jump_timer.setSingleShot(True)
-        self._jump_timer.timeout.connect(self._execute_deferred_jump)
-
-        # UI Components
-        self.document = QPdfDocument(self)
-        self.view = QPdfView(self)
-        self.view.setDocument(self.document)
-        self.view.setPageMode(QPdfView.PageMode.SinglePage)
-
-        # Style: White Background for document area
-        self.view.setStyleSheet("background-color: white; border: none;")
-
+        self.canvas = PdfCanvas(self)
         self._init_ui()
-        self.restore_zoom_state()
-        self._pending_refresh = False
-
-    def showEvent(self, event):
-        """Force a refresh if we were hidden during load."""
-        super().showEvent(event)
-        if self._pending_refresh or (self.current_uuid and self.document.pageCount() == 0):
-            print("[PdfViewer] Detected gray canvas on show. Forcing refresh.")
-            self._refresh_preview()
-            self._pending_refresh = False
+        self.canvas.page_changed.connect(self.on_page_changed)
+        self.canvas.zoom_changed.connect(self.update_zoom_label)
 
     def _init_ui(self):
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-
-        # Toolbar
-        self.toolbar = QWidget()
-        self.toolbar.setStyleSheet("background: #f0f0f0; border-bottom: 1px solid #ccc;")
-        self.toolbar_layout = QHBoxLayout(self.toolbar)
-        self.toolbar_layout.setContentsMargins(10, 5, 10, 5)
-
-        # --- Group 1: Navigation ---
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.toolbar = QFrame()
+        self.toolbar.setFixedHeight(40)
+        self.toolbar.setBackgroundRole(QPalette.ColorRole.Window)
+        self.toolbar.setAutoFillBackground(True)
+        t_layout = QHBoxLayout(self.toolbar)
+        t_layout.setContentsMargins(5, 5, 5, 5)
+        t_layout.setSpacing(4)
+        bg = self.palette().color(QPalette.ColorRole.Window).name()
+        base = self.palette().color(QPalette.ColorRole.Base).name()
+        text = self.palette().color(QPalette.ColorRole.Text).name()
+        highlight = self.palette().color(QPalette.ColorRole.Highlight).name()
+        style = f"QLineEdit {{ background: {base}; color: {text}; border: 1px solid #babdbf; border-radius: 3px; padding: 2px 4px; }} QLineEdit:focus {{ border: 1px solid {highlight}; }} QLineEdit:read-only {{ background: {bg}; color: #6c757d; border: 1px solid #ced4da; }}"
         self.btn_prev = QPushButton("⟵")
-        self.btn_prev.setFixedSize(30,30)
-        self.btn_prev.clicked.connect(self.prev_page)
-
-        self.spin_page = QSpinBox()
-        self.spin_page.setFixedSize(60, 30)
-        self.spin_page.setKeyboardTracking(False)
-        self.spin_page.valueChanged.connect(self.jump_to_page)
-
-        self.lbl_total = QLabel("/ 0")
-
+        self.btn_prev.setFixedSize(30, 30)
+        self.btn_prev.clicked.connect(lambda: self.canvas.jump_to_page(self.canvas.current_page_idx - 1))
+        self.edit_page = QLineEdit()
+        self.edit_page.setFixedSize(45, 30)
+        self.edit_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.edit_page.setValidator(QIntValidator(1, 9999))
+        self.edit_page.setStyleSheet(style)
+        self.edit_page.returnPressed.connect(self.on_page_edited)
         self.btn_next = QPushButton("⟶")
-        self.btn_next.setFixedSize(30,30)
-        self.btn_next.clicked.connect(self.next_page)
-
-        # --- Group 2: Zoom ---
+        self.btn_next.setFixedSize(30, 30)
+        self.btn_next.clicked.connect(lambda: self.canvas.jump_to_page(self.canvas.current_page_idx + 1))
         self.btn_zoom_out = QPushButton("-")
         self.btn_zoom_out.setFixedSize(30, 30)
         self.btn_zoom_out.clicked.connect(self.zoom_out)
-
-        self.lbl_zoom = QLabel("100%")
-        self.lbl_zoom.setFixedWidth(40)
-        self.lbl_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
+        self.edit_zoom = QLineEdit("100%")
+        self.edit_zoom.setFixedSize(65, 30)
+        self.edit_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.edit_zoom.setStyleSheet(style)
+        self.edit_zoom.returnPressed.connect(self.on_zoom_edited)
         self.btn_zoom_in = QPushButton("+")
         self.btn_zoom_in.setFixedSize(30, 30)
         self.btn_zoom_in.clicked.connect(self.zoom_in)
-
         self.btn_fit = QPushButton("Fit")
         self.btn_fit.setCheckable(True)
+        self.btn_fit.setChecked(True)
         self.btn_fit.setFixedSize(50, 30)
         self.btn_fit.clicked.connect(self.toggle_fit)
-
-        # --- Group 3: Stage 0 Actions ---
         self.btn_rotate = QPushButton("↻")
-        self.btn_rotate.setFixedSize(35, 30)
-        self.btn_rotate.setToolTip("Rotate Page")
-        self.btn_rotate.clicked.connect(self.rotate_current_page)
+        self.btn_rotate.setFixedSize(30, 30)
+        self.btn_rotate.clicked.connect(self.rotate_page)
+        self.btn_del = QPushButton("✕")
+        self.btn_del.setFixedSize(30, 30)
+        self.btn_del.setStyleSheet("color: #da4453; font-weight: bold;")
+        self.btn_del.clicked.connect(self.delete_page)
+        for w in [self.btn_prev, self.edit_page, self.btn_next, self.btn_zoom_out, self.edit_zoom, self.btn_zoom_in, self.btn_fit, self.btn_rotate, self.btn_del]:
+            t_layout.addWidget(w)
+        t_layout.addStretch()
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.canvas)
 
-        self.btn_delete = QPushButton("✕")
-        self.btn_delete.setFixedSize(35, 30)
-        self.btn_delete.setToolTip("Delete Page")
-        self.btn_delete.clicked.connect(self.delete_current_page)
-        self.btn_delete.setStyleSheet("background: #ffeeee; color: #cc0000;")
+    def _on_viewport_resized(self):
+        if self.is_fit_mode:
+            f = self.canvas.get_manual_fit_factor()
+            self.canvas.set_zoom(f, block_signals=True)
+            self.update_zoom_label(f)
 
-        self.btn_split = QPushButton("✂")
-        self.btn_split.setFixedSize(35, 30)
-        self.btn_split.setToolTip(self.tr("Edit Document"))
-        self.btn_split.clicked.connect(self.on_split_clicked)
+    def set_sync_active(self, active):
+        self.sync_active = active
+        self.edit_zoom.setReadOnly(self.is_slave and self.sync_active)
+        self.update_zoom_label(self.canvas.zoom_factor)
 
-        self.btn_save = QPushButton("💾 Save *")
-        self.btn_save.setFixedSize(80, 30)
-        self.btn_save.clicked.connect(self.save_changes)
-        self.btn_save.setStyleSheet("background: #4CAF50; color: white; font-weight: bold;")
-        self.btn_save.setVisible(False)
+    def update_ui_state(self, page):
+        self.edit_page.blockSignals(True)
+        self.edit_page.setText(str(page + 1))
+        self.edit_page.blockSignals(False)
 
-        # Assemble Toolbar
-        self.toolbar_layout.addWidget(self.btn_prev)
-        self.toolbar_layout.addWidget(self.spin_page)
-        self.toolbar_layout.addWidget(self.lbl_total)
-        self.toolbar_layout.addWidget(self.btn_next)
+    def on_page_changed(self, page): self.update_ui_state(page)
 
-        self._add_separator()
+    def on_page_edited(self):
+        try: self.canvas.jump_to_page(int(self.edit_page.text()) - 1)
+        except: self.update_ui_state(self.canvas.current_page_idx)
 
-        self.toolbar_layout.addWidget(self.btn_zoom_out)
-        self.toolbar_layout.addWidget(self.lbl_zoom)
-        self.toolbar_layout.addWidget(self.btn_zoom_in)
-        self.toolbar_layout.addWidget(self.btn_fit)
+    def on_document_status_ready(self):
+        self.update_ui_state(self.canvas.current_page_idx)
+        if self.is_fit_mode: self.set_fit_mode(True)
 
-        self._add_separator()
-
-        self.toolbar_layout.addWidget(self.btn_rotate)
-        self.toolbar_layout.addWidget(self.btn_delete)
-        self.toolbar_layout.addWidget(self.btn_split)
-
-        self._add_separator()
-
-        # --- Group 4: In-Doc Search ---
-        self.btn_show_search = QPushButton("🔍")
-        self.btn_show_search.setFixedSize(35, 30)
-        self.btn_show_search.setToolTip(self.tr("Find in document (Ctrl+F)"))
-        self.btn_show_search.clicked.connect(self.show_search_bar)
-        self.toolbar_layout.addWidget(self.btn_show_search)
-
-        # Ensure toolbar doesn't prevent shrinking
-        self.toolbar.setMinimumWidth(0)
-        self.toolbar_layout.setStretch(12, 1) # Add stretch after buttons
-
-        self.toolbar_layout.addStretch()
-        self.toolbar_layout.addWidget(self.btn_save)
-
-        self.main_layout.addWidget(self.toolbar)
-        self.main_layout.addWidget(self.view)
-
-        # Connect Signals
-        self.view.zoomFactorChanged.connect(self.update_zoom_label)
-        self.nav = self.view.pageNavigator()
-        self.nav.currentPageChanged.connect(self.on_page_changed)
-        self.document.statusChanged.connect(self.on_document_status)
-
-        self.enable_controls(False)
-        self.btn_split.setVisible(False)
-        self.restore_zoom_state()
-
-        # Phase 106: Search Overlay
-        self._init_search_overlay()
-        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self.show_search_bar)
-        QShortcut(QKeySequence("Esc"), self).activated.connect(self.hide_search_bar)
-
-    def _add_separator(self):
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.VLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        self.toolbar_layout.addWidget(line)
-
-    def load_document(self, file_path_or_uuid, uuid: str = None, initial_page: int = 1, jump_to_index: int = -1):
-        """Standard entry point from MainWindow."""
-        self.clear()
-
-        # Store deferred jump target
-        self._pending_page_index = jump_to_index
-
-        if not self.isVisible():
-            self._pending_refresh = True
-
-        # Detach to prevent transient errors during load (Fix for 'invalid nullptr')
-
-        if uuid:
-            self.current_uuid = uuid
-        else:
-            # If it's a string and NOT an existing path, assume it's a UUID
-            if isinstance(file_path_or_uuid, str) and not os.path.exists(file_path_or_uuid):
-                self.current_uuid = file_path_or_uuid
-
-        if self.pipeline and self.current_uuid:
-            if not self._load_from_entity(self.current_uuid):
-                # Fallback: Try loading as physical file from vault
-                path = self.pipeline.vault.get_file_path(self.current_uuid)
-                if path and os.path.exists(path):
-                    self._load_from_raw_path(path)
-        elif isinstance(file_path_or_uuid, str) and os.path.exists(file_path_or_uuid):
-            self._load_from_raw_path(file_path_or_uuid)
-
-    def _load_from_entity(self, entity_uuid) -> bool:
-        """Returns True if successfully loaded as entity."""
-        v_doc = self.pipeline.logical_repo.get_by_uuid(entity_uuid)
-        if not v_doc or not v_doc.source_mapping:
-            return False
-
-        self.current_pages_data = []
-        for ref in v_doc.source_mapping:
-            phys_path = self.pipeline.vault.get_file_path(ref.file_uuid)
-            if not phys_path: continue
-
-            for p_num in ref.pages:
-                self.current_pages_data.append({
-                    "file_path": phys_path,
-                    "file_uuid": ref.file_uuid,
-                    "page_index": p_num - 1,
-                    "rotation": getattr(ref, 'rotation', 0)
-                })
-
-        self._refresh_preview()
-        return True
-
-    def set_highlight_text(self, text: str):
-        """Set text to be highlighted (usually from global search)."""
-        self.highlight_text = text
-        if self.current_pages_data:
-            self._refresh_preview()
-
-    def _on_local_search_triggered(self):
-        self.doc_search_text = self.edit_search.text().strip()
-        self._refresh_preview()
-
-    def clear_search_highlight(self):
-        self.edit_search.clear()
-        self.doc_search_text = ""
-        self.highlight_text = ""
-        self._refresh_preview()
-
-    def _load_from_raw_path(self, path):
-        try:
-            doc = fitz.open(path)
-            self.current_pages_data = []
-            for i in range(doc.page_count):
-                self.current_pages_data.append({
-                    "file_path": path,
-                    "file_uuid": None,
-                    "page_index": i,
-                    "rotation": 0
-                })
-            doc.close()
-            self._refresh_preview()
-        except:
-            pass
+    def load_document(self, path_or_uuid, uuid=None, initial_page=1, jump_to_index=-1):
+        target_uuid = uuid if uuid else (path_or_uuid if not os.path.exists(str(path_or_uuid)) else None)
+        path = str(path_or_uuid)
+        if not os.path.exists(path) and self.pipeline and target_uuid:
+            doc_obj = self.pipeline.get_document(target_uuid)
+            if doc_obj:
+                self.current_uuid = target_uuid
+                self.current_pages_data = [{"file_path": p.source_path, "page_index": p.source_page_index, "rotation": p.rotation or 0} for p in doc_obj.pages]
+                self._refresh_preview()
+                return
+        if os.path.exists(path):
+            self.canvas.set_document(fitz.open(path))
+            self.on_document_status_ready()
+        idx = jump_to_index if jump_to_index >= 0 else (initial_page - 1 if initial_page > 1 else -1)
+        if idx >= 0: QTimer.singleShot(250, lambda: self.canvas.jump_to_page(idx))
 
     def _refresh_preview(self):
-        """Generate temporary PDF and update viewer."""
-        if not self.current_pages_data:
-            self.clear()
-            return
+        if not self.current_pages_data: return
+        out_doc = fitz.open()
+        for item in self.current_pages_data:
+            src = fitz.open(item['file_path'])
+            if item['page_index'] == -1: out_doc.insert_pdf(src)
+            else: out_doc.insert_pdf(src, from_page=item['page_index'], to_page=item['page_index'])
+            if item['rotation'] != 0: out_doc[-1].set_rotation(item['rotation'])
+            src.close()
+        fd, self.temp_pdf_path = tempfile.mkstemp(suffix=".pdf", prefix="kview_")
+        os.close(fd)
+        out_doc.save(self.temp_pdf_path)
+        out_doc.close()
+        self.canvas.set_document(fitz.open(self.temp_pdf_path))
+        self.on_document_status_ready()
 
-        # 1. Create Preview PDF using fitz
-        try:
-            preview_doc = fitz.open()
-            for pg in self.current_pages_data:
-                src = fitz.open(pg["file_path"])
-                preview_doc.insert_pdf(src, from_page=pg["page_index"], to_page=pg["page_index"])
-
-                # Apply Rotation to the LAST page added
-                new_page = preview_doc[-1]
-                if pg["rotation"] != 0:
-                    new_page.set_rotation(pg["rotation"])
-                src.close()
-
-            # 1.5 Apply Highlights (v29.x)
-            search_terms = []
-            if self.highlight_text: search_terms.extend(self.highlight_text.split())
-            if self.doc_search_text: search_terms.append(self.doc_search_text)
-
-            # Clean up short terms to avoid highlighting every 'e' or 'a'
-            search_terms = [t for t in search_terms if len(t) > 2]
-
-            if search_terms:
-                # print(f"[PDF-Search] Scanning current document for terms: {search_terms}")
-                found_total = 0
-                for i, page in enumerate(preview_doc):
-                    for term in search_terms:
-                        quads = page.search_for(term)
-                        if quads:
-                            # print(f"  [FOUND] '{term}' on Page {i+1}: {len(quads)} match(es)")
-                            for j, q in enumerate(quads):
-                                # print(f"    - Match {j+1} at Coords: {q}")
-                                page.add_highlight_annot(q)
-                                found_total += 1
-                if found_total == 0:
-                    pass # print("[PDF-Search] No matches found in document.")
-                else:
-                    pass # print(f"[PDF-Search] Total highlights applied: {found_total}")
-
-            # Save to temp
-            fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="kpf_preview_")
-            os.close(fd)
-            preview_doc.save(temp_path)
-            preview_doc.close()
-
-            # 2. Load into QPdfView
-            # QtPdf locks the file, so we must be careful with previous temp files
-            self._swap_pdf_document(temp_path)
-
-            # Cleanup old temp file after swap?
-            # Note: We keep the PATH to the CURRENT temp file to delete it later
-            if self.temp_pdf_path and os.path.exists(self.temp_pdf_path):
-                try:
-                    os.remove(self.temp_pdf_path)
-                except OSError:
-                    pass
-            self.temp_pdf_path = temp_path
-
-        except Exception as e:
-            print(f"Error refreshing preview: {e}")
-            self._pending_refresh = True
-
-    def _swap_pdf_document(self, path):
-        """Safely swap the document in the viewer."""
-        # Detach and re-create to ensure no locks/ghosts
-        self.view.setDocument(None)
-        if self.document:
-            self.document.deleteLater()
-
-        self.document = QPdfDocument(self)
-        self.document.statusChanged.connect(self.on_document_status)
-        self.view.setDocument(self.document)
-        self.document.load(path)
-
-        # Re-acquire navigator
-        self.nav = self.view.pageNavigator()
-        self.nav.currentPageChanged.connect(self.on_page_changed)
-
-    def on_document_status(self, status):
-        if status == QPdfDocument.Status.Ready:
-            # Re-attach logic removed
-
-            self.enable_controls(True)
-            self.update_zoom_label(self.view.zoomFactor())
-
-            count = self.document.pageCount()
-            self.lbl_total.setText(f"/ {count}")
-
-            self.spin_page.blockSignals(True)
-            self.spin_page.setRange(1, count)
-
-            # Initial SpinBox State
-            curr = self.nav.currentPage()
-            self.spin_page.setValue(curr + 1)
-            self.spin_page.blockSignals(False)
-
-            self.restore_zoom_state()
-
-            # Show/Hide split
-            self.btn_split.setVisible(count > 1)
-
-            # Navigate if pending (Delayed to allow Viewport Init)
-            if self._pending_page_index >= 0 and self._pending_page_index < count:
-                self._retry_jump_target = self._pending_page_index  # Capture safely
-                self._jump_timer.start(50)
-
-        elif status == QPdfDocument.Status.Error:
-            self.enable_controls(False)
-
-    @pyqtSlot()
-    def _execute_deferred_jump(self):
-        """Execute the jump after delay."""
-        # Use captured target
-        idx = getattr(self, '_retry_jump_target', -1)
-
-        try:
-            if idx >= 0 and idx < self.document.pageCount():
-                self.nav.jump(idx, QPointF(), self.nav.currentZoom())
-                self._retry_jump_target = -1
-                self._pending_page_index = -1
-        except Exception as e:
-            print(f"[PdfViewer] JUMP ERROR: {e}")
-
-    def enable_controls(self, enabled: bool):
-        for btn in [self.btn_prev, self.btn_next, self.btn_zoom_in, self.btn_zoom_out,
-                    self.btn_fit, self.btn_rotate, self.btn_delete, self.spin_page]:
-            btn.setEnabled(enabled)
-
-    # --- Actions ---
-    def rotate_current_page(self):
-        idx = self.nav.currentPage()
-        if 0 <= idx < len(self.current_pages_data):
-            self.current_pages_data[idx]["rotation"] = (self.current_pages_data[idx]["rotation"] + 90) % 360
-            self.btn_save.setVisible(True)
+    def rotate_page(self):
+        if self.current_pages_data:
+            idx = self.canvas.current_page_idx
+            self.current_pages_data[idx]['rotation'] = (self.current_pages_data[idx]['rotation'] + 90) % 360
             self._refresh_preview()
 
-    def delete_current_page(self):
-        idx = self.nav.currentPage()
-        if 0 <= idx < len(self.current_pages_data):
-            if len(self.current_pages_data) <= 1:
-                show_selectable_message_box(self, self.tr("Warning"), self.tr("Cannot delete the last page. Delete the entire document from the list instead."), icon=QMessageBox.Icon.Warning)
-                return
+    def delete_page(self):
+        if self.current_pages_data and len(self.current_pages_data) > 1:
+            idx = self.canvas.current_page_idx
+            self.current_pages_data.pop(idx)
+            self._refresh_preview()
 
-            res = show_selectable_message_box(self, self.tr("Confirm Deletion"),
-                                     self.tr("Are you sure you want to remove this page from the document?"),
-                                     icon=QMessageBox.Icon.Question,
-                                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+    def toggle_fit(self): self.set_fit_mode(self.btn_fit.isChecked())
 
-            if res == QMessageBox.StandardButton.Yes:
-                self.current_pages_data.pop(idx)
-                self.btn_save.setVisible(True)
-                self._refresh_preview()
+    def set_fit_mode(self, is_fit, block_signals=False):
+        if is_fit: self.canvas.set_zoom(self.canvas.get_manual_fit_factor(), block_signals=block_signals)
+        self.is_fit_mode = is_fit
+        self.btn_fit.blockSignals(True)
+        self.btn_fit.setChecked(is_fit)
+        self.btn_fit.blockSignals(False)
+        if not block_signals: 
+            self.fit_toggled.emit(is_fit)
+            self.update_zoom_label(self.canvas.zoom_factor)
 
-    # --- Search Bar Overlay (Phase 106) ---
-    def _init_search_overlay(self):
-        self.search_bar = QFrame(self)
-        self.search_bar.setObjectName("searchBar")
-        self.search_bar.setStyleSheet("""
-            #searchBar {
-                background-color: rgba(255, 255, 255, 0.95);
-                border: 1px solid #bbb;
-                border-radius: 6px;
-            }
-        """)
-        self.search_bar.setFixedSize(220, 36)
-
-        layout = QHBoxLayout(self.search_bar)
-        layout.setContentsMargins(10, 2, 5, 2)
-        layout.setSpacing(5)
-
-        lbl_icon = QLabel("🔍")
-        lbl_icon.setStyleSheet("color: #666;")
-        layout.addWidget(lbl_icon)
-
-        self.edit_search = QLineEdit()
-        self.edit_search.setPlaceholderText(self.tr("Find in document..."))
-        self.edit_search.setFrame(False)
-        self.edit_search.setStyleSheet("background: transparent; font-size: 13px;")
-        self.edit_search.returnPressed.connect(self._on_local_search_triggered)
-        layout.addWidget(self.edit_search)
-
-        self.btn_close_search = QPushButton("✕")
-        self.btn_close_search.setFixedSize(24, 24)
-        self.btn_close_search.setFlat(True)
-        self.btn_close_search.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_close_search.clicked.connect(self.hide_search_bar)
-        layout.addWidget(self.btn_close_search)
-
-        self.search_bar.hide()
-
-    def show_search_bar(self):
-        self.search_bar.show()
-        self.search_bar.raise_()
-        self.edit_search.setFocus()
-        self.edit_search.selectAll()
-        self._reposition_search_bar()
-
-    def hide_search_bar(self):
-        self.search_bar.hide()
-        self.clear_search_highlight()
-
-    def _reposition_search_bar(self):
-        if hasattr(self, 'search_bar'):
-            # Fixed positioning: Top Right corner, inside the Widget but above the Viewport
-            # 10px from right, 50px from top (below toolbar)
-            self.search_bar.move(self.width() - self.search_bar.width() - 25, 55)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._reposition_search_bar()
-
-    def on_split_clicked(self):
-        if self.current_uuid:
-            self.split_requested.emit(self.current_uuid)
-
-    def save_changes(self):
-        if not self.pipeline or not self.current_uuid:
-            return
-
-        new_mapping = []
-
-        current_file_uuid = None
-        current_rot = -1
-        current_pages = []
-
-        for pg in self.current_pages_data:
-            f_uuid = pg["file_uuid"]
-            p_num = pg["page_index"] + 1
-            rot = pg["rotation"]
-
-            if f_uuid != current_file_uuid or rot != current_rot:
-                if current_pages:
-                    new_mapping.append(SourceReference(current_file_uuid, current_pages, current_rot))
-                current_file_uuid = f_uuid
-                current_rot = rot
-                current_pages = [p_num]
-            else:
-                current_pages.append(p_num)
-
-        if current_pages:
-            new_mapping.append(SourceReference(current_file_uuid, current_pages, current_rot))
-
+    def on_zoom_edited(self):
+        if self.edit_zoom.isReadOnly(): return
         try:
-            self.pipeline.update_entity_structure(self.current_uuid, new_mapping)
-            self.btn_save.setVisible(False)
-            self.document_changed.emit() # Notify parent to refresh list
-            self.statusBar_msg(self.tr("Document changes saved successfully."))
-        except Exception as e:
-            show_selectable_message_box(self, "Error", f"Failed to save: {e}", icon=QMessageBox.Icon.Critical)
-
-    # --- Zoom / Nav ---
-    def prev_page(self):
-        curr = self.nav.currentPage()
-        if curr > 0: self.nav.jump(curr - 1, QPointF(), self.nav.currentZoom())
-
-    def next_page(self):
-        curr = self.nav.currentPage()
-        if curr < self.document.pageCount() - 1:
-             self.nav.jump(curr + 1, QPointF(), self.nav.currentZoom())
-
-    def jump_to_page(self, page_num):
-        if 1 <= page_num <= self.document.pageCount():
-            self.nav.jump(page_num - 1, QPointF(), self.nav.currentZoom())
-
-    def go_to_page(self, page_index: int):
-        """Programmatic navigation (0-based index)."""
-        if 0 <= page_index < self.document.pageCount():
-            self.nav.jump(page_index, QPointF(), self.nav.currentZoom())
-
-    def on_page_changed(self, page):
-        self.spin_page.blockSignals(True)
-        self.spin_page.setValue(page + 1)
-        self.spin_page.blockSignals(False)
+            val = float(self.edit_zoom.text().replace("%", "").strip()) / 100.0
+            if 0.1 <= val <= 10.0:
+                if self.is_fit_mode: self.set_fit_mode(False)
+                self.canvas.set_zoom(val)
+        except: self.update_zoom_label(self.canvas.zoom_factor)
 
     def zoom_in(self):
-        self.view.setZoomMode(QPdfView.ZoomMode.Custom)
-        self.btn_fit.setChecked(False)
-        self.view.setZoomFactor(self.view.zoomFactor() * 1.2)
-        self._update_scrollbar_policy()
+        if self.is_fit_mode: self.set_fit_mode(False)
+        self.canvas.set_zoom(self.canvas.zoom_factor + (0.01 if (self.is_slave and self.sync_active) else 0.1))
 
     def zoom_out(self):
-        self.view.setZoomMode(QPdfView.ZoomMode.Custom)
-        self.btn_fit.setChecked(False)
-        self.view.setZoomFactor(self.view.zoomFactor() / 1.2)
-        self._update_scrollbar_policy()
-
-    def _update_scrollbar_policy(self):
-        """Disable scrollbars during 'Fit' mode to prevent redundant UI clutter."""
-        if self.view.zoomMode() == QPdfView.ZoomMode.FitInView:
-            self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        else:
-            self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-
-    def toggle_fit(self, checked=None):
-        if checked is None:
-            checked = self.btn_fit.isChecked()
-        if checked:
-            self.view.setZoomMode(QPdfView.ZoomMode.FitInView)
-        else:
-            self.view.setZoomMode(QPdfView.ZoomMode.Custom)
-        self._update_scrollbar_policy()
-        self.save_zoom_state()
+        if self.is_fit_mode: self.set_fit_mode(False)
+        self.canvas.set_zoom(max(0.1, self.canvas.zoom_factor - (0.01 if (self.is_slave and self.sync_active) else 0.1)))
 
     def update_zoom_label(self, factor):
-        self.lbl_zoom.setText(f"{int(factor * 100)}%")
-        self.save_zoom_state()
-
-    def save_zoom_state(self):
-        settings = QSettings("KPaperFlux", "PdfViewer")
-        settings.setValue("zoomFactor", self.view.zoomFactor())
-        settings.setValue("zoomMode", self.view.zoomMode().value)
-
-    def set_zoom_mode(self, mode: QPdfView.ZoomMode):
-        """Set zoom mode programmatically."""
-        self.view.setZoomMode(mode)
-        self.btn_fit.setChecked(mode == QPdfView.ZoomMode.FitInView)
-        self._update_scrollbar_policy()
-
-    def restore_zoom_state(self):
-        settings = QSettings("KPaperFlux", "PdfViewer")
-        try:
-            factor = float(settings.value("zoomFactor", 1.0))
-            mode_val = int(settings.value("zoomMode", QPdfView.ZoomMode.Custom.value))
-            mode = QPdfView.ZoomMode(mode_val)
-            self.view.setZoomMode(mode)
-            if mode == QPdfView.ZoomMode.Custom:
-                self.view.setZoomFactor(factor)
-            self.btn_fit.setChecked(mode == QPdfView.ZoomMode.FitInView)
-            self._update_scrollbar_policy()
-        except:
-            pass
-
-    def clear(self):
-        self.view.setDocument(None)
-        if self.document:
-             self.document.deleteLater()
-             self.document = None
-        self.current_uuid = None
-        self.current_pages_data = []
-        self.lbl_total.setText("/ 0")
-        self.spin_page.setRange(0, 0)
-        self.enable_controls(False)
-        self.btn_save.setVisible(False)
-        self.btn_split.setVisible(False)
-
-        if self.temp_pdf_path and os.path.exists(self.temp_pdf_path):
-             try:
-                 os.remove(self.temp_pdf_path)
-             except OSError:
-                 pass
-             self.temp_pdf_path = None
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Left:
-            self.prev_page()
-        elif event.key() == Qt.Key.Key_Right:
-            self.next_page()
+        if self.is_slave and self.sync_active and self.controller:
+            delta = self.controller._zoom_delta
+            self.edit_zoom.setText(f"Δ {delta:+.0%}" if abs(delta) >= 0.005 else "Δ 0%")
+            self.edit_zoom.setReadOnly(True)
         else:
-            super().keyPressEvent(event)
-
-    def statusBar_msg(self, msg: str):
-        """Helper to show message in parent status bar if possible."""
-        parent = self.window()
-        if hasattr(parent, 'statusBar'):
-            parent.statusBar().showMessage(msg, 3000)
-
-    def __del__(self):
-        """Force cleanup of temp files."""
-        if self.temp_pdf_path and os.path.exists(self.temp_pdf_path):
-             try:
-                 os.remove(self.temp_pdf_path)
-             except OSError:
-                 pass
+            self.edit_zoom.setText(f"{factor:.0%}")
+            self.edit_zoom.setReadOnly(False)

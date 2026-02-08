@@ -118,11 +118,13 @@ class DocumentListWidget(QWidget):
         "INTERNAL": "Internal"
     }
 
-    def __init__(self, db_manager: DatabaseManager, pipeline: Optional[object] = None, filter_tree: Optional[object] = None):
-        super().__init__()
+    def __init__(self, db_manager=None, filter_tree=None, plugin_manager=None, parent=None):
+        super().__init__(parent)
         self.db_manager = db_manager
-        self.pipeline = pipeline
         self.filter_tree = filter_tree
+        self.plugin_manager = plugin_manager
+        
+        self.is_trash_mode = False
         self.current_filter = {}
         self.current_filter_text = ""
         self.current_advanced_query = None
@@ -481,7 +483,7 @@ class DocumentListWidget(QWidget):
 
         for uuid in uuids:
              doc = self.documents_cache.get(uuid)
-             if doc and getattr(doc, 'locked', False):
+             if doc and getattr(doc, 'is_immutable', False):
                  skipped += 1
                  continue
              to_delete.append(uuid)
@@ -560,6 +562,23 @@ class DocumentListWidget(QWidget):
         menu.addSeparator()
         export_action = menu.addAction(self.tr("Export Selected..."))
         export_all_action = menu.addAction(self.tr("Export All Visible..."))
+        menu.addSeparator()
+        
+        # --- Phase 200: Plugin Actions ---
+        if self.plugin_manager and len(selected_items) == 1:
+            plugin_results = self.plugin_manager.trigger_hook("get_context_menu_actions", uuid)
+            # plugin_results is a list of lists (one list per plugin)
+            has_plugin_actions = False
+            for action_list in plugin_results:
+                if action_list:
+                    if not has_plugin_actions:
+                         menu.addSeparator()
+                         has_plugin_actions = True
+                    for p_act in action_list:
+                        m_action = menu.addAction(p_act["label"])
+                        # Use closure for callback
+                        m_action.triggered.connect(lambda checked, cb=p_act["callback"], uid=uuid: cb(uid))
+
         menu.addSeparator()
 
         if self.is_trash_mode:
@@ -830,7 +849,7 @@ class DocumentListWidget(QWidget):
         pages_str = str(doc.page_count if doc.page_count is not None else 0)
         status = getattr(doc, "status", "NEW")
         type_tags = getattr(doc, "type_tags", [])
-        locked_str = "Yes" if getattr(doc, "locked", False) else "No"
+        locked_str = "Yes" if getattr(doc, "is_immutable", False) else "No"
         processed_str = format_datetime(doc.last_processed_at) or "-"
         used_str = format_datetime(doc.last_used) or "-"
 
@@ -1103,7 +1122,7 @@ class DocumentListWidget(QWidget):
             type_tags = getattr(doc, "type_tags", []) or []
             # Sort for consistent display
             combined_types = self.sort_type_tags(set(type_tags))
-            locked_str = "Yes" if getattr(doc, "locked", False) else "No"
+            locked_str = "Yes" if getattr(doc, "is_immutable", False) else "No"
 
             # Format all system dates
             import_str = format_datetime(doc.created_at) or "-"
@@ -1197,7 +1216,7 @@ class DocumentListWidget(QWidget):
                 if val is not None:
                     item.setData(col_idx, Qt.ItemDataRole.UserRole, val)
 
-            if getattr(doc, "locked", False):
+            if getattr(doc, "is_immutable", False):
                 brush = QBrush(Qt.GlobalColor.gray)
                 for i in range(len(col_data)):
                     item.setForeground(i, brush)

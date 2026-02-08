@@ -7,14 +7,8 @@ import os
 from pathlib import Path
 
 # Core Imports
-try:
-    from core.integrity import IntegrityManager, IntegrityReport
-    from core.pipeline import PipelineProcessor
-except ImportError:
-    # Mocks für Syntax-Check, falls Core-Module fehlen
-    class IntegrityManager: pass
-    class PipelineProcessor: pass
-    class IntegrityReport: pass
+from core.integrity import IntegrityManager, IntegrityReport
+from core.pipeline import PipelineProcessor
 
 # Hilfsfunktion für Message Boxen (Fallback)
 try:
@@ -138,7 +132,7 @@ class MaintenanceDialog(QDialog):
 
         for item in items:
             doc = item.data(Qt.ItemDataRole.UserRole)
-            self.manager.resolve_orphan(doc)
+            self.manager.logic_repo.delete_by_uuid(doc.uuid)
 
         self.scan()
 
@@ -162,7 +156,8 @@ class MaintenanceDialog(QDialog):
         for item in items:
             path_str = item.data(Qt.ItemDataRole.UserRole)
             path = Path(path_str)
-            self.manager.delete_ghost_file(path)
+            if path.exists():
+                path.unlink()
 
         self.scan()
 

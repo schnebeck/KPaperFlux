@@ -122,8 +122,8 @@ class IntegrityManager:
                         used_filenames.add(fname)
 
             if ent_broken:
-                legacy_doc = Document(uuid=ent.uuid, original_filename=ent.export_filename or f"Entity {ent.uuid[:8]}", status=ent.status)
-                orphans.append(legacy_doc)
+                orphan_doc = Document(uuid=ent.uuid, original_filename=ent.export_filename or f"Entity {ent.uuid[:8]}", status=ent.status)
+                orphans.append(orphan_doc)
 
         # Identify Ghosts (File on disk but not referenced by any Entity)
         ghosts: List[Path] = []
@@ -267,15 +267,6 @@ class IntegrityManager:
         print(f"- Redundant Logical Entities removed: {logic_redundant_deleted}")
         print("========================================================\n")
 
-    # --- LEGACY METHODS (Required by UI) ---
-    def resolve_orphan(self, doc: Document) -> None:
-        """Legacy helper to resolve an orphan by deleting the entity."""
-        self.logic_repo.delete_by_uuid(doc.uuid)
-
-    def delete_ghost_file(self, path: Path) -> None:
-        """Legacy helper to delete a ghost file."""
-        if path.exists():
-            path.unlink()
 
     def show_orphaned_vault_files(self) -> None:
         """Debug print of orphaned files."""

@@ -358,8 +358,7 @@ class AIAnalyzer:
             print("[AIAnalyzer] Using Semantic JSON for Entity Identification (Refinement Mode)")
             return self.refine_semantic_entities(semantic_data)
 
-        # Legacy / Fallback Mode (Raw Text)
-        return self._identify_entities_legacy(text, semantic_data, detected_entities)
+        return self._identify_entities_text_fallback(text, semantic_data, detected_entities)
 
     def refine_semantic_entities(self, semantic_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -427,8 +426,8 @@ class AIAnalyzer:
             print(f"[Refinement] Failed: {e}")
             return []
 
-    def _identify_entities_legacy(self, text: str, semantic_data: dict = None, detected_entities: List[dict] = None) -> List[dict]:
-        # ... (Original identify_entities logic mooved here) ...
+    def _identify_entities_text_fallback(self, text: str, semantic_data: dict = None, detected_entities: List[dict] = None) -> List[dict]:
+        # ... (Original identify_entities logic moved here) ...
         if hasattr(semantic_data, "model_dump"):
             semantic_data = semantic_data.model_dump()
 
@@ -1070,10 +1069,6 @@ TASK:
 
             return None, err_msg
 
-    def _generate_json_raw_legacy(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Any:
-        # Keeping a wrapper just in case other things call it and expect old return type
-        res, err = self._generate_json_raw(prompt, stage_label, images)
-        return res
 
     # ==============================================================================
     # STAGE 2: SCHEMA HELPERS (Reusable Components)

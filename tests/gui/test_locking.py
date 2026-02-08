@@ -31,7 +31,7 @@ def test_locking_ui_and_persistence(main_window, mock_db, qtbot):
         uuid="lock-test-1",
         original_filename="test.pdf",
         doc_date=datetime.date(2025, 1, 1),
-        locked=False
+        is_immutable=False
     )
     mock_db.get_document_by_uuid.return_value = doc
     
@@ -59,13 +59,13 @@ def test_locking_ui_and_persistence(main_window, mock_db, qtbot):
     args = mock_db.update_document_metadata.call_args[0]
     uuid, updates = args
     assert uuid == "lock-test-1"
-    assert updates["locked"] is True
+    assert updates["is_immutable"] is True
     
     # 5. Verify Loading Locked Doc
     doc_locked = Document(
         uuid="lock-test-2",
         original_filename="locked.pdf",
-        locked=True
+        is_immutable=True
     )
     editor.display_document(doc_locked)
     assert editor.chk_locked.isChecked() == True
@@ -73,8 +73,8 @@ def test_locking_ui_and_persistence(main_window, mock_db, qtbot):
 
 def test_delete_protection(main_window, mock_db, qtbot):
     """Verify locked documents cannot be deleted."""
-    doc_unlocked = Document(uuid="u1", original_filename="u1.pdf", locked=False)
-    doc_locked = Document(uuid="l1", original_filename="l1.pdf", locked=True)
+    doc_unlocked = Document(uuid="u1", original_filename="u1.pdf", is_immutable=False)
+    doc_locked = Document(uuid="l1", original_filename="l1.pdf", is_immutable=True)
     
     # Setup DB Mock for these docs
     docs_map = {"u1": doc_unlocked, "l1": doc_locked}
@@ -111,7 +111,7 @@ def test_delete_protection(main_window, mock_db, qtbot):
 
 def test_visual_graying(main_window, mock_db, qtbot):
     """Verify locked documents are visually distinct (gray)."""
-    doc = Document(uuid="l2", original_filename="gray.pdf", locked=True)
+    doc = Document(uuid="l2", original_filename="gray.pdf", is_immutable=True)
     mock_db.get_document_by_uuid.return_value = doc
     
     list_widget = main_window.list_widget

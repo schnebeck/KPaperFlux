@@ -360,3 +360,58 @@ class SimilarityWorker(QThread):
 
     def _on_progress(self, current, total):
         self.progress.emit(current, total)
+
+class MatchAnalysisWorker(QThread):
+    """
+    Heavy lifting for PDF comparison (Alignment, CV2, Overlays) in background.
+    """
+    finished = pyqtSignal(str) # temp_pdf_path
+    error = pyqtSignal(str)
+
+    def __init__(self, left_path, right_path, engine):
+        super().__init__()
+        self.left_path = left_path
+        self.right_path = right_path
+        self.engine = engine
+
+    def run(self):
+        import fitz
+        import cv2
+        import tempfile
+        import os
+
+        try:
+            m_doc_native = fitz.open(self.left_path)
+            m_doc_scan = fitz.open(self.right_path)
+            
+            diff_pdf = fitz.open()
+            num_pages = m_doc_native.page_count
+            
+            print(f"[MatchAnalysis] Background Pre-calculating {num_pages} pages...")
+            
+            for i in range(num_pages):
+                p_rect = m_doc_native[i].rect
+                page = diff_pdf.new_page(width=p_rect.width, height=p_rect.height)
+                
+                # Render (lower DPI for speed? Using 130 for now)
+                img_native = self.engine.pdf_page_to_numpy(m_doc_native, i, dpi=130)
+                scan_idx = min(i, m_doc_scan.page_count - 1)
+                img_scan = self.engine.pdf_page_to_numpy(m_doc_scan, scan_idx, dpi=130)
+                
+                aligned_scan, _ = self.engine.align_and_compare(img_native, img_scan)
+                diff_overlay = self.engine.create_diff_overlay(img_native, aligned_scan)
+                
+                is_success, buffer = cv2.imencode(".png", diff_overlay)
+                if is_success:
+                    page.insert_image(p_rect, stream=buffer.tobytes())
+
+            fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="diff_precalc_")
+            os.close(fd)
+            diff_pdf.save(temp_path)
+            diff_pdf.close()
+            m_doc_native.close()
+            m_doc_scan.close()
+            
+            self.finished.emit(temp_path)
+        except Exception as e:
+            self.error.emit(str(e))

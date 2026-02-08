@@ -31,6 +31,7 @@ class AppConfig:
     KEY_LANGUAGE: str = "language"
     KEY_API_KEY: str = "api_key"
     KEY_AI_RETRIES: str = "ai_retries"
+    KEY_TRANSFER_PATH: str = "transfer_path"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
@@ -65,6 +66,15 @@ class AppConfig:
         data_dir = Path(base_path) / self.APP_ID
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
+
+    def get_plugins_dir(self) -> Path:
+        """
+        Returns the path to the plugins directory.
+        Located within the data folder: ~/.local/share/kpaperflux/plugins/
+        """
+        plugins_dir = self.get_data_dir() / "plugins"
+        plugins_dir.mkdir(parents=True, exist_ok=True)
+        return plugins_dir
 
     def _get_setting(self, group: str, key: str, default: Any = None) -> Any:
         """
@@ -291,3 +301,21 @@ class AppConfig:
             retries: The number of retries.
         """
         self._set_setting("AI", self.KEY_AI_RETRIES, retries)
+
+    def get_transfer_path(self) -> str:
+        """
+        Retrieves the path to the transfer folder.
+
+        Returns:
+            The transfer path string.
+        """
+        return str(self._get_setting("Storage", self.KEY_TRANSFER_PATH, ""))
+
+    def set_transfer_path(self, path: str) -> None:
+        """
+        Saves the path to the transfer folder.
+
+        Args:
+            path: The transfer path string.
+        """
+        self._set_setting("Storage", self.KEY_TRANSFER_PATH, path)

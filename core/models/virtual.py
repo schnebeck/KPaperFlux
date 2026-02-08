@@ -53,7 +53,6 @@ class VirtualDocument(BaseModel):
     export_filename: Optional[str] = None
     last_used: Optional[str] = None
     is_immutable: bool = False
-    locked: bool = False  # Alias for is_immutable
     thumbnail_path: Optional[str] = None
     cached_full_text: str = ""
     

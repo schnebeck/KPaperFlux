@@ -231,17 +231,17 @@ class DatabaseManager:
 
         # Whitelist of fields allowed for direct update
         allowed = [
-            "status", "export_filename", "deleted", "is_immutable", "locked",
+            "status", "export_filename", "deleted", "is_immutable",
             "type_tags", "cached_full_text", "last_used", "last_processed_at",
             "semantic_data", "tags",
             "deleted_at", "locked_at", "exported_at"
         ]
         filtered = {k: v for k, v in updates.items() if k in allowed}
 
-        if "locked" in filtered:
-            locked_val = bool(filtered.pop("locked"))
-            filtered["is_immutable"] = int(locked_val)
-            if locked_val:
+        if "is_immutable" in filtered:
+            val = bool(filtered["is_immutable"])
+            filtered["is_immutable"] = int(val)
+            if val:
                 filtered["locked_at"] = datetime.now().isoformat()
             else:
                 filtered["locked_at"] = None
@@ -722,7 +722,7 @@ class DatabaseManager:
             "created_at": row["created_at"],
             "last_used": row["last_used"],
             "last_processed_at": row["last_processed_at"],
-            "locked": bool(row["is_immutable"]),
+            "is_immutable": bool(row["is_immutable"]),
             "deleted": bool(row["deleted"]),
             "type_tags": type_tags,
             "cached_full_text": row["cached_full_text"],
@@ -1388,5 +1388,5 @@ class DatabaseManager:
                     doc.deleted_at, doc.locked_at, doc.exported_at
                 ))
         except sqlite3.Error as e:
-            logger.error(f"Failed to insert legacy document {doc.uuid}: {e}")
+            logger.error(f"Failed to insert document {doc.uuid}: {e}")
 

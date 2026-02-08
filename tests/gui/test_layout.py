@@ -10,6 +10,7 @@ from core.database import DatabaseManager
 def mock_db():
     from unittest.mock import MagicMock
     db = MagicMock(spec=DatabaseManager)
+    db.connection = MagicMock()
     return db
 
 def test_layout_structure(qtbot, mock_db):

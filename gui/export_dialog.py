@@ -2,6 +2,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,    
 from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from core.exporter import DocumentExporter
+from core.config import AppConfig
+import os
 
 class ExportWorker(QThread):
     progress = pyqtSignal(int)
@@ -69,6 +71,14 @@ class ExportDialog(QDialog):
         self.btn_export.clicked.connect(self.start_export)
         self.btn_export.setEnabled(False)
         btn_layout.addWidget(self.btn_export)
+
+        # Transfer Export Option
+        self.btn_transfer = QPushButton(self.tr("Export to Transfer"))
+        self.btn_transfer.clicked.connect(self.export_to_transfer)
+        self.config = AppConfig()
+        transfer_path = self.config.get_transfer_path()
+        self.btn_transfer.setVisible(bool(transfer_path) and os.path.exists(transfer_path))
+        btn_layout.addWidget(self.btn_transfer)
         
         self.btn_cancel = QPushButton(self.tr("Close"))
         self.btn_cancel.clicked.connect(self.close)
@@ -108,8 +118,29 @@ class ExportDialog(QDialog):
     def on_finished(self, success, error_msg):
         self.btn_cancel.setEnabled(True)
         if success:
-            show_selectable_message_box(self, self.tr("Success"), self.tr("Export completed successfully.", icon=QMessageBox.Icon.Information))
+            show_selectable_message_box(self, self.tr("Success"), self.tr("Export completed successfully."), icon=QMessageBox.Icon.Information)
             self.accept()
         else:
-            show_selectable_message_box(self, self.tr("Error"), self.tr(f"Export failed:\n{error_msg}", icon=QMessageBox.Icon.Critical))
+            show_selectable_message_box(self, self.tr("Error"), self.tr(f"Export failed:\n{error_msg}"), icon=QMessageBox.Icon.Critical)
             self.btn_export.setEnabled(True)
+            self.btn_transfer.setEnabled(True)
+
+    def export_to_transfer(self):
+        transfer_path = self.config.get_transfer_path()
+        if not transfer_path or not os.path.exists(transfer_path):
+            return
+
+        filename = f"export_{len(self.documents)}_docs.zip"
+        self.output_path = os.path.join(transfer_path, filename)
+        
+        # Check if file exists
+        if os.path.exists(self.output_path):
+            reply = show_selectable_message_box(self, self.tr("Confirm Overwrite"),
+                                         self.tr(f"File '{filename}' already exists in transfer folder. Overwrite?"),
+                                         icon=QMessageBox.Icon.Question,
+                                         buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        self.btn_transfer.setEnabled(False)
+        self.start_export()
