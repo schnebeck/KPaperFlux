@@ -12,17 +12,17 @@ class ComparisonDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Document Comparison"))
         
-        # Geometry Persistence
+        # Settings and Pipeline
         self.settings = QSettings("KPaperFlux", "ComparisonDialog")
-        self.restore_geometry()
-        
-        # Store pipeline if parent has it
         self.pipeline = getattr(parent, 'pipeline', None)
-        
+
         self.layout = QVBoxLayout(self)
         self.dual_viewer = DualPdfViewerWidget(self)
         self.dual_viewer.close_requested.connect(self.accept)
         self.layout.addWidget(self.dual_viewer)
+        
+        # Geometry Persistence (Call AFTER dual_viewer is created)
+        self.restore_geometry()
 
     def restore_geometry(self):
         geom = self.settings.value("geometry")
@@ -30,9 +30,24 @@ class ComparisonDialog(QDialog):
             self.restoreGeometry(geom)
         else:
             self.resize(1200, 800)
+        
+        # Restore splitter state
+        split_state = self.settings.value("splitter_state")
+        if split_state:
+            self.dual_viewer.splitter.restoreState(split_state)
+
+    def save_settings(self):
+        self.settings.setValue("geometry", self.saveGeometry())
+        self.settings.setValue("splitter_state", self.dual_viewer.splitter.saveState())
+        self.settings.sync()
+
+    def done(self, r):
+        self.save_settings()
+        self.dual_viewer.stop()
+        super().done(r)
 
     def closeEvent(self, event: QCloseEvent):
-        self.settings.setValue("geometry", self.saveGeometry())
+        self.save_settings()
         self.dual_viewer.stop()
         super().closeEvent(event)
 
