@@ -21,19 +21,8 @@ class ComparisonDialog(QDialog):
         
         self.layout = QVBoxLayout(self)
         self.dual_viewer = DualPdfViewerWidget(self)
+        self.dual_viewer.close_requested.connect(self.accept)
         self.layout.addWidget(self.dual_viewer)
-        
-        # Bottom Buttons
-        self.btn_layout = QHBoxLayout()
-        self.btn_close = QPushButton(self.tr("Close"))
-        self.btn_close.setFixedWidth(120)
-        self.btn_close.setFixedHeight(35)
-        self.btn_close.setStyleSheet("font-weight: bold;")
-        self.btn_close.clicked.connect(self.accept)
-        self.btn_layout.addStretch()
-        self.btn_layout.addWidget(self.btn_close)
-        
-        self.layout.addLayout(self.btn_layout)
 
     def restore_geometry(self):
         geom = self.settings.value("geometry")

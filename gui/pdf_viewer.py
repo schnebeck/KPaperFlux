@@ -525,6 +525,8 @@ class DualPdfViewerWidget(QWidget):
     Central controller for the dual PDF comparison view.
     Manages synchronization, match analysis, and layout.
     """
+    close_requested = pyqtSignal()
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.layout_main = QVBoxLayout(self)
@@ -554,6 +556,13 @@ class DualPdfViewerWidget(QWidget):
         self.splitter.addWidget(self.left_viewer)
         self.splitter.addWidget(self.right_viewer)
         self.layout_main.addWidget(self.splitter)
+
+        # Add "Close" button to the right viewer's toolbar
+        self.btn_close = QPushButton(self.tr("Close"))
+        self.btn_close.setFixedWidth(80)
+        self.btn_close.setFixedHeight(30)
+        self.btn_close.clicked.connect(self.close_requested.emit)
+        self.right_viewer.toolbar.layout().addWidget(self.btn_close)
 
         self._init_floating_buttons()
         self._setup_sync_connections()
@@ -936,6 +945,7 @@ class PdfViewerWidget(QWidget):
         self.btn_del = QPushButton("✕")
         self.btn_del.setFixedSize(30, 30)
         self.btn_del.setStyleSheet("color: #da4453; font-weight: bold;")
+        self.btn_del.setVisible(False) # Hidden by default
         self.btn_del.clicked.connect(self.delete_page)
         
         controls = [
@@ -1022,6 +1032,7 @@ class PdfViewerWidget(QWidget):
                 
         if path.exists():
             self.current_pages_data = [] # Clear virtual data if loading direct path
+            self.btn_del.setVisible(False)
             self.canvas.set_document(fitz.open(str(path)))
             self.on_document_status_ready()
             
@@ -1056,6 +1067,7 @@ class PdfViewerWidget(QWidget):
         out_doc.close()
         
         self.canvas.set_document(fitz.open(str(self.temp_pdf_path)))
+        self.btn_del.setVisible(True)
         self.btn_del.setEnabled(len(self.current_pages_data) > 1)
         self.on_document_status_ready()
 
