@@ -249,6 +249,7 @@ class PdfCanvas(QScrollArea):
     """
     page_changed = pyqtSignal(int)
     zoom_changed = pyqtSignal(float)
+    resized = pyqtSignal()
 
     FIT_FIXED_FRAME = 15.0    
     FIT_COMFORT_SCALE = 1.0
@@ -497,19 +498,27 @@ class PdfCanvas(QScrollArea):
         if not self.doc:
             return 1.0
         page_rect = self.doc[self.current_page_idx].rect
-        view_size = self.viewport().size()
-        if page_rect.width <= 0 or view_size.width() <= 0:
+        
+        # Use viewport size but fallback to widget size if layout hasn't settled
+        v_size = self.viewport().size()
+        if v_size.width() < 100:
+            v_size = self.size()
+        
+        if page_rect.width <= 0 or v_size.width() <= 0:
             return 1.0
-        avail_w = max(10, view_size.width() - (self.FIT_FIXED_FRAME * 2))
-        avail_h = max(10, view_size.height() - (self.FIT_FIXED_FRAME * 2))
-        return min(avail_w / page_rect.width, avail_h / page_rect.height) * self.FIT_COMFORT_SCALE
+            
+        # Account for typical scrollbar width (approx 20px) to prevent toggle-flicker
+        padding = self.FIT_FIXED_FRAME * 2 + 5
+        avail_w = max(10, v_size.width() - padding)
+        avail_h = max(10, v_size.height() - padding)
+        
+        factor = min(avail_w / page_rect.width, avail_h / page_rect.height)
+        return factor * self.FIT_COMFORT_SCALE
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Handles widget resize to re-trigger 'Fit' calculation if active."""
         super().resizeEvent(event)
-        viewer = self._find_viewer_parent()
-        if viewer and viewer.is_fit_mode:
-            QTimer.singleShot(50, viewer._on_viewport_resized)
+        self.resized.emit()
 
     def _find_viewer_parent(self) -> Optional['PdfViewerWidget']:
         """Traverses parent chain to find the controlling viewer widget."""
@@ -557,12 +566,17 @@ class DualPdfViewerWidget(QWidget):
         self.splitter.addWidget(self.right_viewer)
         self.layout_main.addWidget(self.splitter)
 
-        # Add "Close" button to the right viewer's toolbar
+        # Add symmetry: "Close" button on right, invisible spacer on left
         self.btn_close = QPushButton(self.tr("Close"))
         self.btn_close.setFixedWidth(80)
         self.btn_close.setFixedHeight(30)
         self.btn_close.clicked.connect(self.close_requested.emit)
         self.right_viewer.toolbar.layout().addWidget(self.btn_close)
+        
+        # Symmetrical spacer for the left viewer
+        self.left_spacer = QWidget()
+        self.left_spacer.setFixedWidth(80)
+        self.left_viewer.toolbar.layout().addWidget(self.left_spacer)
 
         self._init_floating_buttons()
         self._setup_sync_connections()
@@ -732,21 +746,34 @@ class DualPdfViewerWidget(QWidget):
     def _sync_right_to_left(self) -> None:
         """Calculates and applies the correct zoom for the right viewer relative to master."""
         m, s = self.left_viewer, self.right_viewer
-        m_zoom = m.canvas.get_manual_fit_factor() if m.is_fit_mode else m.canvas.zoom_factor
         
+        # SYMMETRY: We use the master's available space as the reference
         if m.is_fit_mode:
+            m_zoom = m.canvas.get_manual_fit_factor()
+            # If we are linked, we ensure it also fits in the slave (just in case of tiny differences)
+            s_zoom_fit = s.canvas.get_manual_fit_factor()
+            m_zoom = min(m_zoom, s_zoom_fit)
+            
             m.canvas.set_zoom(m_zoom, block_signals=True)
+            m.update_zoom_label(m_zoom)
+        else:
+            m_zoom = m.canvas.zoom_factor
         
         p_m = m.canvas.get_page_size(m.canvas.current_page_idx)
         p_s = s.canvas.get_page_size(s.canvas.current_page_idx)
-        ratio = p_m.width() / p_s.width() if p_m.width() > 10 and p_s.width() > 10 else 1.0
-        target_zoom = (m_zoom * ratio) + self._zoom_delta
         
+        if p_m.width() > 10 and p_s.width() > 10:
+            ratio = p_m.width() / p_s.width()
+            target_zoom = (m_zoom * ratio) + self._zoom_delta
+        else:
+            target_zoom = m_zoom
+        
+        # Apply to slave
         s.canvas.set_zoom(target_zoom, block_signals=True)
+        s.is_fit_mode = m.is_fit_mode
         s.btn_fit.blockSignals(True)
         s.btn_fit.setChecked(m.is_fit_mode)
         s.btn_fit.blockSignals(False)
-        s.is_fit_mode = m.is_fit_mode
         s.update_zoom_label(target_zoom)
 
     def _sync_scroll(self, orient: str, value: int, m_is_src: bool) -> None:
@@ -786,9 +813,14 @@ class DualPdfViewerWidget(QWidget):
         self.left_viewer.load_document(str(self._orig_left_path))
         self.right_viewer.load_document(str(self._orig_right_path))
         
-        QTimer.singleShot(1000, self._start_background_diff)
-        QTimer.singleShot(800, lambda: (
-            self._sync_right_to_left(), 
+        # Debounced sync sequence to ensure layout has settled
+        QTimer.singleShot(100, self._sync_right_to_left)
+        QTimer.singleShot(400, self._sync_right_to_left)
+        QTimer.singleShot(800, self._sync_right_to_left) 
+        QTimer.singleShot(1200, self._start_background_diff)
+        
+        # Activate sync receiver after initial load
+        QTimer.singleShot(500, lambda: (
             self._activate_slave_zoom_receiver(), 
             self._reposition_link_button()
         ))
@@ -871,6 +903,7 @@ class PdfViewerWidget(QWidget):
         
         self.canvas.page_changed.connect(self.on_page_changed)
         self.canvas.zoom_changed.connect(self.update_zoom_label)
+        self.canvas.resized.connect(self._on_viewport_resized)
 
     def _init_ui(self) -> None:
         """Constructs the viewer's layout and toolbar."""
@@ -963,8 +996,16 @@ class PdfViewerWidget(QWidget):
     def _on_viewport_resized(self) -> None:
         """Callback for viewport resize to recalculate Fit factor."""
         if self.is_fit_mode:
+            # Short delay to ensure local layout is stable
+            QTimer.singleShot(0, self._apply_delayed_fit)
+
+    def _apply_delayed_fit(self) -> None:
+        """Perform delayed fit factor update."""
+        if self.is_fit_mode:
             f = self.canvas.get_manual_fit_factor()
-            self.canvas.set_zoom(f, block_signals=True)
+            # Link check: avoid redundant updates if slave is managed by master
+            block = self.is_slave and self.sync_active
+            self.canvas.set_zoom(f, block_signals=block)
             self.update_zoom_label(f)
 
     def set_sync_active(self, active: bool) -> None:
