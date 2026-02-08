@@ -1,0 +1,9 @@
+{
+    "id": "hybrid_assembler",
+    "version": "1.0.0",
+    "name": "Hybrid PDF Assembler",
+    "description": "Combines native PDFs with scanned signatures to create immutable Hybrid documents.",
+    "author": "Antigravity",
+    "entry_point": "plugin.py",
+    "class_name": "HybridAssemblerPlugin"
+}

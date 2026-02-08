@@ -13,6 +13,7 @@ import sys
 import tempfile
 import shutil
 import json
+import fitz
 from pathlib import Path
 
 # Core Imports

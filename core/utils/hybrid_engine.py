@@ -197,16 +197,70 @@ class HybridEngine:
     @staticmethod
     def create_diff_overlay(img_native: np.ndarray, img_scan_aligned: np.ndarray) -> np.ndarray:
         """
-        Advanced ROI-based diff extraction.
-        1. Identifies 'Ink' in Scan that isn't 'Text' in Native.
-        2. Groups pixels into blobs (signatures/stamps).
-        3. Discards small artifacts (DPI-aware noise reduction).
+        High-fidelity Diff Overlay.
+        Applies ROI validation to BOTH directions to eliminate alignment artifacts.
+        - Red: Added in Scan (Signatures/Stamps)
+        - Cyan: Missing in Scan (Deleted text)
         """
         h, w = img_native.shape[:2]
         gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY)
         gray_scan = cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY)
 
-        # 1. Native Mask (Dilated for tolerance)
+        # 1. Prepare Masks with tolerance (Dilate to ignore 1-2px shifts)
+        kernel_tol = np.ones((3,3), np.uint8)
+        
+        _, native_ink = cv2.threshold(gray_native, 200, 255, cv2.THRESH_BINARY_INV)
+        native_ink_dilated = cv2.dilate(native_ink, kernel_tol, iterations=1)
+        
+        _, scan_ink = cv2.threshold(gray_scan, 205, 255, cv2.THRESH_BINARY_INV)
+        scan_ink_dilated = cv2.dilate(scan_ink, kernel_tol, iterations=1)
+
+        # 2. Raw Differences
+        added_raw = cv2.bitwise_and(scan_ink, scan_ink, mask=cv2.bitwise_not(native_ink_dilated))
+        missing_raw = cv2.bitwise_and(native_ink, native_ink, mask=cv2.bitwise_not(scan_ink_dilated))
+
+        # 3. ROI Validation Helper
+        def validate_mask(mask, min_area):
+            kernel_close = np.ones((5,5), np.uint8)
+            connected = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close)
+            contours, _ = cv2.findContours(connected, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            validated = np.zeros_like(mask)
+            for cnt in contours:
+                if cv2.contourArea(cnt) > min_area:
+                    cv2.drawContours(validated, [cnt], -1, 255, -1)
+            return cv2.bitwise_and(mask, validated)
+
+        # Apply validation (Stamps/Signatures need more area, text changes can be smaller)
+        added_clean = validate_mask(added_raw, min_area=150)
+        missing_clean = validate_mask(missing_raw, min_area=30) # Capture even single letters
+
+        # 4. Build Display Overlay
+        # Start with a clean white background
+        overlay = np.full((h, w, 3), 255, dtype=np.uint8)
+        
+        # Identical parts (Light Gray background)
+        both_ink = cv2.bitwise_and(native_ink, scan_ink)
+        overlay[both_ink > 0] = [230, 230, 230]
+        
+        # Red: Added (Signatures) - BGR
+        overlay[added_clean > 0] = [0, 0, 220]
+        
+        # Cyan: Missing (Deletions) - BGR
+        overlay[missing_clean > 0] = [200, 200, 0]
+        
+        return overlay
+
+    @staticmethod
+    def extract_high_fidelity_overlay(img_native: np.ndarray, img_scan_aligned: np.ndarray) -> Tuple[Optional[np.ndarray], int]:
+        """
+        Extracts signatures/stamps as a transparent RGBA image.
+        Returns (rgba_image, pixel_count).
+        """
+        h, w = img_native.shape[:2]
+        gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY)
+        gray_scan = cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY)
+
+        # 1. Native Mask
         _, native_text_mask = cv2.threshold(gray_native, 200, 255, cv2.THRESH_BINARY_INV)
         kernel_dilate = np.ones((3,3), np.uint8)
         native_text_mask_dilated = cv2.dilate(native_text_mask, kernel_dilate, iterations=2)
@@ -217,32 +271,33 @@ class HybridEngine:
         # 3. Raw Difference
         raw_diff_mask = cv2.bitwise_and(scan_ink_mask, scan_ink_mask, mask=cv2.bitwise_not(native_text_mask_dilated))
 
-        # 4. ROI Validation (Morphological closing to bridge gaps in strokes)
+        # 4. ROI Validation
         kernel_close = np.ones((5,5), np.uint8)
         connected_mask = cv2.morphologyEx(raw_diff_mask, cv2.MORPH_CLOSE, kernel_close)
         contours, _ = cv2.findContours(connected_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         final_roi_mask = np.zeros_like(raw_diff_mask)
-        min_area = 150 # Adjustable area threshold
-        
+        min_area = 200
+
         for cnt in contours:
             if cv2.contourArea(cnt) > min_area:
-                # Add this validated area to the final mask
+                # Mask specifies which scan pixels to keep
                 cv2.drawContours(final_roi_mask, [cnt], -1, 255, -1)
 
-        # 5. Build Final Display Overlay
-        # Neutral background
-        overlay = np.full((h, w, 3), 255, dtype=np.uint8)
-        # Faint gray for identical parts (where both have 'ink')
-        both_ink = cv2.bitwise_and(native_text_mask, scan_ink_mask)
-        overlay[both_ink > 0] = [245, 245, 245]
+        pixel_count = cv2.countNonZero(final_roi_mask)
+        if pixel_count < 100:
+            return None, 0
+
+        # Fine-tune mask: only keep actual ink pixels from the scan inside the ROI
+        extracted_ink_mask = cv2.bitwise_and(raw_diff_mask, final_roi_mask)
+
+        # 5. Build RGBA Overlay
+        b, g, r = cv2.split(img_scan_aligned)
         
-        # Color Highlights based on the ROI mask
-        # Validated differences (Signatures, Stamps) in Red
-        overlay[final_roi_mask > 0] = [0, 0, 220] 
+        # Optimization: Clear ignored pixels to improve PNG compression
+        b = cv2.bitwise_and(b, b, mask=extracted_ink_mask)
+        g = cv2.bitwise_and(g, g, mask=extracted_ink_mask)
+        r = cv2.bitwise_and(r, r, mask=extracted_ink_mask)
         
-        # Original text that is MISSING in scan (Cyan)
-        missing_mask = cv2.subtract(native_text_mask, scan_ink_mask)
-        overlay[missing_mask > 0] = [200, 200, 0] 
-        
-        return overlay
+        overlay = cv2.merge([b, g, r, extracted_ink_mask])
+        return overlay, pixel_count

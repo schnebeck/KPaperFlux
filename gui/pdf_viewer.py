@@ -973,6 +973,7 @@ class PdfViewerWidget(QWidget):
         
         self.btn_rotate = QPushButton("↻")
         self.btn_rotate.setFixedSize(30, 30)
+        self.btn_rotate.setVisible(False) # Hidden by default
         self.btn_rotate.clicked.connect(self.rotate_page)
         
         self.btn_del = QPushButton("✕")
@@ -1074,6 +1075,7 @@ class PdfViewerWidget(QWidget):
         if path.exists():
             self.current_pages_data = [] # Clear virtual data if loading direct path
             self.btn_del.setVisible(False)
+            self.btn_rotate.setVisible(False) # Hide for files
             self.canvas.set_document(fitz.open(str(path)))
             self.on_document_status_ready()
             
@@ -1109,6 +1111,7 @@ class PdfViewerWidget(QWidget):
         
         self.canvas.set_document(fitz.open(str(self.temp_pdf_path)))
         self.btn_del.setVisible(True)
+        self.btn_rotate.setVisible(True) # Show for entities
         self.btn_del.setEnabled(len(self.current_pages_data) > 1)
         self.on_document_status_ready()
 

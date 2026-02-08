@@ -25,7 +25,20 @@ def check_pdf_immutable(file_path: str) -> bool:
             
         # 2. Check Signatures
         # sig_flags returns a bitmask. 1 = contains signatures, 2 = contains XFA forms
-        if doc.get_sig_flags() > 0:
+        # PyMuPDF API changed names across versions (v1.14 -> v1.24+).
+        # We check multiple variants to ensure compatibility across distributions.
+        sig_flags = 0
+        if hasattr(doc, "get_sigflags"): 
+            # Modern PEP8 style (Note: get_sigflags NOT get_sig_flags)
+            sig_flags = doc.get_sigflags()
+        elif hasattr(doc, "sig_flags"): 
+            # Upcoming property-based API in v2+
+            sig_flags = doc.sig_flags
+        elif hasattr(doc, "getSigFlags"): 
+            # Legacy CamelCase style (Common in v1.18 and older)
+            sig_flags = doc.getSigFlags()
+            
+        if sig_flags > 0:
             doc.close()
             return True
             
