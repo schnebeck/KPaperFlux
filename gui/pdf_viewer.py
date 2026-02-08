@@ -302,6 +302,12 @@ class DualPdfViewerWidget(QWidget):
         self._sync_active = False 
         self._zoom_delta = 0.0
 
+        # Memory for Match Analysis
+        self._orig_left_path = None
+        self._orig_right_path = None
+        self._diff_temp_path = None
+        self._diff_worker = None
+
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         mid_color = self.palette().color(QPalette.ColorRole.Mid).name()
         self.splitter.setStyleSheet(f"QSplitter::handle {{ background: {mid_color}; width: 1px; }}")
@@ -319,6 +325,7 @@ class DualPdfViewerWidget(QWidget):
 
         self._init_floating_buttons()
         self._setup_sync_connections()
+        self.btn_diff.toggled.connect(self._on_diff_toggled)
         self.splitter.handle(1).installEventFilter(self)
         QTimer.singleShot(200, self._reposition_link_button)
 
@@ -452,9 +459,44 @@ class DualPdfViewerWidget(QWidget):
         try: self.right_viewer.canvas.zoom_changed.disconnect(self._on_slave_zoom_changed)
         except: pass
         self._zoom_delta = 0.0 
+        
+        self._orig_left_path = left_path
+        self._orig_right_path = right_path
+        self._diff_temp_path = None # Reset diff on new load
+
         self.left_viewer.load_document(left_path)
         self.right_viewer.load_document(right_path)
+        
+        # Start background preparation of the Diff-PDF
+        QTimer.singleShot(1000, self._start_background_diff)
         QTimer.singleShot(800, lambda: (self._sync_right_to_left(), self._activate_slave_zoom_receiver(), self._reposition_link_button()))
+
+    def _on_diff_toggled(self, checked):
+        if checked:
+            if self._diff_temp_path:
+                self.right_viewer.load_document(self._diff_temp_path)
+                QTimer.singleShot(200, self._sync_right_to_left)
+            else:
+                # If not ready, we could show a message or just wait for worker
+                pass
+        else:
+            if self._orig_right_path:
+                self.right_viewer.load_document(self._orig_right_path)
+                QTimer.singleShot(200, self._sync_right_to_left)
+
+    def _start_background_diff(self):
+        if self._diff_worker or not self._orig_left_path or not self._orig_right_path: return
+        from gui.workers import MatchAnalysisWorker
+        self._diff_worker = MatchAnalysisWorker(self._orig_left_path, self._orig_right_path, self.engine)
+        self._diff_worker.finished.connect(self._on_diff_ready)
+        self._diff_worker.start()
+
+    def _on_diff_ready(self, path):
+        self._diff_temp_path = path
+        self._diff_worker = None # Worker is done
+        if self.btn_diff.isChecked():
+            self.right_viewer.load_document(path)
+            QTimer.singleShot(200, self._sync_right_to_left)
 
     def _on_master_fit_toggled(self, is_fit):
         if self.btn_link.isChecked(): self.right_viewer.set_fit_mode(is_fit, block_signals=True), self._sync_right_to_left()
