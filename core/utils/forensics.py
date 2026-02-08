@@ -15,11 +15,13 @@ def check_pdf_immutable(file_path: str) -> bool:
     try:
         doc = fitz.open(file_path)
         
-        # 1. Check Metadata
+        # 1. Check Metadata (Keywords field is the official storage)
         meta = doc.metadata
-        if meta and meta.get("kpaperflux_immutable") == "true":
-            doc.close()
-            return True
+        if meta:
+            keywords = meta.get("keywords", "")
+            if keywords and "kpaperflux_immutable" in keywords:
+                doc.close()
+                return True
             
         # 2. Check Signatures
         # sig_flags returns a bitmask. 1 = contains signatures, 2 = contains XFA forms

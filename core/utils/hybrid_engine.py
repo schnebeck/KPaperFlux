@@ -137,15 +137,11 @@ class HybridEngine:
             return img
 
     @staticmethod
-    def align_and_compare(img_native: np.ndarray, img_scan: np.ndarray) -> Tuple[np.ndarray, float]:
-        """
-        Aligns img_scan to img_native using ORB and Affine Transformation.
-        Returns (aligned_image, similarity_score).
-        """
+    def align_and_compare_base(img_native: np.ndarray, img_scan: np.ndarray) -> Tuple[np.ndarray, float]:
+        """Base implementation of ORB alignment."""
         gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY)
         gray_scan = cv2.cvtColor(img_scan, cv2.COLOR_BGR2GRAY)
 
-        # High feature count for sparse documents
         orb = cv2.ORB_create(10000)
         kp1, des1 = orb.detectAndCompute(gray_native, None)
         kp2, des2 = orb.detectAndCompute(gray_scan, None)
@@ -153,12 +149,10 @@ class HybridEngine:
         if des1 is None or des2 is None:
             return img_scan, 0.0
 
-        # Matching
         bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         matches = bf.match(des1, des2)
         matches = sorted(matches, key=lambda x: x.distance)
 
-        # Top 20% matches for robust data points
         good_matches = matches[:int(len(matches) * 0.20)]
         if len(good_matches) < 4:
             return img_scan, 0.0
@@ -166,21 +160,39 @@ class HybridEngine:
         src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
-        # Use Affine2D (Rotation, Scale, Shift) - much more robust for scanners than Homography
-        M, mask = cv2.estimateAffine2D(dst_pts, src_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0)
+        M, _ = cv2.estimateAffine2D(dst_pts, src_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0)
         if M is None:
             return img_scan, 0.0
 
         h, w = gray_native.shape
         img_scan_aligned = cv2.warpAffine(img_scan, M, (w, h))
 
-        # Compute Similarity
         diff = cv2.absdiff(gray_native, cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY))
         _, diff_thresh = cv2.threshold(diff, 35, 255, cv2.THRESH_BINARY)
         non_zero_count = np.count_nonzero(diff_thresh)
         similarity = 1.0 - (non_zero_count / (w * h))
 
         return img_scan_aligned, similarity
+
+    @staticmethod
+    def align_and_compare(img_native: np.ndarray, img_scan: np.ndarray) -> Tuple[np.ndarray, float]:
+        """
+        Aligns img_scan to img_native with automatic 4-way rotation fallback.
+        Checks 0, 90, 180, 270 degrees.
+        """
+        best_img, best_sim = HybridEngine.align_and_compare_base(img_native, img_scan)
+        
+        # If match is poor (< 0.85), check rotations
+        if best_sim < 0.85:
+            # Check 180, 90, 270
+            for rot in [cv2.ROTATE_180, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
+                img_rot = cv2.rotate(img_scan, rot)
+                aligned, sim = HybridEngine.align_and_compare_base(img_native, img_rot)
+                if sim > best_sim + 0.1:
+                    best_img, best_sim = aligned, sim
+                    if best_sim > 0.95: break
+                
+        return best_img, best_sim
 
     @staticmethod
     def create_diff_overlay(img_native: np.ndarray, img_scan_aligned: np.ndarray) -> np.ndarray:
