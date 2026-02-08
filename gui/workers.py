@@ -9,7 +9,8 @@ Description:    PyQt6 worker threads for background processing (AI Queue,
                 Import, Reprocessing, Tagging).
 ------------------------------------------------------------------------------
 """
-from PyQt6.QtCore import QThread, pyqtSignal, QTimer
+from typing import Any, Optional, Union, List, Dict
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer, QObject
 import traceback
 import time
 # Core Imports
@@ -368,17 +369,28 @@ class MatchAnalysisWorker(QThread):
     finished = pyqtSignal(str) # temp_pdf_path
     error = pyqtSignal(str)
 
-    def __init__(self, left_path, right_path, engine):
-        super().__init__()
+    def __init__(
+        self, 
+        left_path: str, 
+        right_path: str, 
+        engine: Any, 
+        parent: Optional[QObject] = None
+    ) -> None:
+        super().__init__(parent)
         self.left_path = left_path
         self.right_path = right_path
         self.engine = engine
+        self.is_cancelled = False
 
     def run(self):
         import fitz
         import cv2
         import tempfile
         import os
+        from PyQt6.QtCore import QThread
+        
+        thread_id = int(QThread.currentThreadId())
+        print(f"[MatchAnalysisThread-{thread_id}] Started.")
 
         try:
             m_doc_native = fitz.open(self.left_path)
@@ -390,8 +402,14 @@ class MatchAnalysisWorker(QThread):
             print(f"[MatchAnalysis] Background Pre-calculating {num_pages} pages...")
             
             for i in range(num_pages):
+                if self.is_cancelled:
+                    print(f"[MatchAnalysisThread-{thread_id}] Cancellation detected at page {i+1}")
+                    break
+                    
                 p_rect = m_doc_native[i].rect
                 page = diff_pdf.new_page(width=p_rect.width, height=p_rect.height)
+                
+                print(f"[MatchAnalysisThread-{thread_id}] Processing page {i+1}/{num_pages}...")
                 
                 # Render (lower DPI for speed? Using 130 for now)
                 img_native = self.engine.pdf_page_to_numpy(m_doc_native, i, dpi=130)
@@ -405,6 +423,11 @@ class MatchAnalysisWorker(QThread):
                 if is_success:
                     page.insert_image(p_rect, stream=buffer.tobytes())
 
+            if self.is_cancelled: 
+                print(f"[MatchAnalysisThread-{thread_id}] Safely exiting loop before save.")
+                return
+
+            print(f"[MatchAnalysisThread-{thread_id}] Saving result to temp folder...")
             fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="diff_precalc_")
             os.close(fd)
             diff_pdf.save(temp_path)
@@ -412,6 +435,26 @@ class MatchAnalysisWorker(QThread):
             m_doc_native.close()
             m_doc_scan.close()
             
-            self.finished.emit(temp_path)
+            if not self.is_cancelled:
+                print(f"[MatchAnalysisThread-{thread_id}] Finished successfully. Emitting signal.")
+                self.finished.emit(temp_path)
         except Exception as e:
-            self.error.emit(str(e))
+            if not self.is_cancelled:
+                print(f"[MatchAnalysisThread-{thread_id}] Error: {e}")
+                self.error.emit(str(e))
+        finally:
+            print(f"[MatchAnalysisThread-{thread_id}] Cleanup starting...")
+            try:
+                if 'diff_pdf' in locals():
+                    diff_pdf.close()
+                if 'm_doc_native' in locals():
+                    m_doc_native.close()
+                if 'm_doc_scan' in locals():
+                    m_doc_scan.close()
+            except: 
+                pass
+            print(f"[MatchAnalysisThread-{thread_id}] Cleanup complete. Thread record ending.")
+
+    def cancel(self) -> None:
+        """Requests the worker to stop immediately."""
+        self.is_cancelled = True

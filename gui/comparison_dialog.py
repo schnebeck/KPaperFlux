@@ -1,4 +1,5 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog
+from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtCore import Qt, QSettings
 from gui.pdf_viewer import DualPdfViewerWidget
 import os
@@ -41,8 +42,9 @@ class ComparisonDialog(QDialog):
         else:
             self.resize(1200, 800)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent):
         self.settings.setValue("geometry", self.saveGeometry())
+        self.dual_viewer.stop()
         super().closeEvent(event)
 
     def load_comparison(self, left_path, right_path):

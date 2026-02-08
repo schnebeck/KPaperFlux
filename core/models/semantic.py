@@ -188,12 +188,41 @@ class LineItem(BaseModel):
 
 
 class TaxBreakdownRow(BaseModel):
-    """Breakdown per tax rate (BT-116 to BT-121)."""
-    model_config = ConfigDict(populate_by_name=True)
+    """Breakdown per tax rate (BT-116 to BT-121 in EN 16931)."""
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
     tax_basis_amount: Decimal = Field(..., alias="BT-116")
     tax_amount: Decimal = Field(..., alias="BT-117")
     tax_rate: Decimal = Field(..., alias="BT-119")
     tax_category: str = Field("S", alias="BT-118") # S=Standard
+
+    @model_validator(mode="before")
+    @classmethod
+    def autofix_tax_row(cls, data: Any) -> Any:
+        """Maps ZUGFeRD XML-style keys to our BT-aliases or direct keys."""
+        if not isinstance(data, dict): return data
+        mapping = {
+            "BasisAmount": "tax_basis_amount",
+            "tax_basis": "tax_basis_amount",
+            "tax_basis_amount": "tax_basis_amount",
+            "CalculatedAmount": "tax_amount",
+            "tax_amount": "tax_amount",
+            "RateApplicablePercent": "tax_rate",
+            "tax_rate": "tax_rate",
+            "tax_percent": "tax_rate",
+            "CategoryCode": "tax_category",
+            "tax_category": "tax_category"
+        }
+        for old, new in mapping.items():
+            if old in data:
+                val = data.pop(old)
+                if new in cls.model_fields and (new not in data or data[new] is None):
+                    data[new] = val
+        
+        # Cleanup
+        allowed = set(cls.model_fields.keys())
+        for k in list(data.keys()):
+            if k not in allowed: data.pop(k)
+        return data
 
 
 class MonetarySummation(BaseModel):
