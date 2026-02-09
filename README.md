@@ -2,8 +2,8 @@
   <img src="resources/icon.png" alt="KPaperFlux Logo" width="128" height="128">
   <h1 align="center">KPaperFlux</h1>
   <p align="center">
-    <strong>Next-Generation Hybrid Document Management System for Linux</strong><br>
-    <em>Powered by Google Gemini 2.5 Flash & Python/Qt6</em>
+    <strong>Next-Generation Personal Hybrid Document Management System for Linux</strong><br>
+    <em>Powered by Google Gemini 2.5+ Flash (or Pro) & Python/Qt6</em>
   </p>
   <p align="center">
     <a href="LICENSE">
@@ -41,8 +41,15 @@ KPaperFlux employs a multi-stage, intelligent analysis pipeline to understand do
 *   **Dynamic Workflows (Agents):** Define custom process logic via "Playbooks". Transition documents through states like `DRAFT` -> `TO_PAY` -> `ARCHIVED` based on AI evaluations or human verification.
 *   **Workflow Manager:** A full graphical editor to build and manage your own document agents.
 
-### 🛡️ Hybrid Workflow
-*   **Audit Window:** A professional side-by-side view of the original PDF and the semantic reconstruction, powered by DIN 5008 compliant rendering.
+### 🧩 Plugin System & Specialized PDF Support
+KPaperFlux is now a **modular platform**:
+*   **Hybrid PDF (V3 - Overlay-Only):** A revolutionary strategy for merging scans with digital originals. Instead of heavy scan backdrops, it overlays transparent high-fidelity signature PNGs onto the native vector document. Maintaining **vector-text quality** and **minimal file size**.
+*   **Forensic Chain of Trust:** Hybrid PDFs automatically **embed the original digitallysigned source document** as an attachment, preserving legal validity across the processing lifecycle.
+*   **Immutable Protection:** Automatic detection of digitally signed (PAdES) or marked PDFs. These documents are protected from destructive operations (splitting/stamping) within the UI.
+
+### 🛡️ Hybrid View & Logic
+*   **Match Analysis Viewer:** Advanced side-by-side view with **Visual Diff** (Red/Cyan highlights) for comparing native documents with scanned versions.
+*   **Synchronized Navigation:** Scale-aware master-slave scrolling and zoom, ensuring 1:1 visual comparison even between mixed-format documents.
 *   **Metadata Editor:** A powerful editor to verify and correct AI results with real-time feedback.
 *   **SANE Integration:** Direct control of scanners under Linux.
 

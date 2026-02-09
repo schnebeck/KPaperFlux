@@ -1,7 +1,7 @@
 # KPaperFlux: Strategic Evaluation & Reporting Concept
 
-**Date:** 2026-02-06
-**Status:** Post-Clean-up & Plugin-System-Design (Phase Transition)
+**Date:** 2026-02-09
+**Status:** Hybrid PDF Workflow Complete & Validated (Phase Transition)
 
 ## 1. Status Quo: The Modernized Foundation
 
@@ -82,6 +82,48 @@ A "Watchdog" module assesses data health (Anomaly Detection).
 ### Phase 4: Quality & Smart Exports
 *   **Anomaly Checker:** Machine Learning based warning on unusual price or IBAN deviations.
 *   **Smart Folder Export:** Automatic physical sorting on HDD based on finalized workflow results.
+
+---
+
+## 5. Specialized PDF Integrity & Hybrid Strategy
+
+KPaperFlux treats "Digital Originals" (signed, XML-enriched) and "Scanned Copies" as non-equal entities that must be fused into a **Hybrid Truth** for maximum utility.
+
+### A. The "Chain of Trust" Forensic Model
+A central challenge is the loss of legal validity when a signed PDF is printed and scanned. KPaperFlux solves this via **Forensic Embedding**:
+*   **The Original**: If a document is digitally signed (PAdES) or contains structured data (ZUGFeRD XML), it is treated as a "Sacred Source".
+*   **The Hybrid**: During the matching process, the system extracts only the dynamic "Ink" (signatures, stamps) from the scan.
+*   **Internal Linkage**: The resulting Hybrid PDF (which is visually perfect and searchable) automatically **embeds the original signed PDF as an attachment**. 
+*   **Benefit**: A single file contains the "Human View" (Scan-Ink) and the "Legal View" (Digital Signature) simultaneously.
+
+### B. Immutability & Protection Layer
+Once a document is processed into a Hybrid or identified as a Signed Original, it receives the `kpaperflux_immutable` protection level.
+1.  **Metadata Flagging**: Detection via standard PDF keywords ensures compatibility.
+2.  **UI Locking**: The system proactively prevents destructive operations (Splitting, Page Deletion, Physical Stamping) on these documents.
+3.  **Workflow Routing**: Immutable documents bypass the Splitter ("Stage 0") and move directly to Semantic Analysis, as their page structure is considered final.
+
+### C. Multi-Standard Support
+The architecture is designed to handle the convergence of different PDF standards:
+*   **ZUGFeRD/Factur-X**: High-fidelity extraction of embedded XML data.
+*   **PAdES (Electronic Signatures)**: Identification and forensic preservation across the whole lifecycle.
+*   **Hybrid PDF (V3)**: Optimized overlay strategy (~150KB) to keep the repository lean while maintaining vector-level text-quality.
+
+### D. Bridging the Gap: Native Specialist Support (Action Items)
+While the `HybridEngine` and `Foreground Detection` are complete, the native support for direct imports of Signed/ZUGFeRD PDFs requires three final integration steps:
+
+1.  **Pipeline "Stage 0.5" (The Fingerprint):**
+    *   **Integration**: Modify `PreFlightImporter` to not only check for immutability but also run the `ZugferdExtractor`.
+    *   **Data Injection**: If valid XML is found, inject this data directly into the `SemanticExtraction` model *before* the AI is involved. This ensures 100% accuracy and massive token savings.
+
+2.  **UI - Integrity Status Bar:**
+    *   **Dashboarding in the Viewer**: Add a slim status bar (or top-overlay) to `PdfViewerWidget` with interactive icons:
+        *   🛡️ **Signature Shield**: Verified Digital Signature status (Link to verification details).
+        *   ⚙️ **Data Gear**: Presence of ZUGFeRD / EN 16931 structured data.
+        *   📎 **Forensic Clip**: Indicator for embedded attachments (Original Source, XML).
+    *   **Actionability**: Clicking the clips allows the user to "Retrieve/Save-As" the embedded original.
+
+3.  **The "Audited by AI" Flow:**
+    *   Instead of "Analyzing" a ZUGFeRD-PDF from scratch, the AI should switch to an **Audit Mode**. It simply verifies if the visual text on the PDF matches the extracted XML data, reporting any discrepancies as "Red Flags".
 
 ---
 

@@ -15,7 +15,6 @@ def test_requirements_available():
         packages = f.readlines()
 
     # Mapping of pip package names to import names
-    # Add common mismatches here
     mapping = {
         "PyQt6": "PyQt6",
         "pytest": "pytest",
@@ -29,7 +28,7 @@ def test_requirements_available():
         "Pillow": "PIL",
         "reportlab": "reportlab",
         "python-sane": "sane",
-        "qrcode": "qrcode",
+        "qrcode[pil]": "qrcode",
         "opencv-python-headless": "cv2",
         "numpy": "numpy"
     }
@@ -43,7 +42,11 @@ def test_requirements_available():
         # Strip versions/extras
         pkg_name = line.split(">")[0].split("=")[0].split("[")[0].strip()
         
-        import_name = mapping.get(pkg_name, pkg_name)
+        # Special case for qrcode[pil] -> we check 'qrcode'
+        if "qrcode" in line:
+            import_name = "qrcode"
+        else:
+            import_name = mapping.get(pkg_name, pkg_name)
         
         try:
             importlib.import_module(import_name)

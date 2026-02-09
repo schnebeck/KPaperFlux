@@ -290,16 +290,19 @@ class PdfCanvas(QScrollArea):
         canvas_pos = self.mapFromGlobal(self.display_label.mapToGlobal(widget_pos))
         self.toast.show_message("Copied!", canvas_pos)
 
-    def set_document(self, fitz_doc: fitz.Document) -> None:
+    def set_document(self, fitz_doc: Optional[fitz.Document]) -> None:
         """
         Loads a new PDF document into the canvas.
         
         Args:
-            fitz_doc: The fitz Document object to load.
+            fitz_doc: The fitz Document object to load or None to clear.
         """
         self.doc = fitz_doc
         self.current_page_idx = 0
-        self.render_current_page()
+        if self.doc:
+            self.render_current_page()
+        else:
+            self.display_label.setPixmap(QPixmap())
 
     def jump_to_page(self, index: int, block_signals: bool = False) -> None:
         """
@@ -1180,6 +1183,21 @@ class PdfViewerWidget(QWidget):
             self.set_fit_mode(False)
         step = 0.01 if (self.is_slave and self.sync_active) else 0.1
         self.canvas.set_zoom(max(0.1, self.canvas.zoom_factor - step))
+
+    def clear(self) -> None:
+        """Closes the current document and clears the display."""
+        self.current_uuid = None
+        self.canvas.set_document(None)
+        self.update_ui_state(0)
+        self.edit_zoom.setText("100%")
+        self.btn_fit.setChecked(True)
+        self.btn_rotate.setVisible(False)
+        self.btn_del.setVisible(False)
+
+    def set_highlight_text(self, text: str) -> None:
+        """Triggers text search and highlighting on the current page."""
+        # TODO: Implement text search highlighting in PdfCanvas
+        pass
 
     def update_zoom_label(self, factor: float) -> None:
         """Updates the zoom percentage label."""
