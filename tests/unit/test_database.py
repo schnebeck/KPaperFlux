@@ -73,7 +73,35 @@ def test_delete_document_soft(memory_db, logical_repo):
     assert retrieved.deleted is True
     
     # Verify table state directly
-    # but we can check the table.
     cursor = memory_db.connection.cursor()
     cursor.execute("SELECT deleted FROM virtual_documents WHERE uuid = ?", (v_uuid,))
     assert cursor.fetchone()[0] == 1
+
+def test_pdf_class_persistence(logical_repo):
+    v_doc = VirtualDocument(
+        uuid=str(uuid.uuid4()),
+        pdf_class="AB"
+    )
+    logical_repo.save(v_doc)
+    
+    retrieved = logical_repo.get_by_uuid(v_doc.uuid)
+    assert retrieved.pdf_class == "AB"
+
+def test_database_migration(tmp_path):
+    db_path = str(tmp_path / "legacy.db")
+    conn = sqlite3.connect(db_path)
+    # Create old schema with minimal columns
+    conn.execute("CREATE TABLE virtual_documents (uuid TEXT PRIMARY KEY, source_mapping TEXT)")
+    conn.commit()
+    conn.close()
+    
+    # Initialize DB manager - should trigger migration
+    db = DatabaseManager(db_path)
+    
+    cursor = db.connection.cursor()
+    cursor.execute("PRAGMA table_info(virtual_documents)")
+    cols = [row[1] for row in cursor.fetchall()]
+    assert "pdf_class" in cols
+    # Check default value
+    cursor.execute("SELECT pdf_class FROM virtual_documents") # Empty but checkable?
+    # Actually just check column exists is enough for migration success

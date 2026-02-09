@@ -275,6 +275,22 @@ class CanonizerService:
                 self.logical_repo.save(v_doc)
                 return False
 
+            # Protection override: Locked documents (Class A/B) cannot be split by AI
+            if getattr(v_doc, 'is_immutable', False):
+                print(f"[Canonizer] Document {v_doc.uuid} is PROTECTED. Forcing 1:1 mapping.")
+                # We use the classification from AI if available
+                if struct_res.get("detected_entities"):
+                    ent = struct_res["detected_entities"][0]
+                    ent["page_indices"] = list(range(1, len(pages_text) + 1))
+                    struct_res["detected_entities"] = [ent]
+                else:
+                    # Fallback if AI found nothing but document is protected
+                    struct_res["detected_entities"] = [{
+                        "type_tags": v_doc.type_tags or ["OTHER"],
+                        "page_indices": list(range(1, len(pages_text) + 1)),
+                        "confidence": 1.0
+                    }]
+
             detected_entities = struct_res.get("detected_entities", [])
             is_hybrid = struct_res.get("source_file_summary", {}).get("is_hybrid_document", False)
 

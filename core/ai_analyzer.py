@@ -1173,17 +1173,60 @@ Use the following standardized terminology for extraction:
   - BT-110 (Tax Total) -> "tax_total_amount"
   - BT-112 (Grand Total) -> "grand_total_amount"
   - BT-115 (Payable) -> "due_payable_amount"
+
+### 📜 LEGAL & CERTIFICATE DIRECTIVES
+If extracting into "legal_body":
+- **document_title:** The exact title (e.g., "Certificate of Compliance", "RoHS Statement").
+- **certificate_id:** Any unique serial or reference number of the document.
+- **issuer:** The authority or organization that issued the document.
+- **subject_reference:** The part number, batch, or item the certificate refers to.
+- **statements:** A list of the actual core declarations (e.g., ["Item is RoHS compliant", "Free of hazardous substances"]).
+- **compliance_standards:** Relevant norms (e.g., ["ISO 9001", "REACH", "CE"]).
 """
         
+        # 3. Prune Schema based on Target Type
         import json
-        schema_json = json.dumps(schema_dict, indent=2)
+        from core.models.semantic import FinanceBody, LegalBody
         
-        if include_repair:
-            # Note: We still want the AI to fix the text
-            schema_json_dict = json.loads(schema_json)
-            schema_json_dict["repaired_text"] = "The complete document text with errors fixed."
-            schema_json = json.dumps(schema_json_dict, indent=2)
+        # Determine target body
+        TYPE_TO_BODY = {
+            "INVOICE": "finance_body", "CREDIT_NOTE": "finance_body", "RECEIPT": "finance_body",
+            "DUNNING": "finance_body", "UTILITY_BILL": "finance_body", "ORDER": "finance_body",
+            "QUOTE": "finance_body", "ORDER_CONFIRMATION": "finance_body",
+            "BANK_STATEMENT": "finance_body", "TAX_ASSESSMENT": "finance_body",
+            "EXPENSE_REPORT": "finance_body", "PAYSLIP": "finance_body",
+            "CONTRACT": "legal_body", "INSURANCE_POLICY": "legal_body",
+            "OFFICIAL_LETTER": "legal_body", "LEGAL_CORRESPONDENCE": "legal_body",
+            "CERTIFICATE": "legal_body"
+        }
+        target_body_key = TYPE_TO_BODY.get(entity_type.upper(), "other_body")
+        
+        # Map body key to actual Pydantic model for schema injection
+        BODY_MODELS = {
+            "finance_body": FinanceBody,
+            "legal_body": LegalBody
+        }
+        target_model = BODY_MODELS.get(target_body_key)
+        
+        # Prune 'bodies' and inject specialized schema
+        if "properties" in schema_dict and "bodies" in schema_dict["properties"]:
+            # SemanticExtraction.bodies is a generic Dict[str, Any]. 
+            # We must inject the specific model schema so the AI knows the fields.
+            if target_model:
+                target_body_schema = target_model.model_json_schema()
+                clean_schema(target_body_schema)
+                # Inject as the ONLY property in 'bodies'
+                schema_dict["properties"]["bodies"]["properties"] = {
+                    target_body_key: target_body_schema
+                }
+            else:
+                # Fallback: empty properties
+                schema_dict["properties"]["bodies"]["properties"] = {}
 
+        if include_repair:
+            schema_dict["repaired_text"] = "The complete document text with errors fixed."
+            
+        schema_json = json.dumps(schema_dict, indent=2)
         return f"{schema_json}\n{zugferd_guide}"
 
     def assemble_best_text_source(self, raw_ocr_pages: List[str], stage_1_5_result: Dict) -> str:
@@ -1326,9 +1369,9 @@ These data points have ALREADY been processed and mapped to the system.
   2. **Ignore Stamp Noise:** These anchors are already handled. Strictly ignore their text content and do NOT include or reference them in your JSON response.
   3. **Visual Supremacy:** If Raw OCR and Image conflict, the Image and your Logic are the source of truth. Correct OCR errors in your output JSON.
   4. **Target Specificity & Compliance:** 
-     - Focus PRIMARILY on extracting fields relevant to `{entity_type}`. 
-     - **MANDATORY:** You MUST provide the specific body key defined in the schema (e.g. `finance_body` for Invoices, `career_body` for Certificates). 
-     - If the document is hybrid and contains other data, you may fill multiple body keys.
+     - **MISSION:** Extract ONLY fields relevant to the target type `{entity_type}`. 
+     - **MANDATORY:** You MUST provide the specific body key defined in the schema.
+     - **EXCLUSIVITY:** Do NOT populate other body sections (e.g., do not provide `finance_body` if the target is `CERTIFICATE`). This pass is a specialized extraction.
      - **BEWARE:** Do NOT return generic data under a wrong key. Ensure the category names match the TARGET SCHEMA exactly.
   5. **Strict Omission:** Do NOT return keys with null or empty values. Omit them entirely from the JSON.
   6. **Strict Flattening:** Never create nested sub-objects (like `address` or `contact`) unless they are explicitly defined in the PROVIDED SCHEMA. Follow the provided schema key-for-key.
@@ -1398,7 +1441,7 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                 extraction = None
                 
                 while s2_attempt <= max_s2_retries:
-                    extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {entity_type} (Attempt {s2_attempt+1})", images=images_payload)
+                    extraction = self._generate_json(prompt, stage_label=f"STAGE 2: {entity_type} (Cycle {s2_attempt+1} of {max_s2_retries+1})", images=images_payload)
                     if not extraction:
                         print(f"[AI] STAGE 2: {entity_type} -> FAILED (JSON Error or Truncation)")
                         return None
@@ -1406,6 +1449,7 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                     # Perform Validation
                     s2_errors = self.validate_semantic_extraction(extraction, entity_type)
                     if not s2_errors:
+                        print(f"[AI] STAGE 2: {entity_type} -> Validation SUCCESSFUL.")
                         break
                     
                     s2_attempt += 1
@@ -1413,25 +1457,62 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                         error_msg = "\n".join(f"- {e}" for e in s2_errors)
                         print(f"[AI] STAGE 2: Validation Failed (Attempt {s2_attempt}). ERRORS:\n{error_msg}")
                         
-                        # Scold the AI in the next prompt
-                        prompt += f"\n\n### ⚠️ CRITICAL SCHEMA VIOLATION ⚠️\nYour previous JSON response was INVALID and REJECTED by the system validator.\n\nERRORS DETECTED:\n{error_msg}\n\nCORRECTION INSTRUCTIONS:\n- Strictly follow the JSON schema provided in section 5.\n- DO NOT create nested 'address', 'contact', or 'identifiers' objects.\n- Flatten all data as defined in the schema (e.g., use 'sender.city', NOT 'sender.address.city').\n- Provide a CORRECTED, FULL JSON response now."
+                        # Scold the AI in the next prompt (Pedantic Role)
+                        # We also inject the faulty JSON so the AI knows what to fix
+                        faulty_json_str = json.dumps(extraction, indent=2, ensure_ascii=False)
+                        prompt += f"""
+### ⚠️ SYSTEM VALIDATOR REJECTION (Role: Pedantic JSON Corrector) ⚠️
+You are now acting as a pedantic JSON structure and syntax corrector. 
+Your SOLE MISSION is to repair the previous faulty JSON response by following the error reports below. 
+
+### YOUR FAULTY JSON RESPONSE:
+```json
+{faulty_json_str}
+```
+
+### ERRORS DETECTED:
+{error_msg}
+
+### MANDATORY REPAIR RULES:
+1. Implement every ACTION specified in the error list.
+2. Use the "FAULTY JSON" as your starting point and apply the fixes.
+3. Strictly follow the JSON schema provided in section 5.
+4. DO NOT create nested 'address', 'contact', or 'identifiers' objects.
+5. Provide the FULL, CORRECTED JSON response now.
+
+Refusal to comply will result in an immediate resubmission of this task!
+"""
                     else:
                         print(f"[AI] STAGE 2: {entity_type} -> GIVING UP after {s2_attempt} failed validation attempts.")
 
                 if extraction:
                     found_keys = []
-                    # 1. Standard Merge: AI might return bodies as top-level keys or inside 'bodies'
-                    source_bodies = extraction.get("bodies", {}) if isinstance(extraction.get("bodies"), dict) else {}
+                    # 1. Specialist Merge: ONLY merge the body relevant to the current entity_type
+                    TYPE_TO_BODY = {
+                        "INVOICE": "finance_body", "CREDIT_NOTE": "finance_body", "RECEIPT": "finance_body",
+                        "DUNNING": "finance_body", "UTILITY_BILL": "finance_body", "ORDER": "finance_body",
+                        "QUOTE": "finance_body", "ORDER_CONFIRMATION": "finance_body",
+                        "BANK_STATEMENT": "finance_body", "TAX_ASSESSMENT": "finance_body",
+                        "EXPENSE_REPORT": "finance_body", "PAYSLIP": "finance_body",
+                        "CONTRACT": "legal_body", "INSURANCE_POLICY": "legal_body",
+                        "OFFICIAL_LETTER": "legal_body", "LEGAL_CORRESPONDENCE": "legal_body",
+                        "CERTIFICATE": "legal_body"
+                    }
+                    target_body_key = TYPE_TO_BODY.get(entity_type.upper(), "other_body")
                     
-                    # Also consider top-level keys as potential bodies
+                    source_bodies = extraction.get("bodies", {}) if isinstance(extraction.get("bodies"), dict) else {}
+                    # Also consider top-level keys as potential bodies (AI occasionally halls these to root)
                     for key, value in extraction.items():
                         if key.endswith("_body") or key in ["internal_routing", "verification", "travel_body"]:
                             source_bodies[key] = value
                     
-                    # Apply to final result
+                    # Apply ONLY relevant body to final result
                     for key, value in source_bodies.items():
-                        final_semantic_data["bodies"][key] = value
-                        found_keys.append(key)
+                        if key == target_body_key:
+                            final_semantic_data["bodies"][key] = value
+                            found_keys.append(key)
+                        else:
+                            print(f"[AI] Stage 2 -> Pruning non-target body from current pass: {key} (Current Target: {entity_type} -> {target_body_key})")
                     
                     if not found_keys:
                          print(f"[AI] STAGE 2: {entity_type} -> Success (But NO body-data found!)")
@@ -1512,17 +1593,77 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                         errors.append(f"STRICTNESS_ERROR: Nested object '{party_key} -> {forbidden}' is NOT allowed. You must flatten all fields (street, city, zip_code, phone, etc.) directly into the '{party_key}' object.")
 
         # -- 2. Schema Validation (Pydantic V2) --
+        # Helper to get value from deep path
+        def get_value_at_path(obj: Any, loc: tuple) -> Any:
+            curr = obj
+            for p in loc:
+                if isinstance(curr, dict) and p in curr:
+                    curr = curr[p]
+                elif isinstance(curr, list) and isinstance(p, int) and p < len(curr):
+                    curr = curr[p]
+                else:
+                    return None
+            return curr
+
+        # Helper to find similar keys in a dict (greedy AI names)
+        def find_hallucinated_keys(obj: Any, target_key: str) -> List[str]:
+            if not isinstance(obj, dict): return []
+            from difflib import get_close_matches
+            matches = get_close_matches(target_key, obj.keys(), n=3, cutoff=0.5)
+            # Exclude the exact match if it exists (otherwise we suggest renaming X to X)
+            return [m for m in matches if m != target_key]
+
+        # 2a. Root Validation
         try:
-            # Note: Our model has 'mode="before"' validators that fix some things, 
-            # but 'extra="forbid"' will still catch truly unknown fields.
             SemanticExtraction.model_validate(extraction)
         except ValidationError as e:
             for error in e.errors():
-                loc = " -> ".join([str(x) for x in error["loc"]])
+                loc_tuple = error["loc"]
+                loc_str = " -> ".join([str(x) for x in loc_tuple])
                 msg = error["msg"]
-                errors.append(f"REASONING_ERROR: Field '{loc}': {msg}. Please strictly follow the provided JSON schema without nesting.")
-        except Exception as e:
-            errors.append(f"CRITICAL_VALIDATION_ERROR: {str(e)}")
+                typ = error["type"]
+                
+                # Intelligent Context Retrieval
+                parent_val = get_value_at_path(extraction, loc_tuple[:-1])
+                target_key = str(loc_tuple[-1])
+                
+                if typ == "missing":
+                    # Check if the AI used a wrong name for a required field
+                    similar = find_hallucinated_keys(parent_val, target_key)
+                    if similar:
+                        errors.append(f"MAPPING_ERROR [{loc_str}]: Field '{target_key}' is missing, but I found similar keys: {similar}. ACTION: Rename one of these to '{target_key}'.")
+                    else:
+                        errors.append(f"MISSING_FIELD [{loc_str}]: This field is mandatory. ACTION: Locate the value in the document and add it to the JSON.")
+                else:
+                    current_val = get_value_at_path(extraction, loc_tuple)
+                    errors.append(f"VALUE_ERROR [{loc_str}]: {msg}. You provided: {current_val}. ACTION: Provide a valid value of type {error.get('input_type', 'expected type')}.")
+
+        # 2b. Deep Body Validation
+        from core.models.semantic import FinanceBody, LegalBody
+        bodies = extraction.get("bodies", {})
+        if isinstance(bodies, dict):
+            body_map = {"finance_body": FinanceBody, "legal_body": LegalBody}
+            for b_key, b_model in body_map.items():
+                b_data = bodies.get(b_key)
+                if isinstance(b_data, dict):
+                    try:
+                        b_model.model_validate(b_data)
+                    except ValidationError as ve:
+                        for error in ve.errors():
+                            loc_tuple = error["loc"]
+                            loc_str = f"bodies -> {b_key} -> " + " -> ".join([str(x) for x in loc_tuple])
+                            target_key = str(loc_tuple[-1])
+                            parent_val = get_value_at_path(b_data, loc_tuple[:-1])
+                            
+                            if error["type"] == "missing":
+                                similar = find_hallucinated_keys(parent_val, target_key)
+                                if similar:
+                                    errors.append(f"BODY_MAPPING_ERROR [{loc_str}]: Field '{target_key}' is missing in {b_key}, but I found {similar}. ACTION: Rename '{similar[0]}' to '{target_key}'.")
+                                else:
+                                    errors.append(f"BODY_MISSING [{loc_str}]: Mandatory field '{target_key}' is missing. ACTION: Verify the document and populate this field.")
+                            else:
+                                val = get_value_at_path(b_data, loc_tuple)
+                                errors.append(f"BODY_VALUE_ERROR [{loc_str}]: {error['msg']}. You provided: {val}. ACTION: Correct the format.")
 
         # -- 3. Manual Logic Checks (Specific to Business Logic) --
         meta = extraction.get("meta_header", {})
@@ -1549,39 +1690,71 @@ Correct all OCR errors, restore broken words, and use `=== PAGE X ===` separator
                 # Clean and check
                 clean_iban = "".join(iban.split()).upper()
                 if not validate_iban(clean_iban):
-                    errors.append(f"INVALID_IBAN: The identified IBAN '{iban}' has an invalid checksum. Please re-read carefully.")
-            else:
-                 # Optional: missing IBAN is not an error if not present on doc, 
-                 # but for INVOICE it's a high signal. We might just note it.
-                 pass
+                    errors.append(f"INVALID_IBAN: The identified IBAN '{iban}' has an invalid checksum. ACTION: Re-read the IBAN carefully from the document footer.")
 
         # 2. Critical Fields per Type
         if entity_type.upper() == "INVOICE":
             # Strict lookup: following the Pydantic schema (nested in 'bodies')
-            bodies = extraction.get("bodies")
-            if not isinstance(bodies, dict):
-                errors.append("SCHEMA_ERROR: The 'bodies' object is missing. All technical data (finance_body, etc.) MUST be inside the 'bodies' key.")
-                bodies = {}
-
+            bodies = extraction.get("bodies", {})
             body = bodies.get("finance_body", {})
-            if not body:
-                 # Check if the AI hallucinated the body at the root
-                 if "finance_body" in extraction:
-                     errors.append("STRICTNESS_ERROR: 'finance_body' found at root. It MUST be nested inside the 'bodies' object.")
-                 else:
-                     errors.append("MISSING_BODY: No 'finance_body' found inside 'bodies' for this Invoice.")
             
-            ms = body.get("monetary_summation", {})
-            total = ms.get("grand_total_amount")
+            # Helper to check for a value by its name or common ZUGFeRD alias
+            def get_aliased(d, primary, alias):
+                if not isinstance(d, dict): return None
+                val = d.get(primary, d.get(alias))
+                if val is None or val == "": return None
+                try: return Decimal(str(val))
+                except: return None
+
+            # Handle recursive "monetary_summation" check (with ZUGFeRD block alias)
+            ms = body.get("monetary_summation", body.get("SpecifiedTradeSettlementMonetarySummation", {}))
+            if not isinstance(ms, dict): ms = {}
             
-            # Error ONLY if total is completely missing or null
-            if total is None:
-                errors.append("MISSING_TOTAL: The 'monetary_summation.grand_total_amount' (BT-112) is missing or null. If the document has no total, explicitly set it to 0.")
+            # --- MATH CHECK 1: Total Summation Consistency ---
+            line_total = get_aliased(ms, "line_total_amount", "BT-106")
+            net_total = get_aliased(ms, "tax_basis_total_amount", "BT-109")
+            tax_total = get_aliased(ms, "tax_total_amount", "BT-110")
+            grand_total = get_aliased(ms, "grand_total_amount", "BT-112")
             
-            # Date check (strictly in meta_header or finance_body)
-            doc_date = meta.get("doc_date") or body.get("invoice_date")
-            if not doc_date:
-                errors.append("MISSING_DATE: The document date (BT-2) is missing in both 'meta_header' and 'finance_body'.")
+            if grand_total is None:
+                errors.append("MISSING_TOTAL: The 'monetary_summation -> grand_total_amount' (BT-112) is missing or 0. ACTION: Locate the Gross/Total amount and add it correctly.")
+            elif net_total is not None and tax_total is not None:
+                expected_gross = (net_total + tax_total).quantize(Decimal("0.01"))
+                if abs(expected_gross - grand_total) > Decimal("0.05"):
+                    errors.append(f"CALCULATION_ERROR [MonetarySummation]: Your math does not add up. Net ({net_total}) + Tax ({tax_total}) should be {expected_gross}, but you provided {grand_total} (BT-112). ACTION: Re-calculate and ensure fields BT-109, BT-110 and BT-112 are consistent.")
+
+            # --- MATH CHECK 2: Line Item Consistency ---
+            items = body.get("line_items", body.get("IncludedSupplyChainTradeLineItem", []))
+            calc_line_total = Decimal("0.00")
+            if isinstance(items, list):
+                for i, item in enumerate(items):
+                    qty = get_aliased(item, "quantity", "BT-129")
+                    u_price = get_aliased(item, "unit_price", "BT-146")
+                    t_price = get_aliased(item, "total_price", "BT-131")
+                    
+                    if qty is not None and u_price is not None and t_price is not None:
+                        expected_item_total = (qty * u_price).quantize(Decimal("0.01"))
+                        calc_line_total += t_price
+                        # Note: We allow slight deviation because of potential discounts not modeled in fields
+                        if abs(expected_item_total - t_price) > Decimal("0.05"):
+                            errors.append(f"LINE_ITEM_MATH_ERROR [Item {i}]: Quantity ({qty}) * UnitPrice ({u_price}) should be {expected_item_total}, but you provided {t_price} (BT-131). ACTION: If there is a discount, reflect it in the UnitPrice or ensure the math matches BT-131.")
+                
+                # Cross-check sum of items with line_total_amount (BT-106)
+                if line_total is not None and abs(calc_line_total - line_total) > Decimal("0.05"):
+                    errors.append(f"SUMMATION_ERROR [monetary_summation]: The sum of all line items is {calc_line_total}, but 'line_total_amount' (BT-106) says {line_total}. ACTION: Ensure all line items are captured and their sum matches BT-106.")
+
+            # --- MATH CHECK 3: Tax Breakdown Consistency ---
+            tax_rows = body.get("tax_breakdown", body.get("ApplicableTradeTax", []))
+            if isinstance(tax_rows, list):
+                for i, row in enumerate(tax_rows):
+                    t_basis = get_aliased(row, "tax_basis_amount", "BT-116")
+                    t_amt = get_aliased(row, "tax_amount", "BT-117")
+                    t_rate = get_aliased(row, "tax_rate", "BT-119")
+                    
+                    if t_basis is not None and t_amt is not None and t_rate is not None:
+                        expected_amt = (t_basis * t_rate / 100).quantize(Decimal("0.01"))
+                        if abs(expected_amt - t_amt) > Decimal("0.05"):
+                            errors.append(f"TAX_LOGIC_ERROR [ApplicableTradeTax -> {i}]: Inconsistent values. Basis ({t_basis}) * Rate ({t_rate}%) must be {expected_amt}, but you provided {t_amt} (BT-117). ACTION: Ensure BT-116=Basis, BT-117=Amount, BT-119=Rate.")
 
         return errors
 

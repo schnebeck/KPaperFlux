@@ -72,9 +72,9 @@ class LogicalRepository(BaseRepository):
             last_used, last_processed_at, is_immutable, thumbnail_path, 
             cached_full_text, semantic_data, created_at, deleted, 
             deleted_at, locked_at, exported_at,
-            page_count_virt, type_tags, tags
+            page_count_virt, type_tags, tags, pdf_class
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT(uuid) DO UPDATE SET
             source_mapping=excluded.source_mapping,
@@ -93,7 +93,8 @@ class LogicalRepository(BaseRepository):
             exported_at=excluded.exported_at,
             page_count_virt=excluded.page_count_virt,
             type_tags=excluded.type_tags,
-            tags=excluded.tags
+            tags=excluded.tags,
+            pdf_class=excluded.pdf_class
         """
 
         values = (
@@ -115,6 +116,7 @@ class LogicalRepository(BaseRepository):
             total_pages,
             type_tags_json,
             tags_json,
+            doc.pdf_class,
         )
 
         try:
@@ -140,7 +142,7 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            tags, deleted_at, locked_at, exported_at
+            tags, deleted_at, locked_at, exported_at, pdf_class
         FROM virtual_documents
         WHERE uuid = ?
         """
@@ -168,7 +170,7 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            tags, deleted_at, locked_at, exported_at
+            tags, deleted_at, locked_at, exported_at, pdf_class
         FROM virtual_documents
         WHERE source_mapping LIKE ?
         """
@@ -211,7 +213,7 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            tags, deleted_at, locked_at, exported_at
+            tags, deleted_at, locked_at, exported_at, pdf_class
         FROM virtual_documents
         """
         if not include_deleted:

@@ -1173,10 +1173,19 @@ class DocumentListWidget(QWidget):
                 data_date_str = "-"
 
 
+            filename_display = filename
+            p_class = getattr(doc, "pdf_class", "C")
+            if p_class in ["A", "AB"]:
+                filename_display = f"🛡️ {filename}"
+            elif p_class == "B":
+                filename_display = f"⚙️ {filename}"
+            elif p_class == "H":
+                filename_display = f"📦 {filename}"
+
             col_data = [
                 "",                 # 0: #
                 doc.uuid,           # 1: Entity ID
-                filename,           # 2: Filename
+                filename_display,   # 2: Filename
                 pages_str,          # 3: Pages
                 import_str,         # 4: Imported Date
                 used_str,           # 5: Used Date
@@ -1229,6 +1238,16 @@ class DocumentListWidget(QWidget):
             item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_processed_at or ""))
             item.setData(9, Qt.ItemDataRole.UserRole, str(doc.exported_at or ""))
             item.setData(10, Qt.ItemDataRole.UserRole, doc.status)
+            item.setData(2, Qt.ItemDataRole.UserRole, p_class) # For sorting/filtering
+
+            if p_class != "C":
+                tips = {
+                    "A": self.tr("Digital Original (Signed)"),
+                    "B": self.tr("Digital Original (ZUGFeRD/Factur-X)"),
+                    "AB": self.tr("Digital Original (Signed & ZUGFeRD)"),
+                    "H": self.tr("Hybrid Container (KPaperFlux Protected)")
+                }
+                item.setToolTip(2, tips.get(p_class, ""))
 
             if combined_types:
                 item.setToolTip(11, "\n".join(self.format_tag(t) for t in combined_types if t))

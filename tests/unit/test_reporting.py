@@ -2,7 +2,7 @@ import pytest
 from decimal import Decimal
 from datetime import datetime
 from core.models.virtual import VirtualDocument
-from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, MonetarySummation
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, MonetarySummation, TaxBreakdownRow
 
 # We will implement ReportGenerator and FinancialModule
 # For now, we define the requirement via tests
@@ -106,7 +106,7 @@ def test_tax_aggregation():
             bodies={
                 "finance_body": FinanceBody(
                     monetary_summation=MonetarySummation(grand_total_amount=Decimal("119.00")),
-                    tax_details={"19%": Decimal("19.00")}
+                    tax_breakdown=[TaxBreakdownRow(tax_basis_amount=Decimal("100.00"), tax_rate=Decimal("19.00"), tax_amount=Decimal("19.00"))]
                 )
             }
         )
@@ -116,7 +116,7 @@ def test_tax_aggregation():
             bodies={
                 "finance_body": FinanceBody(
                     monetary_summation=MonetarySummation(grand_total_amount=Decimal("107.00")),
-                    tax_details={"7%": Decimal("7.00")}
+                    tax_breakdown=[TaxBreakdownRow(tax_basis_amount=Decimal("100.00"), tax_rate=Decimal("7.00"), tax_amount=Decimal("7.00"))]
                 )
             }
         )
@@ -126,7 +126,7 @@ def test_tax_aggregation():
             bodies={
                 "finance_body": FinanceBody(
                     monetary_summation=MonetarySummation(grand_total_amount=Decimal("59.50")),
-                    tax_details={"19%": Decimal("9.50")}
+                    tax_breakdown=[TaxBreakdownRow(tax_basis_amount=Decimal("50.00"), tax_rate=Decimal("19.00"), tax_amount=Decimal("9.50"))]
                 )
             }
         )

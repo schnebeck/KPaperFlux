@@ -18,9 +18,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pikepdf
+import tempfile
+import os
+import shutil
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from core.utils.forensics import get_pdf_class, PDFClass
+from core.utils.hybrid_handler import prepare_hybrid_container, restore_zugferd_xml
 
 
 class DocumentStamper:
@@ -40,15 +45,48 @@ class DocumentStamper:
     ) -> None:
         """
         Applies a text stamp to the first page of a PDF.
-
-        Args:
-            input_path: Path to the source PDF.
-            output_path: Path where the stamped PDF should be saved.
-            text: The text to stamp. Use 'DEBUG_RECT' for a placeholder rectangle.
-            position: Keyword for placement ('top-left', 'top-right', 'center', etc.).
-            color: RGB color tuple (0-255).
-            rotation: Rotation in degrees (clockwise).
+        Automatically handles Hybrid Protection for protected documents.
         """
+        p_class = get_pdf_class(input_path)
+        working_input = input_path
+        temp_envelope = None
+
+        try:
+            # Phase 1: Preparation for Protected Documents
+            if p_class in [PDFClass.SIGNED, PDFClass.SIGNED_ZUGFERD]:
+                print(f"[Stamper] Protected Document detected ({p_class.name}). Preparing Hybrid Envelope...")
+                fd, temp_envelope = tempfile.mkstemp(suffix=".pdf", prefix="hybrid_prep_")
+                os.close(fd)
+                if prepare_hybrid_container(input_path, temp_envelope):
+                    working_input = temp_envelope
+                else:
+                    print("[Stamper] Warning: Failed to create hybrid envelope. Proceeding with caution.")
+            
+            # Phase 2: Native Stamping
+            self._apply_native_stamp(working_input, output_path, text, position, color, rotation)
+            
+            # Phase 3: Post-Processing / Restoration
+            if p_class == PDFClass.ZUGFERD:
+                print("[Stamper] ZUGFeRD document detected. Restoring XML data...")
+                restore_zugferd_xml(input_path, output_path)
+                
+        finally:
+            # Cleanup
+            if temp_envelope and os.path.exists(temp_envelope):
+                try:
+                    os.remove(temp_envelope)
+                except: pass
+
+    def _apply_native_stamp(
+        self,
+        input_path: str,
+        output_path: str,
+        text: str,
+        position: str = "top-right",
+        color: Tuple[int, int, int] = (255, 0, 0),
+        rotation: int = 45
+    ) -> None:
+        """Internal method for the actual pikepdf stamping logic."""
         try:
             target_pdf = pikepdf.Pdf.open(input_path, allow_overwriting_input=True)
             if len(target_pdf.pages) == 0:

@@ -119,23 +119,26 @@ class SplitterDialog(QDialog):
         self.btn_cancel.setText(self.tr("Abort Import"))
         self.update_ui_state()
 
-    def load_for_batch_import(self, file_paths: list[str]) -> None:
-        """Mode: IMPORT (Batch). Load multiple files as one stream."""
+    def load_for_batch_import(self, file_info_list: list[dict]) -> None:
+        """
+        Mode: IMPORT (Batch). Load multiple files as one stream.
+        file_info_list: [{"path": str, "is_protected": bool, "pdf_class": str}, ...]
+        """
         self.mode = "IMPORT"
-        self.import_paths = file_paths
+        self.import_paths = [info["path"] for info in file_info_list]
         self.strip.import_mode = True
 
         total_pages = 0
-        for p in file_paths:
+        for info in file_info_list:
             try:
-                doc = fitz.open(p)
+                doc = fitz.open(info["path"])
                 total_pages += doc.page_count
                 doc.close()
             except: pass
 
-        count = len(file_paths)
+        count = len(file_info_list)
         self.setWindowTitle(self.tr(f"Import Assistant: Batch ({count} files)"))
-        self.strip.load_from_paths(file_paths)
+        self.strip.load_from_paths(file_info_list)
         self.adjust_size_to_content(total_pages)
         self.btn_cancel.setText(self.tr("Abort Import"))
         self.update_ui_state()
@@ -264,7 +267,9 @@ class SplitterDialog(QDialog):
                     "file_path": w.page_info.get("file_path") or w.page_info.get("raw_path"),
                     "file_uuid": w.page_info.get("file_uuid"),
                     "file_page_index": w._page_num - 1, # 0-based
-                    "rotation": w.current_rotation
+                    "rotation": w.current_rotation,
+                    "is_protected": getattr(w, 'is_protected', False),
+                    "pdf_class": getattr(w, 'pdf_class', "C")
                 }
                 current_pages.append(page_data)
 
@@ -272,11 +277,20 @@ class SplitterDialog(QDialog):
                 if not ignore_splits and w.is_active:
                     # End of current doc
                     if current_pages:
-                        instructions.append({"pages": current_pages})
+                        # If any page is protected, mark entire block as locked
+                        locked = any(p.get("is_protected") for p in current_pages)
+                        instructions.append({
+                            "pages": current_pages,
+                            "locked": locked
+                        })
                         current_pages = []
 
         # Flush last group
         if current_pages:
-            instructions.append({"pages": current_pages})
+            locked = any(p.get("is_protected") for p in current_pages)
+            instructions.append({
+                "pages": current_pages,
+                "locked": locked
+            })
 
         return instructions

@@ -337,13 +337,31 @@ class PageThumbnailWidget(QWidget):
         self.lbl_num.setStyleSheet("background: rgba(0,0,0,100); color: white; border-radius: 10px; font-weight: bold; padding: 2px 8px;")
         self.lbl_num.adjustSize()
 
+        self.is_protected = page_info.get("is_protected", False)
+        self.pdf_class = page_info.get("pdf_class", "C")
+
         self.controls = ControlsOverlay(
             self.img_container,
             callback_rotate=self.rotate_right,
             callback_delete=self.toggle_delete
         )
         self.controls.btn_move.installEventFilter(self)
-        self.controls.show()
+        
+        if self.is_protected:
+            self.controls.hide()
+            # Add protection icon
+            self.prot_icon = QLabel(self.img_container)
+            icon_char = "🛡️" if "A" in self.pdf_class else "⚙️"
+            self.prot_icon.setText(icon_char)
+            self.prot_icon.setStyleSheet("background: rgba(255,255,255,180); border-radius: 12px; font-size: 16px; padding: 2px;")
+            
+            tip = self.tr("Digital Original (Protected Signature)") if "A" in self.pdf_class else self.tr("Digital Original (ZUGFeRD Data)")
+            self.prot_icon.setToolTip(tip)
+            
+            self.prot_icon.adjustSize()
+            self.prot_icon.show()
+        else:
+            self.controls.show()
 
         self.last_drawn_height = 0
 
@@ -494,6 +512,11 @@ class PageThumbnailWidget(QWidget):
         n_h = self.lbl_num.height()
         self.lbl_num.move((self.width() - n_w) // 2, self.height() - n_h - 5)
 
+        # Protection Icon Bottom Right
+        if self.is_protected and hasattr(self, 'prot_icon'):
+            self.prot_icon.raise_()
+            self.prot_icon.move(self.width() - self.prot_icon.width() - 5, self.height() - self.prot_icon.height() - 5)
+
         if event: super().resizeEvent(event)
 
 class SplitterStripWidget(QWidget):
@@ -639,14 +662,26 @@ class SplitterStripWidget(QWidget):
         except Exception as e:
             print(f"Error loading raw file: {e}")
 
-    def load_from_paths(self, file_paths: list[str]) -> None:
-        """Load multiple raw files into a single continuous stream."""
+    def load_from_paths(self, file_info_list: list) -> None:
+        """
+        Load multiple raw files into a single continuous stream.
+        file_info_list: [{"path": str, ...}] or [path1, path2, ...]
+        """
         self.current_uuid = "BATCH_IMPORT"
         self.pipeline = None
         self._clear_layout()
 
         all_pages = []
-        for f_idx, path in enumerate(file_paths):
+        for f_idx, item in enumerate(file_info_list):
+            if isinstance(item, str):
+                path = item
+                is_prot = False
+                p_class = "C"
+            else:
+                path = item.get("path")
+                is_prot = item.get("is_protected", False)
+                p_class = item.get("pdf_class", "C")
+
             if not path or not os.path.exists(path): continue
             try:
                 doc = fitz.open(path)
@@ -655,11 +690,13 @@ class SplitterStripWidget(QWidget):
 
                 for p in range(count):
                     all_pages.append({
-                        "file_uuid": f"FILE_{f_idx}", # Internal reference
+                        "file_uuid": f"FILE_{f_idx}",
                         "file_path": path,
                         "page": p + 1,
                         "rotation": 0,
-                        "is_boundary": (p == 0 and f_idx > 0) # Mark first page of subsequent files
+                        "is_boundary": (p == 0 and f_idx > 0),
+                        "is_protected": is_prot,
+                        "pdf_class": p_class
                     })
             except Exception as e:
                 print(f"Error loading {path}: {e}")
@@ -669,11 +706,19 @@ class SplitterStripWidget(QWidget):
     def _populate_strip(self, flat_pages: list[dict]) -> None:
         """Create placeholders."""
         for i, pg_info in enumerate(flat_pages):
-            # 1. Automatic Split before boundary files
-            if pg_info.get("is_boundary"):
+            is_prot = pg_info.get("is_protected", False)
+
+            # 1. Automatic Split before boundary files OR protected files
+            if pg_info.get("is_boundary") or is_prot:
                 div = SplitDividerWidget(page_index_before=i-1)
-                div.is_boundary = True # Locked
-                div.set_active(True) # Default split at file boundaries
+                
+                # If either this page or the previous page is protected, lock the divider
+                was_prev_prot = flat_pages[i-1].get("is_protected", False) if i > 0 else False
+                
+                if pg_info.get("is_boundary") or is_prot or was_prev_prot:
+                    div.is_boundary = True # Locked
+                    div.set_active(True) # Force split
+                    
                 div.split_requested.connect(lambda idx=i-1, d=div: self.on_split_clicked(idx, d))
                 self.content_layout.addWidget(div)
 
@@ -683,14 +728,13 @@ class SplitterStripWidget(QWidget):
             thumb.delete_toggled.connect(lambda t=thumb: self.record_action("DELETE", t))
             thumb.selection_requested.connect(self.on_selection_requested)
             thumb.drag_started.connect(self.on_drag_started)
-            thumb.aspect_ratio_changed.connect(self._force_thumbnail_resize) # New: Link for instant width sync
+            thumb.aspect_ratio_changed.connect(self._force_thumbnail_resize)
             self.content_layout.addWidget(thumb)
 
             # 3. Intermediate Dividers (Manual Splits)
-            # Only if NOT a boundary (handled above) and NOT the very last page
             if i < len(flat_pages) - 1:
-                # Check if next page is a boundary
-                if not flat_pages[i+1].get("is_boundary"):
+                next_pg = flat_pages[i+1]
+                if not next_pg.get("is_boundary") and not next_pg.get("is_protected") and not is_prot:
                     div = SplitDividerWidget(page_index_before=i)
                     div.split_requested.connect(lambda idx=i, d=div: self.on_split_clicked(idx, d))
                     self.content_layout.addWidget(div)
@@ -784,6 +828,10 @@ class SplitterStripWidget(QWidget):
     def on_drag_started(self, widget):
         if widget not in self.selected_widgets:
             self.on_selection_requested(widget, Qt.KeyboardModifier.NoModifier)
+
+        # Protection Check: Cannot drag or reorder protected pages
+        if any(getattr(w, 'is_protected', False) for w in self.selected_widgets):
+             return
 
         # Check: Single Segment in Import Mode
         if self.import_mode and len(self.selected_widgets) > 1:

@@ -29,27 +29,31 @@ Designed specifically for **Power Users** and **Linux Enthusiasts** who demand m
 KPaperFlux employs a multi-stage, intelligent analysis pipeline to understand documents:
 *   **Stage 1 - "Pre-Flight":** Decides in milliseconds whether the input is a book, an invoice, or a stack of documents.
 *   **Stage 1.5 - Visual Auditor (X-Ray Mode):** A forensic module that visually separates stamps, notes, and signatures from the original text.
-    *   *Feature:* Detects handwritten "Paid" notes or accounting stamps and extracts their data separately.
-*   **Stage 2 - Semantic Extraction:** Extracts structured JSON data (Sender, Date, Line Items) using a schema compliant with EN 16931 / ZUGFeRD 2.2. Handles complex documents like DigiKey invoices with 50+ line items.
-*   **Electronic Invoicing (ZUGFeRD/Factur-X):** Deep integration for embedded XML data in PDF/A files. Automatically extracts invoice metadata, line items, and bank details without AI overhead.
+*   **Stage 2 - Semantic Extraction:** Extracts structured JSON data using a schema compliant with EN 16931 / ZUGFeRD 2.2.
+    *   *Mathematical Integrity:* Includes a "Pedantic Validator" that cross-checks net/tax/gross totals and line item sums to ensure 100% calculation accuracy.
+*   **Electronic Invoicing:** Deep integration for ZUGFeRD/Factur-X. Automatically extracts metadata, line items, and bank details (with automated IBAN/BIC normalization).
 
-*   **Financial Intelligence (GiroCode & Reports):**
-    *   *GiroCode (EPC-QR):* One-click generation of SEPA payment codes from extracted invoice data.
-    *   *Reporting Engine:* Monthly summaries, tax breakdowns, and Excel-optimized CSV exports (UTF-8 BOM, semicolon) for effortless bookkeeping.
+### 📄 Professional Document Rendering
+KPaperFlux can "re-materialize" extracted data into high-quality PDF documents:
+*   **Professional PDF Renderer:** Generates DIN 5008 compliant documents using ReportLab's Platypus framework.
+*   **Intelligent Layouting:**
+    *   *Dynamic Columns:* Automatically calculates column widths for line items based on content length—no more overlapping text with long item identifiers.
+    *   *Automatic Pagination:* Handles multi-page documents (like DigiKey or Mouser invoices) with repeating headers and proper footer placement.
+    *   *Template System:* Different layouts for the first page (address window/meta) and subsequent pages (maximizing data space).
+*   **Certificate & Legal Support:** Beyond invoices, the renderer now fully supports **Certificates**, **Statements**, and **Compliance Standards** (RoHS, REACH, ISO), rendering them into structured legal documents.
 
 ### 🤖 Automation & Process Control
 *   **Dynamic Workflows (Agents):** Define custom process logic via "Playbooks". Transition documents through states like `DRAFT` -> `TO_PAY` -> `ARCHIVED` based on AI evaluations or human verification.
 *   **Workflow Manager:** A full graphical editor to build and manage your own document agents.
 
 ### 🧩 Plugin System & Specialized PDF Support
-KPaperFlux is now a **modular platform**:
-*   **Hybrid PDF (V3 - Overlay-Only):** A revolutionary strategy for merging scans with digital originals. Instead of heavy scan backdrops, it overlays transparent high-fidelity signature PNGs onto the native vector document. Maintaining **vector-text quality** and **minimal file size**.
-*   **Forensic Chain of Trust:** Hybrid PDFs automatically **embed the original digitallysigned source document** as an attachment, preserving legal validity across the processing lifecycle.
-*   **Immutable Protection:** Automatic detection of digitally signed (PAdES) or marked PDFs. These documents are protected from destructive operations (splitting/stamping) within the UI.
+*   **Hybrid PDF (V3 - Overlay-Only):** A revolutionary strategy for merging scans with digital originals. Maintains **vector-text quality** and **minimal file size**.
+*   **Forensic Chain of Trust:** Hybrid PDFs automatically **embed the original digitally signed source document** as an attachment.
+*   **Immutable Protection:** Automatic detection of digitally signed (PAdES) PDFs. These documents are protected from destructive operations within the UI.
 
 ### 🛡️ Hybrid View & Logic
-*   **Match Analysis Viewer:** Advanced side-by-side view with **Visual Diff** (Red/Cyan highlights) for comparing native documents with scanned versions.
-*   **Synchronized Navigation:** Scale-aware master-slave scrolling and zoom, ensuring 1:1 visual comparison even between mixed-format documents.
+*   **Audit Window:** Side-by-side comparison of the original document vs. the AI-extracted semantic "Digital Twin" (rendered as a professional PDF for visual verification).
+*   **Synchronized Navigation:** Scale-aware master-slave scrolling and zoom, ensuring 1:1 visual comparison.
 *   **Metadata Editor:** A powerful editor to verify and correct AI results with real-time feedback.
 *   **SANE Integration:** Direct control of scanners under Linux.
 

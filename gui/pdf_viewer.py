@@ -1124,6 +1124,15 @@ class PdfViewerWidget(QWidget):
                                 "rotation": ref.rotation or 0
                             })
                 
+                if not self.current_pages_data and hasattr(doc_obj, 'file_path') and doc_obj.file_path:
+                    # Fallback to direct file loading if no fragments/mapping exist
+                    direct_path = Path(doc_obj.file_path)
+                    if direct_path.exists():
+                        self.canvas.set_document(fitz.open(str(direct_path)))
+                        self._update_toolbar_policy()
+                        self.on_document_status_ready()
+                        return
+
                 self._refresh_preview()
                 return
                 

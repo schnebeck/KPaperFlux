@@ -4,7 +4,7 @@ from decimal import Decimal
 from core.reporting import ReportGenerator
 from core.utils.girocode import GiroCodeGenerator
 from core.models.virtual import VirtualDocument
-from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody, MonetarySummation
+from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody, MonetarySummation, TaxBreakdownRow
 
 @pytest.fixture
 def sample_docs():
@@ -23,7 +23,9 @@ def sample_docs():
                         tax_basis_total_amount=Decimal("100.00"), 
                         tax_total_amount=Decimal("19.00")
                     ),
-                    tax_details={"19%": 19.00}
+                    tax_breakdown=[
+                        TaxBreakdownRow(tax_basis_amount=Decimal("100.00"), tax_rate=Decimal("19.00"), tax_amount=Decimal("19.00"))
+                    ]
                 )
             }
         )

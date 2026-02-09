@@ -585,7 +585,8 @@ class PipelineProcessor:
                     status="READY_FOR_PIPELINE",
                     created_at=datetime.datetime.now().isoformat(),
                     last_processed_at=datetime.datetime.now().isoformat(),
-                    is_immutable=instr.get("locked", False)
+                    is_immutable=instr.get("locked", False),
+                    pdf_class=instr.get("pdf_class", "C")
                 )
                 self.logical_repo.save(v_doc)
                 new_uuids.append(v_doc.uuid)

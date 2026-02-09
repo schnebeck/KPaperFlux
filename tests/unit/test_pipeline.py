@@ -112,3 +112,26 @@ def test_pipeline_integration_ai(MockCanonizer, pipeline):
     
     pipeline._run_ai_analysis(v_doc)
     MockCanonizer.return_value.process_virtual_document.assert_called_with(v_doc)
+
+def test_process_batch_with_instructions_preserves_pdf_class(pipeline):
+    """Test that pdf_class and locked status are preserved from instructions."""
+    file_paths = ["file1.pdf"]
+    instructions = [{
+        "pages": [{"file_path": "file1.pdf", "file_page_index": 0, "rotation": 0}],
+        "locked": True,
+        "pdf_class": "A"
+    }]
+    
+    # Mock physical ingestion
+    phys_file = MagicMock()
+    phys_file.uuid = "p1"
+    pipeline._ingest_physical_file = MagicMock(return_value=phys_file)
+    
+    uuids = pipeline.process_batch_with_instructions(file_paths, instructions)
+    assert len(uuids) == 1
+    
+    # Check save call
+    pipeline.logical_repo.save.assert_called()
+    saved_doc = pipeline.logical_repo.save.call_args[0][0]
+    assert saved_doc.is_immutable is True
+    assert saved_doc.pdf_class == "A"

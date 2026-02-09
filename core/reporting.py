@@ -81,18 +81,19 @@ class ReportGenerator:
             if not doc.semantic_data:
                 continue
                 
-            # Access tax_details directly if available in finance_body
             fb = doc.semantic_data.bodies.get("finance_body")
             if not fb:
                 continue
-                
-            td = getattr(fb, "tax_details", {})
-            if isinstance(td, dict):
-                for rate, amount in td.items():
-                    try:
-                        tax_agg[rate] = tax_agg.get(rate, Decimal("0.00")) + Decimal(str(amount))
-                    except (TypeError, ValueError):
-                        continue
+            
+            # Use tax_breakdown (EN 16931 alignment)
+            tb = getattr(fb, "tax_breakdown", [])
+            for row in tb:
+                # Use BT-119 (tax_rate) as key
+                rate = f"{float(row.tax_rate):g}%" # Format e.g. 19.0 -> '19%'
+                try:
+                    tax_agg[rate] = tax_agg.get(rate, Decimal("0.00")) + Decimal(str(row.tax_amount or 0))
+                except (TypeError, ValueError):
+                    continue
                         
         return dict(sorted(tax_agg.items()))
 

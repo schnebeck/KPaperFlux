@@ -50,7 +50,7 @@ class DatabaseManager:
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            tags, deleted_at, locked_at, exported_at
+            tags, deleted_at, locked_at, exported_at, pdf_class
         """
 
     def _connect(self) -> None:
@@ -107,7 +107,8 @@ class DatabaseManager:
             exported_at DATETIME,
             page_count_virt INTEGER DEFAULT 0,
             type_tags TEXT, -- JSON List of strings
-            tags TEXT
+            tags TEXT,
+            pdf_class TEXT DEFAULT 'C'
         );
         """
 
@@ -128,6 +129,7 @@ class DatabaseManager:
             self.connection.execute(create_physical_files_table)
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_virtual_documents_fts)
+            self._migrate_schema()
             self._create_fts_triggers()
             self._create_usage_triggers()
             self._create_ref_count_triggers()
@@ -234,7 +236,7 @@ class DatabaseManager:
             "status", "export_filename", "deleted", "is_immutable",
             "type_tags", "cached_full_text", "last_used", "last_processed_at",
             "semantic_data", "tags",
-            "deleted_at", "locked_at", "exported_at"
+            "deleted_at", "locked_at", "exported_at", "pdf_class"
         ]
         filtered = {k: v for k, v in updates.items() if k in allowed}
 
@@ -1193,6 +1195,22 @@ class DatabaseManager:
         if mapping and len(mapping) > 0:
             return str(mapping[0].get("file_uuid"))
         return None
+
+    def _migrate_schema(self) -> None:
+        """Adds missing columns for hybrid protection support."""
+        if not self.connection: return
+        
+        cursor = self.connection.cursor()
+        cursor.execute("PRAGMA table_info(virtual_documents)")
+        cols = [row[1] for row in cursor.fetchall()]
+        
+        if "pdf_class" not in cols:
+            print("[DB] Migrating: Adding 'pdf_class' to virtual_documents")
+            try:
+                with self.connection:
+                    self.connection.execute("ALTER TABLE virtual_documents ADD COLUMN pdf_class TEXT DEFAULT 'C'")
+            except Exception as e:
+                print(f"[DB] Migration Error: {e}")
 
     def _create_fts_triggers(self) -> None:
         """Maintains FTS synchronicity via SQLite triggers."""

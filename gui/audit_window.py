@@ -115,8 +115,8 @@ class AuditWindow(QMainWindow):
         layout.addWidget(self.controls_frame)
         
         # Default to Fit Zoom for Audit
-        self.pdf_viewer.set_zoom_mode(QPdfView.ZoomMode.FitInView)
-        self.rendered_pdf_viewer.set_zoom_mode(QPdfView.ZoomMode.FitInView)
+        self.pdf_viewer.set_fit_mode(True)
+        self.rendered_pdf_viewer.set_fit_mode(True)
 
     def set_debug_mode(self, enabled: bool):
         """Hides workflow controls and shows only a close button."""
@@ -132,8 +132,9 @@ class AuditWindow(QMainWindow):
             self.pdf_viewer.clear()
             return
 
-        # Load PDF
-        self.pdf_viewer.load_document(doc.uuid, uuid=doc.uuid)
+        # Load PDF: Prefer direct file_path if available for speed, otherwise use UUID
+        path_or_id = doc.file_path if doc.file_path and os.path.exists(doc.file_path) else doc.uuid
+        self.pdf_viewer.load_document(path_or_id, uuid=doc.uuid)
 
         # Render Semantic Data
         if doc.semantic_data:

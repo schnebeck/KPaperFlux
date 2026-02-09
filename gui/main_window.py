@@ -36,7 +36,7 @@ from core.stamper import DocumentStamper
 from core.filter_tree import FilterTree, NodeType
 from core.config import AppConfig
 from core.integrity import IntegrityManager
-from core.utils.forensics import check_pdf_immutable
+from core.utils.forensics import check_pdf_immutable, PDFClass, get_pdf_class
 
 # GUI Imports
 from gui.workers import ImportWorker, MainLoopWorker, SimilarityWorker, ReprocessWorker
@@ -941,37 +941,37 @@ class MainWindow(QMainWindow):
 
         # 1. Handle PDFs via Batch Assistant
         if pdf_files:
-            # Separate immutable PDFs
-            immutable_pdfs = [f for f in pdf_files if check_pdf_immutable(f)]
-            standard_pdfs = [f for f in pdf_files if f not in immutable_pdfs]
+            file_infos = []
+            for f in pdf_files:
+                try:
+                    p_class = get_pdf_class(f)
+                    is_prot = (p_class != PDFClass.STANDARD)
+                    file_infos.append({
+                        "path": f,
+                        "pdf_class": p_class.value,
+                        "is_protected": is_prot
+                    })
+                except Exception as e:
+                    print(f"Error classifying PDF {f}: {e}")
+                    # Default to standard if check fails
+                    file_infos.append({
+                        "path": f,
+                        "pdf_class": "C",
+                        "is_protected": False
+                    })
             
-            # Standard PDFs go through splitter
-            if standard_pdfs:
+            # ALL PDFs now go through splitter, but protected ones are locked
+            if file_infos:
                 dialog = SplitterDialog(self.pipeline, self)
-                dialog.load_for_batch_import(standard_pdfs)
+                dialog.load_for_batch_import(file_infos)
 
                 if dialog.exec() == QDialog.DialogCode.Accepted:
                     instrs = dialog.import_instructions
                     import_items.append(("BATCH", instrs))
                 else:
                     print("PDF Import cancelled by user.")
-            
-            # Immutable PDFs are imported as-is (1:1) and locked
-            for f in immutable_pdfs:
-                try:
-                    doc = fitz.open(f)
-                    instr = {
-                        "pages": [{
-                            "file_path": f,
-                            "file_page_index": i,
-                            "rotation": 0
-                        } for i in range(doc.page_count)],
-                        "locked": True
-                    }
-                    import_items.append(("BATCH", [instr]))
-                    doc.close()
-                except Exception as e:
-                    print(f"Error preparing immutable import for {f}: {e}")
+                    # If we only had PDFs, we might want to return here.
+                    # But other_files might still need processing.
 
         # 2. Handle non-PDFs (Direct)
         for fpath in other_files:
@@ -1864,8 +1864,15 @@ class MainWindow(QMainWindow):
 
     def open_splitter_dialog_slot(self, uuid: str):
         """Open Splitter Dialog for specific UUID."""
-        print(f"[DEBUG] open_splitter_dialog_slot called for UUID: {uuid}")
         if not uuid or not self.pipeline: return
+
+        # Phase 9: Protection Check
+        v_doc = self.pipeline.logical_repo.get_by_uuid(uuid)
+        if v_doc and getattr(v_doc, 'is_immutable', False):
+            show_selectable_message_box(self, self.tr("Document Protected"),
+                                           self.tr("This document is a digital original and cannot be restructured."),
+                                           icon=QMessageBox.Icon.Information)
+            return
 
         dialog = SplitterDialog(self.pipeline, self)
         dialog.load_document(uuid)

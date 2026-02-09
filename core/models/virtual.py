@@ -55,6 +55,7 @@ class VirtualDocument(BaseModel):
     is_immutable: bool = False
     thumbnail_path: Optional[str] = None
     cached_full_text: str = ""
+    pdf_class: str = "C" # Class A, B, AB, H, C
     
     # Metadata & Tags
     type_tags: List[str] = Field(default_factory=list)
@@ -372,5 +373,6 @@ class VirtualDocument(BaseModel):
             deleted=data.get("deleted", False),
             deleted_at=data.get("deleted_at"),
             exported_at=data.get("exported_at"),
-            page_count_virt=data.get("page_count_virt", 0)
+            page_count_virt=data.get("page_count_virt", 0),
+            pdf_class=data.get("pdf_class", "C")
         )
