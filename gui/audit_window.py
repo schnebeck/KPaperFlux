@@ -51,6 +51,7 @@ class AuditWindow(QMainWindow):
         
         # 1. Left: Original Document (Real PDF Viewer)
         self.pdf_viewer = PdfViewerWidget(pipeline=self.pipeline)
+        self.pdf_viewer.set_toolbar_policy('audit')
         # Keep toolbar visible for consistency
         self.pdf_viewer.btn_split.hide()
         
@@ -74,7 +75,8 @@ class AuditWindow(QMainWindow):
         """)
         
         # Premium Render View (Generated PDF)
-        self.rendered_pdf_viewer = PdfViewerWidget(pipeline=self.pipeline)
+        self.rendered_pdf_viewer = PdfViewerWidget(pipeline=self.pipeline, is_slave=True)
+        self.rendered_pdf_viewer.set_toolbar_policy('audit')
         # Symmetrical look: Keep toolbar
         self.rendered_pdf_viewer.btn_split.hide()
         self.rendered_pdf_viewer.btn_save.hide()

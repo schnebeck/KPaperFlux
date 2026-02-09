@@ -1,48 +1,57 @@
 # **Handover: Current Task State**
 
 ## **Status Overview (as of 2026-02-09)**
-The **Hybrid PDF Workflow** is now fully implemented and optimized. The project transitioned from the experimental "Scan-Backdrop" method to a high-fidelity "Overlay-Only" strategy. All core infrastructure for plugins and forensic traceability is in place and verified by a clean test suite (219/219 passed).
+The **Hybrid PDF Workflow** is fully implemented, and the system has transitioned into the **Reporting & Workflow Phase**. The foundation has been refactored to a JSON-first metadata structure, and a flexible UI policy system for PDF viewing is now active. The test suite remains stable (219/219 passed).
 
 ---
 
 ## **Recent Achievements (Finalized & Verified)**
-1.  **Optimized Hybrid Generation:**
-    *   **Strategy:** Native PDF vector layer is kept as the base. Scanned elements (signatures/stamps) are extracted as transparent PNGs (300 DPI) and overlaid.
-    *   **Result:** File sizes reduced from multi-MB to ~150KB while maintaining full text searchability and vector quality.
-    *   **Forensics:** Detection of signed/immutable PDFs now triggers automatic embedding of the original source file for traceability.
-
-2.  **Advanced Match Analysis (Diff Viewer):**
-    *   **ROI Validation:** Implemented bidirectional contour analysis in `HybridEngine.create_diff_overlay`.
-    *   **Visuals:** Cyan (Deletions), Red (Additions), Gray (Match). Filtering out 1-2px shifts/noise using area-thresholds (ROI) ensures an artifact-free diff view.
-
-3.  **Plugin Infrastructure:**
-    *   **Core:** `core/plugins/` contains the `PluginManager` and `BasePlugin`.
-    *   **Hybrid Assembler:** Fully integrated as a plugin with its own UI (`MatchingDialog`) and background processing logic.
-
-4.  **Compatibility & Robustness:**
-    *   **PyMuPDF Evolution:** Added multi-version support (v1.11 to v1.24+) for critical APIs like `get_sigflags` vs `getSigFlags` and `embedded_file_add`.
-    *   **Bugfixes:** Resolved `AttributeError: clear` in `MainWindow` by providing proper cleanup methods in the PDF viewer components.
+1.  **Flexible Toolbar Policy:**
+    *   `PdfViewerWidget` now uses a named policy system ('standard', 'comparison', 'audit').
+    *   Symmetrical layouts are maintained via `setRetainSizeWhenHidden(True)` placeholders.
+    *   Rotation and Delete buttons adapt visibility and activity based on the document context (Immutable, Hybrid, or Audit side).
+2.  **Audit & Verification Ready:**
+    *   `AuditWindow` is optimized for side-by-side verification: Original (left, rotatable) vs. Semantic Render (right, locked).
+3.  **UI & Consistency:**
+    *   Page counter restored to "x / y" format with editable current page.
+    *   Styling of navigation/zoom controls enhanced (Bold/Bold Symbols).
+    *   Visual-only rotation for direct files implemented in `PdfCanvas`.
+4.  **Forensic Traceability:**
+    *   Signed PDFs automatically embed original sources as attachments.
+    *   Immutability protection prevents destructive GUI actions on PAdES/Protected files.
 
 ---
 
-## **Project Structure & Cleanup**
-*   **`tests/unit/`**: 219 tests (100% green). Legacy tests (QtPdf-based) and non-functional mocks targeted at old APIs have been removed.
-*   **`tests/smoke/`**: Contains integration scripts, manual verification tools (`smoke_test_import.py`), and diagnostics.
-*   **`devel/`**: Cleaned up. Contains only architectural specs and handover documentation. No "test-leavings" or database files in the root.
+## **Strategic Roadmap (Next Steps)**
 
----
+### 1. The Reporting Engine (`core/reporting.py`)
+Implementation of the interpretative layer for extracted data:
+*   **Finance Hub:** Aggregate amounts, tax breakdowns, and monthly summaries.
+*   **Excel-Optimized Export:** CSV exports using `utf-8-sig` (BOM) for seamless spreadsheet integration.
+*   **Strategy Pattern:** Decouple data sources from output formats (JSON, CSV, PDF).
 
-## **Next Steps / Open Topics**
-1.  **Metadata Extraction Calibration:** While the hybrid PDF stores the `kpaperflux_immutable` flag, the AI extraction (Stage 1/2) should be monitored for performance on these optimized documents.
-2.  **Highlighting Refinement:** The `set_highlight_text` stub in `PdfViewerWidget` is ready for the implementation of a cross-page search highlighting logic using fitz's `search_for` methods.
-3.  **Extended Plugin Discovery:** Currently plugins are discovered in `plugins/`. This can be extended to support system-wide paths or user directories.
+### 2. Actionability & Quick Wins
+*   **GiroCode Integration:** Generate EPC-QR codes directly from extracted IBAN/Amount data.
+*   **Dashboarding:** Initial bar charts/KPIs in the main window to visualize burn rates and categories.
+
+### 3. Generic Workflow Engine (State Machine)
+Transition from hard-coded states to programmable Playbooks:
+*   **State Machine:** Define YAML/JSON playbooks for document lifecycles (e.g., `NEW` -> `VERIFIED` -> `PAID`).
+*   **Adaptive Editor:** The Metadata Editor should adapt its fields/requirements based on the current state of the playbook.
+
+### 4. Integrity Status Bar & ZUGFeRD 0.5
+*   Add a slim status overlay to the PDF viewer for:
+    *   🛡️ **Signature Status** (PAdES verification).
+    *   ⚙️ **Structured Data** (ZUGFeRD XML found).
+    *   📎 **Attachments** (Original source access).
+*   **Stage 0.5 Pipeline:** Inject XML data directly into `SemanticExtraction` before AI processing to save tokens and ensure 100% accuracy.
 
 ---
 
 ## **Environment Details**
-*   **Requirements:** See `requirements.txt`.
-*   **Key Libraries:** PyMuPDF (fitz), PyQt6, OpenCV (cv2), NumPy.
-*   **Target:** High-fidelity document management for sensitive/signed PDFs.
+*   **Core:** Python 3.12+, PyQt6.
+*   **Key Libraries:** PyMuPDF (fitz), OpenCV, NumPy.
+*   **Strategic Docs:** See `@devel/Strategic_Evaluation.md` for the full reporting concept.
 
 ---
 *End of Handover Documentation*

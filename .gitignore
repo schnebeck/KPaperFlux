@@ -44,3 +44,4 @@ System Prompt*
 /tmp/
 /devel/*.py
 !/devel/*.md
+devel/Handover_Next_Agent.md

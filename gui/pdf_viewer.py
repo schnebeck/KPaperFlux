@@ -284,6 +284,7 @@ class PdfCanvas(QScrollArea):
         self.doc: Optional[fitz.Document] = None
         self.current_page_idx = 0
         self.zoom_factor = 1.0
+        self.rotation = 0
 
     def show_copy_feedback(self, widget_pos: QPoint) -> None:
         """Displays toast notification for successful copy action."""
@@ -299,6 +300,7 @@ class PdfCanvas(QScrollArea):
         """
         self.doc = fitz_doc
         self.current_page_idx = 0
+        self.rotation = 0 # Reset rotation on new document
         if self.doc:
             self.render_current_page()
         else:
@@ -315,9 +317,15 @@ class PdfCanvas(QScrollArea):
         if self.doc and 0 <= index < len(self.doc):
             self.current_page_idx = index
             self.display_label.clear_selection()
+            self.rotation = 0 # Reset visual rotation when changing page
             if not block_signals:
                 self.page_changed.emit(index)
             self.render_current_page()
+
+    def set_rotation(self, rotation: int) -> None:
+        """Sets the visual rotation for the current page."""
+        self.rotation = rotation % 360
+        self.render_current_page()
 
     def set_zoom(self, factor: float, block_signals: bool = False) -> None:
         """
@@ -347,7 +355,7 @@ class PdfCanvas(QScrollArea):
             mat = fitz.Matrix(
                 self.zoom_factor * dpr * self.SUPERSAMPLING, 
                 self.zoom_factor * dpr * self.SUPERSAMPLING
-            )
+            ).prerotate(self.rotation)
             pix = page.get_pixmap(matrix=mat, alpha=False)
             qimg = QImage(
                 pix.samples, 
@@ -901,6 +909,10 @@ class PdfViewerWidget(QWidget):
         self.current_pages_data: List[dict] = []
         self.temp_pdf_path: Optional[Path] = None
         
+        # Toolbar Performance Policy (Flex-Approach)
+        # Options: 'standard', 'comparison', 'audit'
+        self.toolbar_policy = 'comparison' if controller else 'standard'
+        
         self.canvas = PdfCanvas(self)
         self._init_ui()
         
@@ -935,27 +947,35 @@ class PdfViewerWidget(QWidget):
             f"QLineEdit:read-only {{ background: {bg}; color: #6c757d; border: 1px solid #ced4da; }}"
         )
         
+        btn_style = "font-weight: bold; font-size: 14px;"
+        
         self.btn_prev = QPushButton("⟵")
         self.btn_prev.setFixedSize(30, 30)
+        self.btn_prev.setStyleSheet(btn_style)
         self.btn_prev.clicked.connect(
             lambda: self.canvas.jump_to_page(self.canvas.current_page_idx - 1)
         )
         
         self.edit_page = QLineEdit()
-        self.edit_page.setFixedSize(45, 30)
+        self.edit_page.setFixedSize(40, 30)
         self.edit_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.edit_page.setValidator(QIntValidator(1, 9999))
         self.edit_page.setStyleSheet(style)
         self.edit_page.returnPressed.connect(self.on_page_edited)
+
+        self.lbl_page_count = QLabel("/ 0")
+        self.lbl_page_count.setStyleSheet(f"color: {text}; font-weight: 500; margin-right: 5px;")
         
         self.btn_next = QPushButton("⟶")
         self.btn_next.setFixedSize(30, 30)
+        self.btn_next.setStyleSheet(btn_style)
         self.btn_next.clicked.connect(
             lambda: self.canvas.jump_to_page(self.canvas.current_page_idx + 1)
         )
         
         self.btn_zoom_out = QPushButton("-")
         self.btn_zoom_out.setFixedSize(30, 30)
+        self.btn_zoom_out.setStyleSheet(btn_style)
         self.btn_zoom_out.clicked.connect(self.zoom_out)
         
         self.edit_zoom = QLineEdit("100%")
@@ -966,31 +986,52 @@ class PdfViewerWidget(QWidget):
         
         self.btn_zoom_in = QPushButton("+")
         self.btn_zoom_in.setFixedSize(30, 30)
+        self.btn_zoom_in.setStyleSheet(btn_style)
         self.btn_zoom_in.clicked.connect(self.zoom_in)
         
         self.btn_fit = QPushButton("Fit")
         self.btn_fit.setCheckable(True)
         self.btn_fit.setChecked(True)
         self.btn_fit.setFixedSize(50, 30)
+        self.btn_fit.setStyleSheet("font-weight: bold;")
         self.btn_fit.clicked.connect(self.toggle_fit)
         
         self.btn_rotate = QPushButton("↻")
         self.btn_rotate.setFixedSize(30, 30)
-        self.btn_rotate.setVisible(False) # Hidden by default
+        self.btn_rotate.setStyleSheet(btn_style)
+        self.btn_rotate.setVisible(False) 
         self.btn_rotate.clicked.connect(self.rotate_page)
         
         self.btn_del = QPushButton("✕")
         self.btn_del.setFixedSize(30, 30)
         self.btn_del.setStyleSheet("color: #da4453; font-weight: bold;")
-        self.btn_del.setVisible(False) # Hidden by default
+        self.btn_del.setVisible(False) 
         self.btn_del.clicked.connect(self.delete_page)
+
+        # Extension Buttons (Phase 2.0 / Plugins)
+        self.btn_split = QPushButton("✂")
+        self.btn_split.setFixedSize(30, 30)
+        self.btn_split.setVisible(False)
+        self.btn_split.setToolTip("Split Document")
+        self.btn_split.clicked.connect(lambda: self.split_requested.emit(self.current_uuid))
+
+        self.btn_save = QPushButton("💾")
+        self.btn_save.setFixedSize(30, 30)
+        self.btn_save.setVisible(False)
+        self.btn_save.setToolTip("Save Changes")
         
         controls = [
-            self.btn_prev, self.edit_page, self.btn_next, 
+            self.btn_prev, self.edit_page, self.lbl_page_count, self.btn_next, 
             self.btn_zoom_out, self.edit_zoom, self.btn_zoom_in, 
-            self.btn_fit, self.btn_rotate, self.btn_del
+            self.btn_fit, self.btn_rotate, self.btn_del,
+            self.btn_split, self.btn_save
         ]
         for ctrl in controls:
+            # Symmetrical Layout Policy: Retain space when hidden
+            if isinstance(ctrl, QPushButton):
+                p = ctrl.sizePolicy()
+                p.setRetainSizeWhenHidden(True)
+                ctrl.setSizePolicy(p)
             t_layout.addWidget(ctrl)
             
         t_layout.addStretch()
@@ -1019,10 +1060,13 @@ class PdfViewerWidget(QWidget):
         self.update_zoom_label(self.canvas.zoom_factor)
 
     def update_ui_state(self, page: int) -> None:
-        """Updates the page number display."""
+        """Updates the page number display and total count."""
         self.edit_page.blockSignals(True)
         self.edit_page.setText(str(page + 1))
         self.edit_page.blockSignals(False)
+        
+        total = self.canvas.get_page_count()
+        self.lbl_page_count.setText(f"/ {total}")
 
     def on_page_changed(self, page: int) -> None:
         """Syncs UI state when page changes in canvas."""
@@ -1085,9 +1129,8 @@ class PdfViewerWidget(QWidget):
                 
         if path.exists():
             self.current_pages_data = [] # Clear virtual data if loading direct path
-            self.btn_del.setVisible(False)
-            self.btn_rotate.setVisible(False) # Hide for files
             self.canvas.set_document(fitz.open(str(path)))
+            self._update_toolbar_policy()
             self.on_document_status_ready()
             
         idx = jump_to_index if jump_to_index >= 0 else (initial_page - 1 if initial_page > 1 else -1)
@@ -1121,19 +1164,83 @@ class PdfViewerWidget(QWidget):
         out_doc.close()
         
         self.canvas.set_document(fitz.open(str(self.temp_pdf_path)))
-        self.btn_del.setVisible(True)
-        self.btn_rotate.setVisible(True) # Show for entities
-        self.btn_del.setEnabled(len(self.current_pages_data) > 1)
+        self._update_toolbar_policy()
         self.on_document_status_ready()
+
+    def _update_toolbar_policy(self) -> None:
+        """
+        Applies UI logic for action buttons based on the set policy.
+        
+        Policies:
+        - 'standard': Full control (List View).
+        - 'comparison': Read-only (Side-by-side / Hybrid).
+        - 'audit': Rotation only on master (Verification view).
+        """
+        policy = self.toolbar_policy
+        
+        # 1. Base Visibility/Activity
+        if policy == 'comparison':
+            # Side-by-Side (Classic Hybrid/Diff): No structural changes allowed
+            self._set_button_visible(self.btn_rotate, False)
+            self._set_button_visible(self.btn_del, False)
+            self._set_button_visible(self.btn_split, False)
+            self._set_button_visible(self.btn_save, False)
+            return
+
+        if policy == 'audit':
+            # Master can rotate, Slave is locked
+            can_rotate = not self.is_slave
+            self._set_button_visible(self.btn_rotate, can_rotate)
+            self._set_button_visible(self.btn_del, False)
+            # Split/Save handled by window usually, but we ensure policy
+            self._set_button_visible(self.btn_split, False)
+            self._set_button_visible(self.btn_save, False)
+            return
+
+        # 'standard' (Standard List View) Context:
+        self._set_button_visible(self.btn_rotate, True)
+        self.btn_rotate.setEnabled(True)
+        
+        is_immutable = False
+        if self.current_uuid and self.pipeline:
+            doc_obj = self.pipeline.get_document(self.current_uuid)
+            if doc_obj:
+                is_immutable = doc_obj.is_immutable
+        
+        # UI Policy for Delete:
+        self._set_button_visible(self.btn_del, True) 
+        
+        can_delete = not is_immutable
+        if self.current_pages_data:
+            can_delete = can_delete and len(self.current_pages_data) > 1
+        else:
+            can_delete = False 
+            
+        self.btn_del.setEnabled(can_delete)
+        self._set_button_visible(self.btn_split, True)
+
+    def _set_button_visible(self, btn: QPushButton, visible: bool) -> None:
+        """Helper to set visibility while ensuring symmetry via size retention."""
+        btn.setVisible(visible)
+        btn.setEnabled(visible)
+
+    def set_toolbar_policy(self, policy: str) -> None:
+        """Updates the viewer policy and refreshes the UI."""
+        self.toolbar_policy = policy
+        self._update_toolbar_policy()
 
     def rotate_page(self) -> None:
         """Rotates current page by 90 degrees clockwise."""
         if self.current_pages_data:
             idx = self.canvas.current_page_idx
-            self.current_pages_data[idx]['rotation'] = (
-                self.current_pages_data[idx]['rotation'] + 90
-            ) % 360
-            self._refresh_preview()
+            if idx < len(self.current_pages_data):
+                self.current_pages_data[idx]['rotation'] = (
+                    self.current_pages_data[idx]['rotation'] + 90
+                ) % 360
+                self._refresh_preview()
+        else:
+            # Direct file rotation (visual only in this session)
+            self.canvas.set_rotation((self.canvas.rotation + 90) % 360)
 
     def delete_page(self) -> None:
         """Removes the current page from the document list."""
