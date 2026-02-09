@@ -1067,11 +1067,19 @@ class PdfViewerWidget(QWidget):
             doc_obj = self.pipeline.get_document(target_uuid)
             if doc_obj:
                 self.current_uuid = target_uuid
-                self.current_pages_data = [{
-                    "file_path": p.source_path, 
-                    "page_index": p.source_page_index, 
-                    "rotation": p.rotation or 0
-                } for p in doc_obj.pages]
+                self.current_pages_data = []
+                
+                # Flatten the source mapping into a sequential page list
+                for ref in doc_obj.source_mapping:
+                    phys_file = self.pipeline.physical_repo.get_by_uuid(ref.file_uuid)
+                    if phys_file:
+                        for p_idx in ref.pages:
+                            self.current_pages_data.append({
+                                "file_path": phys_file.file_path,
+                                "page_index": p_idx - 1,  # DB uses 1-based, Fitz uses 0-based
+                                "rotation": ref.rotation or 0
+                            })
+                
                 self._refresh_preview()
                 return
                 

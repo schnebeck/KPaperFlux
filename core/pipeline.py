@@ -158,7 +158,7 @@ class PipelineProcessor:
 
         return phys_file
 
-    def process_document(self, file_path: str, move_source: bool = False, skip_ai: bool = False) -> Optional[VirtualDocument]:
+    def process_document(self, file_path: str, move_source: bool = False, skip_ai: bool = False) -> Document:
         """
         Ingest: One File -> One Document.
 
@@ -172,7 +172,7 @@ class PipelineProcessor:
         """
         phys_file = self._ingest_physical_file(file_path, move_source)
         if not phys_file:
-            return None
+            raise ValueError(f"Ingestion failed for {file_path}")
 
         # --- Phase B: Logic ---
         # Create VirtualDocument (1:1 Mapping initially)
@@ -191,16 +191,28 @@ class PipelineProcessor:
         # --- Phase C: Persistence ---
         v_doc.last_processed_at = datetime.datetime.now().isoformat()
         v_doc.export_filename = self._generate_export_filename(v_doc)
-
+        
         # 2. Save Logical Entity
         self.logical_repo.save(v_doc)
         print(f"[Phase C] Persisted VirtualDocument: {new_uuid}")
 
         # 3. AI Analysis
         if not skip_ai:
-            self._run_ai_analysis(v_doc, None)
+            self._run_ai_analysis(v_doc, file_path)
 
         return v_doc
+
+    def get_document(self, uuid_str: str) -> Optional[Document]:
+        """
+        Retrieves a virtual document by UUID.
+        
+        Args:
+            uuid_str: The unique identifier of the document.
+            
+        Returns:
+            The Document object or None if not found.
+        """
+        return self.db.get_document_by_uuid(uuid_str)
 
     def reprocess_document(self, uuid_str: str, skip_ai: bool = False) -> Optional[VirtualDocument]:
         """
