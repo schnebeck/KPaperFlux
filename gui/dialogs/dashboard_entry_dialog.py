@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt
 class DashboardEntryDialog(QDialog):
     def __init__(self, filter_tree, parent=None, entry_data=None):
         super().__init__(parent)
-        self.setWindowTitle("Dashboard Filter View")
+        self.setWindowTitle(self.tr("Dashboard Filter View"))
         self.setMinimumWidth(300)
         self.filter_tree = filter_tree
         self.entry_data = entry_data or {}
@@ -16,13 +16,13 @@ class DashboardEntryDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Name
-        layout.addWidget(QLabel("Display Title:"))
+        layout.addWidget(QLabel(self.tr("Display Title:")))
         self.edit_title = QLineEdit(self.entry_data.get("title", ""))
-        self.edit_title.setPlaceholderText("e.g. My Invoices")
+        self.edit_title.setPlaceholderText(self.tr("e.g. My Invoices"))
         layout.addWidget(self.edit_title)
 
         # Filter Selection
-        layout.addWidget(QLabel("Linked Filter Rule:"))
+        layout.addWidget(QLabel(self.tr("Linked Filter Rule:")))
         self.combo_filter = QComboBox()
         # Ensure we have filters
         if hasattr(self.filter_tree, 'get_all_filters'):
@@ -31,10 +31,10 @@ class DashboardEntryDialog(QDialog):
             self.filters = []
 
         # Add Presets first
-        self.combo_filter.addItem("--- Choose Filter ---", None)
-        self.combo_filter.addItem("Inbox (NEW)", {"type": "preset", "id": "NEW"})
-        self.combo_filter.addItem("Total Documents", {"type": "preset", "id": "ALL"})
-        self.combo_filter.addItem("Processed Documents", {"type": "preset", "id": "PROCESSED"})
+        self.combo_filter.addItem(self.tr("--- Choose Filter ---"), None)
+        self.combo_filter.addItem(self.tr("Inbox (NEW)"), {"type": "preset", "id": "NEW"})
+        self.combo_filter.addItem(self.tr("Total Documents"), {"type": "preset", "id": "ALL"})
+        self.combo_filter.addItem(self.tr("Processed Documents"), {"type": "preset", "id": "PROCESSED"})
         # self.combo_filter.addItem("--- Custom Filters ---", None) # Optional separator
 
         current_idx = 0
@@ -50,7 +50,7 @@ class DashboardEntryDialog(QDialog):
                     break
 
         for f in self.filters:
-            self.combo_filter.addItem(f"Filter: {f.name}", {"type": "filter", "id": f.id})
+            self.combo_filter.addItem(self.tr("Filter: %s") % f.name, {"type": "filter", "id": f.id})
             if filter_id == f.id:
                 current_idx = self.combo_filter.count() - 1
 
@@ -58,10 +58,10 @@ class DashboardEntryDialog(QDialog):
         layout.addWidget(self.combo_filter)
 
         # Aggregation
-        layout.addWidget(QLabel("Aggregation Mode:"))
+        layout.addWidget(QLabel(self.tr("Aggregation Mode:")))
         self.combo_agg = QComboBox()
-        self.combo_agg.addItem("Count documents", "count")
-        self.combo_agg.addItem("Sum amounts (€)", "sum")
+        self.combo_agg.addItem(self.tr("Count documents"), "count")
+        self.combo_agg.addItem(self.tr("Sum amounts (€)"), "sum")
         
         current_agg = self.entry_data.get("aggregation", "count")
         idx_agg = self.combo_agg.findData(current_agg)
@@ -69,8 +69,8 @@ class DashboardEntryDialog(QDialog):
         layout.addWidget(self.combo_agg)
 
         # Color
-        layout.addWidget(QLabel("Color Theme:"))
-        self.btn_color = QPushButton()
+        layout.addWidget(QLabel(self.tr("Color Theme:")))
+        self.btn_color = QPushButton(self.tr("Choose Color..."))
         self.current_color = self.entry_data.get("color", "#3b82f6")
         self.btn_color.setStyleSheet(f"background-color: {self.current_color}; min-height: 30px; border-radius: 4px;")
         self.btn_color.clicked.connect(self.choose_color)
@@ -80,10 +80,10 @@ class DashboardEntryDialog(QDialog):
 
         # Buttons
         btns = QHBoxLayout()
-        btn_ok = QPushButton("Save View")
+        btn_ok = QPushButton(self.tr("Save View"))
         btn_ok.setDefault(True)
         btn_ok.clicked.connect(self.accept)
-        btn_cancel = QPushButton("Cancel")
+        btn_cancel = QPushButton(self.tr("Cancel"))
         btn_cancel.clicked.connect(self.reject)
         btns.addWidget(btn_ok)
         btns.addWidget(btn_cancel)
@@ -106,7 +106,7 @@ class DashboardEntryDialog(QDialog):
         }
         # If title is empty, use filter name
         if not data["title"]:
-            data["title"] = self.combo_filter.currentText().replace("Filter: ", "")
+            data["title"] = self.combo_filter.currentText().replace(self.tr("Filter:"), "").strip()
 
         selection = self.combo_filter.currentData()
         if selection:

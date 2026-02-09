@@ -14,13 +14,13 @@ class ColumnManagerDialog(QDialog):
         self.available_keys = sorted([k for k in available_keys if k not in self.dynamic_columns])
         self.header = header
         
-        self.PRETTY_LABELS = {
-            "doc_date": "Date",
-            "sender_name": "Sender",
-            "total_amount": "Amount",
-            "total_gross": "Gross Amount",
-            "total_net": "Net Amount",
-            "invoice_number": "Invoice #"
+        self.pretty_labels = {
+            "doc_date": self.tr("Date"),
+            "sender_name": self.tr("Sender"),
+            "total_amount": self.tr("Amount"),
+            "total_gross": self.tr("Gross Amount"),
+            "total_net": self.tr("Net Amount"),
+            "invoice_number": self.tr("Invoice #")
         }
         
         self.init_ui()
@@ -95,12 +95,12 @@ class ColumnManagerDialog(QDialog):
             dyn_idx = l_idx - len(self.fixed_columns)
             if 0 <= dyn_idx < len(self.dynamic_columns):
                 key = self.dynamic_columns[dyn_idx]
-                label = self.PRETTY_LABELS.get(key, key)
+                label = self.pretty_labels.get(key, key)
                 is_new = False
             else:
                 return # Should not happen unless inconsistent
                 
-        item_label = f"{label} (Fixed)" if is_fixed else label
+        item_label = self.tr("%s (Fixed)") % label if is_fixed else label
         item = QListWidgetItem(item_label)
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
         
@@ -124,7 +124,7 @@ class ColumnManagerDialog(QDialog):
         if not key: return
         
         # Logic: Treat as "new".
-        display_label = self.PRETTY_LABELS.get(key, key)
+        display_label = self.pretty_labels.get(key, key)
         item = QListWidgetItem(display_label)
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
         item.setCheckState(Qt.CheckState.Checked)

@@ -989,7 +989,7 @@ class PdfViewerWidget(QWidget):
         self.btn_zoom_in.setStyleSheet(btn_style)
         self.btn_zoom_in.clicked.connect(self.zoom_in)
         
-        self.btn_fit = QPushButton("Fit")
+        self.btn_fit = QPushButton(self.tr("Fit"))
         self.btn_fit.setCheckable(True)
         self.btn_fit.setChecked(True)
         self.btn_fit.setFixedSize(50, 30)
@@ -1012,13 +1012,13 @@ class PdfViewerWidget(QWidget):
         self.btn_split = QPushButton("✂")
         self.btn_split.setFixedSize(30, 30)
         self.btn_split.setVisible(False)
-        self.btn_split.setToolTip("Split Document")
+        self.btn_split.setToolTip(self.tr("Split Document"))
         self.btn_split.clicked.connect(lambda: self.split_requested.emit(self.current_uuid))
 
         self.btn_save = QPushButton("💾")
         self.btn_save.setFixedSize(30, 30)
         self.btn_save.setVisible(False)
-        self.btn_save.setToolTip("Save Changes")
+        self.btn_save.setToolTip(self.tr("Save Changes"))
         
         controls = [
             self.btn_prev, self.edit_page, self.lbl_page_count, self.btn_next, 

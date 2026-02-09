@@ -30,7 +30,7 @@ class AuditWindow(QMainWindow):
 
     def __init__(self, pipeline=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("KPaperFlux - Audit & Verification")
+        self.setWindowTitle(self.tr("KPaperFlux - Audit & Verification"))
         self.resize(1300, 900)
         
         self.pipeline = pipeline
@@ -104,7 +104,7 @@ class AuditWindow(QMainWindow):
         self.workflow_controls.transition_triggered.connect(self.workflow_triggered.emit)
         controls_layout.addWidget(self.workflow_controls)
 
-        self.btn_close = QPushButton("Close")
+        self.btn_close = QPushButton(self.tr("Close"))
         self.btn_close.setFixedWidth(120)
         self.btn_close.clicked.connect(self.close)
         self.btn_close.hide() # Hidden by default
@@ -127,9 +127,8 @@ class AuditWindow(QMainWindow):
 
     def display_document(self, doc: Document):
         """Updates the audit view with a new document's data."""
-        self.current_doc = doc
         if not doc:
-            self.render_view.setPlainText("Kein Dokument ausgewählt.")
+            self.render_view.setPlainText(self.tr("No document selected."))
             self.pdf_viewer.clear()
             return
 

@@ -45,7 +45,8 @@ class FilterGroupWidget(QWidget):
 
         # Logic Operator
         self.combo_logic = QComboBox()
-        self.combo_logic.addItems(["AND (All)", "OR (Any)"])
+        self.combo_logic.addItem(self.tr("AND (All)"), "AND")
+        self.combo_logic.addItem(self.tr("OR (Any)"), "OR")
         self.combo_logic.currentIndexChanged.connect(self.changed)
         header_layout.addWidget(self.combo_logic)
 

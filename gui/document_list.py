@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/document_list.py
+Version:        2.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Gemini 3pro
+Description:    Main document list widget with tree representation and sorting.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QTreeWidgetItem,
     QTreeWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -6,7 +17,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QEvent, QTimer
 from PyQt6.QtGui import QBrush, QColor
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Any, Dict
 import datetime
 import os
 import json
@@ -81,35 +92,7 @@ class DocumentListWidget(QWidget):
     restore_requested = pyqtSignal(list) # Phase 92: Trash Restore
     apply_rule_requested = pyqtSignal(object, str) # rule_node, scope ("SELECTED")
     show_generic_requested = pyqtSignal(str) # UUID
-    # Logical Index -> Label Mapping (Fixed Columns)
-    FIXED_COLUMNS = {
-        0: "#",
-        1: "Entity ID",
-        2: "Filename",
-        3: "Pages",
-        4: "Imported Date",
-        5: "Used Date",
-        6: "Deleted Date",
-        7: "Locked Date",
-        8: "Autoprocessed Date",
-        9: "Exported Date",
-        10: "Status",
-        11: "Type Tags",
-        12: "Tags"
-    }
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
-
-    # Phase 2.1: Human Readable Labels for Semantic JSON Keys
-    SEMANTIC_LABELS = {
-        "doc_date": "Date",
-        "sender_name": "Sender",
-        "total_amount": "Amount",
-        "total_gross": "Gross Amount",
-        "total_net": "Net Amount",
-        "invoice_number": "Invoice #"
-    }
-    
-    # Phase 125: Humand Readable Mappings for technical Tags
     TAG_MAPPING = {
         "CTX_PRIVATE": "Private",
         "CTX_BUSINESS": "Business",
@@ -118,7 +101,54 @@ class DocumentListWidget(QWidget):
         "INTERNAL": "Internal"
     }
 
-    def __init__(self, db_manager=None, filter_tree=None, plugin_manager=None, parent=None):
+    STATUS_MAP = {
+        "NEW": "New",
+        "READY_FOR_PIPELINE": "Ready for Pipeline",
+        "PROCESSING": "Processing",
+        "PROCESSING_S1": "Processing (Stage 1)",
+        "PROCESSING_S1_5": "Processing (Stamps)",
+        "PROCESSING_S2": "Processing (Semantic)",
+        "STAGE1_HOLD": "On Hold (Stage 1)",
+        "STAGE1_5_HOLD": "On Hold (Stamps)",
+        "STAGE2_HOLD": "On Hold (Semantic)",
+        "PROCESSED": "Processed",
+        "ERROR": "Error"
+    }
+
+    def _get_fixed_column_labels(self):
+        """Returns translated labels for fixed columns."""
+        return {
+            0: "#",
+            1: self.tr("Entity ID"),
+            2: self.tr("Filename"),
+            3: self.tr("Pages"),
+            4: self.tr("Imported Date"),
+            5: self.tr("Used Date"),
+            6: self.tr("Deleted Date"),
+            7: self.tr("Locked Date"),
+            8: self.tr("Autoprocessed Date"),
+            9: self.tr("Exported Date"),
+            10: self.tr("Status"),
+            11: self.tr("Type Tags"),
+            12: self.tr("Tags")
+        }
+
+    def _get_semantic_labels(self):
+        """Returns translated labels for semantic fields."""
+        return {
+            "doc_date": self.tr("Date"),
+            "sender_name": self.tr("Sender"),
+            "total_amount": self.tr("Amount"),
+            "total_gross": self.tr("Gross Amount"),
+            "total_net": self.tr("Net Amount"),
+            "invoice_number": self.tr("Invoice #")
+        }
+
+    def __init__(self, 
+                 db_manager: Optional[DatabaseManager] = None, 
+                 filter_tree: Any = None, 
+                 plugin_manager: Any = None, 
+                 parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.db_manager = db_manager
         self.filter_tree = filter_tree
@@ -133,7 +163,11 @@ class DocumentListWidget(QWidget):
         self.target_uuid_to_restore = None   # Phase 105: Programmatic override
         self.dynamic_columns = []
         self.is_trash_mode = False
-        self.view_context = "All Documents" # For Breadcrumb
+        self.view_context = self.tr("All Documents") # For Breadcrumb
+        self.fixed_columns = self._get_fixed_column_labels()
+        self.semantic_labels = self._get_semantic_labels()
+        self.status_labels = {k: self.tr(v) for k, v in self.STATUS_MAP.items()}
+        self.tag_labels = {k: self.tr(v) for k, v in self.TAG_MAPPING.items()}
 
         self.init_ui()
 
@@ -223,12 +257,12 @@ class DocumentListWidget(QWidget):
     def update_headers(self):
         """Set tree headers including dynamic ones."""
         # Fixed Columns from dict
-        labels = [self.tr(self.FIXED_COLUMNS[i]) for i in range(len(self.FIXED_COLUMNS))]
+        labels = [self.fixed_columns[i] for i in range(len(self.fixed_columns))]
 
         # Dynamic Columns (with pretty labels for known semantic keys)
         for key in self.dynamic_columns:
-            label = self.SEMANTIC_LABELS.get(key, key)
-            labels.append(self.tr(label))
+            label = self.semantic_labels.get(key, key)
+            labels.append(label)
 
         self.tree.setHeaderLabels(labels)
 
@@ -305,7 +339,7 @@ class DocumentListWidget(QWidget):
             if shortcut not in available:
                 available.append(shortcut)
 
-        dlg = ColumnManagerDialog(self, self.FIXED_COLUMNS, self.dynamic_columns, available, self.tree.header())
+        dlg = ColumnManagerDialog(self, self.fixed_columns, self.dynamic_columns, available, self.tree.header())
 
         if dlg.exec():
             new_dyn_cols, ordered_items = dlg.get_result()
@@ -345,7 +379,7 @@ class DocumentListWidget(QWidget):
                 elif item["type"] == "dynamic":
                     key = item["key"]
                     if key in self.dynamic_columns:
-                        logical_idx = len(self.FIXED_COLUMNS) + self.dynamic_columns.index(key)
+                        logical_idx = len(self.fixed_columns) + self.dynamic_columns.index(key)
 
                 if logical_idx != -1:
                     # Move Section
@@ -365,7 +399,7 @@ class DocumentListWidget(QWidget):
                  elif item["type"] == "dynamic":
                     key = item["key"]
                     if key in self.dynamic_columns:
-                        logical_idx = len(self.FIXED_COLUMNS) + self.dynamic_columns.index(key)
+                        logical_idx = len(self.fixed_columns) + self.dynamic_columns.index(key)
 
                  if logical_idx != -1:
                      header.setSectionHidden(logical_idx, not item["visible"])
@@ -868,7 +902,7 @@ class DocumentListWidget(QWidget):
         target_item.setText(12, ", ".join(doc.tags or []))
 
         # 5. Dynamic Columns (including semantic shortcuts)
-        num_fixed = len(self.FIXED_COLUMNS)
+        num_fixed = len(self.fixed_columns)
         for d_idx, key in enumerate(self.dynamic_columns):
             col_idx = num_fixed + d_idx
             
@@ -1109,7 +1143,7 @@ class DocumentListWidget(QWidget):
         self.tree.clear()
         self.documents_cache = {doc.uuid: doc for doc in docs}
 
-        num_fixed = len(self.FIXED_COLUMNS)
+        num_fixed = len(self.fixed_columns)
 
         for i, doc in enumerate(docs):
             created_str = format_datetime(doc.created_at)
@@ -1118,11 +1152,12 @@ class DocumentListWidget(QWidget):
             filename = doc.original_filename or f"Entity {doc.uuid[:8]}"
             pages_sort = doc.page_count if doc.page_count is not None else 0
             pages_str = str(pages_sort)
-            status = getattr(doc, "status", "NEW")
+            status_raw = getattr(doc, "status", "NEW").upper()
+            status = self.status_labels.get(status_raw, status_raw)
             type_tags = getattr(doc, "type_tags", []) or []
             # Sort for consistent display
             combined_types = self.sort_type_tags(set(type_tags))
-            locked_str = "Yes" if getattr(doc, "is_immutable", False) else "No"
+            locked_str = self.tr("Yes") if getattr(doc, "is_immutable", False) else self.tr("No")
 
             # Format all system dates
             import_str = format_datetime(doc.created_at) or "-"

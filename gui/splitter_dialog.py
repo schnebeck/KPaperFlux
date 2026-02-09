@@ -107,7 +107,7 @@ class SplitterDialog(QDialog):
         self.mode = "IMPORT"
         self.import_path = file_path
         self.strip.import_mode = True
-        self.setWindowTitle(self.tr("Import Assistant: ") + os.path.basename(file_path))
+        self.setWindowTitle(self.tr("Import Assistant:") + " " + os.path.basename(file_path))
         self.strip.load_from_path(file_path)
 
         try:

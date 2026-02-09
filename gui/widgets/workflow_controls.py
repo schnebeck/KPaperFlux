@@ -32,7 +32,7 @@ class WorkflowControlsWidget(QWidget):
         self.layout.addWidget(self.buttons_container)
 
         self.btn_change = QPushButton("⚙️")
-        self.btn_change.setToolTip("Change/Assign Workflow Agent")
+        self.btn_change.setToolTip(self.tr("Change/Assign Workflow Agent"))
         self.btn_change.setFixedWidth(30)
         self.btn_change.setStyleSheet("background: #f5f5f5; border: 1px solid #ccc;")
         self.btn_change.clicked.connect(self._show_assignment_menu)
@@ -51,19 +51,19 @@ class WorkflowControlsWidget(QWidget):
             self.buttons_layout.itemAt(i).widget().setParent(None)
             
         if not self.playbook_id:
-            self.status_lbl.setText("No Agent")
+            self.status_lbl.setText(self.tr("No Agent"))
             return
 
         playbook = self.registry.get_playbook(self.playbook_id)
         if not playbook:
-            self.status_lbl.setText(f"Agent '{self.playbook_id}' missing")
+            self.status_lbl.setText(self.tr("Agent '%s' missing") % self.playbook_id)
             return
 
         engine = WorkflowEngine(playbook)
         state_def = playbook.states.get(self.current_step)
         
         label = state_def.label if state_def else self.current_step
-        self.status_lbl.setText(f"Step: {label}")
+        self.status_lbl.setText(f"{self.tr('Step')}: {label}")
 
         if state_def:
             for trans in state_def.transitions:
@@ -80,7 +80,7 @@ class WorkflowControlsWidget(QWidget):
                     # Tooltip for why it's disabled
                     missing = [f for f in trans.required_fields if f not in self.document_data or self.document_data[f] is None]
                     if missing:
-                        btn.setToolTip(f"Missing fields: {', '.join(missing)}")
+                        btn.setToolTip(self.tr("Missing fields: %s") % ", ".join(missing))
                 
                 btn.clicked.connect(lambda checked, a=trans.action, t=trans.target: self.transition_triggered.emit(a, t))
                 self.buttons_layout.addWidget(btn)
@@ -97,7 +97,7 @@ class WorkflowControlsWidget(QWidget):
         
         playbooks = self.registry.list_playbooks()
         
-        none_action = menu.addAction("None")
+        none_action = menu.addAction(self.tr("None"))
         none_action.triggered.connect(lambda: self.playbook_changed.emit(""))
         menu.addSeparator()
         

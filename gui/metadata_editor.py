@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/metadata_editor.py
+Version:        2.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Gemini 3pro
+Description:    Widget for editing document metadata and managing workflows.
+------------------------------------------------------------------------------
+"""
+
 from typing import Dict, List, Optional, Any
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
@@ -8,7 +19,7 @@ from PyQt6.QtGui import QPixmap, QImage
 import json
 import io
 from datetime import datetime
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 from core.models.canonical_entity import DocType
@@ -66,15 +77,15 @@ class NestedTableDialog(QDialog):
 
         # Action Buttons
         btn_layout = QHBoxLayout()
-        add_btn = QPushButton("Add Row")
+        add_btn = QPushButton(self.tr("Add Row"))
         add_btn.clicked.connect(self._add_row)
-        remove_btn = QPushButton("Remove Row")
+        remove_btn = QPushButton(self.tr("Remove Row"))
         remove_btn.clicked.connect(self._remove_row)
 
-        save_btn = QPushButton("Save / Apply")
+        save_btn = QPushButton(self.tr("Save / Apply"))
         save_btn.setStyleSheet("font-weight: bold; background-color: #e1f5fe;")
         save_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("Cancel")
+        cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.clicked.connect(self.reject)
 
         btn_layout.addWidget(add_btn)
@@ -131,13 +142,26 @@ class NestedTableDialog(QDialog):
         return text
 
 class MetadataEditorWidget(QWidget):
-
     """
     Simplified Widget to edit virtual document metadata for Stage 0/1.
     """
     metadata_saved = pyqtSignal()
 
-    def __init__(self, db_manager: DatabaseManager = None):
+    STATUS_MAP = {
+        "NEW": "New",
+        "READY_FOR_PIPELINE": "Ready for Pipeline",
+        "PROCESSING": "Processing",
+        "PROCESSING_S1": "Processing (Stage 1)",
+        "PROCESSING_S1_5": "Processing (Stamps)",
+        "PROCESSING_S2": "Processing (Semantic)",
+        "STAGE1_HOLD": "On Hold (Stage 1)",
+        "STAGE1_5_HOLD": "On Hold (Stamps)",
+        "STAGE2_HOLD": "On Hold (Semantic)",
+        "PROCESSED": "Processed",
+        "ERROR": "Error"
+    }
+
+    def __init__(self, db_manager: Optional[DatabaseManager] = None) -> None:
         super().__init__()
         self.db_manager = db_manager
         self.current_uuids = []
@@ -161,7 +185,7 @@ class MetadataEditorWidget(QWidget):
 
         # Lock Checkbox
         lock_layout = QHBoxLayout()
-        self.chk_locked = QCheckBox("Locked (Immutable)")
+        self.chk_locked = QCheckBox(self.tr("Locked (Immutable)"))
         self.chk_locked.clicked.connect(self.on_lock_clicked)
         lock_layout.addWidget(self.chk_locked)
         
@@ -192,12 +216,12 @@ class MetadataEditorWidget(QWidget):
         general_layout = QFormLayout(self.general_content)
         
         # PKV Toggle
-        self.chk_pkv = QCheckBox("Eligible for PKV Reimbursement")
+        self.chk_pkv = QCheckBox(self.tr("Eligible for PKV Reimbursement"))
         general_layout.addRow("", self.chk_pkv)
 
         self.uuid_lbl = QLabel()
         self.uuid_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        general_layout.addRow("UUID:", self.uuid_lbl)
+        general_layout.addRow(self.tr("UUID:"), self.uuid_lbl)
 
         self.created_at_lbl = QLabel()
         general_layout.addRow(self.tr("Created At:"), self.created_at_lbl)
@@ -206,12 +230,8 @@ class MetadataEditorWidget(QWidget):
         general_layout.addRow(self.tr("Pages:"), self.page_count_lbl)
 
         self.status_combo = QComboBox()
-        self.status_combo.addItems([
-            "NEW", "READY_FOR_PIPELINE",
-            "PROCESSING", "PROCESSING_S1", "PROCESSING_S1_5", "PROCESSING_S2",
-            "STAGE1_HOLD", "STAGE1_5_HOLD", "STAGE2_HOLD",
-            "PROCESSED", "ERROR"
-        ])
+        for tech_val, display_name in self.STATUS_MAP.items():
+            self.status_combo.addItem(self.tr(display_name), tech_val)
         general_layout.addRow(self.tr("Status:"), self.status_combo)
 
         self.export_filename_edit = QLineEdit()
@@ -239,11 +259,13 @@ class MetadataEditorWidget(QWidget):
         analysis_layout.addRow(self.tr("Document Types:"), self.doc_types_combo)
 
         self.direction_combo = QComboBox()
-        self.direction_combo.addItems(["Inbound", "Outbound", "Internal", "Unknown"])
+        for d in ["Inbound", "Outbound", "Internal", "Unknown"]:
+            self.direction_combo.addItem(self.tr(d), d)
         analysis_layout.addRow(self.tr("Direction:"), self.direction_combo)
 
         self.context_combo = QComboBox()
-        self.context_combo.addItems(["Private", "Business", "Unknown"])
+        for c in ["Private", "Business", "Unknown"]:
+            self.context_combo.addItem(self.tr(c), c)
         analysis_layout.addRow(self.tr("Tenant Context:"), self.context_combo)
 
         analysis_layout.addRow(QLabel("--- " + self.tr("Extracted Data") + " ---"))
@@ -254,6 +276,7 @@ class MetadataEditorWidget(QWidget):
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setSpecialValueText(" ") # Allow 'empty' look
+        self.date_edit.setDisplayFormat(QLocale.system().dateFormat(QLocale.FormatType.ShortFormat))
         analysis_layout.addRow(self.tr("Document Date:"), self.date_edit)
 
         # Reasoning field removed to save space/tokens in AI output
@@ -482,7 +505,7 @@ class MetadataEditorWidget(QWidget):
         # 1. Update In-Memory Object
         sd = self.doc.semantic_data
         if sd and sd.workflow:
-            sd.workflow.apply_transition(action, target_state, user="USER", comment="Action triggered via UI")
+            sd.workflow.apply_transition(action, target_state, user="USER", comment=self.tr("Action triggered via UI"))
             
             # If target state is 'PAID', we might want to update status to 'DONE' etc.
             # But the playbook should ideally define if a state is 'final'.
@@ -642,7 +665,7 @@ class MetadataEditorWidget(QWidget):
         self.sender_edit.clear()
         self.sender_edit.setPlaceholderText("<Multiple Values>")
 
-        self.source_viewer.setPlainText(f"{len(docs)} documents selected.")
+        self.source_viewer.setPlainText(self.tr("%n document(s) selected.", "", len(docs)))
         self.semantic_viewer.setPlainText("-")
         
         self._reset_dirty()
@@ -664,10 +687,12 @@ class MetadataEditorWidget(QWidget):
         self.page_count_lbl.setText(str(doc.page_count) if doc.page_count is not None else "-")
         # Robust Status Sync (Case Insensitive)
         stat = (doc.status or "NEW").upper()
-        idx = self.status_combo.findText(stat, Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchFixedString)
+        # Use findData since we store the technical 'stat' as UserData in _init_ui
+        idx = self.status_combo.findData(stat, Qt.ItemDataRole.UserRole, Qt.MatchFlag.MatchExactly)
         if idx >= 0:
             self.status_combo.setCurrentIndex(idx)
         else:
+            # Fallback if status not in our standard map (e.g. from DB migration)
             self.status_combo.setCurrentText(stat)
 
         self.export_filename_edit.setText(doc.original_filename or "")
@@ -690,14 +715,32 @@ class MetadataEditorWidget(QWidget):
 
         # Directions & Context (Dynamic via standard values)
         # Robust case-insensitive sync
-        dir_val = str(sd_dict.get("direction", "Unknown")).title()
-        ctx_val = str(sd_dict.get("tenant_context", "Unknown")).title()
+        dir_val = str(sd_dict.get("direction", "Unknown")).strip().upper()
+        ctx_val = str(sd_dict.get("tenant_context", "Unknown")).strip().upper()
         
-        # Inbound vs INBOUND mapping
-        if dir_val == "Inbound": dir_val = "Inbound" # Standardized
-        
-        self.direction_combo.setCurrentText(dir_val)
-        self.context_combo.setCurrentText(ctx_val)
+        # CTX_ prefix for context tags logic
+        if ctx_val.startswith("CTX_"): ctx_val = ctx_val[4:]
+
+        # Sync combos via data keys (using correct role and flags)
+        idx_dir = self.direction_combo.findData(
+            dir_val.title(), 
+            role=Qt.ItemDataRole.UserRole, 
+            flags=Qt.MatchFlag.MatchExactly
+        )
+        if idx_dir >= 0: 
+            self.direction_combo.setCurrentIndex(idx_dir)
+        else: 
+            self.direction_combo.setCurrentText(dir_val.title())
+
+        idx_ctx = self.context_combo.findData(
+            ctx_val.title(), 
+            role=Qt.ItemDataRole.UserRole, 
+            flags=Qt.MatchFlag.MatchExactly
+        )
+        if idx_ctx >= 0: 
+            self.context_combo.setCurrentIndex(idx_ctx)
+        else: 
+            self.context_combo.setCurrentText(ctx_val.title())
 
         # Stage 1.5 Stamps (Phase 105 Fix)
         # Check both direct 'layer_stamps' and nested 'visual_audit'
@@ -1061,7 +1104,7 @@ class MetadataEditorWidget(QWidget):
             if not iban: missing.append(self.tr("IBAN"))
             if not amount_str: missing.append(self.tr("Amount"))
             
-            self.qr_label.setText(self.tr("Incomplete data for GiroCode:\nMissing ") + ", ".join(missing))
+            self.qr_label.setText(self.tr("Incomplete data for GiroCode:\nMissing") + " " + ", ".join(missing))
             self.qr_label.setPixmap(QPixmap())
             return
 
@@ -1106,7 +1149,7 @@ class MetadataEditorWidget(QWidget):
             self.qr_label.setText(self.tr("Invalid Amount format."))
             self.qr_label.setPixmap(QPixmap())
         except Exception as e:
-            self.qr_label.setText(self.tr("Error generating QR: ") + str(e))
+            self.qr_label.setText(self.tr("Error generating QR:") + " " + str(e))
             self.qr_label.setPixmap(QPixmap())
 
     def copy_girocode_payload(self):
@@ -1179,7 +1222,7 @@ class MetadataEditorWidget(QWidget):
                 final_tags.append(ct)
 
         updates = {
-            "status": self.status_combo.currentText(),
+            "status": self.status_combo.currentData(),
             "export_filename": self.export_filename_edit.text().strip(),
             "type_tags": final_tags,
             "tags": custom_tags

@@ -43,40 +43,40 @@ class FilterConditionWidget(QWidget):
     changed = pyqtSignal()
 
     CATEGORIES = {
-        "basis": "📦 Basis",
-        "ai": "🤖 Analyse",
-        "stamps": "📑 Stempel",
-        "sys": "⚙️ System",
-        "raw": "🛠 Rohdaten"
+        "basis": "Basis",
+        "ai": "Analysis",
+        "stamps": "Stamps",
+        "sys": "System",
+        "raw": "Raw Data"
     }
 
     FIELDS_BY_CAT = {
         "basis": {
-            "Belegdatum": "doc_date",
-            "Belegtyp": "classification",
+            "Document Date": "doc_date",
+            "Classification": "classification",
             "Status": "status",
-            "Schlagworte (Tags)": "tags",
-            "System-Tags": "type_tags",
-            "Volltext": "cached_full_text",
+            "Tags": "tags",
+            "System Tags": "type_tags",
+            "Full Text": "cached_full_text",
         },
         "ai": {
-            "Richtung": "direction",
-            "Kontext": "tenant_context",
-            "KI Vertrauen": "confidence",
-            "KI Begründung": "reasoning",
+            "Direction": "direction",
+            "Context": "tenant_context",
+            "AI Confidence": "confidence",
+            "AI Reasoning": "reasoning",
         },
         "stamps": {
-            "Stempeltext (Gesamt)": "stamp_text",
-            "Stempeltyp": "stamp_type",
-            "Audit-Modus": "visual_audit_mode",
+            "Stamp Text (Total)": "stamp_text",
+            "Stamp Type": "stamp_type",
+            "Audit Mode": "visual_audit_mode",
         },
         "sys": {
-            "Dateiname": "original_filename",
-            "Seitenanzahl": "page_count_virt",
+            "Filename": "original_filename",
+            "Pages": "page_count_virt",
             "UUID": "uuid",
-            "Erstellt am": "created_at",
-            "Verarbeitet am": "last_processed_at",
-            "In Papierkorb": "deleted",
+            "Created At": "created_at",
+            "Processed At": "last_processed_at",
+            "In Trash": "deleted",
         }
     }
 
@@ -131,7 +131,7 @@ class FilterConditionWidget(QWidget):
 
         # 3. Populate Operators
         for name, key in self.OPERATORS:
-            self.combo_op.addItem(name, key)
+            self.combo_op.addItem(self.tr(name), key)
 
         # 4. Add to Layout
         self.layout.addWidget(self.btn_field_selector, 1)
@@ -168,13 +168,16 @@ class FilterConditionWidget(QWidget):
 
         # 1. Categories
         for cat_id, cat_label in self.CATEGORIES.items():
-            cat_menu = menu.addMenu(cat_label)
+            # Apply icon based on ID
+            icons = {"basis": "📦 ", "ai": "🤖 ", "stamps": "📑 ", "sys": "⚙️ ", "raw": "🛠 "}
+            display_label = icons.get(cat_id, "") + self.tr(cat_label)
+            cat_menu = menu.addMenu(display_label)
 
             # Basis fields
             fields = self.FIELDS_BY_CAT.get(cat_id, {})
             for name, key in fields.items():
-                action = cat_menu.addAction(name)
-                action.triggered.connect(lambda checked, k=key, n=name: self._set_field(k, n))
+                action = cat_menu.addAction(self.tr(name))
+                action.triggered.connect(lambda checked, k=key, n=self.tr(name): self._set_field(k, n))
 
             # Dynamic additions per category
             if cat_id == "stamps":
@@ -183,7 +186,7 @@ class FilterConditionWidget(QWidget):
                     if k.startswith("stamp_field:"):
                         has_stamps = True
                         label = k[12:]
-                        action = cat_menu.addAction(f"Feld: {label}")
+                        action = cat_menu.addAction(self.tr("Field: %s") % label)
                         action.triggered.connect(lambda checked, k=k, n=label: self._set_field(k, n))
                 if not has_stamps and not fields:
                     cat_menu.setEnabled(False)

@@ -12,6 +12,7 @@ Description:    Application entry point. Initializes the Qt environment,
 """
 
 import sys
+import os
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QTranslator, QCoreApplication
@@ -23,16 +24,26 @@ from core.pipeline import PipelineProcessor
 from gui.main_window import MainWindow
 from core.config import AppConfig
 
+# Global list to prevent QTranslator garbage collection
+_translators: list[QTranslator] = []
 
 def load_translations(app: QApplication, app_config: AppConfig) -> None:
     """
     Loads and installs system translations based on configuration.
+    Prioritizes environment variables (LANGUAGE, LANG) then config settings.
 
     Args:
         app: The current QApplication instance.
         app_config: The application configuration manager.
     """
-    lang = app_config.get_language()
+    # 1. Check priority: Environment Variable -> Config -> Default
+    env_lang = os.environ.get("LANGUAGE") or os.environ.get("LANG")
+    if env_lang:
+        # Normalize de_DE.UTF-8 -> de
+        lang = env_lang.split(".")[0].split("_")[0]
+    else:
+        lang = app_config.get_language()
+
     if lang != "en":
         translator = QTranslator()
         base_dir = Path(__file__).resolve().parent
@@ -42,6 +53,7 @@ def load_translations(app: QApplication, app_config: AppConfig) -> None:
         if qm_path.exists():
             if translator.load(str(qm_path)):
                 app.installTranslator(translator)
+                _translators.append(translator)  # Keep reference
                 print(f"Loaded GUI translation: {qm_path}")
             else:
                 print(f"Failed to load GUI translation: {qm_path}")

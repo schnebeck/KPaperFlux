@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/dashboard.py
+Version:        2.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Gemini 3pro
+Description:    Interactive dashboard for document statistics and quick filters.
+------------------------------------------------------------------------------
+"""
+
 import json
 import os
 import shutil
@@ -94,8 +105,8 @@ class StatCard(QFrame):
 
     def _show_context_menu(self, pos):
         menu = QMenu(self)
-        edit_action = menu.addAction("Edit View...")
-        delete_action = menu.addAction("Remove from Dashboard")
+        edit_action = menu.addAction(self.tr("Edit View..."))
+        delete_action = menu.addAction(self.tr("Remove from Dashboard"))
         
         action = menu.exec(self.mapToGlobal(pos))
         if action == edit_action:
@@ -170,10 +181,10 @@ class DashboardWidget(QWidget):
         
         if not self.cards_config:
             self.cards_config = [
-                {"title": "Inbox", "preset_id": "NEW", "color": "#3b82f6", "row": 0, "col": 0},
-                {"title": "Total Documents", "preset_id": "ALL", "color": "#10b981", "row": 0, "col": 1},
-                {"title": "Total Invoiced", "preset_id": "INVOICES", "color": "#f59e0b", "aggregation": "sum", "row": 0, "col": 2},
-                {"title": "Processed", "preset_id": "PROCESSED", "color": "#6b7280", "row": 0, "col": 3}
+                {"title": self.tr("Inbox"), "preset_id": "NEW", "color": "#3b82f6", "row": 0, "col": 0},
+                {"title": self.tr("Total Documents"), "preset_id": "ALL", "color": "#10b981", "row": 0, "col": 1},
+                {"title": self.tr("Total Invoiced"), "preset_id": "INVOICES", "color": "#f59e0b", "aggregation": "sum", "row": 0, "col": 2},
+                {"title": self.tr("Processed"), "preset_id": "PROCESSED", "color": "#6b7280", "row": 0, "col": 3}
             ]
 
     def save_config(self):
@@ -384,13 +395,13 @@ class DashboardWidget(QWidget):
     def _show_dashboard_menu(self, pos):
         menu = QMenu(self)
         
-        lock_text = "Unlock Layout (Enable Dragging)" if self.locked else "Lock Layout (Prevent Dragging)"
+        lock_text = self.tr("Unlock Layout (Enable Dragging)") if self.locked else self.tr("Lock Layout (Prevent Dragging)")
         lock_action = menu.addAction(lock_text)
         lock_action.triggered.connect(self._toggle_lock)
         
         menu.addSeparator()
         
-        add_action = menu.addAction("Add New Filter View...")
+        add_action = menu.addAction(self.tr("Add New Filter View..."))
         add_action.triggered.connect(self._add_new_card)
         menu.exec(self.content_widget.mapToGlobal(pos))
 

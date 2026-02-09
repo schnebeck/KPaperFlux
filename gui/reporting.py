@@ -88,18 +88,18 @@ class ReportingWidget(QWidget):
         layout.setSpacing(20)
 
         header = QHBoxLayout()
-        title = QLabel("Financial Reporting")
+        title = QLabel(self.tr("Financial Reporting"))
         title.setStyleSheet("font-size: 20pt; font-weight: bold; color: #2c3e50;")
         header.addWidget(title)
         
         header.addStretch()
         
-        self.btn_refresh = QPushButton("🔄 Refresh Reports")
+        self.btn_refresh = QPushButton("🔄 " + self.tr("Refresh Reports"))
         self.btn_refresh.clicked.connect(self.refresh_data)
         self.btn_refresh.setStyleSheet("padding: 8px 15px; font-weight: bold;")
         header.addWidget(self.btn_refresh)
         
-        self.btn_export = QPushButton("📤 Export to Excel (CSV)")
+        self.btn_export = QPushButton("📤 " + self.tr("Export to Excel (CSV)"))
         self.btn_export.clicked.connect(self.export_csv)
         self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; padding: 8px 15px; font-weight: bold;")
         header.addWidget(self.btn_export)
@@ -119,26 +119,30 @@ class ReportingWidget(QWidget):
         chart_frame = QFrame()
         chart_frame.setStyleSheet("background-color: white; border-radius: 12px; border: 1px solid #ddd;")
         chart_layout = QVBoxLayout(chart_frame)
-        chart_layout.addWidget(QLabel("Monthly Invoiced Totals (Rolling 12 Months)"))
+        chart_layout.addWidget(QLabel(self.tr("Monthly Invoiced Totals (Rolling 12 Months)")))
         self.invoiced_chart = BarChartWidget({}, QColor("#f59e0b"), self)
         chart_layout.addWidget(self.invoiced_chart)
         self.content_layout.addWidget(chart_frame)
-
+ 
         # Summary Table
         self.table = QTableWidget()
         self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Month", "Total Net", "Total Gross"])
+        self.table.setHorizontalHeaderLabels([
+            self.tr("Month"), self.tr("Total Net"), self.tr("Total Gross")
+        ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setStyleSheet("background-color: white; border-radius: 8px;")
-        self.content_layout.addWidget(QLabel("Detailed Summary Table"))
+        self.content_layout.addWidget(QLabel(self.tr("Detailed Summary Table")))
         self.content_layout.addWidget(self.table)
         
         # Tax Section
         self.tax_table = QTableWidget()
         self.tax_table.setColumnCount(2)
-        self.tax_table.setHorizontalHeaderLabels(["Tax Rate", "Total Tax Amount"])
+        self.tax_table.setHorizontalHeaderLabels([
+            self.tr("Tax Rate"), self.tr("Total Tax Amount")
+        ])
         self.tax_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.content_layout.addWidget(QLabel("Tax Breakdown"))
+        self.content_layout.addWidget(QLabel(self.tr("Tax Breakdown")))
         self.content_layout.addWidget(self.tax_table)
 
     def refresh_data(self):
@@ -178,9 +182,11 @@ class ReportingWidget(QWidget):
         csv_data = self.repo_gen.export_to_csv(docs)
         
         from PyQt6.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getSaveFileName(self, "Export Report", "KPaperFlux_Export.csv", "CSV Files (*.csv)")
+        path, _ = QFileDialog.getSaveFileName(
+            self, self.tr("Export Report"), "KPaperFlux_Export.csv", "CSV Files (*.csv)"
+        )
         if path:
             with open(path, "wb") as f:
                 f.write(csv_data)
             from gui.utils import show_notification
-            show_notification(self, "Export Done", f"Saved report to {path}")
+            show_notification(self, self.tr("Export Done"), self.tr("Saved report to %s") % path)

@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/advanced_filter.py
+Version:        2.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Gemini 3pro
+Description:    Panel for managing complex search filters and document rules.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QComboBox, QLineEdit, QScrollArea, QFrame,
                              QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox,

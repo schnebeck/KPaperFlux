@@ -107,11 +107,11 @@ class MaintenanceDialog(QDialog):
                 item.setData(Qt.ItemDataRole.UserRole, str(path))
                 self.list_ghosts.addItem(item)
 
-            self.tabs.setTabText(0, self.tr(f"Missing Files ({len(self.report.orphans)})"))
-            self.tabs.setTabText(1, self.tr(f"Unknown Files ({len(self.report.ghosts)})"))
+            self.tabs.setTabText(0, self.tr("Missing Files (%s)") % len(self.report.orphans))
+            self.tabs.setTabText(1, self.tr("Unknown Files (%s)") % len(self.report.ghosts))
 
         except Exception as e:
-            show_selectable_message_box(self, self.tr("Error"), self.tr(f"Scan failed: {e}"), icon=QMessageBox.Icon.Critical)
+            show_selectable_message_box(self, self.tr("Error"), self.tr("Scan failed: %s") % str(e), icon=QMessageBox.Icon.Critical)
 
     def delete_selected_orphans(self):
         items = self.list_orphans.selectedItems()
@@ -122,7 +122,7 @@ class MaintenanceDialog(QDialog):
         reply = show_selectable_message_box(
             self,
             self.tr("Confirm"),
-            self.tr(f"Delete {len(items)} database entries?"),
+            self.tr("Delete %s database entries?") % len(items),
             icon=QMessageBox.Icon.Question,
             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -145,7 +145,7 @@ class MaintenanceDialog(QDialog):
         reply = show_selectable_message_box(
             self,
             self.tr("Confirm"),
-            self.tr(f"Permanently delete {len(items)} files?"),
+            self.tr("Permanently delete %s files?") % len(items),
             icon=QMessageBox.Icon.Question,
             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
