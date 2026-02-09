@@ -51,7 +51,7 @@ Transition from hard-coded states to programmable Playbooks:
 ## **Environment Details**
 *   **Core:** Python 3.12+, PyQt6.
 *   **Key Libraries:** PyMuPDF (fitz), OpenCV, NumPy.
-*   **Strategic Docs:** See `@devel/Strategic_Evaluation.md` for the full reporting concept.
+*   **Strategic Docs:** See `@devel/strategic_evaluation.md` for the full reporting concept.
 
 ---
 *End of Handover Documentation*
