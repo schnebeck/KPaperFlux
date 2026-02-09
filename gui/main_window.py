@@ -1,4 +1,15 @@
-from typing import Optional
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/main_window.py
+Version:        2.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Gemini 3pro
+Description:    Main application window orchestrating the UI and backend logic.
+------------------------------------------------------------------------------
+"""
+
+from typing import Optional, List, Any, Dict
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog,
     QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox, QStatusBar,
@@ -6,7 +17,8 @@ from PyQt6.QtWidgets import (
     QButtonGroup, QFrame
 )
 from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent, QKeySequence, QShortcut
-from PyQt6.QtCore import Qt, QSettings, QSize, QCoreApplication, QTimer
+from PyQt6.QtCore import Qt, QSettings, QSize, QCoreApplication, QTimer, PYQT_VERSION_STR
+import PyQt6
 import platform
 import os
 import sys
@@ -77,7 +89,9 @@ class MainWindow(QMainWindow):
     """
     Main application window for KPaperFlux.
     """
-    def __init__(self, pipeline: Optional[PipelineProcessor] = None, db_manager: Optional[DatabaseManager] = None):
+    def __init__(self, 
+                 pipeline: Optional[PipelineProcessor] = None, 
+                 db_manager: Optional[DatabaseManager] = None) -> None:
         super().__init__()
         self.pipeline = pipeline
         self.db_manager = db_manager
@@ -1166,7 +1180,7 @@ class MainWindow(QMainWindow):
             if to_full:
                 self.reprocess_document_slot(to_full)
 
-            self.main_status_label.setText(self.tr(f"Queued {len(uuids)} docs for background extraction."))
+            self.main_status_label.setText(self.tr("Queued %n doc(s) for background extraction.", "", len(uuids)))
 
     def merge_documents_slot(self, uuids: list[str]):
         """Handle merge request."""
@@ -1194,13 +1208,18 @@ class MainWindow(QMainWindow):
                 import traceback
                 print(f"[ERROR] Merge error: {e}")
                 traceback.print_exc()
-                show_selectable_message_box(self, self.tr("Error"), self.tr(f"Merge error: {e}"), icon=QMessageBox.Icon.Critical)
+                show_selectable_message_box(
+                    self, 
+                    self.tr("Error"), 
+                    self.tr("Merge error: %s") % str(e), 
+                    icon=QMessageBox.Icon.Critical
+                )
 
-    def show_about_dialog(self):
+    def show_about_dialog(self) -> None:
         """Show the About dialog with system info."""
-        qt_version = PyQt6.QtCore.QT_VERSION_STR
-        py_version = sys.version.split()[0]
-        platform_info = platform.system() + " " + platform.release()
+        qt_version: str = PYQT_VERSION_STR
+        py_version: str = sys.version.split()[0]
+        platform_info: str = f"{platform.system()} {platform.release()}"
 
         # Try to get KDE version
         kde_version = os.environ.get('KDE_FULL_SESSION', self.tr("Unknown"))
@@ -1210,24 +1229,17 @@ class MainWindow(QMainWindow):
         else:
             kde_version = self.tr("Not Detected")
 
-        QMessageBox.about(
-            self,
-            self.tr("About KPaperFlux"),
-            self.tr(
-                "<h3>KPaperFlux v1.0</h3>"
-                "<p>A modern document management tool.</p>"
-                "<hr>"
-                "<p><b>Qt Version:</b> {qt_ver}</p>"
-                "<p><b>Python:</b> {py_ver}</p>"
-                "<p><b>System:</b> {sys_ver}</p>"
-                "<p><b>Desktop Environment:</b> {kde_ver}</p>"
-            ).format(
-                qt_ver=qt_version,
-                py_ver=py_version,
-                sys_ver=platform_info,
-                kde_ver=kde_version
-            )
-        )
+        about_text: str = self.tr(
+            "<h3>KPaperFlux v1.0</h3>"
+            "<p>A modern document management tool.</p>"
+            "<hr>"
+            "<p><b>Qt Version:</b> %1</p>"
+            "<p><b>Python:</b> %2</p>"
+            "<p><b>System:</b> %3</p>"
+            "<p><b>Desktop Environment:</b> %4</p>"
+        ).replace("%1", qt_version).replace("%2", py_version).replace("%3", platform_info).replace("%4", kde_version)
+
+        QMessageBox.about(self, self.tr("About KPaperFlux"), about_text)
 
     def find_duplicates_slot(self):
         """Open Duplicate Finder with Progress Spinner."""
@@ -1410,8 +1422,8 @@ class MainWindow(QMainWindow):
              self.filter_tree_widget.load_tree()
 
 
-    def _on_ai_status_changed(self, msg):
-        self.main_status_label.setText(f"AI: {msg}")
+    def _on_ai_status_changed(self, msg: str) -> None:
+        self.main_status_label.setText(self.tr("AI: %s") % msg)
 
     def export_documents_slot(self, uuids: list[str]):
         """Export selected documents via ListWidget dialog."""
@@ -1584,9 +1596,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'editor_widget'):
             self.editor_widget.setVisible(checked)
 
-    def update_status_bar(self, visible_count: int, total_count: int):
+    def update_status_bar(self, visible_count: int, total_count: int) -> None:
         """Update status bar with document counts."""
-        self.main_status_label.setText(self.tr(f"Docs: {visible_count}/{total_count}"))
+        self.main_status_label.setText(self.tr("Docs: %s/%s") % (visible_count, total_count))
 
         if visible_count == 0:
             if hasattr(self, 'pdf_viewer'):
@@ -1685,7 +1697,7 @@ class MainWindow(QMainWindow):
         self.save_filter_tree()
         self.advanced_filter.load_known_filters()
 
-        self.main_status_label.setText(self.tr(f"List '{name}' saved with {len(uuids)} items."))
+        self.main_status_label.setText(self.tr("List '%s' saved with %n item(s).", "", len(uuids)) % name)
 
     def set_trash_mode(self, enabled: bool):
         self.list_widget.show_trash_bin(enabled)
@@ -1867,7 +1879,7 @@ class MainWindow(QMainWindow):
                           self.main_status_label.setText(self.tr("Document deleted (empty structure)."))
                       else:
                           new_uuids = self.pipeline.apply_restructure_instructions(uuid, instructions)
-                          self.main_status_label.setText(self.tr(f"Document updated ({len(new_uuids)} parts)."))
+                          self.main_status_label.setText(self.tr("Document updated (%n part(s)).", "", len(new_uuids)))
 
                       self.list_widget.refresh_list()
                       if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
