@@ -96,3 +96,20 @@ resources/l10n/
 1.  **Rendering:** Primary lookup in the current locale folder (`l10n/<lang>/templates`). Fallback to `l10n/common/templates`.
 2.  **Units:** Primary lookup in the current locale. Fallback to English (`l10n/en/units.json`).
 3.  **Formatting:** The `SemanticRenderer` provides l10n-aware formatters for currencies (e.g., `1.234,56 €`), dates (`DD.MM.YYYY`), and unit codes.
+
+## **6. Hybrid Protection Standard**
+
+To ensure **Data Integrity** while allowing **Visual Traceability** (Stamping), KPaperFlux implements strict handling for digital originals.
+
+### **6.1 Document Classes**
+*   **Class A (Digitally Signed):** PDF containing PAdES signatures. **Strategy:** *Envelope Strategy*. Original binary is embedded as an attachment (`original_signed_source.pdf`) inside an image-based working copy.
+*   **Class B (ZUGFeRD/Factur-X):** Machine-readable XML without signatures. **Strategy:** *Extraction/Re-Embedding*. XML is extracted, PDF is visually stamped, and XML is re-embedded into the new container.
+*   **Class C (Standard Scans):** No special protection. **Strategy:** *Native Integration*. Direct stamping on PDF data.
+*   **Class AB (Signed ZUGFeRD):** Both protections active. **Strategy:** *Unified Envelope*. Original signed PDF (with its XML) is embedded, and XML is also extracted as a separate attachment for convenience.
+
+### **6.2 UI Interlocks (The Splitter)**
+*   **Immutability:** Splitting, merging, rotating, or deleting pages of Class A and AB documents is programmatically disabled in the GUI to preserve the integrity of the original signature.
+*   **Visual Indicators:** Protected documents are marked with 🛡️ (Signed) or ⚙️ (ZUGFeRD) icons in the document list and splitter overview.
+
+### **6.3 Forensic Auditing**
+*   **Media Break Detection:** During Stage 1.5, the AI identifies visual markers of digital originals (e.g., ZUGFeRD headers) on physical scans and suggests importing the original digital file.
