@@ -44,4 +44,7 @@ System Prompt*
 /tmp/
 /devel/*.py
 !/devel/*.md
-devel/Handover_Next_Agent.md
+# Handover files
+handover/
+handover_*
+devel/handover_*
