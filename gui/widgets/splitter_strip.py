@@ -1315,18 +1315,29 @@ class SplitterStripWidget(QWidget):
         if not self.selected_widgets:
             return
 
+        # Protection Check: If any part of the selection is protected, limit actions
+        is_locked = any(getattr(w, 'is_protected', False) for w in self.selected_widgets)
+
         menu = QMenu(self)
 
         rotate_action = menu.addAction(self.tr("Rotate selection (90° CW)"))
+        rotate_action.setEnabled(not is_locked)
         rotate_action.triggered.connect(self._rotate_selected_right)
 
         delete_action = menu.addAction(self.tr("Delete selection"))
+        delete_action.setEnabled(not is_locked)
         delete_action.triggered.connect(self._delete_selected)
 
         menu.addSeparator()
 
         reverse_action = menu.addAction(self.tr("Reverse sorting (Selection)"))
+        reverse_action.setEnabled(not is_locked)
         reverse_action.triggered.connect(self._reverse_selected_sorting)
+
+        if is_locked:
+            menu.addSeparator()
+            info_action = menu.addAction(self.tr("🛡️ Protected Original: Modification Disabled"))
+            info_action.setEnabled(False)
 
         menu.exec(event.globalPos())
 
