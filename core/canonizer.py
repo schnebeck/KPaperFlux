@@ -199,8 +199,24 @@ class CanonizerService:
 
         full_text = v_doc.resolve_content(loader)
         if not full_text:
-            print(f"[Canonizer] No text content resolved for {v_doc.uuid}. Skipping.")
-            return False
+            # Safety Check: Is this document consisting only of pages at the end of the physical file?
+            is_at_end = False
+            if v_doc.source_mapping:
+                last_ref = v_doc.source_mapping[-1]
+                pf = self.physical_repo.get_by_uuid(last_ref.file_uuid)
+                if pf and pf.page_count_phys:
+                    # If the highest page index in this doc is the last page of the physical file
+                    if max(last_ref.pages) == pf.page_count_phys:
+                        is_at_end = True
+            
+            if is_at_end:
+                print(f"[Canonizer] No text content resolved for {v_doc.uuid} (End-of-File). Purging ADF artifact.")
+                self.logical_repo.delete_by_uuid(v_doc.uuid)
+            else:
+                print(f"[Canonizer] No text content resolved for {v_doc.uuid} (Mid-File). Marking as SKIPPED_EMPTY.")
+                v_doc.status = "SKIPPED_EMPTY"
+                self.logical_repo.save(v_doc)
+            return True
 
         v_doc.cached_full_text = full_text
         print(f"[DEBUG] Canonizer Resolved text ({len(full_text)} chars) for {v_doc.uuid}")

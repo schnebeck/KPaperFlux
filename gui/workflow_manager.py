@@ -636,14 +636,14 @@ class AgentManagerDialog(QDialog):
 
     def _create_new(self):
         import time, re
-        name, ok = QInputDialog.getText(self, self.tr("New Agent"), self.tr("Enter display name:"))
+        name, ok = QInputDialog.getText(self, self.tr("New Workflow"), self.tr("Enter display name:"))
         if ok and name:
             name = name.strip()
             # Check for duplicates
             reg = WorkflowRegistry()
             if any(p.name == name for p in reg.list_playbooks()):
                 QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                    self.tr(f"An agent with the name '{name}' already exists."))
+                                    self.tr(f"A workflow with the name '{name}' already exists."))
                 return
 
             # Generate stable ID from name + timestamp
@@ -672,7 +672,7 @@ class AgentManagerDialog(QDialog):
                 data = json.load(f)
                 old_name = data.get("name", pb_id)
                 
-            new_name, ok = QInputDialog.getText(self, self.tr("Rename Agent"), self.tr("New display name:"), QLineEdit.EchoMode.Normal, old_name)
+            new_name, ok = QInputDialog.getText(self, self.tr("Rename Workflow"), self.tr("New display name:"), QLineEdit.EchoMode.Normal, old_name)
             if ok and new_name:
                 new_name = new_name.strip()
                 if new_name == old_name: return
@@ -704,12 +704,12 @@ class AgentManagerDialog(QDialog):
             if usages:
                 rule_names = ", ".join([node.name for node in usages])
                 QMessageBox.critical(
-                    self, self.tr("Agent in Use"),
+                    self, self.tr("Workflow in Use"),
                     self.tr(f"The agent '{name}' cannot be deleted because it is still used in the following rules:\n\n{rule_names}\n\nPlease remove the assignment from these rules first.")
                 )
                 return
 
-        reply = QMessageBox.question(self, self.tr("Delete Agent"), self.tr(f"Are you sure you want to delete the agent '{name}'?"), 
+        reply = QMessageBox.question(self, self.tr("Delete Workflow"), self.tr(f"Are you sure you want to delete the workflow '{name}'?"), 
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             file_path = os.path.join(self.workflow_dir, f"{pb_id}.json")

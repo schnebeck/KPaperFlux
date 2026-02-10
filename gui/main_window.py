@@ -2122,9 +2122,9 @@ class MainWindow(QMainWindow):
         self.btn_workflows = QToolButton()
         self.btn_workflows.setObjectName("mainTabBtn")
         self.btn_workflows.setCheckable(True)
-        self.btn_workflows.setText("🤖 " + self.tr("Agents"))
+        self.btn_workflows.setText("🤖 " + self.tr("Workflows"))
         self.btn_workflows.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_workflows.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_CommandLink))
+        self.btn_workflows.setIcon(QIcon()) # Remove the arrow icon
         self.btn_workflows.clicked.connect(lambda: self.central_stack.setCurrentIndex(3))
         wf_layout.addWidget(self.btn_workflows)
         self.navbar.addWidget(self.wf_container)

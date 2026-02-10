@@ -21,37 +21,52 @@ def test_german_translation_loading(app_config, qtbot):
     """
     Test that the German translation file is found and loaded correctly.
     """
-    # 1. Setup: Ensure we are testing with 'de' language
-    # Assuming config is defaulted or we can force it.
-    # For this test, we test the Loading Logic which happens in main.py usually,
-    # but here we test the QTranslator mechanism specifically on our generated file.
-    
     app = QApplication.instance()
     if not app:
         app = QApplication(sys.argv)
 
     translator = QTranslator()
     
-    # Locate the generated .qm file
-    # New centralized l10n structure
     base_dir = Path(__file__).resolve().parent.parent.parent
     qm_path = base_dir / "resources" / "l10n" / "de" / "gui_strings.qm"
     
     assert qm_path.exists(), f"GUI Translation file not found at {qm_path}. Did you run lrelease?"
 
-    # 2. Action: Load the translator
     loaded = translator.load(str(qm_path))
     assert loaded is True, "Failed to load .qm file into QTranslator"
     
-    # 3. Verify: Check a specific translation
-    # We assume 'File' -> 'Datei' based on our .ts file
-    
-    # Note: Using a context that exists in the .ts file
-    # Context: MainWindow, Source: &File
+    # Verify: Check a specific translation
     translated_text = translator.translate("MainWindow", "&File")
-    
-    # If translation works, it should be '&Datei'
     assert translated_text == "&Datei", f"Expected '&Datei', got '{translated_text}'"
+
+def test_translation_coverage():
+    """
+    Verify that the German translation has reasonable coverage (not too many unfinished).
+    """
+    import xml.etree.ElementTree as ET
+    base_dir = Path(__file__).resolve().parent.parent.parent
+    ts_path = base_dir / "resources" / "l10n" / "de" / "gui_strings.ts"
+    
+    assert ts_path.exists()
+    
+    tree = ET.parse(ts_path)
+    root = tree.getroot()
+    
+    messages = root.findall(".//message")
+    total = len(messages)
+    
+    unfinished = 0
+    for msg in messages:
+        trans = msg.find("translation")
+        if trans is not None and trans.get("type") == "unfinished":
+            unfinished += 1
+            
+    coverage = (total - unfinished) / total if total > 0 else 0
+    
+    print(f"[L10N] Total: {total}, Unfinished: {unfinished}, Coverage: {coverage:.1%}")
+    
+    # We expect at least significant coverage. For dev state, we set 20% as baseline.
+    assert coverage >= 0.2, f"Translation coverage too low: {coverage:.1%} ({unfinished}/{total} unfinished)"
 
 def test_app_config_language_setting(app_config):
     """Test that AppConfig can save/retrieve language setting."""

@@ -242,7 +242,7 @@ class AdvancedFilterWidget(QWidget):
 
         # Phase 126: Workflow Assignment Row
         wf_row = QHBoxLayout()
-        wf_row.addWidget(QLabel(self.tr("Assign Agent:")))
+        wf_row.addWidget(QLabel(self.tr("Assign Workflow:")))
         self.combo_assign_wf = QComboBox()
         self.combo_assign_wf.currentIndexChanged.connect(self._set_rule_dirty)
         wf_row.addWidget(self.combo_assign_wf, 1)

@@ -1772,42 +1772,59 @@ Refusal to comply will result in an immediate resubmission of this task!
             semantic_data = semantic_data.model_dump()
             
         # 1. Date (WANN)
-
         date_str = "0000-00-00"
         meta = semantic_data.get("meta_header", {})
         if meta.get("doc_date"):
             date_str = meta["doc_date"]
+        else:
+            # Fallback: check finance_body for BT-2 (invoice_date)
+            fb = semantic_data.get("bodies", {}).get("finance_body", {})
+            if fb.get("invoice_date"):
+                date_str = fb["invoice_date"]
         
         # 2. Entity (WER/WAS)
         entity_name = "Unknown"
         
         # Priority 1: Context Entity Name
-        if meta.get("subject_context") and meta["subject_context"].get("entity_name"):
-            entity_name = meta["subject_context"]["entity_name"]
+        subject = meta.get("subject_context", {}) if isinstance(meta.get("subject_context"), dict) else {}
+        if subject.get("entity_name"):
+            entity_name = subject["entity_name"]
         else:
-            # Priority 2: Structured Sender Name
+            # Priority 2: Structured Sender Name (Company or Person)
             sender = meta.get("sender", {})
             if isinstance(sender, dict):
-                entity_name = sender.get("name") or "Unknown"
+                entity_name = sender.get("company") or sender.get("name") or "Unknown"
             elif isinstance(sender, str):
                 entity_name = sender  # Fallback for old/flat formats
                 
-            # Priority 3: Check Bodies for specific partners/patients
+            # Priority 3: Check Bodies for specific partners/patients/issuers
             if entity_name == "Unknown":
                 bodies = semantic_data.get("bodies", {})
                 if "legal_body" in bodies:
-                    partners = bodies["legal_body"].get("contract_partners", [])
-                    if partners and isinstance(partners[0], dict):
-                        entity_name = partners[0].get("name")
+                    lb = bodies["legal_body"]
+                    if isinstance(lb, dict):
+                        entity_name = lb.get("issuer") or lb.get("beneficiary") or "Unknown"
+                        if entity_name == "Unknown":
+                            partners = lb.get("contract_partners", [])
+                            if partners and isinstance(partners[0], dict):
+                                entity_name = partners[0].get("company") or partners[0].get("name")
+                elif "finance_body" in bodies:
+                    fb = bodies["finance_body"]
+                    # Sometimes the vendor name is only in the line items or payment info in very weird docs
+                    if isinstance(fb, dict) and fb.get("vendor_name"):
+                         entity_name = fb["vendor_name"]
                 elif "health_body" in bodies:
-                     patient = bodies["health_body"].get("patient")
-                     if isinstance(patient, dict):
-                         entity_name = patient.get("name")
+                    hb = bodies["health_body"]
+                    if isinstance(hb, dict):
+                        patient = hb.get("patient")
+                        if isinstance(patient, dict):
+                            entity_name = patient.get("name")
 
         # Clean Entity Name
-        if not entity_name:
+        if not entity_name or str(entity_name).lower() == "unknown":
             entity_name = "Unknown"
             
+        entity_name = str(entity_name)
         entity_name = re.sub(r'[\s\./\\:]+', '_', entity_name)
         entity_name = re.sub(r'__+', '_', entity_name)
         entity_name = entity_name.strip('_')

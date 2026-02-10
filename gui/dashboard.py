@@ -227,8 +227,20 @@ class DashboardWidget(QWidget):
             count = 0
             agg_type = config.get("aggregation", "count")
             
+            title = config.get("title", "Untitled")
             if "preset_id" in config:
                 pid = config["preset_id"]
+                
+                # Dynamic Translation for Presets
+                if pid == "NEW":
+                    title = self.tr("Inbox")
+                elif pid == "PROCESSED":
+                    title = self.tr("Processed")
+                elif pid == "ALL":
+                    title = self.tr("Total Documents")
+                elif pid == "INVOICES":
+                    title = self.tr("Total Invoiced")
+
                 if self.db_manager:
                     if pid == "NEW":
                         query = {"field": "status", "op": "equals", "value": "NEW"}
@@ -263,7 +275,7 @@ class DashboardWidget(QWidget):
                     query = {}
             
             card = StatCard(
-                config.get("title", "Untitled"), 
+                title, 
                 count, 
                 config.get("color", "#3b82f6"), 
                 query,

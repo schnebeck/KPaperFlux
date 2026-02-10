@@ -214,13 +214,14 @@ class PipelineProcessor:
         """
         return self.db.get_document_by_uuid(uuid_str)
 
-    def reprocess_document(self, uuid_str: str, skip_ai: bool = False) -> Optional[VirtualDocument]:
+    def reprocess_document(self, uuid_str: str, skip_ai: bool = False, force_ocr: bool = False) -> Optional[VirtualDocument]:
         """
         Reprocesses an existing virtual document.
 
         Args:
             uuid_str: The UUID of the document to reprocess.
             skip_ai: Whether to skip AI analysis.
+            force_ocr: Whether to re-run OCR on the physical source files.
 
         Returns:
             The updated VirtualDocument object, or None if not found.
@@ -228,6 +229,18 @@ class PipelineProcessor:
         v_doc = self.logical_repo.get_by_uuid(uuid_str)
 
         if v_doc:
+            if force_ocr:
+                print(f"[Pipeline] Forcing re-OCR for {v_doc.uuid}...")
+                for ref in v_doc.source_mapping:
+                    pf = self.physical_repo.get_by_uuid(ref.file_uuid)
+                    if pf and pf.file_path:
+                        print(f"  -> Re-running OCR on: {pf.file_path}")
+                        new_text_map = self._run_ocr(Path(pf.file_path))
+                        if new_text_map:
+                            pf.raw_ocr_data = new_text_map
+                            self.physical_repo.save(pf)
+                            print(f"  -> OCR data updated for {pf.uuid}")
+
             if not skip_ai:
                 # Helper to get file path for visual audit
                 f_path = None
