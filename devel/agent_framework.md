@@ -8,6 +8,9 @@
 ### **The Antigravity Mission**
 Produce **Clean Code** while strictly adhering to Test-Driven Development (TDD). 
 
+**Strict English Policy:** 
+All code, documentation, variable names, function names, class names, comments, docstrings, and commit messages must be in **English**. Even when communicating with the user in German, all artifacts and repository content remain English.
+
 **Mandatory Reading:** Before starting any task, read:
 1. `kpaperflux_specification.md` (What are we building?)
 2. `coding_rules_python.md` (How do we write code?)
