@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QPoint
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
+from gui.utils import show_selectable_message_box
 
 class DuplicateFinderDialog(QDialog):
     """

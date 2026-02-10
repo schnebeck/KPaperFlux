@@ -23,6 +23,7 @@ import os
 import json
 
 # Core Imports
+from gui.utils import show_selectable_message_box
 from core.database import DatabaseManager
 from core.config import AppConfig
 from core.metadata_normalizer import MetadataNormalizer

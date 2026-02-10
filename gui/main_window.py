@@ -29,6 +29,7 @@ import fitz
 from pathlib import Path
 
 # Core Imports
+from gui.utils import show_selectable_message_box
 from core.importer import PreFlightImporter
 from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager
