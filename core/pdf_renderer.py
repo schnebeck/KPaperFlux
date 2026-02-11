@@ -128,11 +128,22 @@ class ProfessionalPdfRenderer:
         sender = data.meta_header.sender if data.meta_header else None
         if sender:
             # Top Right Logo Area
-            canvas.setFont("Helvetica-Bold", 12)
-            canvas.drawRightString(190*mm, 297*mm - 20*mm, (sender.company or sender.name or "").upper())
+            y = 297*mm - 20*mm
+            if sender.company:
+                canvas.setFont("Helvetica-Bold", 12)
+                canvas.drawRightString(190*mm, y, sender.company.upper())
+                y -= 5*mm
+                if sender.name and sender.name != sender.company:
+                    canvas.setFont("Helvetica", 10)
+                    canvas.drawRightString(190*mm, y, sender.name)
+                    y -= 5*mm
+            elif sender.name:
+                canvas.setFont("Helvetica-Bold", 12)
+                canvas.drawRightString(190*mm, y, sender.name.upper())
+                y -= 5*mm
             
             canvas.setFont("Helvetica", 9)
-            y = 297*mm - 25*mm
+            y -= 2*mm # Small gap
             street_full = f"{sender.street or ''} {sender.house_number or ''}".strip()
             if street_full:
                 canvas.drawRightString(190*mm, y, street_full)
@@ -183,16 +194,39 @@ class ProfessionalPdfRenderer:
             
             y_f = 25*mm
             # Col 1
-            canvas.drawString(20*mm, y_f, sender.company or sender.name or "")
+            if sender.company:
+                canvas.drawString(20*mm, y_f, sender.company)
+                y_f -= 4*mm
+                if sender.name and sender.name != sender.company:
+                    canvas.drawString(20*mm, y_f, sender.name)
+                    y_f -= 4*mm
+            elif sender.name:
+                canvas.drawString(20*mm, y_f, sender.name)
+                y_f -= 4*mm
+                
             street_f = f"{sender.street or ''} {sender.house_number or ''}".strip()
-            canvas.drawString(20*mm, y_f - 4*mm, street_f)
-            canvas.drawString(20*mm, y_f - 8*mm, f"{sender.zip_code or ''} {sender.city or ''}")
+            if street_f:
+                canvas.drawString(20*mm, y_f, street_f)
+                y_f -= 4*mm
+            canvas.drawString(20*mm, y_f, f"{sender.zip_code or ''} {sender.city or ''}")
             
-            # Col 2
-            if sender.iban:
-                canvas.drawString(80*mm, y_f, f"Bank: {sender.bank_name or 'Bank'}")
-                canvas.drawString(80*mm, y_f - 4*mm, f"IBAN: {sender.iban}")
-                if sender.bic: canvas.drawString(80*mm, y_f - 8*mm, f"BIC: {sender.bic}")
+            # Col 2 & 3: Bank Accounts
+            fb = data.bodies.get("finance_body")
+            accounts = getattr(fb, "payment_accounts", []) if fb else []
+            if not accounts and sender.iban:
+                # Fallback to sender-level banking info
+                accounts = [sender]
+
+            # Draw up to 3 accounts in columns
+            bank_x = 80*mm
+            for acc in accounts[:3]:
+                y_f_acc = 25*mm
+                canvas.drawString(bank_x, y_f_acc, f"Bank: {acc.bank_name or 'Bank'}")
+                if acc.iban:
+                    canvas.drawString(bank_x, y_f_acc - 4*mm, f"IBAN: {acc.iban}")
+                if acc.bic:
+                    canvas.drawString(bank_x, y_f_acc - 8*mm, f"BIC: {acc.bic}")
+                bank_x += 45*mm # Move to next column
 
             # Page Number
             canvas.drawRightString(190*mm, 15*mm, f"Seite {doc.page}")
