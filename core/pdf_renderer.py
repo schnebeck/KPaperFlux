@@ -1,8 +1,21 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/pdf_renderer.py
+Version:        2.2.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Enhanced DIN 5008 compliant PDF renderer. Supports corporate
+                branding (logos, colors), dynamic table layouts, and font 
+                variety for realistic demo document generation.
+------------------------------------------------------------------------------
+"""
+
 import os
 import logging
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -10,7 +23,7 @@ from reportlab.lib import colors
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, 
-    Frame, PageTemplate, BaseDocTemplate, NextPageTemplate
+    Frame, PageTemplate, BaseDocTemplate, NextPageTemplate, Image
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
@@ -23,6 +36,7 @@ class ProfessionalPdfRenderer:
     """
     Generates high-quality DIN 5008 compliant PDFs using ReportLab.
     Supports multi-page documents with proper headers and footers.
+    Includes support for corporate branding and style variety.
     """
     
     def __init__(self, output_path: str, locale: str = "de"):
@@ -30,45 +44,45 @@ class ProfessionalPdfRenderer:
         self.locale = locale.split("_")[0].lower()
         self.unit_codes = self._load_unit_codes()
         self.styles = getSampleStyleSheet()
+        
+        # Style Customization (can be overridden)
+        self.primary_color = colors.black
+        self.font_family = "Helvetica"
+        self.font_family_bold = "Helvetica-Bold"
+        self.logo_path = None
+        self.table_columns = ["pos", "quantity", "unit", "description", "unit_price", "total_price"]
+        
+        self._setup_custom_styles()
+
+    def set_style(self, primary_color: Any = colors.black, font: str = "Helvetica", logo: str = None, columns: List[str] = None):
+        """Overrides default style settings."""
+        self.primary_color = primary_color
+        self.font_family = font
+        self.font_family_bold = f"{font}-Bold" if font != "Times-Roman" else "Times-Bold"
+        if font == "Times-Roman": self.font_family_bold = "Times-Bold"
+        elif font == "Courier": self.font_family_bold = "Courier-Bold"
+        
+        self.logo_path = logo
+        if columns: self.table_columns = columns
         self._setup_custom_styles()
 
     def _setup_custom_styles(self):
         """Initializes internal ParagraphStyle objects."""
-        self.styles.add(ParagraphStyle(
-            name='NormalSmall',
-            parent=self.styles['Normal'],
-            fontSize=8,
-            leading=10
-        ))
-        self.styles.add(ParagraphStyle(
-            name='TableHeading',
-            parent=self.styles['Normal'],
-            fontSize=9,
-            fontName='Helvetica-Bold'
-        ))
-        self.styles.add(ParagraphStyle(
-            name='TableCell',
-            parent=self.styles['Normal'],
-            fontSize=9,
-            leading=11
-        ))
-        self.styles.add(ParagraphStyle(
-            name='Statement',
-            parent=self.styles['Normal'],
-            fontSize=10,
-            leading=14,
-            leftIndent=10*mm,
-            spaceBefore=5,
-            spaceAfter=5
-        ))
-        self.styles.add(ParagraphStyle(
-            name='LegalHeading',
-            parent=self.styles['Normal'],
-            fontSize=11,
-            fontName='Helvetica-Bold',
-            spaceBefore=10,
-            spaceAfter=5
-        ))
+        style_defs = [
+            ('NormalSmall', 'Normal', 8, 10, self.font_family),
+            ('TableHeading', 'Normal', 9, 11, self.font_family_bold),
+            ('TableCell', 'Normal', 9, 11, self.font_family),
+            ('Statement', 'Normal', 10, 14, self.font_family),
+            ('LegalHeading', 'Normal', 11, 13, self.font_family_bold)
+        ]
+        
+        for name, parent, size, leading, font in style_defs:
+            if name in self.styles:
+                 self.styles[name].fontName = font
+                 self.styles[name].fontSize = size
+                 self.styles[name].leading = leading
+            else:
+                self.styles.add(ParagraphStyle(name=name, parent=self.styles[parent], fontSize=size, leading=leading, fontName=font))
 
     def _load_unit_codes(self) -> dict:
         import json
@@ -87,90 +101,82 @@ class ProfessionalPdfRenderer:
         doc = BaseDocTemplate(self.path, pagesize=A4)
         
         # Define frames
-        # Page 1 Frame: Starts lower to leave room for address/meta
         frame_first = Frame(20*mm, 35*mm, 170*mm, 230*mm, id='f1')
-        # Follow-up Frame: Larger, starts higher
         frame_others = Frame(20*mm, 35*mm, 170*mm, 245*mm, id='f2')
         
-        # Add page templates
         doc.addPageTemplates([
             PageTemplate(id='first', frames=frame_first, onPage=lambda c, d: self._draw_static_elements(c, d, data, is_first=True)),
             PageTemplate(id='others', frames=frame_others, onPage=lambda c, d: self._draw_static_elements(c, d, data, is_first=False))
         ])
 
         story = []
-        
-        # 1. CRITICAL: Tell the engine to switch template after the current page
         story.append(NextPageTemplate('others'))
+        story.append(Spacer(1, 128*mm)) # Jump static header area on page 1
         
-        # 2. Spacer to jump over the static header area on page 1
-        story.append(Spacer(1, 128*mm))
-        
-        # 3. Dynamic Content Selection
-        # If we have a Certificate/Legal Body, render it first
         story.extend(self._create_legal_body_story(data))
-        
-        # If we have line items (Invoices etc), render them
         story.extend(self._create_line_items_story(data))
-        
-        # 4. Totals (Financial only)
         story.append(Spacer(1, 5*mm))
         story.extend(self._create_totals_story(data))
         
-        # Build document
         doc.build(story)
 
     def _draw_static_elements(self, canvas, doc, data, is_first: bool):
-        """Callback to draw background elements on every page."""
         canvas.saveState()
+        sender = data.meta_header.sender if data.meta_header else None
         
         # -- 1. CORPORATE HEADER (All pages) --
-        sender = data.meta_header.sender if data.meta_header else None
         if sender:
-            # Top Right Logo Area
+            # Top Right Area (Logo / Brand)
             y = 297*mm - 20*mm
+            if self.logo_path and os.path.exists(self.logo_path):
+                canvas.drawImage(self.logo_path, 160*mm, y-15*mm, width=30*mm, preserveAspectRatio=True, mask='auto')
+                y -= 25*mm
+            
+            # Company Name
+            canvas.setFillColor(self.primary_color)
             if sender.company:
-                canvas.setFont("Helvetica-Bold", 12)
+                canvas.setFont(self.font_family_bold, 12)
                 canvas.drawRightString(190*mm, y, sender.company.upper())
                 y -= 5*mm
                 if sender.name and sender.name != sender.company:
-                    canvas.setFont("Helvetica", 10)
+                    canvas.setFont(self.font_family, 10)
                     canvas.drawRightString(190*mm, y, sender.name)
                     y -= 5*mm
             elif sender.name:
-                canvas.setFont("Helvetica-Bold", 12)
+                canvas.setFont(self.font_family_bold, 12)
                 canvas.drawRightString(190*mm, y, sender.name.upper())
                 y -= 5*mm
             
-            canvas.setFont("Helvetica", 9)
-            y -= 2*mm # Small gap
+            # Address info
+            canvas.setFillColor(colors.black)
+            canvas.setFont(self.font_family, 9)
+            y -= 2*mm
             street_full = f"{sender.street or ''} {sender.house_number or ''}".strip()
             if street_full:
                 canvas.drawRightString(190*mm, y, street_full)
                 y -= 4*mm
             if sender.city:
                 canvas.drawRightString(190*mm, y, f"{sender.zip_code or ''} {sender.city}")
-        
-        # -- 2. FIRST PAGE SPECIFICS (Address/Meta) --
+
+        # -- 2. FIRST PAGE SPECIFICS --
         if is_first:
-            # Sender Reference Line
             if sender:
-                canvas.setFont("Helvetica", 7)
+                canvas.setFont(self.font_family, 7)
                 canvas.setFillGray(0.3)
-                street_full = f"{sender.street or ''} {sender.house_number or ''}".strip()
-                ref_line = f"{sender.company or sender.name} \u2022 {street_full} \u2022 {sender.zip_code} {sender.city}"
+                street_f = f"{sender.street or ''} {sender.house_number or ''}".strip()
+                ref_line = f"{sender.company or sender.name} \u2022 {street_f} \u2022 {sender.zip_code} {sender.city}"
                 canvas.drawString(20*mm, 297*mm - 42*mm, ref_line)
+                canvas.setStrokeColor(self.primary_color)
                 canvas.line(20*mm, 297*mm - 43*mm, 100*mm, 297*mm - 43*mm)
 
-            # Recipient Address
             recipient = data.meta_header.recipient if data.meta_header else None
             if recipient:
-                canvas.setFont("Helvetica", 11)
+                canvas.setFont(self.font_family, 11)
                 canvas.setFillGray(0)
                 y = 297*mm - 50*mm
                 addr_lines = []
                 if recipient.company: addr_lines.append(recipient.company)
-                if recipient.name: addr_lines.append(recipient.name)
+                if recipient.name and recipient.name != recipient.company: addr_lines.append(recipient.name)
                 s_full = f"{recipient.street or ''} {recipient.house_number or ''}".strip()
                 if s_full: addr_lines.append(s_full)
                 if recipient.city: addr_lines.append(f"{recipient.zip_code or ''} {recipient.city}")
@@ -180,20 +186,18 @@ class ProfessionalPdfRenderer:
                     canvas.drawString(20*mm, y, line)
                     y -= 5*mm
 
-            # Meta Info Box (Right)
             self._draw_meta_info_box(canvas, data)
-
-            # Main Title
             self._draw_main_title_text(canvas, data)
 
         # -- 3. FOOTER (All pages) --
         if sender:
-            canvas.setFont("Helvetica", 8)
+            canvas.setFont(self.font_family, 8)
             canvas.setFillGray(0.4)
+            canvas.setStrokeColor(self.primary_color)
             canvas.line(20*mm, 30*mm, 190*mm, 30*mm)
             
             y_f = 25*mm
-            # Col 1
+            # Col 1: Identity
             if sender.company:
                 canvas.drawString(20*mm, y_f, sender.company)
                 y_f -= 4*mm
@@ -203,7 +207,6 @@ class ProfessionalPdfRenderer:
             elif sender.name:
                 canvas.drawString(20*mm, y_f, sender.name)
                 y_f -= 4*mm
-                
             street_f = f"{sender.street or ''} {sender.house_number or ''}".strip()
             if street_f:
                 canvas.drawString(20*mm, y_f, street_f)
@@ -213,221 +216,152 @@ class ProfessionalPdfRenderer:
             # Col 2 & 3: Bank Accounts
             fb = data.bodies.get("finance_body")
             accounts = getattr(fb, "payment_accounts", []) if fb else []
-            if not accounts and sender.iban:
-                # Fallback to sender-level banking info
-                accounts = [sender]
-
-            # Draw up to 3 accounts in columns
+            if not accounts and sender.iban: accounts = [sender]
             bank_x = 80*mm
             for acc in accounts[:3]:
                 y_f_acc = 25*mm
                 canvas.drawString(bank_x, y_f_acc, f"Bank: {acc.bank_name or 'Bank'}")
-                if acc.iban:
-                    canvas.drawString(bank_x, y_f_acc - 4*mm, f"IBAN: {acc.iban}")
-                if acc.bic:
-                    canvas.drawString(bank_x, y_f_acc - 8*mm, f"BIC: {acc.bic}")
-                bank_x += 45*mm # Move to next column
+                if acc.iban: canvas.drawString(bank_x, y_f_acc - 4*mm, f"IBAN: {acc.iban}")
+                if acc.bic: canvas.drawString(bank_x, y_f_acc - 8*mm, f"BIC: {acc.bic}")
+                bank_x += 45*mm
 
-            # Page Number
             canvas.drawRightString(190*mm, 15*mm, f"Seite {doc.page}")
 
         canvas.restoreState()
 
     def _draw_meta_info_box(self, canvas, data: SemanticExtraction):
-        """Draws the right-aligned meta data block."""
         fb = data.bodies.get("finance_body")
         y = 297*mm - 85*mm
-        
         def draw_kv(label, val, y_pos):
-            if val is None: return y_pos
-            canvas.setFont("Helvetica-Bold", 10)
+            if not val: return y_pos
+            canvas.setFont(self.font_family_bold, 10)
             canvas.drawRightString(160*mm, y_pos, f"{label}:")
-            canvas.setFont("Helvetica", 10)
+            canvas.setFont(self.font_family, 10)
             canvas.drawString(165*mm, y_pos, str(val))
             return y_pos - 5*mm
         
-        inv_date = getattr(fb, "invoice_date", None) if fb else None
-        if not inv_date and data.meta_header: inv_date = data.meta_header.doc_date
+        inv_date = getattr(fb, "invoice_date", None) or (data.meta_header.doc_date if data.meta_header else None)
         if inv_date:
             from core.utils.formatting import format_date
-            y = draw_kv("Datum", format_date(inv_date, locale=self.locale), y)
+            label = "Date" if self.locale == "en" else "Datum"
+            y = draw_kv(label, format_date(inv_date, locale=self.locale), y)
             
-        inv_num = getattr(fb, "invoice_number", None) if fb else None
-        if not inv_num and data.meta_header: inv_num = data.meta_header.doc_number
-        if inv_num: y = draw_kv("Beleg-Nr", inv_num, y)
+        inv_num = getattr(fb, "invoice_number", None) or (data.meta_header.doc_number if data.meta_header else None)
+        if inv_num:
+            label = "Inv-No" if self.locale == "en" else "Beleg-Nr"
+            y = draw_kv(label, inv_num, y)
 
         if fb:
-            if hasattr(fb, 'order_number') and fb.order_number:
-                y = draw_kv("Auftrag-Nr", str(fb.order_number), y)
             if hasattr(fb, 'customer_id') and fb.customer_id:
-                y = draw_kv("Kunden-Nr", str(fb.customer_id), y)
+                label = "Customer" if self.locale == "en" else "Kunden-Nr"
+                y = draw_kv(label, str(fb.customer_id), y)
 
     def _draw_main_title_text(self, canvas, data: SemanticExtraction):
-        """Draws the Document Type title."""
-        canvas.setFont("Helvetica-Bold", 18)
+        canvas.setFont(self.font_family_bold, 18)
+        canvas.setFillColor(self.primary_color)
         mapping = {
             "INVOICE": "Rechnung", "ORDER_CONFIRMATION": "Auftragsbest\u00e4tigung",
-            "DELIVERY_NOTE": "Lieferschein", "RECEIPT": "Quittung", "CONTRACT": "Vertrag",
-            "CERTIFICATE": "Zertifikat", "LETTER": "Schreiben"
+            "DELIVERY_NOTE": "Lieferschein", "RECEIPT": "Quittung", "CONTRACT": "Vertrag"
         }
-        tags = [mapping.get(t.upper(), t.capitalize()) for t in (data.type_tags or [])]
-        title = " / ".join(list(dict.fromkeys(tags))) or "Dokument"
-        canvas.drawString(20*mm, 297*mm - 130*mm, title.upper())
+        if self.locale == "en":
+             mapping = {"INVOICE": "Invoice", "RECEIPT": "Receipt", "CONTRACT": "Contract"}
         
-        fb = data.bodies.get("finance_body")
-        if fb and hasattr(fb, 'order_date') and fb.order_date:
-            from core.utils.formatting import format_date
-            canvas.setFont("Helvetica", 9)
-            label = "Ihre Bestellung vom" if self.locale == "de" else "Your order from"
-            canvas.drawString(20*mm, 297*mm - 135*mm, f"{label} {format_date(fb.order_date, locale=self.locale)}")
+        tags = [mapping.get(t.upper(), t.capitalize()) for t in (data.type_tags or [])]
+        title = " / ".join(list(dict.fromkeys(tags))) or "Document"
+        canvas.drawString(20*mm, 297*mm - 130*mm, title.upper())
 
     def _create_line_items_story(self, data: SemanticExtraction) -> List[Any]:
-        """Creates the Table flowable for line items."""
         fb = data.bodies.get("finance_body")
         items = getattr(fb, "line_items", []) if fb else []
-        if not items:
-            # We only show this message if it's purely a financial document without items
-            # If it's a certificate, we just skip the table silently
-            if "INVOICE" in [t.upper() for t in (data.type_tags or [])]:
-                return [Paragraph("Keine Positionen aufgef\u00fchrt.", self.styles['Normal'])]
-            return []
+        if not items: return []
 
-        table_data = [[
-            Paragraph("Pos", self.styles['TableHeading']),
-            Paragraph("Menge", self.styles['TableHeading']),
-            Paragraph("Einheit", self.styles['TableHeading']),
-            Paragraph("Beschreibung", self.styles['TableHeading']),
-            Paragraph("E-Preis", self.styles['TableHeading']),
-            Paragraph("Gesamt", self.styles['TableHeading'])
-        ]]
+        # Map internal column keys to display labels
+        labels = {
+            "pos": "Pos", "quantity": "Menge" if self.locale == "de" else "Qty",
+            "unit": "Einh" if self.locale == "de" else "Unit",
+            "description": "Beschreibung" if self.locale == "de" else "Description",
+            "unit_price": "E-Preis" if self.locale == "de" else "Price",
+            "total_price": "Gesamt" if self.locale == "de" else "Total"
+        }
+        
+        header_row = [Paragraph(labels.get(col, col), self.styles['TableHeading']) for col in self.table_columns]
+        table_data = [header_row]
         
         from core.utils.formatting import format_currency
         for i, item in enumerate(items):
-            def gv(k): return getattr(item, k, None) if not isinstance(item, dict) else item.get(k)
-            unit_r = gv("unit") or "Stk"
-            row = [
-                str(gv("pos") or i+1),
-                str(gv("quantity") or "1"),
-                self.unit_codes.get(str(unit_r).upper(), unit_r),
-                Paragraph(str(gv("description") or "---"), self.styles['TableCell']),
-                format_currency(gv('unit_price') or 0, locale=self.locale),
-                format_currency(gv('total_price') or 0, locale=self.locale)
-            ]
+            row = []
+            for col in self.table_columns:
+                val = getattr(item, col, None) if not isinstance(item, dict) else item.get(col)
+                if col == "pos" and not val: val = str(i+1)
+                elif col == "unit": val = self.unit_codes.get(str(val).upper(), val) or "Stk"
+                elif col in ["unit_price", "total_price"]: val = format_currency(val or 0, locale=self.locale)
+                elif col == "description": val = Paragraph(str(val or "---"), self.styles['TableCell'])
+                row.append(str(val if val is not None else ""))
             table_data.append(row)
 
-        # -- Calculate Dynamic Column Widths --
-        total_available = 170*mm
-        # Measured indices: 0: Pos, 1: Menge, 2: Einheit, 4: E-Preis, 5: Gesamt
-        measured_widths = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        
-        # Helper to get text from Cell (could be string or Paragraph)
-        def get_text(cell):
-            if isinstance(cell, Paragraph): return cell.text
-            return str(cell)
+        total_width = 170*mm
+        # Simplified column width logic (can be refined)
+        col_count = len(self.table_columns)
+        widths = []
+        for col in self.table_columns:
+            if col in ["pos", "quantity", "unit"]: widths.append(12*mm)
+            elif col in ["unit_price", "total_price"]: widths.append(25*mm)
+            else: widths.append(0) # placeholder for description
+            
+        desc_idx = self.table_columns.index("description") if "description" in self.table_columns else -1
+        if desc_idx != -1:
+             widths[desc_idx] = total_width - sum(widths)
+        else:
+            # Equalize if no description
+            widths = [total_width/col_count] * col_count
 
-        for row in table_data:
-            for i in [0, 1, 2, 4, 5]:
-                # Measure text width in Helvetica 9pt (our table font)
-                w = stringWidth(get_text(row[i]), "Helvetica", 9) + 4*mm # + padding
-                measured_widths[i] = max(measured_widths[i], w)
-
-        # Enforce minimums for columns
-        measured_widths[0] = max(10*mm, measured_widths[0]) # Pos
-        measured_widths[1] = max(15*mm, measured_widths[1]) # Menge
-        measured_widths[2] = max(15*mm, measured_widths[2]) # Einheit
-        measured_widths[4] = max(22*mm, measured_widths[4]) # E-Preis
-        measured_widths[5] = max(23*mm, measured_widths[5]) # Gesamt
-        
-        # Description (index 3) takes the rest
-        used_width = sum(measured_widths)
-        measured_widths[3] = max(40*mm, total_available - used_width)
-
-        table = Table(table_data, colWidths=measured_widths, repeatRows=1)
+        table = Table(table_data, colWidths=widths, repeatRows=1)
         table.setStyle(TableStyle([
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTNAME', (0,0), (-1,-1), self.font_family),
             ('FONTSIZE', (0,0), (-1,-1), 9),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('LINEBELOW', (0,0), (-1,0), 1.5, colors.black),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('LINEBELOW', (0,0), (-1,0), 1.5, self.primary_color),
             ('LINEBELOW', (0,1), (-1,-1), 0.5, colors.grey),
-            ('ALIGN', (4,0), (-1,-1), 'RIGHT'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ]))
         return [table]
 
     def _create_totals_story(self, data: SemanticExtraction) -> List[Any]:
-        """Creates a table-based summary for totals."""
         fb = data.bodies.get("finance_body")
-        if not fb: return []
-        ms = getattr(fb, "monetary_summation", None)
+        ms = getattr(fb, "monetary_summation", None) if fb else None
         if not ms: return []
         
         from core.utils.formatting import format_currency
         def gv(k): return getattr(ms, k, None) if not isinstance(ms, dict) else ms.get(k)
         
-        t_rows = []
-        mapping = [
-            ("Summe Positionen", "line_total_amount", False),
-            ("Netto Summe", "tax_basis_total_amount", False),
-            ("Umsatzsteuer", "tax_total_amount", False),
-            ("RECHNUNGSBETRAG", "grand_total_amount", True)
-        ]
+        labels_map = {
+            "line_total_amount": "Summe Netto" if self.locale=="de" else "Net Total",
+            "tax_total_amount": "Umsatzsteuer" if self.locale=="de" else "Tax",
+            "grand_total_amount": "GESAMTBETRAG" if self.locale=="de" else "GRAND TOTAL"
+        }
         
-        for label, key, bold in mapping:
+        t_rows = []
+        for key in ["line_total_amount", "tax_total_amount", "grand_total_amount"]:
             val = gv(key)
-            if val is not None:
-                t_rows.append([label, format_currency(val, currency="EUR", locale=self.locale)])
+            if val: t_rows.append([labels_map[key], format_currency(val, locale=self.locale)])
 
         if not t_rows: return []
-        
         table = Table(t_rows, colWidths=[120*mm, 50*mm])
-        # Style needs to right align values
-        t_style = [
+        table.setStyle(TableStyle([
             ('ALIGN', (1,0), (1,-1), 'RIGHT'),
-            ('FONTSIZE', (0,0), (-1,-1), 10),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ]
-        
-        # Bold the last entry (Grand Total)
-        if t_rows:
-            last = len(t_rows) - 1
-            t_style.append(('FONTNAME', (0, last), (1, last), 'Helvetica-Bold'))
-            t_style.append(('LINEABOVE', (0, last), (1, last), 1, colors.black))
-            t_style.append(('LINEBELOW', (0, last), (1, last), 2, colors.black))
-            
-        table.setStyle(TableStyle(t_style))
+            ('FONTNAME', (0,-1), (1,-1), self.font_family_bold),
+            ('LINEABOVE', (0,-1), (1,-1), 1, self.primary_color),
+        ]))
         return [table]
 
     def _create_legal_body_story(self, data: SemanticExtraction) -> List[Any]:
-        """Renders statements and compliance info (e.g. for Certificates)."""
         lb = data.bodies.get("legal_body")
         if not lb: return []
-        
         story = []
-        
-        # Show Certificate ID / Subject if available
         def gv(k): return getattr(lb, k, None) if not isinstance(lb, dict) else lb.get(k)
         
         doc_id = gv("certificate_id")
-        if doc_id:
-            story.append(Paragraph(f"Zertifikat-ID: {doc_id}", self.styles['LegalHeading']))
-        
-        subject = gv("subject_reference")
-        if subject:
-             story.append(Paragraph(f"Referenz: {subject}", self.styles['Normal']))
-
-        # Main Statements
+        if doc_id: story.append(Paragraph(f"Ref: {doc_id}", self.styles['LegalHeading']))
         statements = gv("statements") or []
-        if statements:
-            story.append(Paragraph("Aussagen & Erkl\u00e4rungen:", self.styles['LegalHeading']))
-            for s in statements:
-                story.append(Paragraph(f"\u2022 {s}", self.styles['Statement']))
-
-        # Standards
-        standards = gv("compliance_standards") or []
-        if standards:
-            story.append(Paragraph("Eingehaltene Normen / Standards:", self.styles['LegalHeading']))
-            std_text = ", ".join(standards)
-            story.append(Paragraph(std_text, self.styles['Statement']))
-            
-        story.append(Spacer(1, 10*mm))
+        for s in statements: story.append(Paragraph(f"\u2022 {s}", self.styles['Statement']))
         return story
