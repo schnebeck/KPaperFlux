@@ -13,6 +13,7 @@ from gui.report_editor import ReportEditorWidget
 
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
 import math
+import os
 
 class ChartWidget(QWidget):
     """Base class for interactive charts."""
