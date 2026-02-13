@@ -1,20 +1,18 @@
 # KPaperFlux: Strategic Evaluation & Reporting Concept
 
-**Date:** 2026-02-09
-**Status:** Hybrid PDF Workflow Complete & Validated (Phase Transition)
+**Date:** 2026-02-14
+**Status:** Reporting Engine & Visual Dashboards Live (Phase Transition)
 
-## 1. Status Quo: The Modernized Foundation
+## 1. Status Quo: Forensic Maturity
 
-Following a successful refactoring, KPaperFlux has reached a new technological tier. The key achievements are:
+Following the successful implementation of the Reporting Engine, KPaperFlux has transitioned from a data-extraction tool to a visual intelligence platform.
 
-*   **Schema-less Metadata (JSON-First):** Moving away from rigid SQL columns (`doc_date`, `sender`, `amount`) towards a dynamic `semantic_data` JSON block allows for capturing information with any level of depth without requiring database migrations.
-*   **AI Resilience:** Implementation of "Self-Correction" logic (Logical Retries with Prompt-Strengthening). The AI learns from JSON syntax errors and corrects itself automatically.
-*   **Efficient Pipeline:**
-    *   **Stage 1.5 (Visual Audit):** Focus on forensics (stamps, signatures, integrity).
-    *   **Stage 2 (Semantics):** Full extraction of financial data and cross-page text repair.
-*   **Stable UI:** All components (List View, Metadata Editor, Duplicate Check) have been successfully synchronized with the new architecture.
-*   **Transfer Infrastructure:** A dedicated Transfer folder for manual Import/Export has been implemented, providing a clean "Pre-Ingest" and "Post-Process" staging area.
-*   **Plugin System Foundation:** A master specification for an extensible Plugin API with GUI support and specialized PDF (Hybrid/Signed) handling has been drafted.
+*   **Reporting & Analytics Live:** Specialized visualization layer (`PieChartWidget`, `BarChartWidget`, `LineChartWidget`) implemented with high-density charting and dynamic zooming.
+*   **Schema-less Metadata (JSON-First):** The polymorphic `semantic_data` architecture is fully proven and handles diverse document types (`Finance`, `Delivery Note`, etc.).
+*   **Forensic "Nüchterner Stolz" Branding:** The project documentation and README have been refined to reflect professional technical sovereignty and forensic precision.
+*   **Stable Development Environment:** Databases now default to ephemeral `:memory:` or safe configuration paths, preventing root-directory pollution.
+*   **Multi-Type-Tag Architecture:** Formalized the principle where document types (e.g., `Finance`) dictate specific validation and management rules (ZUGFeRD/EN 16931).
+*   **Verified Showcase:** High-impact visual documentation of core features (Rules Engine, Splitter, Hybrid Matching, Visual Comparator) is now integrated.
 
 ---
 
@@ -65,23 +63,25 @@ A "Watchdog" module assesses data health (Anomaly Detection).
 
 ## 4. Implementation Strategy (Phase Model)
 
-### Phase 1: The Reporting Engine (Core)
-*   Implementation of the `ReportGenerator` base class.
-*   Creation of the `FinancialTimeModule` for aggregating amounts by month/tag.
-*   Integration of `CsvExporter` with Excel optimization (`utf-8-sig`).
+### Phase 1: The Reporting Engine (DONE)
+*   **ReportGenerator & Charting Interface:** Successfully integrated into the main GUI.
+*   **FinancialTimeModule:** Working aggregation for monthly spending and vendor distribution.
+*   **Visual Polish:** Fixed legend alignments and implemented chart-sync-zooming.
 
-### Phase 2: Actionability (Quick Wins)
-*   **GiroCode Generator:** Integration of a QR code generator (EPC standard), based on extracted IBAN/amount data from Stage 2.
-*   **Dashboard Integration:** Initial graphical evaluations in the main window (bar charts for expenses).
+### Phase 2: Actionability (DONE / IN PROGRESS)
+*   **Dashboard Integration:** Multiple report views (Top Senders, Trends) active.
+*   **Multi-Format Export:** CSV strategy implemented; PDF/ZIP hooks prepared.
+*   **GiroCode Generator:** Core logic ready, needs final UI hook in the payment tab.
 
 ### Phase 3: Generic Workflow Engine (State Machine)
 *   **Workflow Schema:** Definition of YAML/JSON-based state machines (States, Transitions, Requirements).
 *   **Shared Templates:** Library of community-driven workflows (e.g., "Health Reimbursement", "Tax Deductibles").
 *   **Adaptive UI:** Dynamic button/input rendering in the Metadata Editor based on current state.
 
-### Phase 4: Quality & Smart Exports
-*   **Anomaly Checker:** Machine Learning based warning on unusual price or IBAN deviations.
-*   **Smart Folder Export:** Automatic physical sorting on HDD based on finalized workflow results.
+### Phase 4: Final Output & Local Sovereignty
+*   **PDF Report Generation:** High-fidelity PDF document generation from aggregated report data (Current Priority).
+*   **Local AI Integration:** Optional support for local LLMs (Ollama/Llama3) to allow 100% private semantic analysis.
+*   **Performance Scaling:** Implementation of Lazy Loading for document lists to handle 10k+ records.
 
 ---
 
