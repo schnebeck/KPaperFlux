@@ -2,26 +2,49 @@
   <img src="resources/icon.png" alt="KPaperFlux Logo" width="128" height="128">
   <h1 align="center">KPaperFlux</h1>
   <p align="center">
-    <strong>Personal Document Management with Forensic AI & Semantic Precision</strong><br>
-    <em>A Python/Qt6 Desktop Platform powered by Google Gemini</em>
+    <strong>From Paper to Power: Forensic AI Document Intelligence</strong><br>
+    <em>The ultimate semantic bridge between physical paperwork and structured data.</em>
   </p>
   <p align="center">
     <img src="https://img.shields.io/badge/Status-Active_Development-green" alt="Status">
     <img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python">
-    <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
+    <img src="https://img.shields.io/badge/UI-PyQt6_Premium-orange" alt="UI">
+    <img src="https://img.shields.io/badge/AI-Gemini_2.0_Flash-red" alt="AI">
   </p>
 </div>
 
-> [!WARNING]
-> **PRE-RELEASE SOFTWARE:** KPaperFlux is currently in a state of rapid, high-volatility development ("wild development phase"). Breaking changes are common. **Use with real, sensitive data at your own risk!** Always keep backups of your documents.
+---
+
+## 🦅 Why KPaperFlux?
+
+Most document management systems are just glorified folders. **KPaperFlux is a different beast.** It doesn't just store your files; it **understands** them with forensic precision.
+
+*   **Forensic "X-Ray" Vision:** See through your documents. We separate stamps, signatures, and handwritten notes from the core data for 100% extraction accuracy.
+*   **Semantic DNA:** Every document is transformed into a standardized Digital Twin (EN 16931/ZUGFeRD), ready for accounting, analytics, and automation.
+*   **Privacy First, AI Powered:** Experience the cutting-edge power of Google Gemini while maintaining absolute local control over your physical document vault.
+*   **Data you can Trust:** Built-in mathematical validation engines cross-check every cent and every tax rate. No hallucinations, just facts.
 
 ---
 
-## 🛠️ The Philosophy
+## 🖼️ Showcase: Intelligence in Action
 
-KPaperFlux is more than a storage tool; it is a **Document Refiner**. It extracts the semantic "Digital Twin" from your paperwork. While other systems focus on full-text search, KPaperFlux focuses on **understanding**: converting pixels and text into structured, mathematically validated data.
+<p align="center">
+  <img src="docs/screenshots/dashboard_main.png" alt="Dynamic Dashboard" width="800"><br>
+  <em>The new Dynamic Dashboard: Real-time analytics with pattern-aware visualizations.</em>
+</p>
 
-Designed for users who demand **forensic accuracy** and **privacy-first local management**, without sacrificing the power of large language models.
+<table align="center">
+  <tr>
+    <td align="center"><b>Forensic Audit</b><br><img src="docs/screenshots/audit_forensics.png" width="380"></td>
+    <td align="center"><b>Multi-Format Export</b><br><img src="docs/screenshots/multiformat_export.png" width="380"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Smart Analytics</b><br><img src="docs/screenshots/pie_chart_detail.png" width="380"></td>
+    <td align="center"><b>Precision Search</b><br><img src="docs/screenshots/smart_filtering.png" width="380"></td>
+  </tr>
+</table>
+
+---
 
 ---
 
@@ -44,12 +67,24 @@ Designed for users who demand **forensic accuracy** and **privacy-first local ma
 *   **Playbooks:** Process documents through custom-defined state machines (e.g., `VERIFIED` → `TO_PAY` → `ARCHIVED`).
 *   **Automation:** Intelligent routing based on AI-evaluated metadata.
 
+### 📊 Advanced Reporting & Dynamic Dashboards
+*   **Dynamic Analytics:** Real-time generation of charts (Bar, Pie, Line) based on your entire document corpus.
+*   **Intelligent Visualization:** Pie charts with automatic "Others" grouping, side legends with elision, and pattern-based color distinction for maximum readability.
+*   **Relative Date Filtering:** Predefined smart filters (Today, YTD, Last 90 Days) that stay dynamic as time passes.
+*   **Global Zooming:** Visual consistency from 50% to 300% zoom across all report elements.
+
+### 📦 Multi-Format Data Export
+*   **Structured Data:** Export report results to CSV for external spreadsheet analysis.
+*   **Document Archives:** One-click ZIP export of all original PDF source documents associated with a specific report.
+*   **Hybrid PDF Reports:** (In Progress) Exporting visual reports as PDFs with embedded semantic metadata.
+
 ---
 
 ## 🏗️ Status & Development
-*   **Current State:** Active high-volatility development.
-*   **GUI:** Relatively solid captured/audit interface, though console output (stdout) is still used for deep debugging.
-*   **Translation:** German support is growing; core systems are built for multi-language semantic parsing.
+*   **Current State:** Active development. High-stability core with rapidly evolving reporting and export capabilities.
+*   **Reporting:** Feature-complete dynamic dashboard engine with multi-format export.
+*   **GUI:** Solid desktop experience; optimized for high-density information displays.
+*   **Standardization:** Strict adherence to European invoicing standards (EN 16931).
 
 ---
 
