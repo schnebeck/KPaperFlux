@@ -1,0 +1,27 @@
+{
+    "id": "tax_summary_ytd",
+    "name": "Tax Summary (YTD)",
+    "description": "Overview of input tax amounts for the current calendar year.",
+    "group_by": "doc_date:month",
+    "aggregations": [
+        {
+            "field": "tax",
+            "op": "sum"
+        }
+    ],
+    "visualizations": [
+        "bar_chart",
+        "table",
+        "csv"
+    ],
+    "filter_query": {
+        "operator": "AND",
+        "conditions": [
+            {
+                "field": "doc_date",
+                "op": "gte",
+                "value": "2025-01-01"
+            }
+        ]
+    }
+}

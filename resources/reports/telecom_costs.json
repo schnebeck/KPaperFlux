@@ -1,0 +1,26 @@
+{
+    "id": "telecom_costs",
+    "name": "Telecom Costs",
+    "description": "Overview of costs for phone and internet.",
+    "group_by": "sender",
+    "aggregations": [
+        {
+            "field": "amount",
+            "op": "sum"
+        }
+    ],
+    "visualizations": [
+        "bar_chart",
+        "table"
+    ],
+    "filter_query": {
+        "operator": "AND",
+        "conditions": [
+            {
+                "field": "sender",
+                "op": "contains",
+                "value": "Telekom"
+            }
+        ]
+    }
+}

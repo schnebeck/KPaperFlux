@@ -1,0 +1,16 @@
+{
+    "id": "price_brackets",
+    "name": "Price Brackets Histogram",
+    "description": "Distribution of documents by amount classes.",
+    "group_by": "amount:bin100",
+    "aggregations": [
+        {
+            "field": "amount",
+            "op": "count"
+        }
+    ],
+    "visualizations": [
+        "bar_chart",
+        "table"
+    ]
+}

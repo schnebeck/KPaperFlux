@@ -34,9 +34,11 @@ class DateRangePicker(QWidget):
             self.tr("Date Range"),
             self.tr("Last 7 Days"),
             self.tr("Last 30 Days"),
+            self.tr("Last 90 Days"),
             self.tr("This Month"),
             self.tr("Last Month"),
-            self.tr("This Year")
+            self.tr("This Year"),
+            self.tr("Last Year")
         ])
         self.combo_type.currentIndexChanged.connect(self._on_type_changed)
         self.layout.addWidget(self.combo_type)
@@ -90,9 +92,11 @@ class DateRangePicker(QWidget):
             return f"{start},{end}"
         elif idx == 2: return "LAST_7_DAYS"
         elif idx == 3: return "LAST_30_DAYS"
-        elif idx == 4: return "THIS_MONTH"
-        elif idx == 5: return "LAST_MONTH"
-        elif idx == 6: return "THIS_YEAR"
+        elif idx == 4: return "LAST_90_DAYS"
+        elif idx == 5: return "THIS_MONTH"
+        elif idx == 6: return "LAST_MONTH"
+        elif idx == 7: return "THIS_YEAR"
+        elif idx == 8: return "LAST_YEAR"
         return ""
 
     def set_value(self, val):
@@ -102,9 +106,11 @@ class DateRangePicker(QWidget):
             
         if val == "LAST_7_DAYS": self.combo_type.setCurrentIndex(2)
         elif val == "LAST_30_DAYS": self.combo_type.setCurrentIndex(3)
-        elif val == "THIS_MONTH": self.combo_type.setCurrentIndex(4)
-        elif val == "LAST_MONTH": self.combo_type.setCurrentIndex(5)
-        elif val == "THIS_YEAR": self.combo_type.setCurrentIndex(6)
+        elif val == "LAST_90_DAYS": self.combo_type.setCurrentIndex(4)
+        elif val == "THIS_MONTH": self.combo_type.setCurrentIndex(5)
+        elif val == "LAST_MONTH": self.combo_type.setCurrentIndex(6)
+        elif val == "THIS_YEAR": self.combo_type.setCurrentIndex(7)
+        elif val == "LAST_YEAR": self.combo_type.setCurrentIndex(8)
         elif "," in val:
             # Range
             parts = val.split(",")

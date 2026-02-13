@@ -496,6 +496,105 @@ class DatabaseManager:
             print(f"[DB] Error in sum_documents_advanced: {e}")
             return 0.0
 
+    def get_trend_data_advanced(self, query: Dict[str, Any], days: Optional[int] = 30, aggregation: str = "count", cumulative: bool = False) -> List[float]:
+        """
+        Returns a list of data points representing a trend over time.
+        If days is None or -1, it calculates the trend for the full range of documents found.
+        If cumulative is True, it returns a running sum of the values.
+        """
+        if not self.connection: return []
+        
+        where_clause, params = self._build_where_clause(query or {})
+        if "deleted" not in where_clause.lower():
+            where_clause = f"({where_clause}) AND deleted = 0"
+            
+        # Determine time field: prefer doc_date if it's a financial aggregation
+        time_expr = self._map_field_to_sql("doc_date")
+        # Ensure we have a valid date part, fallback to created_at
+        time_expr = f"COALESCE(NULLIF({time_expr}, ''), strftime('%Y-%m-%d', created_at))"
+        
+        val_expr = "COUNT(*)" if aggregation == "count" else f"COALESCE(SUM(CAST({self._map_field_to_sql('amount')} AS REAL)), 0)"
+        
+        try:
+            cursor = self.connection.cursor()
+            
+            # Phase 1: Determine Range
+            range_sql = f"SELECT MIN({time_expr}), MAX({time_expr}) FROM virtual_documents WHERE {where_clause}"
+            cursor.execute(range_sql, params)
+            min_d, max_d = cursor.fetchone()
+            
+            if not min_d or not max_d:
+                return [0.0] * 30
+
+            from datetime import datetime
+            try:
+                # Basic YYYY-MM-DD parsing
+                d_start = datetime.strptime(min_d[:10], "%Y-%m-%d").date()
+                d_end = datetime.strptime(max_d[:10], "%Y-%m-%d").date()
+            except:
+                d_start = datetime.now().date()
+                d_end = d_start
+
+            span_days = (d_end - d_start).days
+            
+            # Determine Bins: We want ~30 points
+            if span_days < 45:
+                fmt, group_count = '%Y-%m-%d', span_days + 1
+            elif span_days < 365 * 2:
+                fmt, group_count = '%Y-%m', 12 # Roughly monthly
+            else:
+                fmt, group_count = '%Y', 5 # Yearly
+                
+            sql = f"""
+                SELECT strftime('{fmt}', {time_expr}) as grp, {val_expr} as val
+                FROM virtual_documents
+                WHERE {where_clause}
+                GROUP BY grp ORDER BY grp ASC
+            """
+            cursor.execute(sql, params)
+            results = dict(cursor.fetchall())
+            
+            # Generate sequential data points
+            data = []
+            from dateutil.relativedelta import relativedelta
+            
+            curr = d_start
+            running_total = 0.0
+            
+            # Helper to handle accumulation
+            def add_val(k):
+                nonlocal running_total
+                val = float(results.get(k, 0.0))
+                if cumulative:
+                    running_total += val
+                    data.append(running_total)
+                else:
+                    data.append(val)
+
+            if fmt == '%Y-%m-%d':
+                for _ in range(group_count):
+                    add_val(curr.strftime(fmt))
+                    curr += relativedelta(days=1)
+            elif fmt == '%Y-%m':
+                curr = curr.replace(day=1)
+                for _ in range(group_count + (1 if span_days > 28 else 0)):
+                    add_val(curr.strftime(fmt))
+                    curr += relativedelta(months=1)
+                    if curr > d_end.replace(day=1) + relativedelta(months=1): break
+            else:
+                curr = curr.replace(month=1, day=1)
+                for _ in range(20): # Safety limit
+                    add_val(curr.strftime(fmt))
+                    curr += relativedelta(years=1)
+                    if curr.year > d_end.year: break
+                    
+            return data
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"[DB] Error in get_trend_data_advanced: {e}")
+            return [0.0] * 30
+
     def _build_where_clause(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
         """
         Recursively translates a query node into SQL WHERE fragments.
@@ -596,18 +695,73 @@ class DatabaseManager:
             
         return field
 
+    def _resolve_relative_date(self, val: str) -> Any:
+        """
+        Translates relative date literals (e.g., 'LAST_MONTH') into absolute
+        date strings or ranges (tuples).
+        """
+        from datetime import datetime, timedelta
+        import calendar
+
+        if not isinstance(val, str):
+            return val
+
+        now = datetime.now()
+        today = now.date()
+
+        if val == "LAST_7_DAYS":
+            start = (today - timedelta(days=7)).isoformat()
+            return (start, today.isoformat())
+        
+        if val == "LAST_30_DAYS":
+            start = (today - timedelta(days=30)).isoformat()
+            return (start, today.isoformat())
+
+        if val == "LAST_90_DAYS":
+            start = (today - timedelta(days=90)).isoformat()
+            return (start, today.isoformat())
+
+        if val == "THIS_MONTH":
+            start = today.replace(day=1).isoformat()
+            return (start, today.isoformat())
+
+        if val == "LAST_MONTH":
+            last_month_end = today.replace(day=1) - timedelta(days=1)
+            last_month_start = last_month_end.replace(day=1)
+            return (last_month_start.isoformat(), last_month_end.isoformat())
+
+        if val == "THIS_YEAR":
+            start = today.replace(month=1, day=1).isoformat()
+            return (start, today.isoformat())
+
+        if val == "LAST_YEAR":
+            last_year = today.year - 1
+            start = today.replace(year=last_year, month=1, day=1).isoformat()
+            end = today.replace(year=last_year, month=12, day=31).isoformat()
+            return (start, end)
+
+        if "," in val and len(val.split(",")) == 2:
+             # Already a range string from UI
+             return tuple(val.split(","))
+
+        return val
+
     def _map_op_to_sql(self, expr: str, op: str, val: Any) -> Tuple[str, List[Any]]:
         """
         Translates a logical operator and value into a SQL condition.
-
-        Args:
-            expr: The SQL field expression.
-            op: The operator key.
-            val: The value to compare against.
-
-        Returns:
-            A tuple of (SQL condition string, parameters list).
+        Handles relative date literals.
         """
+        # Phase 130: Resolve relative dates
+        resolved_val = self._resolve_relative_date(val)
+        
+        # If the operator is 'equals' or 'contains' but the resolved value is a range (tuple),
+        # we automatically switch to 'between' behavior for dates.
+        if isinstance(resolved_val, tuple) and len(resolved_val) == 2:
+            op = "between"
+            val = list(resolved_val)
+        else:
+            val = resolved_val
+
         if op == "equals":
             if isinstance(val, list):
                 if not val:

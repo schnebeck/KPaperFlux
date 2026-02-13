@@ -2211,75 +2211,215 @@ Please install 'qrcode' package.</source>
     </message>
 </context><context>
     <name>ReportingWidget</name>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="91" />
         <source>Financial Reporting</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="97" />
         <source>Refresh Reports</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="102" />
         <source>Export to Excel (CSV)</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="122" />
         <source>Monthly Invoiced Totals (Rolling 12 Months)</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="131" />
         <source>Month</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="131" />
         <source>Total Net</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="131" />
         <source>Total Gross</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="135" />
         <source>Detailed Summary Table</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="142" />
         <source>Tax Rate</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="142" />
         <source>Total Tax Amount</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="145" />
         <source>Tax Breakdown</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="186" />
         <source>Export Report</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="192" />
         <source>Export Done</source>
         <translation type="unfinished" />
     </message>
-    <message>
+<message>
         <location filename="../../../gui/reporting.py" line="192" />
         <source>Saved report to %s</source>
         <translation type="unfinished" />
+    </message>
+    <message>
+        <source>Monthly Spending Trend</source>
+        <translation>Ausgabentrend (monatlich)</translation>
+    </message>
+<message>
+        <source>Historical view of gross spending across all categories.</source>
+        <translation>Chronologische Übersicht der Bruttoausgaben über alle Kategorien.</translation>
+    </message>
+    <message>
+        <source>Top Senders Distribution</source>
+        <translation>Top-Absender (Verteilung)</translation>
+    </message>
+<message>
+        <source>Analysis of spending by vendors/senders.</source>
+        <translation>Analyse der Ausgaben nach Lieferanten und Absendern.</translation>
+    </message>
+    <message>
+        <source>Tax Summary (YTD)</source>
+        <translation>Steuer-Auswertung (YTD)</translation>
+    </message>
+<message>
+        <source>Overview of input tax amounts for the current calendar year.</source>
+        <translation>Übersicht der Vorsteuerbeträge für das aktuelle Kalenderjahr.</translation>
+    </message>
+    <message>
+        <source>Price Brackets Histogram</source>
+        <translation>Preisgruppen-Histogramm</translation>
+    </message>
+<message>
+        <source>Distribution of documents by amount classes.</source>
+        <translation>Verteilung der Dokumente nach Betragsklassen.</translation>
+    </message>
+    <message>
+        <source>Insurances Trend</source>
+        <translation>Versicherungs-Trend</translation>
+    </message>
+<message>
+        <source>Analysis of insurance costs over time.</source>
+        <translation>Analyse der Versicherungskosten über die Zeit.</translation>
+    </message>
+    <message>
+        <source>Telecom Costs</source>
+        <translation>Telekommunikationskosten</translation>
+    </message>
+<message>
+        <source>Overview of costs for phone and internet.</source>
+        <translation>Übersicht der Kosten für Telefon und Internet.</translation>
+    </message>
+    <message>
+        <source>Audit: Missing Metadata</source>
+        <translation>Audit: Fehlende Metadaten</translation>
+    </message>
+<message>
+        <source>Identification of documents with incomplete semantic data.</source>
+        <translation>Identifikation von Dokumenten mit unvollständigen semantischen Daten.</translation>
+    </message>
+    <message>
+        <source>Project Comparison</source>
+        <translation>Projektvergleich</translation>
+    </message>
+<message>
+        <source>Comparison of spending by project tags.</source>
+        <translation>Gegenüberstellung der Ausgaben nach Projekt-Tags.</translation>
+    </message>
+    <message>
+        <source>Last 90 Days (Volume)</source>
+        <translation>Dokumentenvolumen (letzte 90 Tage)</translation>
+    </message>
+<message>
+        <source>Daily document volume of the last 3 months.</source>
+        <translation>Tägliches Dokumentenaufkommen der letzten 3 Monate.</translation>
+    </message>
+    <message>
+        <source>Grand Totals (Gross)</source>
+        <translation>Gesamtsummen (Brutto)</translation>
+    </message>
+<message>
+        <source>Sum of all archived documents.</source>
+        <translation>Summe aller archivierten Belege im System.</translation>
+    </message>
+    <message>
+        <source>Tax Overview</source>
+        <translation>Umsatzsteuer-Übersicht</translation>
+    </message>
+<message>
+        <source>Comparison of Net, Tax, and Gross amounts.</source>
+        <translation>Gegenüberstellung von Netto-, Steuer- und Bruttobeträgen.</translation>
+    </message>
+    <message>
+        <source>Monthly Invoice Count</source>
+        <translation>Rechnungsanzahl pro Monat</translation>
+    </message>
+<message>
+        <source>Counter for number of invoices processed per month.</source>
+        <translation>Anzahl der verarbeiteten Rechnungen pro Monat.</translation>
+    </message>
+    <message>
+        <source>Bar Chart</source>
+        <translation>Balkendiagramm</translation>
+    </message>
+    <message>
+        <source>Distribution</source>
+        <translation>Verteilung</translation>
+    </message>
+    <message>
+        <source>Trend</source>
+        <translation>Trendverlauf</translation>
+    </message>
+    <message>
+        <source>Pie Chart</source>
+        <translation>Tortendiagramm</translation>
+    </message>
+    <message>
+        <source>Line Chart</source>
+        <translation>Liniendiagramm</translation>
+    </message>
+    <message>
+        <source>Select Report:</source>
+        <translation>Bericht auswählen:</translation>
+    </message>
+    <message>
+        <source>Edit Definition</source>
+        <translation>Definition bearbeiten</translation>
+    </message>
+    <message>
+        <source>New Report</source>
+        <translation>Neuer Bericht</translation>
+    </message>
+    <message>
+        <source>Export Data</source>
+        <translation>Daten exportieren</translation>
+    </message>
+    <message>
+        <source>Detailed Data:</source>
+        <translation>Detaildaten:</translation>
+    </message>
+    <message>
+        <source>No data for this criteria.</source>
+        <translation>Keine Daten für diese Kriterien gefunden.</translation>
     </message>
 </context><context>
     <name>RuleManagerWidget</name>

@@ -1,0 +1,26 @@
+{
+    "id": "top_senders",
+    "name": "Top Senders Distribution",
+    "description": "Analysis of spending by vendors/senders.",
+    "group_by": "sender",
+    "aggregations": [
+        {
+            "field": "amount",
+            "op": "sum"
+        }
+    ],
+    "visualizations": [
+        "pie_chart",
+        "table"
+    ],
+    "filter_query": {
+        "operator": "AND",
+        "conditions": [
+            {
+                "field": "status",
+                "op": "equals",
+                "value": "PROCESSED"
+            }
+        ]
+    }
+}

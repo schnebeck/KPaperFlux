@@ -301,6 +301,9 @@ class Stage2Processor:
                         )
 
                 if extraction:
+                    if hasattr(extraction, "model_dump"):
+                        extraction = extraction.model_dump()
+                    
                     TYPE_TO_BODY = {
                         "INVOICE": "finance_body", "CREDIT_NOTE": "finance_body", "RECEIPT": "finance_body",
                         "DUNNING": "finance_body", "UTILITY_BILL": "finance_body", "ORDER": "finance_body",
@@ -370,6 +373,9 @@ class Stage2Processor:
     def validate_semantic_extraction(self, extraction: Dict, entity_type: str) -> List[str]:
         """Validates AI extraction for schema compliance, critical fields, and bank info."""
         from core.utils.validation import validate_iban
+        if hasattr(extraction, "model_dump"):
+            extraction = extraction.model_dump()
+
         errors = []
 
         meta = extraction.get("meta_header", {})
@@ -483,12 +489,15 @@ class Stage2Processor:
 
         return errors
 
-    def generate_smart_filename(self, semantic_data: Dict, entity_types: List[str]) -> str:
+    def generate_smart_filename(self, semantic_data: Any, entity_types: List[str]) -> str:
         """
         Phase 2.4: Smart Filename Generation.
         """
         if semantic_data is None:
             return "0000-00-00__Unknown__DOC.pdf"
+            
+        if hasattr(semantic_data, "model_dump"):
+            semantic_data = semantic_data.model_dump()
 
         # 1. Date Extraction
         meta = semantic_data.get("meta_header", {})
@@ -496,8 +505,11 @@ class Stage2Processor:
         
         # 2. Entity Name
         sender = meta.get("sender", {})
-        entity_name = sender.get("name", "Unknown")
-        entity_name = re.sub(r'[^\w\s]', '', entity_name).replace(' ', '_')[:30]
+        # Prefer company name for filename if present
+        entity_name = sender.get("company") or sender.get("name", "Unknown")
+        
+        # Clean name for filesystem
+        entity_name = re.sub(r'[^\w\s]', '', str(entity_name)).replace(' ', '_')[:30]
 
         # 3. Type
         doc_type = "DOC"

@@ -14,9 +14,10 @@ import os
 import shutil
 from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
-                             QHBoxLayout, QScrollArea, QSizePolicy, QMenu)
+                             QHBoxLayout, QScrollArea, QSizePolicy, QMenu, QInputDialog)
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer
-from PyQt6.QtGui import QAction, QCursor, QPalette
+from PyQt6.QtGui import QAction, QCursor, QPalette, QPainter, QColor, QFont, QPen, QBrush, QLinearGradient, QPainterPath
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer, QRect
 
 from gui.dialogs.dashboard_entry_dialog import DashboardEntryDialog
 from core.config import AppConfig
@@ -26,12 +27,70 @@ CELL_HEIGHT = 180
 SPACING = 25
 MARGIN = 30
 
+class SparklineWidget(QWidget):
+    """Small, minimalist line chart for StatCards."""
+    def __init__(self, color_hex, parent=None):
+        super().__init__(parent)
+        self.data = []
+        self.color = QColor(color_hex)
+        self.setFixedHeight(45)
+
+    def set_data(self, data):
+        self.data = data
+        self.update()
+
+    def paintEvent(self, event):
+        if len(self.data) < 2: return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        w, h = self.width(), self.height()
+        m_b = 5 # bottom margin for labels/axis
+        draw_h = h - m_b - 5
+        
+        # We always want 0 as the baseline for activity
+        max_v = max(self.data) if self.data else 1
+        min_v = 0 # Force zero baseline as requested
+        v_range = (max_v - min_v) if max_v != min_v else 1
+        
+        points = []
+        x_step = w / (len(self.data) - 1)
+        for i, val in enumerate(self.data):
+            px = i * x_step
+            py = h - m_b - ((val - min_v) / v_range) * draw_h
+            points.append(QPoint(int(px), int(py)))
+            
+        # Draw subtle Axes
+        painter.setPen(QPen(QColor("#e5e7eb"), 1))
+        painter.drawLine(0, h - m_b, w, h - m_b) # X-Axis (Zero Line)
+        painter.drawLine(0, 0, 0, h - m_b)      # Y-Axis
+        
+        # Draw Gradient Area
+        path = QPainterPath()
+        path.moveTo(0, h - m_b)
+        for p in points: path.lineTo(p.x(), p.y())
+        path.lineTo(w, h - m_b)
+        path.closeSubpath()
+        
+        grad = QLinearGradient(0, 0, 0, h)
+        c_fill = QColor(self.color)
+        c_fill.setAlpha(30)
+        grad.setColorAt(0, c_fill)
+        grad.setColorAt(1, QColor(0, 0, 0, 0))
+        painter.fillPath(path, grad)
+        
+        # Draw Line
+        painter.setPen(QPen(self.color, 2))
+        for i in range(len(points) - 1):
+            painter.drawLine(points[i], points[i+1])
+
 class StatCard(QFrame):
     clicked = pyqtSignal(dict) # Emits the filter query
     edit_requested = pyqtSignal()
+    rename_requested = pyqtSignal()
     delete_requested = pyqtSignal()
 
-    def __init__(self, title, value, color_hex, filter_query, aggregation="count", parent=None):
+    def __init__(self, title, value, color_hex, filter_query, aggregation="count", sparkdata=None, parent=None):
         super().__init__(parent)
         self.filter_query = filter_query
         self.color_hex = color_hex
@@ -53,30 +112,40 @@ class StatCard(QFrame):
             QFrame#StatCard {{
                 background-color: white;
                 border: 1px solid #e5e7eb;
-                border-radius: 12px;
+                border-radius: 16px;
             }}
             QFrame#StatCard:hover {{
-                border: 2px solid {color_hex};
-                background-color: #f9fafb;
+                border: 1.5px solid {color_hex};
+                background-color: #ffffff;
             }}
         """)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 15, 20, 15)
+        layout.setContentsMargins(15, 15, 15, 12)
+        layout.setSpacing(4)
+        
+        # Icon mapping
+        icons = {
+            "Inbox": "📥", "Total Documents": "📄", "Total Invoiced": "💰", 
+            "Processed": "✅", "Trash": "🗑️", "Taxes": "🏛️"
+        }
+        icon = icons.get(title, "📊")
         
         # Title row
-        top_layout = QHBoxLayout()
+        title_row = QHBoxLayout()
+        icon_lbl = QLabel(icon)
+        icon_lbl.setStyleSheet(f"font-size: 16pt; background: {color_hex}15; padding: 5px; border-radius: 8px;")
+        title_row.addWidget(icon_lbl)
+        
         lbl_title = QLabel(title)
-        lbl_title.setWordWrap(True)
-        lbl_title.setStyleSheet("color: #4b5563; font-weight: 500; font-size: 12pt;")
-        top_layout.addWidget(lbl_title)
+        lbl_title.setStyleSheet("color: #64748b; font-weight: 600; font-size: 10pt;")
+        title_row.addWidget(lbl_title, 1)
         
-        # Aggregation indicator
         self.lbl_agg = QLabel(aggregation.upper())
-        self.lbl_agg.setStyleSheet(f"color: {color_hex}; background-color: {color_hex}20; padding: 2px 6px; border-radius: 4px; font-size: 8pt; font-weight: bold;")
-        top_layout.addWidget(self.lbl_agg, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        self.lbl_agg.setStyleSheet(f"color: {color_hex}; background-color: {color_hex}15; padding: 2px 6px; border-radius: 6px; font-size: 7pt; font-weight: bold;")
+        title_row.addWidget(self.lbl_agg, 0, Qt.AlignmentFlag.AlignTop)
         
-        layout.addLayout(top_layout)
+        layout.addLayout(title_row)
         
         # Value
         display_val = ""
@@ -86,9 +155,17 @@ class StatCard(QFrame):
             display_val = str(value)
             
         self.lbl_count = QLabel(display_val)
-        self.lbl_count.setStyleSheet(f"color: {color_hex}; font-weight: 800; font-size: 28pt;")
-        self.lbl_count.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
-        layout.addWidget(self.lbl_count, 1)
+        self.lbl_count.setStyleSheet(f"color: #1e293b; font-weight: 800; font-size: 24pt;")
+        layout.addWidget(self.lbl_count)
+        
+        # Sparkline (The "Living" part)
+        self.sparkline = SparklineWidget(color_hex)
+        if sparkdata:
+            self.sparkline.set_data(sparkdata)
+        else:
+            self.sparkline.set_data([0.0] * 31) # Flat zero line
+             
+        layout.addWidget(self.sparkline)
 
     def move_animated(self, new_pos):
         if self.pos() == new_pos:
@@ -98,18 +175,19 @@ class StatCard(QFrame):
         self._pos_anim.start()
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            # We don't emit immediately, parent decides if it was a drag or a click
-            pass
         super().mousePressEvent(event)
 
     def _show_context_menu(self, pos):
         menu = QMenu(self)
-        edit_action = menu.addAction(self.tr("Edit View..."))
+        rename_action = menu.addAction(self.tr("Rename..."))
+        edit_action = menu.addAction(self.tr("Edit Configuration..."))
+        menu.addSeparator()
         delete_action = menu.addAction(self.tr("Remove from Dashboard"))
         
         action = menu.exec(self.mapToGlobal(pos))
-        if action == edit_action:
+        if action == rename_action:
+            self.rename_requested.emit()
+        elif action == edit_action:
             self.edit_requested.emit()
         elif action == delete_action:
             self.delete_requested.emit()
@@ -274,17 +352,27 @@ class DashboardWidget(QWidget):
                     count = "ERR"
                     query = {}
             
+            # Resolve Sparkline Data
+            spark_data = []
+            if self.db_manager and query is not None:
+                # Use days=None for automatic range scaling
+                # Counts are typically cumulative growth, sums are activity trends
+                is_cumulative = (agg_type == "count")
+                spark_data = self.db_manager.get_trend_data_advanced(query, days=None, aggregation=agg_type, cumulative=is_cumulative)
+
             card = StatCard(
                 title, 
                 count, 
                 config.get("color", "#3b82f6"), 
                 query,
                 aggregation=agg_type,
+                sparkdata=spark_data,
                 parent=self.content_widget
             )
             card.filter_id = config.get("filter_id")
             card.preset_id = config.get("preset_id")
             card.edit_requested.connect(lambda idx=index: self._edit_card(idx))
+            card.rename_requested.connect(lambda idx=index: self._rename_card(idx))
             card.delete_requested.connect(lambda idx=index: self._delete_card(idx))
             
             # Position
@@ -444,3 +532,12 @@ class DashboardWidget(QWidget):
         self.cards_config.pop(index)
         self.save_config()
         self.refresh_stats()
+
+    def _rename_card(self, index):
+        if index >= len(self.cards_config): return
+        old_title = self.cards_config[index].get("title", "")
+        new_title, ok = QInputDialog.getText(self, self.tr("Rename View"), self.tr("New Title:"), text=old_title)
+        if ok and new_title:
+            self.cards_config[index]["title"] = new_title
+            self.save_config()
+            self.refresh_stats()

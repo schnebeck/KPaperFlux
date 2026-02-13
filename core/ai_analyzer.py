@@ -140,7 +140,7 @@ class AIAnalyzer:
         """Delegates to Stage2Processor."""
         return self.stage2.validate_semantic_extraction(extraction, entity_type)
 
-    def generate_smart_filename(self, semantic_data: Dict, entity_types: List[str]) -> str:
+    def generate_smart_filename(self, semantic_data: Any, entity_types: List[str]) -> str:
         """Delegates to Stage2Processor."""
         return self.stage2.generate_smart_filename(semantic_data, entity_types)
 

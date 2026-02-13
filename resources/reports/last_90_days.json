@@ -1,0 +1,25 @@
+{
+    "id": "last_90_days",
+    "name": "Last 90 Days (Volume)",
+    "description": "Daily document volume of the last 3 months.",
+    "group_by": "created_at:day",
+    "aggregations": [
+        {
+            "field": "uuid",
+            "op": "count"
+        }
+    ],
+    "visualizations": [
+        "trend_chart"
+    ],
+    "filter_query": {
+        "operator": "AND",
+        "conditions": [
+            {
+                "field": "created_at",
+                "op": "gte",
+                "value": "relative:-90d"
+            }
+        ]
+    }
+}

@@ -1,0 +1,25 @@
+{
+    "id": "audit_missing_info",
+    "name": "Audit: Missing Metadata",
+    "description": "Identification of documents with incomplete semantic data.",
+    "group_by": "status",
+    "aggregations": [
+        {
+            "field": "amount",
+            "op": "count"
+        }
+    ],
+    "visualizations": [
+        "table"
+    ],
+    "filter_query": {
+        "operator": "AND",
+        "conditions": [
+            {
+                "field": "amount",
+                "op": "equals",
+                "value": "0.0"
+            }
+        ]
+    }
+}

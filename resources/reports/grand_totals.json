@@ -1,0 +1,14 @@
+{
+    "id": "grand_totals",
+    "name": "Grand Totals (Gross)",
+    "description": "Sum of all archived documents.",
+    "aggregations": [
+        {
+            "field": "amount",
+            "op": "sum"
+        }
+    ],
+    "visualizations": [
+        "table"
+    ]
+}

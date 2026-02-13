@@ -1,0 +1,26 @@
+{
+    "id": "project_comparison",
+    "name": "Project Comparison",
+    "description": "Comparison of spending by project tags.",
+    "group_by": "tags",
+    "aggregations": [
+        {
+            "field": "amount",
+            "op": "sum"
+        }
+    ],
+    "visualizations": [
+        "bar_chart",
+        "pie_chart"
+    ],
+    "filter_query": {
+        "operator": "AND",
+        "conditions": [
+            {
+                "field": "tags",
+                "op": "contains",
+                "value": "Project"
+            }
+        ]
+    }
+}

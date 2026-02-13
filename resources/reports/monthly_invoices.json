@@ -1,0 +1,26 @@
+{
+  "id": "monthly_invoices",
+  "name": "Monthly Invoice Count",
+  "description": "Counter for number of invoices processed per month.",
+  "group_by": "doc_date:month",
+  "aggregations": [
+    {
+      "field": "uuid",
+      "op": "count"
+    }
+  ],
+  "visualizations": [
+    "bar_chart",
+    "table"
+  ],
+  "filter_query": {
+    "operator": "AND",
+    "conditions": [
+      {
+        "field": "type_tags",
+        "op": "contains",
+        "value": "INVOICE"
+      }
+    ]
+  }
+}

@@ -162,7 +162,8 @@ class MainWindow(QMainWindow):
         
         # --- Page 2: Reporting ---
         from gui.reporting import ReportingWidget
-        self.reporting_widget = ReportingWidget(self.db_manager)
+        self.reporting_widget = ReportingWidget(self.db_manager, filter_tree=self.filter_tree)
+        self.reporting_widget.filter_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.reporting_widget)
 
         # --- Page 3: Workflow Agents ---
@@ -342,7 +343,7 @@ class MainWindow(QMainWindow):
             self.pdf_viewer.set_highlight_text(search_text)
 
     def load_filter_tree(self):
-        """Load Filter Tree from JSON file."""
+        """Load Filter Tree from JSON file, with fallback to starter kit."""
         if self.filter_config_path.exists():
             print(f"[DEBUG] Loading Filter Tree from: {self.filter_config_path}")
             try:
@@ -352,6 +353,17 @@ class MainWindow(QMainWindow):
                 print(f"[DEBUG] Loaded {len(self.filter_tree.root.children)} root items.")
             except Exception as e:
                 print(f"[ERROR] Error loading filter tree: {e}")
+        else:
+            # Phase 130: Starter Kit Fallback
+            starter_path = Path(__file__).resolve().parent.parent / "resources" / "filter_tree_starter.json"
+            if starter_path.exists():
+                print(f"[DEBUG] Initializing with Starter Kit: {starter_path}")
+                try:
+                    with open(starter_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        self.filter_tree.load(data)
+                except Exception as e:
+                    print(f"[ERROR] Error loading starter kit: {e}")
 
         # Phase 92: Ensure Trash Node exists
         root = self.filter_tree.root

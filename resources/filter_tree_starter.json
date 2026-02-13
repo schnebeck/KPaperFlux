@@ -1,0 +1,128 @@
+{
+    "favorites": [],
+    "root": {
+        "name": "Standard-Konfiguration",
+        "type": "folder",
+        "children": [
+            {
+                "name": "Posteingang",
+                "type": "filter",
+                "data": {
+                    "field": "status",
+                    "op": "equals",
+                    "value": "NEW"
+                }
+            },
+            {
+                "name": "In Bearbeitung",
+                "type": "filter",
+                "data": {
+                    "field": "status",
+                    "op": "equals",
+                    "value": "PROCESSED"
+                }
+            },
+            {
+                "name": "Zu Prüfen (AI Flash)",
+                "type": "filter",
+                "data": {
+                    "field": "classification",
+                    "op": "is_empty",
+                    "value": null
+                }
+            },
+            {
+                "name": "Amazon Käufe",
+                "type": "filter",
+                "data": {
+                    "field": "sender",
+                    "op": "contains",
+                    "value": [
+                        "Amazon"
+                    ]
+                },
+                "tags_to_add": [
+                    "Shopping",
+                    "Online"
+                ],
+                "auto_apply": true
+            },
+            {
+                "name": "Versicherungen & Fixkosten",
+                "type": "filter",
+                "data": {
+                    "field": "sender",
+                    "op": "contains",
+                    "value": [
+                        "Allianz",
+                        "HUK",
+                        "Debeka",
+                        "Generali"
+                    ]
+                },
+                "tags_to_add": [
+                    "Fixed",
+                    "Insurance"
+                ],
+                "auto_apply": true
+            },
+            {
+                "name": "Hohe Beträge (> 500€)",
+                "type": "filter",
+                "data": {
+                    "field": "amount",
+                    "op": "gt",
+                    "value": 500
+                }
+            },
+            {
+                "name": "Gesendet (Outbound)",
+                "type": "filter",
+                "data": {
+                    "field": "direction",
+                    "op": "equals",
+                    "value": "OUTBOUND"
+                }
+            },
+            {
+                "name": "Aktueller Monat",
+                "type": "filter",
+                "data": {
+                    "field": "doc_date",
+                    "op": "equals",
+                    "value": "THIS_MONTH"
+                }
+            },
+            {
+                "name": "Letzte 90 Tage",
+                "type": "filter",
+                "data": {
+                    "field": "doc_date",
+                    "op": "equals",
+                    "value": "LAST_90_DAYS"
+                }
+            },
+            {
+                "name": "Auto-Tax-Tagging",
+                "type": "filter",
+                "data": {
+                    "field": "type_tags",
+                    "op": "contains",
+                    "value": [
+                        "INVOICE"
+                    ]
+                },
+                "tags_to_add": [
+                    "Finance",
+                    "Tax-Relevant"
+                ],
+                "auto_apply": true
+            },
+            {
+                "name": "Papierkorb",
+                "type": "trash",
+                "children": []
+            }
+        ]
+    }
+}

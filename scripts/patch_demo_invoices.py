@@ -306,9 +306,14 @@ def patch_demos() -> None:
             tags.append(random.choice(["DELIVERY_NOTE", "ORDER_CONFIRMATION"]))
 
         try:
+            # Spread dates over 2025
+            month = ((i-1) % 12) + 1
+            day = min(i + 1, 28)
+            spread_date = f"2025-{month:02d}-{day:02d}"
+
             extraction = SemanticExtraction(direction=dir, tenant_context=ctx,
                 meta_header=MetaHeader(sender=AddressInfo(**filter_addr(s_id)), recipient=AddressInfo(**filter_addr(r_id)),
-                doc_date="2026-02-14", doc_number=f"DEMO-{2026}-{i:03d}", language=suffix), type_tags=tags)
+                doc_date=spread_date, doc_number=f"DEMO-{2025}-{i:03d}", language=suffix), type_tags=tags)
             
             fb = FinanceBody(currency="EUR")
             items_count = 1 if i % 7 != 0 else 15
@@ -359,9 +364,12 @@ def patch_demos() -> None:
         filename = f"Demo_{i:02d}_INVOICE_de.pdf"
         dst_path = orig_dir / filename
         # Modify meta for each
+        month = ((i-1) % 12) + 1 # Use current year or 2025
+        spread_date = f"2025-{month:02d}-15"
+
         extraction = SemanticExtraction(direction="INBOUND", tenant_context="BUSINESS",
             meta_header=MetaHeader(sender=AddressInfo(**filter_addr(telekom_vendor)), recipient=AddressInfo(**filter_addr(tenant_b)),
-            doc_date=f"2026-02-{i:02d}", doc_number=f"TELEKOM-99-{i:02d}", language="de"), type_tags=["INVOICE"])
+            doc_date=spread_date, doc_number=f"TELEKOM-99-{i:02d}", language="de"), type_tags=["INVOICE"])
         
         fb = FinanceBody(currency="EUR")
         price = Decimal("39.95")
