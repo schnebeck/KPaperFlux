@@ -24,7 +24,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 
 *   **Forensic Separation:** Specialized engines extract "noise" (stamps, signatures, handwriting) for separate analysis, ensuring the integrity of the core transactional data.
 *   **Multi-Type-Tag Architecture:** Documents are managed using a polymorphic tagging system. For documents identified with a `Finance` tag, KPaperFlux enforces strict EN 16931 (ZUGFeRD) data management for high-fidelity accounting and analytics.
-*   **Local Sovereignty:** High-performance AI processing (Google Gemini) is paired with a strictly local, immutable document vault to ensure user control over sensitive data.
+*   **Data Control & AI Choice:** Physical document storage and vault management are strictly local. Users can opt for high-performance semantic analysis via Google Gemini, accepting the trade-offs of cloud-based processing, or rely on local-only extraction for maximum privacy (foregoing advanced AI insights).
 *   **Automated Validation:** Integrated logic engines perform cross-checks on financial totals and tax rates, prioritizing consistency and factual accuracy.
 
 ---
