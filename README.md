@@ -2,27 +2,27 @@
   <img src="resources/icon.png" alt="KPaperFlux Logo" width="128" height="128">
   <h1 align="center">KPaperFlux</h1>
   <p align="center">
-    <strong>From Paper to Power: Forensic AI Document Intelligence</strong><br>
-    <em>The ultimate semantic bridge between physical paperwork and structured data.</em>
+    <strong>Semantic Document Intelligence & Forensic Analysis</strong><br>
+    <em>Bridging the gap between physical documents and structured digital twins.</em>
   </p>
   <p align="center">
     <img src="https://img.shields.io/badge/Status-Active_Development-green" alt="Status">
     <img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python">
-    <img src="https://img.shields.io/badge/UI-PyQt6_Premium-orange" alt="UI">
-    <img src="https://img.shields.io/badge/AI-Gemini_2.0_Flash-red" alt="AI">
+    <img src="https://img.shields.io/badge/UI-PyQt6-blue" alt="UI">
+    <img src="https://img.shields.io/badge/AI-Gemini_2.0-red" alt="AI">
   </p>
 </div>
 
 ---
 
-## 🦅 Why KPaperFlux?
+## 🏛️ Project Philosophy
 
-Most document management systems are just glorified folders. **KPaperFlux is a different beast.** It doesn't just store your files; it **understands** them with forensic precision.
+KPaperFlux is a **Document Refiner** designed for precision and technical sovereignty. While traditional systems focus on archival and search, KPaperFlux aims at **deep understanding**: converting visual and textual information into structured, mathematically validated data.
 
-*   **Forensic "X-Ray" Vision:** See through your documents. We separate stamps, signatures, and handwritten notes from the core data for 100% extraction accuracy.
-*   **Semantic DNA:** Every document is transformed into a standardized Digital Twin (EN 16931/ZUGFeRD), ready for accounting, analytics, and automation.
-*   **Privacy First, AI Powered:** Experience the cutting-edge power of Google Gemini while maintaining absolute local control over your physical document vault.
-*   **Data you can Trust:** Built-in mathematical validation engines cross-check every cent and every tax rate. No hallucinations, just facts.
+*   **Forensic Separation:** Specialized engines extract "noise" (stamps, signatures, handwriting) for separate analysis, ensuring the integrity of the core transactional data.
+*   **Standardized Interoperability:** Every document is mapped to an EN 16931-compliant (ZUGFeRD) digital twin, enabling seamless data exchange and high-fidelity analytics.
+*   **Local Sovereignty:** High-performance AI processing (Google Gemini) is paired with a strictly local, immutable document vault to ensure user control over sensitive data.
+*   **Automated Validation:** Integrated logic engines perform cross-checks on financial totals and tax rates, prioritizing consistency and factual accuracy.
 
 ---
 
