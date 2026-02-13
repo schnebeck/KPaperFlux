@@ -23,7 +23,7 @@
 KPaperFlux is a **Document Refiner** designed for precision and technical sovereignty. While traditional systems focus on archival and search, KPaperFlux aims at **deep understanding**: converting visual and textual information into structured, mathematically validated data.
 
 *   **Forensic Separation:** Specialized engines extract "noise" (stamps, signatures, handwriting) for separate analysis, ensuring the integrity of the core transactional data.
-*   **Standardized Interoperability:** Every document is mapped to an EN 16931-compliant (ZUGFeRD) digital twin, enabling seamless data exchange and high-fidelity analytics.
+*   **Multi-Type-Tag Architecture:** Documents are managed using a polymorphic tagging system. For documents identified with a `Finance` tag, KPaperFlux enforces strict EN 16931 (ZUGFeRD) data management for high-fidelity accounting and analytics.
 *   **Local Sovereignty:** High-performance AI processing (Google Gemini) is paired with a strictly local, immutable document vault to ensure user control over sensitive data.
 *   **Automated Validation:** Integrated logic engines perform cross-checks on financial totals and tax rates, prioritizing consistency and factual accuracy.
 
