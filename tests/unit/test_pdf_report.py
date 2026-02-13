@@ -19,8 +19,12 @@ class TestPdfReport(unittest.TestCase):
             ]
         }
         
-        # We don't provide chart images in this basic test
-        pdf_bytes = gen.generate(mock_data)
+        render_items = [
+            {"type": "text", "value": "Summary of recent spending patterns."},
+            {"type": "table", "value": mock_data["table_rows"]}
+        ]
+        
+        pdf_bytes = gen.generate("Test Report", render_items)
         
         self.assertTrue(len(pdf_bytes) > 100)
         self.assertTrue(pdf_bytes.startswith(b"%PDF"))

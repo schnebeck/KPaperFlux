@@ -33,6 +33,13 @@ class AppConfig:
     KEY_API_VERIFIED: str = "api_verified"
     KEY_AI_RETRIES: str = "ai_retries"
     KEY_TRANSFER_PATH: str = "transfer_path"
+    KEY_AI_PROVIDER: str = "ai_provider" # "gemini" or "ollama"
+    KEY_OLLAMA_URL: str = "ollama_url"
+    KEY_OLLAMA_MODEL: str = "ollama_model"
+    KEY_OPENAI_KEY: str = "openai_key"
+    KEY_OPENAI_MODEL: str = "openai_model"
+    KEY_ANTHROPIC_KEY: str = "anthropic_key"
+    KEY_ANTHROPIC_MODEL: str = "anthropic_model"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
@@ -337,3 +344,59 @@ class AppConfig:
             path: The transfer path string.
         """
         self._set_setting("Storage", self.KEY_TRANSFER_PATH, path)
+
+    def get_ai_provider(self) -> str:
+        """Retrieves the active AI provider ('gemini' or 'ollama')."""
+        return str(self._get_setting("AI", self.KEY_AI_PROVIDER, "gemini"))
+
+    def set_ai_provider(self, provider: str) -> None:
+        """Saves the active AI provider."""
+        self._set_setting("AI", self.KEY_AI_PROVIDER, provider)
+
+    def get_ollama_url(self) -> str:
+        """Retrieves the Ollama API URL."""
+        return str(self._get_setting("AI", self.KEY_OLLAMA_URL, "http://localhost:11434"))
+
+    def set_ollama_url(self, url: str) -> None:
+        """Saves the Ollama API URL."""
+        self._set_setting("AI", self.KEY_OLLAMA_URL, url)
+
+    def get_ollama_model(self) -> str:
+        """Retrieves the Ollama model name."""
+        return str(self._get_setting("AI", self.KEY_OLLAMA_MODEL, "llama3"))
+
+    def set_ollama_model(self, model: str) -> None:
+        """Saves the Ollama model name."""
+        self._set_setting("AI", self.KEY_OLLAMA_MODEL, model)
+
+    def get_openai_key(self) -> str:
+        """Retrieves the OpenAI API key."""
+        return str(self._get_setting("AI", self.KEY_OPENAI_KEY, ""))
+
+    def set_openai_key(self, key: str) -> None:
+        """Saves the OpenAI API key."""
+        self._set_setting("AI", self.KEY_OPENAI_KEY, key)
+
+    def get_openai_model(self) -> str:
+        """Retrieves the OpenAI model name."""
+        return str(self._get_setting("AI", self.KEY_OPENAI_MODEL, "gpt-4o"))
+
+    def set_openai_model(self, model: str) -> None:
+        """Saves the OpenAI model name."""
+        self._set_setting("AI", self.KEY_OPENAI_MODEL, model)
+
+    def get_anthropic_key(self) -> str:
+        """Retrieves the Anthropic API key."""
+        return str(self._get_setting("AI", self.KEY_ANTHROPIC_KEY, ""))
+
+    def set_anthropic_key(self, key: str) -> None:
+        """Saves the Anthropic API key."""
+        self._set_setting("AI", self.KEY_ANTHROPIC_KEY, key)
+
+    def get_anthropic_model(self) -> str:
+        """Retrieves the Anthropic model name."""
+        return str(self._get_setting("AI", self.KEY_ANTHROPIC_MODEL, "claude-3-5-sonnet-20240620"))
+
+    def set_anthropic_model(self, model: str) -> None:
+        """Saves the Anthropic model name."""
+        self._set_setting("AI", self.KEY_ANTHROPIC_MODEL, model)

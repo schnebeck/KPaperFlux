@@ -1,15 +1,13 @@
-import json
-from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import List, Dict, Any, Optional
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QFrame, QScrollArea, QComboBox, QSizePolicy,
-                             QMenu)
-from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication
-from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush
+                             QMenu, QTextEdit, QToolButton)
+from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer
+from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush, QIcon
 
 from core.reporting import ReportGenerator, ReportRegistry
-from core.models.reporting import ReportDefinition
+from core.models.reporting import ReportDefinition, ReportComponent
 from core.exporters.pdf_report import PdfReportGenerator
 from gui.report_editor import ReportEditorWidget
 
@@ -430,6 +428,10 @@ class ReportingWidget(QWidget):
         self.btn_export = QPushButton("📤 " + self.tr("Export Data"))
         self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; font-weight: bold; padding: 4px 12px;")
         
+        self.btn_add_text = QPushButton("📝 " + self.tr("Add Comment"))
+        self.btn_add_text.clicked.connect(self.add_text_block)
+        toolbar.addWidget(self.btn_add_text)
+        
         # Add Export Menu
         export_menu = QMenu(self)
         
@@ -517,10 +519,19 @@ class ReportingWidget(QWidget):
         self.render_report(results, definition)
 
     def render_report(self, results, definition: ReportDefinition):
+        # 1. Migration/Preparation: Ensure components list exists
+        if not definition.components:
+            # Migrate legacy visualizations to components
+            for vis in definition.visualizations:
+                definition.components.append(ReportComponent(type=vis))
+            # Clear legacy list to prefer components
+            definition.visualizations = []
+
         # Clear previous
         for i in reversed(range(self.content_layout.count())): 
-            widget = self.content_layout.itemAt(i).widget()
-            if widget: widget.setParent(None)
+            item = self.content_layout.itemAt(i)
+            if item.widget(): item.widget().setParent(None)
+            elif item.layout(): self._clear_layout(item.layout())
             
         # Title & Info
         title_lbl = QLabel(self.tr(results["title"]))
@@ -532,76 +543,158 @@ class ReportingWidget(QWidget):
             desc_lbl.setStyleSheet("color: #7f8c8d; font-style: italic;")
             self.content_layout.addWidget(desc_lbl)
 
-        # Charts Section
-        charts_row = QHBoxLayout()
         self.active_charts = []
-        
         report_name = QCoreApplication.translate("ReportingWidget", results["title"])
-        
-        if "bar_chart" in definition.visualizations:
-            chart = BarChartWidget()
-            chart.set_data(results["labels"], results["series"])
-            chart.segment_clicked.connect(self._on_chart_drill_down)
-            self.active_charts.append(chart)
-            charts_row.addWidget(self._wrap_chart(chart, report_name))
 
-        if "pie_chart" in definition.visualizations:
-            chart = PieChartWidget()
-            chart.set_data(results["labels"], results["series"])
-            chart.segment_clicked.connect(self._on_chart_drill_down)
-            self.active_charts.append(chart)
-            charts_row.addWidget(self._wrap_chart(chart, report_name))
+        # Render each component in order
+        for idx, comp in enumerate(definition.components):
+            widget = None
+            if comp.type == "bar_chart":
+                chart = BarChartWidget()
+                chart.set_data(results["labels"], results["series"])
+                chart.segment_clicked.connect(self._on_chart_drill_down)
+                self.active_charts.append(chart)
+                widget = self._wrap_component(chart, self.tr("Bar Chart"), idx)
+            
+            elif comp.type == "pie_chart":
+                chart = PieChartWidget()
+                chart.set_data(results["labels"], results["series"])
+                chart.segment_clicked.connect(self._on_chart_drill_down)
+                self.active_charts.append(chart)
+                widget = self._wrap_component(chart, self.tr("Vendor Distribution"), idx)
 
-        if "line_chart" in definition.visualizations or "trend_chart" in definition.visualizations:
-            chart = LineChartWidget()
-            chart.set_data(results["labels"], results["series"])
-            chart.segment_clicked.connect(self._on_chart_drill_down)
-            self.active_charts.append(chart)
-            charts_row.addWidget(self._wrap_chart(chart, report_name))
+            elif comp.type == "line_chart" or comp.type == "trend_chart":
+                chart = LineChartWidget()
+                chart.set_data(results["labels"], results["series"])
+                chart.segment_clicked.connect(self._on_chart_drill_down)
+                self.active_charts.append(chart)
+                widget = self._wrap_component(chart, self.tr("Trend Analysis"), idx)
 
-        if charts_row.count() > 0:
-            self.content_layout.addLayout(charts_row)
-        
+            elif comp.type == "table":
+                table = QTableWidget()
+                if results["table_rows"]:
+                    headers = list(results["table_rows"][0].keys())
+                    table.setColumnCount(len(headers))
+                    table.setHorizontalHeaderLabels(headers)
+                    table.setRowCount(len(results["table_rows"]))
+                    
+                    for r_idx, row in enumerate(results["table_rows"]):
+                        for c_idx, col in enumerate(headers):
+                            val = row[col]
+                            txt = f"{val:,.2f}" if isinstance(val, (float, int)) and "count" not in col.lower() else str(val)
+                            table.setItem(r_idx, c_idx, QTableWidgetItem(txt))
+                    
+                    table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                    table.setMinimumHeight(300)
+                    table.setStyleSheet("background: white; border: 1px solid #ddd; border-radius: 4px;")
+                    widget = self._wrap_component(table, self.tr("Detailed Data"), idx)
+                else:
+                    widget = QLabel(self.tr("No data for table."))
+
+            elif comp.type == "text":
+                editor = QTextEdit()
+                editor.setPlaceholderText(self.tr("Enter your comments or summary here..."))
+                editor.setText(comp.content or "")
+                editor.setMinimumHeight(120)
+                editor.setStyleSheet("background: #fdfdfd; font-family: sans-serif; font-size: 11pt; border: 1px solid #e2e8f0;")
+                
+                # Update content on change
+                def update_content(c=comp, e=editor):
+                    c.content = e.toPlainText()
+                    self._mark_dirty()
+
+                editor.textChanged.connect(update_content)
+                widget = self._wrap_component(editor, self.tr("Annotation / Comment"), idx)
+
+            if widget:
+                self.content_layout.addWidget(widget)
+
         self.apply_zoom_visuals()
-
-        # Table Section
-        if "table" in definition.visualizations:
-            self.content_layout.addWidget(QLabel("<b>Detailed Data:</b>"))
-            table = QTableWidget()
-            if results["table_rows"]:
-                headers = list(results["table_rows"][0].keys())
-                table.setColumnCount(len(headers))
-                table.setHorizontalHeaderLabels(headers)
-                table.setRowCount(len(results["table_rows"]))
-                
-                for r_idx, row in enumerate(results["table_rows"]):
-                    for c_idx, col in enumerate(headers):
-                        val = row[col]
-                        txt = f"{val:,.2f}" if isinstance(val, (float, int)) and "count" not in col.lower() else str(val)
-                        table.setItem(r_idx, c_idx, QTableWidgetItem(txt))
-                
-                table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-                table.setMinimumHeight(300)
-                table.setStyleSheet("background: white; border: 1px solid #ddd; border-radius: 4px;")
-                self.content_layout.addWidget(table)
-            else:
-                self.content_layout.addWidget(QLabel(self.tr("No data for this criteria.")))
-
         self.content_layout.addStretch()
 
-    def _wrap_chart(self, chart, title):
+    def _wrap_component(self, inner_widget, title, index):
         frame = QFrame()
-        frame.setObjectName("ChartCard")
+        frame.setObjectName("ComponentCard")
         frame.setStyleSheet("""
-            QFrame#ChartCard { 
+            QFrame#ComponentCard { 
                 background: white; border: 1px solid #e2e8f0; border-radius: 12px; 
             }
         """)
-        ly = QVBoxLayout(frame)
-        ly.setContentsMargins(15, 12, 15, 12)
-        ly.addWidget(QLabel(f"<span style='color: #475569; font-weight: bold;'>{title}</span>"))
-        ly.addWidget(chart)
+        main_ly = QVBoxLayout(frame)
+        main_ly.setContentsMargins(15, 12, 15, 12)
+
+        # Header with Title and Controls
+        header = QHBoxLayout()
+        title_lbl = QLabel(f"<span style='color: #475569; font-weight: bold;'>{title}</span>")
+        header.addWidget(title_lbl)
+        header.addStretch()
+
+        # Controls
+        btn_up = QToolButton()
+        btn_up.setText("↑")
+        btn_up.setToolTip(self.tr("Move Up"))
+        btn_up.clicked.connect(lambda: self.move_component(index, -1))
+        btn_up.setEnabled(index > 0)
+        
+        btn_down = QToolButton()
+        btn_down.setText("↓")
+        btn_down.setToolTip(self.tr("Move Down"))
+        btn_down.clicked.connect(lambda: self.move_component(index, 1))
+        btn_down.setEnabled(index < len(self.current_definition.components) - 1)
+
+        btn_del = QToolButton()
+        btn_del.setText("✕")
+        btn_del.setToolTip(self.tr("Delete Component"))
+        btn_del.setStyleSheet("color: #e74c3c;")
+        btn_del.clicked.connect(lambda: self.delete_component(index))
+
+        header.addWidget(btn_up)
+        header.addWidget(btn_down)
+        header.addWidget(btn_del)
+        
+        main_ly.addLayout(header)
+        main_ly.addWidget(inner_widget)
         return frame
+
+    def move_component(self, index, delta):
+        if not self.current_definition: return
+        comps = self.current_definition.components
+        new_idx = index + delta
+        if 0 <= new_idx < len(comps):
+            comps[index], comps[new_idx] = comps[new_idx], comps[index]
+            self._mark_dirty()
+            self.refresh_data()
+
+    def delete_component(self, index):
+        if not self.current_definition: return
+        self.current_definition.components.pop(index)
+        self._mark_dirty()
+        self.refresh_data()
+
+    def add_text_block(self):
+        if not self.current_definition: return
+        self.current_definition.components.append(ReportComponent(type="text", content=""))
+        self._mark_dirty()
+        self.refresh_data()
+
+    def _mark_dirty(self):
+        """Sets a timer to save the report definition after a short delay."""
+        if hasattr(self, "_save_timer") and self._save_timer.isActive():
+            self._save_timer.stop()
+        
+        self._save_timer = QTimer()
+        self._save_timer.setSingleShot(True)
+        self._save_timer.timeout.connect(self._save_current_report)
+        self._save_timer.start(1000) # Save after 1 second of inactivity
+
+    def _save_current_report(self):
+        if not self.current_definition: return
+        path = os.path.join(self.report_dir, f"{self.current_definition.id}.json")
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(self.current_definition.model_dump_json(indent=2))
+        except Exception as e:
+            print(f"Failed to save report: {e}")
 
     def set_global_zoom(self, level):
         self.zoom_level = max(0.5, min(3.0, level))
@@ -731,22 +824,47 @@ class ReportingWidget(QWidget):
             from PyQt6.QtCore import QBuffer, QIODevice
             from PyQt6.QtGui import QPixmap
             
-            # Capture chart images
-            chart_images = []
-            for chart in getattr(self, "active_charts", []):
-                pixmap = chart.grab()
-                buffer = QBuffer()
-                buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-                pixmap.save(buffer, "PNG")
-                chart_images.append(buffer.data().data())
-            
-            # Execute report to get data
+            # 1. Execute report to get fresh data
             results = self.repo_gen.run_custom_report(self.db_manager, definition)
             
-            # Generate PDF
+            # 2. Build ordered list of renderable items
+            render_items = []
+            
+            # We need to find the widgets to grab pixmaps for charts
+            # Our content_layout has: Title, Description, then Components
+            # Indices for widgets in layout: 0=Title, 1=Description (if any), 2+=Components
+            # Better way: find the specific widget for each component index
+            
+            component_widgets = []
+            for i in range(self.content_layout.count()):
+                w = self.content_layout.itemAt(i).widget()
+                if w and w.objectName() == "ComponentCard":
+                    component_widgets.append(w)
+
+            for idx, comp in enumerate(definition.components):
+                if comp.type in ["bar_chart", "pie_chart", "line_chart", "trend_chart"]:
+                    # Find chart in component card
+                    card = component_widgets[idx] if idx < len(component_widgets) else None
+                    if card:
+                        # Chart is usually the second widget in the card layout (Header is 0, Inner is 1)
+                        chart_widget = card.layout().itemAt(1).widget()
+                        if chart_widget:
+                            pixmap = chart_widget.grab()
+                            buffer = QBuffer()
+                            buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+                            pixmap.save(buffer, "PNG")
+                            render_items.append({"type": "image", "value": buffer.data().data()})
+                
+                elif comp.type == "table":
+                    render_items.append({"type": "table", "value": results["table_rows"]})
+                
+                elif comp.type == "text":
+                    render_items.append({"type": "text", "value": comp.content})
+            
+            # 3. Generate PDF
             pdf_gen = PdfReportGenerator()
             try:
-                pdf_bytes = pdf_gen.generate(results, chart_images)
+                pdf_bytes = pdf_gen.generate(results["title"], render_items)
                 
                 path, _ = QFileDialog.getSaveFileName(self, self.tr("Export PDF"), f"{definition.name}_Report.pdf", "PDF Files (*.pdf)")
                 if path:

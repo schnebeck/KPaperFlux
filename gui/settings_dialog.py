@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
     QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
-    QSpinBox
+    QSpinBox, QLayout
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer
 import json
@@ -71,6 +71,7 @@ class SettingsDialog(QDialog):
         self.btn_vault = QPushButton(self.tr("Browse..."))
         self.btn_vault.clicked.connect(self._browse_vault)
         h_vault = QHBoxLayout()
+        h_vault.setContentsMargins(0, 0, 0, 0)
         h_vault.addWidget(self.edit_vault)
         h_vault.addWidget(self.btn_vault)
         form.addRow(self.tr("Vault Path:"), h_vault)
@@ -80,6 +81,7 @@ class SettingsDialog(QDialog):
         self.btn_ocr = QPushButton(self.tr("Browse..."))
         self.btn_ocr.clicked.connect(self._browse_ocr)
         h_ocr = QHBoxLayout()
+        h_ocr.setContentsMargins(0, 0, 0, 0)
         h_ocr.addWidget(self.edit_ocr)
         h_ocr.addWidget(self.btn_ocr)
         form.addRow(self.tr("OCR Binary:"), h_ocr)
@@ -89,34 +91,89 @@ class SettingsDialog(QDialog):
         self.btn_transfer = QPushButton(self.tr("Browse..."))
         self.btn_transfer.clicked.connect(self._browse_transfer)
         h_transfer = QHBoxLayout()
+        h_transfer.setContentsMargins(0, 0, 0, 0)
         h_transfer.addWidget(self.edit_transfer)
         h_transfer.addWidget(self.btn_transfer)
         form.addRow(self.tr("Transfer Folder:"), h_transfer)
 
-        # API Key
+        # AI Backend Provider
+        self.combo_provider = QComboBox()
+        self.combo_provider.addItems([
+            "Gemini (Cloud)", 
+            "Ollama (Local)", 
+            "OpenAI (Cloud)", 
+            "Anthropic (Cloud)"
+        ])
+        self.combo_provider.currentIndexChanged.connect(self._toggle_ai_provider_ui)
+        form.addRow(self.tr("AI Backend:"), self.combo_provider)
+
+        # Provider-specific fields for toggling visibility
+        self.provider_fields = {
+            "gemini": [],
+            "ollama": [],
+            "openai": [],
+            "anthropic": []
+        }
+
+        def add_provider_row(provider, label_text, widget_or_layout):
+            form.addRow(label_text, widget_or_layout)
+            self.provider_fields[provider].append(widget_or_layout)
+
+        # Gemini API Key
         api_key_layout = QHBoxLayout()
+        api_key_layout.setContentsMargins(0, 0, 0, 0)
         self.edit_api_key = QLineEdit()
         self.edit_api_key.setPlaceholderText("google_api_key_...")
         self.edit_api_key.textChanged.connect(self._on_api_key_changed)
-        
         self.btn_verify_key = QPushButton(self.tr("Verify"))
-        self.btn_verify_key.setToolTip(self.tr("Check API key and update model list"))
         self.btn_verify_key.clicked.connect(lambda: self._refresh_models(silent=False))
-        
         self.lbl_key_status = QLabel()
         self.lbl_key_status.setFixedSize(24, 24)
-        self.lbl_key_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
         api_key_layout.addWidget(self.edit_api_key, 1)
         api_key_layout.addWidget(self.lbl_key_status)
         api_key_layout.addWidget(self.btn_verify_key)
-        form.addRow(self.tr("API Key:"), api_key_layout)
+        add_provider_row("gemini", self.tr("Gemini API Key:"), api_key_layout)
 
         # Gemini Model
         self.combo_model = QComboBox()
-        self.combo_model.setEditable(True) # Allow custom models
+        self.combo_model.setEditable(True) 
         self.combo_model.addItems(self.config._cached_models)
-        form.addRow(self.tr("Gemini Model:"), self.combo_model)
+        add_provider_row("gemini", self.tr("Gemini Model:"), self.combo_model)
+
+        # Ollama URL
+        self.edit_ollama_url = QLineEdit()
+        self.edit_ollama_url.setPlaceholderText("http://localhost:11434")
+        add_provider_row("ollama", self.tr("Ollama URL:"), self.edit_ollama_url)
+
+        # Ollama Model
+        self.edit_ollama_model = QLineEdit()
+        self.edit_ollama_model.setPlaceholderText("llama3")
+        add_provider_row("ollama", self.tr("Ollama Model:"), self.edit_ollama_model)
+
+        # Ollama Test Connection
+        self.btn_refresh_ollama = QPushButton(self.tr("Test Connection"))
+        self.btn_refresh_ollama.clicked.connect(self._test_ollama_connection)
+        add_provider_row("ollama", "", self.btn_refresh_ollama)
+
+        # OpenAI Key
+        self.edit_openai_key = QLineEdit()
+        self.edit_openai_key.setEchoMode(QLineEdit.EchoMode.Password)
+        add_provider_row("openai", self.tr("OpenAI API Key:"), self.edit_openai_key)
+
+        # OpenAI Model
+        self.edit_openai_model = QLineEdit()
+        self.edit_openai_model.setPlaceholderText("gpt-4o")
+        add_provider_row("openai", self.tr("OpenAI Model:"), self.edit_openai_model)
+
+        # Anthropic Key
+        self.edit_anthropic_key = QLineEdit()
+        self.edit_anthropic_key.setEchoMode(QLineEdit.EchoMode.Password)
+        add_provider_row("anthropic", self.tr("Anthropic API Key:"), self.edit_anthropic_key)
+
+        # Anthropic Model
+        self.edit_anthropic_model = QLineEdit()
+        self.edit_anthropic_model.setPlaceholderText("claude-3-5-sonnet-20240620")
+        add_provider_row("anthropic", self.tr("Anthropic Model:"), self.edit_anthropic_model)
 
         # AI Retries
         self.spin_ai_retries = QSpinBox()
@@ -179,9 +236,25 @@ class SettingsDialog(QDialog):
         self.edit_vault.setText(self.config.get_vault_path())
         self.edit_ocr.setText(self.config.get_ocr_binary())
         self.edit_transfer.setText(self.config.get_transfer_path())
+        
+        provider = self.config.get_ai_provider()
+        p_map = {"gemini": 0, "ollama": 1, "openai": 2, "anthropic": 3}
+        self.combo_provider.setCurrentIndex(p_map.get(provider, 0))
+        
         self.combo_model.setCurrentText(self.config.get_gemini_model())
         self.edit_api_key.setText(self.config.get_api_key())
+        
+        self.edit_ollama_url.setText(self.config.get_ollama_url())
+        self.edit_ollama_model.setText(self.config.get_ollama_model())
+
+        self.edit_openai_key.setText(self.config.get_openai_key())
+        self.edit_openai_model.setText(self.config.get_openai_model())
+
+        self.edit_anthropic_key.setText(self.config.get_anthropic_key())
+        self.edit_anthropic_model.setText(self.config.get_anthropic_model())
+        
         self.spin_ai_retries.setValue(self.config.get_ai_retries())
+        self._toggle_ai_provider_ui()
 
         # Restore verification status icon
         is_verified = self.config._get_setting("AI", self.config.KEY_API_VERIFIED, None)
@@ -215,8 +288,25 @@ class SettingsDialog(QDialog):
         self.config.set_vault_path(self.edit_vault.text())
         self.config.set_ocr_binary(self.edit_ocr.text())
         self.config.set_transfer_path(self.edit_transfer.text())
+        
+        provider = "gemini"
+        if self.combo_provider.currentIndex() == 1: provider = "ollama"
+        elif self.combo_provider.currentIndex() == 2: provider = "openai"
+        elif self.combo_provider.currentIndex() == 3: provider = "anthropic"
+        self.config.set_ai_provider(provider)
+        
         self.config.set_gemini_model(self.combo_model.currentText())
         self.config.set_api_key(self.edit_api_key.text())
+        
+        self.config.set_ollama_url(self.edit_ollama_url.text())
+        self.config.set_ollama_model(self.edit_ollama_model.text())
+
+        self.config.set_openai_key(self.edit_openai_key.text())
+        self.config.set_openai_model(self.edit_openai_model.text())
+
+        self.config.set_anthropic_key(self.edit_anthropic_key.text())
+        self.config.set_anthropic_model(self.edit_anthropic_model.text())
+        
         self.config.set_ai_retries(self.spin_ai_retries.value())
 
         # Persist verification status if known (True/False/None)
@@ -370,3 +460,47 @@ class SettingsDialog(QDialog):
         except Exception as e:
             self.setCursor(Qt.CursorShape.ArrowCursor)
             show_selectable_message_box(self, self.tr("Error"), f"AI Error: {e}", icon=QMessageBox.Icon.Critical)
+
+    def _toggle_ai_provider_ui(self):
+        idx = self.combo_provider.currentIndex()
+        form = self.tabs.widget(0).layout() # The QFormLayout on General tab
+        
+        for p_name, fields in self.provider_fields.items():
+            visible = False
+            if p_name == "gemini" and idx == 0: visible = True
+            elif p_name == "ollama" and idx == 1: visible = True
+            elif p_name == "openai" and idx == 2: visible = True
+            elif p_name == "anthropic" and idx == 3: visible = True
+            
+            for field in fields:
+                if isinstance(field, QLayout):
+                    form.setRowVisible(field, visible)
+                else:
+                    form.setRowVisible(field, visible)
+
+    def _test_ollama_connection(self):
+        url = self.edit_ollama_url.text().strip()
+        from core.ai.ollama_provider import OllamaProvider
+        provider = OllamaProvider(url)
+        
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        try:
+            models = provider.list_models()
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            if models:
+                show_selectable_message_box(
+                    self, 
+                    self.tr("Success"), 
+                    f"{self.tr('Connected to Ollama!')}\n\n{self.tr('Available models')}:\n" + "\n".join(models[:10]),
+                    icon=QMessageBox.Icon.Information
+                )
+            else:
+                show_selectable_message_box(
+                    self, 
+                    self.tr("Connection Failed"), 
+                    self.tr("Connected to Ollama, but no models found. Please pull a model first (e.g., 'ollama pull llama3')."),
+                    icon=QMessageBox.Icon.Warning
+                )
+        except Exception as e:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            show_selectable_message_box(self, self.tr("Connection Failed"), f"{self.tr('Could not connect to Ollama')}:\n{e}", icon=QMessageBox.Icon.Critical)

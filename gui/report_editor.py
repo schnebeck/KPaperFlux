@@ -236,12 +236,15 @@ class ReportEditorWidget(QWidget):
             if isinstance(f_widget, QComboBox) and isinstance(o_widget, QComboBox):
                 aggs.append(Aggregation(field=f_widget.currentText(), op=o_widget.currentText()))
         
-        viz = []
-        if self.chk_table.isChecked(): viz.append("table")
-        if self.chk_chart.isChecked(): viz.append("bar_chart")
-        if self.chk_pie.isChecked(): viz.append("pie_chart")
-        if self.chk_trend.isChecked(): viz.append("trend_chart")
-        if self.chk_csv.isChecked(): viz.append("csv")
+        # Preserve components if they exist, otherwise use legacy checkboxes if it's a new report
+        comps = []
+        if self.current_report and self.current_report.components:
+            comps = self.current_report.components
+        else:
+            if self.chk_table.isChecked(): comps.append(ReportComponent(type="table"))
+            if self.chk_chart.isChecked(): comps.append(ReportComponent(type="bar_chart"))
+            if self.chk_pie.isChecked(): comps.append(ReportComponent(type="pie_chart"))
+            if self.chk_trend.isChecked(): comps.append(ReportComponent(type="trend_chart"))
         
         group = self.combo_group.currentText()
         if group == "None": group = None
@@ -252,7 +255,7 @@ class ReportEditorWidget(QWidget):
             description=self.edit_desc.toPlainText(),
             group_by=group,
             aggregations=aggs,
-            visualizations=viz,
+            components=comps,
             filter_query=self.filter_builder.get_query()
         )
 

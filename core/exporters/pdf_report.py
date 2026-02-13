@@ -58,9 +58,14 @@ class PdfReportGenerator:
             textColor=colors.HexColor("#2c3e50")
         ))
 
-    def generate(self, data: Dict[str, Any], chart_images: List[bytes] = None) -> bytes:
+    def generate(self, title: str, items: List[Dict[str, Any]]) -> bytes:
         """
-        Generates a PDF report as bytes.
+        Generates a PDF report from a list of ordered items.
+        
+        Args:
+            title: The report title.
+            items: List of dictionaries with keys 'type' and 'value'.
+                   Types: 'text' (str), 'image' (bytes), 'table' (list of dicts)
         """
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -75,60 +80,61 @@ class PdfReportGenerator:
         story = []
         
         # 1. Header
-        story.append(Paragraph(data.get("title", "KPaperFlux Report"), self.styles['ReportTitle']))
+        story.append(Paragraph(title, self.styles['ReportTitle']))
         
         meta_text = self.tr("Generated: {date}").format(date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
         story.append(Paragraph(meta_text, self.styles['ReportSubTitle']))
         
-        # 2. Charts
-        if chart_images:
-            for img_bytes in chart_images:
-                img_stream = io.BytesIO(img_bytes)
+        # 2. Process Items in Order
+        for item in items:
+            itype = item.get("type")
+            ival = item.get("value")
+            
+            if itype == "text" and ival:
+                # Replace newlines with <br/> for ReportLab Paragraph
+                clean_text = ival.replace("\n", "<br/>")
+                story.append(Paragraph(clean_text, self.styles['Normal']))
+                story.append(Spacer(1, 0.4 * cm))
+                
+            elif itype == "image" and ival:
+                img_stream = io.BytesIO(ival)
                 # Keep aspect ratio but fit within width
                 img = Image(img_stream, width=17*cm, height=10*cm, kind='proportional') 
                 img.hAlign = 'CENTER'
                 story.append(img)
                 story.append(Spacer(1, 0.5*cm))
-
-        # 3. Data Table
-        rows = data.get("table_rows", [])
-        if rows:
-            story.append(Spacer(1, 0.5*cm))
-            story.append(Paragraph(self.tr("Detailed Statistics"), self.styles['TableHeading']))
-            
-            headers = list(rows[0].keys())
-            table_data = [headers]
-            
-            for r in rows:
-                table_data.append([self._format_val(r.get(h)) for h in headers])
-            
-            # Calculate column widths (simple greedy distribution)
-            available_width = 18 * cm
-            col_widths = [available_width / len(headers)] * len(headers)
-            
-            # Create Table
-            t = Table(table_data, hAlign='LEFT', colWidths=col_widths, repeatRows=1)
-            
-            # Style Table
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#f8f9fa")),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8), # Smaller font for tables
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-            
-            # Zebra striping
-            for i in range(1, len(table_data)):
-                if i % 2 == 0:
-                    t.setStyle(TableStyle([('BACKGROUND', (0, i), (-1, i), colors.HexColor("#f9fbff"))]))
-
-            story.append(t)
+                
+            elif itype == "table" and ival:
+                story.append(Spacer(1, 0.2*cm))
+                # ival is expected to be table_rows list of dicts
+                headers = list(ival[0].keys())
+                table_data = [headers]
+                for r in ival:
+                    table_data.append([self._format_val(r.get(h)) for h in headers])
+                
+                available_width = 18 * cm
+                col_widths = [available_width / len(headers)] * len(headers)
+                t = Table(table_data, hAlign='LEFT', colWidths=col_widths, repeatRows=1)
+                
+                t.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#f8f9fa")),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                
+                for i in range(1, len(table_data)):
+                    if i % 2 == 0:
+                        t.setStyle(TableStyle([('BACKGROUND', (0, i), (-1, i), colors.HexColor("#f9fbff"))]))
+                
+                story.append(t)
+                story.append(Spacer(1, 0.8 * cm))
 
         # Build PDF with page numbers
         def add_page_number(canvas, doc):

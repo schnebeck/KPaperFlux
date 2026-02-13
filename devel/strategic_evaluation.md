@@ -5,14 +5,14 @@
 
 ## 1. Status Quo: Forensic Maturity
 
-Following the successful implementation of the Reporting Engine, KPaperFlux has transitioned from a data-extraction tool to a visual intelligence platform.
+Following the successful implementation of the Reporting Canvas and the Ollama Integration, KPaperFlux has achieved "Local AI Sovereignty".
 
+*   **Interactive Design Canvas:** The reporting layer now supports a WYSIWYG "Canvas" mode where users can reorder, delete, and annotate report components (charts, tables, text) in real-time.
+*   **High-Fidelity PDF Export:** Professional PDF reports are generated preserving the exact interactive layout and custom annotations.
+*   **Local AI Sovereignty & Multi-Cloud:** Transitioned from Cloud-only to Hybrid/Multi-Cloud. The system now supports Gemini, OpenAI, Anthropic, and local Ollama backends (e.g. Llama3/Mistral) for flexible document processing.
 *   **Reporting & Analytics Live:** Specialized visualization layer (`PieChartWidget`, `BarChartWidget`, `LineChartWidget`) implemented with high-density charting and dynamic zooming.
 *   **Schema-less Metadata (JSON-First):** The polymorphic `semantic_data` architecture is fully proven and handles diverse document types (`Finance`, `Delivery Note`, etc.).
 *   **Forensic "Nüchterner Stolz" Branding:** The project documentation and README have been refined to reflect professional technical sovereignty and forensic precision.
-*   **Stable Development Environment:** Databases now default to ephemeral `:memory:` or safe configuration paths, preventing root-directory pollution.
-*   **Multi-Type-Tag Architecture:** Formalized the principle where document types (e.g., `Finance`) dictate specific validation and management rules (ZUGFeRD/EN 16931).
-*   **Verified Showcase:** High-impact visual documentation of core features (Rules Engine, Splitter, Hybrid Matching, Visual Comparator) is now integrated.
 
 ---
 
@@ -78,9 +78,9 @@ A "Watchdog" module assesses data health (Anomaly Detection).
 *   **Shared Templates:** Library of community-driven workflows (e.g., "Health Reimbursement", "Tax Deductibles").
 *   **Adaptive UI:** Dynamic button/input rendering in the Metadata Editor based on current state.
 
-### Phase 4: Final Output & Local Sovereignty
-*   **PDF Report Generation:** High-fidelity PDF document generation from aggregated report data (Current Priority).
-*   **Local AI Integration:** Optional support for local LLMs (Ollama/Llama3) to allow 100% private semantic analysis.
+### Phase 4: Final Output & Local Sovereignty (DONE)
+*   **Interactive PDF Report Generation:** High-fidelity PDF document generation from aggregated report data + interactive canvas annotations. (DONE)
+*   **Local AI Integration:** Full support for local LLMs (Ollama) to allow 100% private semantic analysis. (DONE)
 *   **Performance Scaling:** Implementation of Lazy Loading for document lists to handle 10k+ records.
 
 ---
