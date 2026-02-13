@@ -32,18 +32,18 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 ## 🖼️ Showcase: Intelligence in Action
 
 <p align="center">
-  <img src="docs/screenshots/dashboard_main.png" alt="Dynamic Dashboard" width="800"><br>
-  <em>The new Dynamic Dashboard: Real-time analytics with pattern-aware visualizations.</em>
+  <img src="docs/screenshots/dashboard_main.png" alt="Monthly Spending Trends" width="800"><br>
+  <em><strong>Visual Analytics:</strong> Seamlessly track financial trends with high-density charting and dynamic zooming.</em>
 </p>
 
 <table align="center">
   <tr>
-    <td align="center"><b>Forensic Audit</b><br><img src="docs/screenshots/audit_forensics.png" width="380"></td>
-    <td align="center"><b>Multi-Format Export</b><br><img src="docs/screenshots/multiformat_export.png" width="380"></td>
+    <td align="center"><b>Forensic Rules Engine</b><br><img src="docs/screenshots/smart_rules.png" width="380"></td>
+    <td align="center"><b>Smart Import Splitter</b><br><img src="docs/screenshots/import_splitter.png" width="380"></td>
   </tr>
   <tr>
-    <td align="center"><b>Smart Analytics</b><br><img src="docs/screenshots/pie_chart_detail.png" width="380"></td>
-    <td align="center"><b>Precision Search</b><br><img src="docs/screenshots/smart_filtering.png" width="380"></td>
+    <td align="center"><b>Vendor Distribution</b><br><img src="docs/screenshots/report_pie_chart.png" width="380"></td>
+    <td align="center"><b>Document Explorer</b><br><img src="docs/screenshots/document_list.png" width="380"></td>
   </tr>
 </table>
 
