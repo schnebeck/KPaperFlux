@@ -13,6 +13,9 @@
   </p>
 </div>
 
+> [!WARNING]
+> **PRE-RELEASE SOFTWARE:** KPaperFlux is currently in a state of rapid development. Breaking changes are common. **Use with real, sensitive data at your own risk!** Always keep backups of your documents.
+
 ---
 
 ## 🏛️ Project Philosophy
