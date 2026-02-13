@@ -133,9 +133,19 @@ class WorkflowInfo(BaseModel):
     pkv_status: Optional[str] = None 
     signature_detected: bool = False
 
+class VisualAuditResult(BaseModel):
+    """Structured result of Stage 1.5 Forensic Audit."""
+    model_config = ConfigDict(populate_by_name=True, extra="forbid", validate_assignment=True)
+    audit_summary: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    layer_stamps: List[Dict[str, Any]] = Field(default_factory=list)
+    signatures: Optional[Dict[str, Any]] = None
+    integrity: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    arbiter_decision: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    meta_mode: Optional[str] = None
+
 class SemanticExtraction(BaseModel):
     """The central extraction model. Strict but informative."""
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    model_config = ConfigDict(populate_by_name=True, extra="forbid", validate_assignment=True)
     meta_header: Optional[MetaHeader] = Field(default_factory=MetaHeader)
     bodies: Dict[str, Any] = Field(default_factory=dict)
     workflow: Optional[WorkflowInfo] = Field(default_factory=WorkflowInfo)
@@ -143,7 +153,7 @@ class SemanticExtraction(BaseModel):
     type_tags: List[str] = Field(default_factory=list)
     direction: Optional[str] = "INBOUND"
     tenant_context: Optional[str] = "PRIVATE"
-    visual_audit: Optional[Dict[str, Any]] = None
+    visual_audit: Optional[VisualAuditResult] = None
 
     @field_validator("bodies", mode="after")
     @classmethod

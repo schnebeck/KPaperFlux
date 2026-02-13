@@ -1,51 +1,47 @@
 import pytest
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 import datetime
 import time
-from core.ai_analyzer import AIAnalyzer
+from core.ai.client import AIClient
 
 @pytest.fixture
-def mock_genai():
-    with patch("core.ai_analyzer.genai") as mock:
+def mock_genai_client():
+    with patch("core.ai.client.genai") as mock:
         yield mock
 
-def test_cooldown_logic(mock_genai):
-    """Test that _wait_for_cooldown sleeps if cooldown is active."""
-    analyzer = AIAnalyzer(api_key="test")
+def test_ai_client_cooldown(mock_genai_client):
+    """Test that _wait_for_cooldown in AIClient sleeps if cooldown is active."""
+    client = AIClient(api_key="test")
     
     # Set cooldown in future
     future = datetime.datetime.now() + datetime.timedelta(seconds=0.5)
-    AIAnalyzer._cooldown_until = future
+    AIClient._cooldown_until = future
     
     start = time.time()
-    analyzer._wait_for_cooldown()
+    client._wait_for_cooldown()
     end = time.time()
     
     # Should have slept at least 0.5s (approx)
-    # Using 0.4 to allow for minor overhead/precision
     assert (end - start) >= 0.4
     
     # Cooldown should be cleared
-    assert AIAnalyzer._cooldown_until is None
+    assert AIClient._cooldown_until is None
 
-def test_backoff_on_429(mock_genai):
-    """Test that 429 triggers retry and sets cooldown."""
-    analyzer = AIAnalyzer(api_key="test")
+def test_ai_client_backoff_on_429(mock_genai_client):
+    """Test that 429 triggers retry and sets cooldown in AIClient."""
+    client = AIClient(api_key="test")
     
     # Mock Response
     success_response = MagicMock()
-    success_response.text = '{"summary": {"classification": ["Success"]}}'
+    success_response.text = '{"status": "ok"}'
     
-    # Mock Client
+    # Mock Client models
     mock_model = MagicMock()
-    client_instance = mock_genai.Client.return_value
+    client_instance = mock_genai_client.Client.return_value
     client_instance.models = mock_model
     
-    # Mock ClientError
-    from google.genai.errors import ClientError
-    
-    # Create a 429 Error
-    error_429 = ClientError("Resource Exhausted", {})
+    # Mock 429 Error
+    error_429 = Exception("429 Resource Exhausted")
     error_429.code = 429
     
     # Scenario: Fail twice with 429, then succeed
@@ -55,20 +51,12 @@ def test_backoff_on_429(mock_genai):
         success_response
     ]
     
-    # Patch time.sleep to speed up test (but verify it was called)
+    # Patch time.sleep to speed up test
     with patch("time.sleep") as mock_sleep:
-        result = analyzer.ask_type_check(["page1"])
+        result = client.generate("test prompt")
         
-        # Should return success (Dict from JSON)
         assert result is not None
-        
-        # Should have called generate_content 3 times
         assert mock_model.generate_content.call_count == 3
-        
-        # Should have slept for backoff twice (plus cooldown checks maybe?)
-        # Backoff delays:
-        # Attempt 0 -> 2*(2^0) = 2s (+jitter)
-        # Attempt 1 -> 2*(2^1) = 4s (+jitter)
-        # Verify Cooldown was set
-        # Since we mock sleep, we can't easily check real time, but side_effect ensures flow.
         assert mock_sleep.called
+        # Cooldown should be None as it's cleared after waiting in the successful attempt
+        assert AIClient._cooldown_until is None

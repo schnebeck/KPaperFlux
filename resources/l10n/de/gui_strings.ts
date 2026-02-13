@@ -1581,7 +1581,7 @@
     <message>
         <location filename="../../../gui/main_window.py" line="1362" />
         <source>Import Dropped Files</source>
-        <translation type="unfinished" />
+        <translation>Abgelegte Dateien importieren</translation>
     </message>
     <message>
         <location filename="../../../gui/main_window.py" line="1367" />
@@ -1733,7 +1733,7 @@ Are you completely sure you want to reset the system?</source>
         <source>Pipeline STOPPED due to fatal error.</source>
         <translation>Pipeline aufgrund eines schwerwiegenden Fehlers GESTOPPT.</translation>
     </message>
-</context><context>
+<message><source>Delete source files after import</source><translation>Quelldateien nach Import löschen</translation></message><message numerus="yes"><source>Import %n file(s) into KPaperFlux?</source><translation><numerusform>%n Datei in KPaperFlux importieren?</numerusform><numerusform>%n Dateien in KPaperFlux importieren?</numerusform></translation></message><message><source>OK</source><translation>OK</translation></message></context><context>
     <name>MaintenanceDialog</name>
     <message>
         <location filename="../../../gui/maintenance_dialog.py" line="32" />
@@ -2089,7 +2089,7 @@ Are you completely sure you want to reset the system?</source>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="468" />
         <source>Save Changes</source>
-        <translation type="unfinished" />
+        <translation>Änderungen speichern</translation>
     </message>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="508" />
@@ -2202,12 +2202,12 @@ Please install 'qrcode' package.</source>
     <message>
         <location filename="../../../gui/pdf_viewer.py" line="1015" />
         <source>Split Document</source>
-        <translation type="unfinished" />
+        <translation>Dokument teilen</translation>
     </message>
     <message>
         <location filename="../../../gui/pdf_viewer.py" line="1021" />
         <source>Save Changes</source>
-        <translation type="unfinished" />
+        <translation>Änderungen speichern</translation>
     </message>
 </context><context>
     <name>ReportingWidget</name>
@@ -2869,18 +2869,18 @@ Please install 'qrcode' package.</source>
         <location filename="../../../gui/splitter_dialog.py" line="84" />
         <location filename="../../../gui/splitter_dialog.py" line="44" />
         <source>Split Document</source>
-        <translation type="unfinished" />
+        <translation>Dokument teilen</translation>
     </message>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="57" />
         <source>Hover between pages to find split points. Click the scissors to toggle cuts.</source>
-        <translation type="unfinished" />
+        <translation>Zwischen Seiten fahren für Schnittpunkte. Schere klicken für Schnitte.</translation>
     </message>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="191" />
         <location filename="../../../gui/splitter_dialog.py" line="71" />
         <source>Cancel Import</source>
-        <translation type="unfinished" />
+        <translation>Import abbrechen</translation>
     </message>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="72" />
@@ -2890,7 +2890,7 @@ Please install 'qrcode' package.</source>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="78" />
         <source>Revert Edits</source>
-        <translation type="unfinished" />
+        <translation>Änderungen rückgängig</translation>
     </message>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="79" />
@@ -2900,13 +2900,13 @@ Please install 'qrcode' package.</source>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="110" />
         <source>Import Assistant:</source>
-        <translation type="unfinished" />
+        <translation>Import-Assistent:</translation>
     </message>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="140" />
         <location filename="../../../gui/splitter_dialog.py" line="119" />
         <source>Abort Import</source>
-        <translation type="unfinished" />
+        <translation>Import abbrechen</translation>
     </message>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="181" />
@@ -2921,12 +2921,12 @@ Please install 'qrcode' package.</source>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="184" />
         <source>Import Document</source>
-        <translation type="unfinished" />
+        <translation>Dokument importieren</translation>
     </message>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="184" />
         <source>Save Changes</source>
-        <translation type="unfinished" />
+        <translation>Änderungen speichern</translation>
     </message>
     <message>
         <location filename="../../../gui/splitter_dialog.py" line="192" />
@@ -2938,7 +2938,7 @@ Please install 'qrcode' package.</source>
         <source>Error</source>
         <translation>Fehler</translation>
     </message>
-</context><context>
+<message numerus="yes"><source>Import Assistant: Batch (%n file(s))</source><translation><numerusform>Import-Assistent: Batch (%n Datei)</numerusform><numerusform>Import-Assistent: Batch (%n Dateien)</numerusform></translation></message><message numerus="yes"><source>Import and Split into %n Part(s)</source><translation><numerusform>Importieren und in %n Teil teilen</numerusform><numerusform>Importieren und in %n Teile teilen</numerusform></translation></message><message numerus="yes"><source>Save and Split into %n Part(s)</source><translation><numerusform>Speichern und in %n Teil teilen</numerusform><numerusform>Speichern und in %n Teile teilen</numerusform></translation></message></context><context>
     <name>SplitterStripWidget</name>
     <message>
         <location filename="../../../gui/widgets/splitter_strip.py" line="1272" />

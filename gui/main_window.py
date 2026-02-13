@@ -92,10 +92,12 @@ class MainWindow(QMainWindow):
     """
     def __init__(self, 
                  pipeline: Optional[PipelineProcessor] = None, 
-                 db_manager: Optional[DatabaseManager] = None) -> None:
+                 db_manager: Optional[DatabaseManager] = None,
+                 app_config: Optional[AppConfig] = None) -> None:
         super().__init__()
         self.pipeline = pipeline
         self.db_manager = db_manager
+        self.app_config = app_config or AppConfig()
 
         # If pipeline is provided but db_manager checks, try to extract db from pipeline
         if self.pipeline and not self.db_manager:
@@ -111,8 +113,6 @@ class MainWindow(QMainWindow):
 
         # Phase 105: Selection Tracking
         self._dashboard_selections = {} # query_str -> uuid
-
-        self.app_config = AppConfig()
         self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
 
         # --- Phase 200: Plugin System ---
@@ -1054,6 +1054,18 @@ class MainWindow(QMainWindow):
     def on_settings_changed(self):
         self.list_widget.refresh_list()
         self._update_transfer_menu_visibility()
+        
+        # Phase 2.0: Hot-Reload AI Components
+        if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
+            print("[Core] Settings changed. Re-initializing AI Analyzer...")
+            from core.ai_analyzer import AIAnalyzer
+            new_analyzer = AIAnalyzer(self.app_config.get_api_key(), self.app_config.get_gemini_model())
+            # Update the canonizer's analyzer
+            if hasattr(self.main_loop_worker, 'canonizer'):
+                self.main_loop_worker.canonizer.analyzer = new_analyzer
+                # Also update visual auditor if present
+                if hasattr(self.main_loop_worker.canonizer, 'visual_auditor'):
+                    self.main_loop_worker.canonizer.visual_auditor.ai = new_analyzer
 
     def _update_transfer_menu_visibility(self):
         """Show/Hide transfer action based on config."""
@@ -1361,14 +1373,22 @@ class MainWindow(QMainWindow):
         # Custom Dialog for Options
         dialog = QDialog(self)
         dialog.setWindowTitle(self.tr("Import Dropped Files"))
+        dialog.setMinimumWidth(400) # Ensure title is visible
 
         layout = QVBoxLayout(dialog)
-        layout.addWidget(QLabel(self.tr(f"Import {len(files)} files into KPaperFlux?")))
+        
+        # Phase 105: Fix pluralization and translation
+        msg = self.tr("Import %n file(s) into KPaperFlux?", "", len(files))
+        layout.addWidget(QLabel(msg))
 
-        chk_move = QCheckBox(self.tr("Move files to Vault (Delete source)"))
+        chk_move = QCheckBox(self.tr("Delete source files after import"))
         layout.addWidget(chk_move)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        # Use our tr() for buttons to ensure l10n consistency
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self.tr("OK"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr("Cancel"))
+        
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
@@ -1624,7 +1644,7 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
     def write_settings(self):
-        settings = QSettings("KPaperFlux", "MainWindow")
+        settings = QSettings()
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
         settings.setValue("mainSplitter", self.main_splitter.saveState())
@@ -1640,7 +1660,7 @@ class MainWindow(QMainWindow):
              settings.setValue("ai_paused", self.main_loop_worker.is_paused)
 
     def read_settings(self):
-        settings = QSettings("KPaperFlux", "MainWindow")
+        settings = QSettings()
         geometry = settings.value("geometry")
         if geometry:
             self.restoreGeometry(geometry)

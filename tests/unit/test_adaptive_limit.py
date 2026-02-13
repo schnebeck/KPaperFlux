@@ -5,11 +5,11 @@ from google.genai.errors import ClientError
 
 @pytest.fixture
 def analyzer_and_mock():
-    # Reset state
-    AIAnalyzer._adaptive_delay = 0.0
-    AIAnalyzer._cooldown_until = None
+    from core.ai.client import AIClient
+    AIClient._adaptive_delay = 0.0
+    AIClient._cooldown_until = None
     
-    with patch("core.ai_analyzer.genai") as mock_genai:
+    with patch("core.ai.client.genai") as mock_genai:
         analyzer = AIAnalyzer(api_key="test")
         yield analyzer, mock_genai
 
@@ -22,7 +22,7 @@ def test_adaptive_delay_increase(analyzer_and_mock):
     # Ensure the client instance used by analyzer (mock_genai.Client.return_value) has models
     # Note: AIAnalyzer init: self.client = genai.Client(...)
     # So self.client is mock_genai.Client.return_value
-    analyzer.client.models = mock_model
+    analyzer.client.client.models = mock_model
     
     # Create 429 Error
     error_429 = ClientError("Resource Exhausted", {})
@@ -39,7 +39,7 @@ def test_adaptive_delay_increase(analyzer_and_mock):
     
     # Mock sleep to intercept calls
     with patch("time.sleep") as mock_sleep:
-        analyzer._generate_with_retry("foo")
+        analyzer._generate_json("foo")
         
         # Check delay progression
         # Start: 0.0
@@ -47,37 +47,41 @@ def test_adaptive_delay_increase(analyzer_and_mock):
         # Attempt 2 (429): Increase -> max(2.0, 2.0*2) = 4.0
         # Attempt 3 (Success): Decrease -> max(0.0, 4.0*0.5) = 2.0
         
-        assert AIAnalyzer.get_adaptive_delay() == 2.0
+        from core.ai.client import AIClient
+        assert AIClient.get_adaptive_delay() == 2.0
 
 def test_adaptive_delay_decrease(analyzer_and_mock):
     """Test that adaptive delay halves on success."""
     analyzer, mock_genai = analyzer_and_mock
     
-    # Set initial delay
-    AIAnalyzer._adaptive_delay = 4.0
+    from core.ai.client import AIClient
+    AIClient._adaptive_delay = 4.0
     
     mock_model = MagicMock()
-    analyzer.client.models = mock_model
+    analyzer.client.client.models = mock_model
     
     success_response = MagicMock()
     success_response.text = "{}"
     mock_model.generate_content.return_value = success_response
     
     with patch("time.sleep") as mock_sleep:
-        analyzer._generate_with_retry("foo")
+        analyzer._generate_json("foo")
         
+        from core.ai.client import AIClient
         # Verify result
-        assert AIAnalyzer.get_adaptive_delay() == 2.0
+        assert AIClient.get_adaptive_delay() == 2.0
 
 def test_adaptive_delay_snap_to_zero(analyzer_and_mock):
     """Test that small delay snaps to zero."""
+    from core.ai.client import AIClient
     analyzer, mock_genai = analyzer_and_mock
-    AIAnalyzer._adaptive_delay = 0.15
+    AIClient._adaptive_delay = 0.15
     
     mock_model = MagicMock()
-    analyzer.client.models = mock_model
+    analyzer.client.client.models = mock_model
     mock_model.generate_content.return_value = MagicMock(text="{}")
     
     with patch("time.sleep"):
-        analyzer._generate_with_retry("foo")
-        assert AIAnalyzer.get_adaptive_delay() == 0.0
+        analyzer._generate_json("foo") # Updated to use the new common entry point or delegate
+        from core.ai.client import AIClient
+        assert AIClient.get_adaptive_delay() == 0.0

@@ -6,7 +6,7 @@ import json
 
 @pytest.fixture
 def mock_genai():
-    with patch("core.ai_analyzer.genai") as mock:
+    with patch("core.ai.client.genai") as mock:
         yield mock
 
 def test_pydantic_validation_correction(mock_genai):
@@ -24,7 +24,8 @@ def test_pydantic_validation_correction(mock_genai):
     
     mock_response = MagicMock()
     mock_response.text = json.dumps(coercible_json)
-    analyzer.client.models.generate_content.return_value = mock_response
+    # Patch where it's actually used (AIClient)
+    analyzer.client.client.models.generate_content.return_value = mock_response
     
     result = analyzer.extract_canonical_data(DocType.INVOICE, "some text")
     

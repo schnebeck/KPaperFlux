@@ -3,8 +3,9 @@ from PyQt6.QtWidgets import (
     QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
     QSpinBox
 )
-from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtCore import pyqtSignal, Qt, QTimer
 import json
+from typing import Optional
 
 # Core Imports
 from core.config import AppConfig
@@ -92,33 +93,30 @@ class SettingsDialog(QDialog):
         h_transfer.addWidget(self.btn_transfer)
         form.addRow(self.tr("Transfer Folder:"), h_transfer)
 
-        # Gemini Model
-        model_layout = QHBoxLayout()
-        self.combo_model = QComboBox()
-        self.combo_model.setEditable(True) # Allow custom models
-        self.combo_model.addItems([
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-001",
-            "gemini-1.5-pro",
-            "gemini-pro"
-        ])
-        
-        self.btn_refresh_models = QPushButton()
-        self.btn_refresh_models.setToolTip(self.tr("Refresh Gemini Model List"))
-        self.btn_refresh_models.setFixedSize(30, 30)
-        self.btn_refresh_models.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_BrowserReload))
-        self.btn_refresh_models.clicked.connect(self._refresh_models)
-        
-        model_layout.addWidget(self.combo_model, 1)
-        model_layout.addWidget(self.btn_refresh_models)
-        
-        form.addRow(self.tr("Gemini Model:"), model_layout)
-
         # API Key
+        api_key_layout = QHBoxLayout()
         self.edit_api_key = QLineEdit()
         self.edit_api_key.setPlaceholderText("google_api_key_...")
-        form.addRow(self.tr("API Key:"), self.edit_api_key)
+        self.edit_api_key.textChanged.connect(self._on_api_key_changed)
+        
+        self.btn_verify_key = QPushButton(self.tr("Verify"))
+        self.btn_verify_key.setToolTip(self.tr("Check API key and update model list"))
+        self.btn_verify_key.clicked.connect(lambda: self._refresh_models(silent=False))
+        
+        self.lbl_key_status = QLabel()
+        self.lbl_key_status.setFixedSize(24, 24)
+        self.lbl_key_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        api_key_layout.addWidget(self.edit_api_key, 1)
+        api_key_layout.addWidget(self.lbl_key_status)
+        api_key_layout.addWidget(self.btn_verify_key)
+        form.addRow(self.tr("API Key:"), api_key_layout)
+
+        # Gemini Model
+        self.combo_model = QComboBox()
+        self.combo_model.setEditable(True) # Allow custom models
+        self.combo_model.addItems(self.config._cached_models)
+        form.addRow(self.tr("Gemini Model:"), self.combo_model)
 
         # AI Retries
         self.spin_ai_retries = QSpinBox()
@@ -185,6 +183,15 @@ class SettingsDialog(QDialog):
         self.edit_api_key.setText(self.config.get_api_key())
         self.spin_ai_retries.setValue(self.config.get_ai_retries())
 
+        # Restore verification status icon
+        is_verified = self.config._get_setting("AI", self.config.KEY_API_VERIFIED, None)
+        self._update_status_icon(is_verified)
+        
+        # Auto-refresh if cache is empty but API key is present
+        if not self.config._cached_models and self.edit_api_key.text():
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(100, lambda: self._refresh_models(silent=True))
+
         self.edit_sig_private.setPlainText(self.config.get_private_signature())
         self.edit_sig_business.setPlainText(self.config.get_business_signature())
 
@@ -212,6 +219,10 @@ class SettingsDialog(QDialog):
         self.config.set_api_key(self.edit_api_key.text())
         self.config.set_ai_retries(self.spin_ai_retries.value())
 
+        # Persist verification status if known (True/False/None)
+        if hasattr(self, "_last_verify_result"):
+             self.config._set_setting("AI", self.config.KEY_API_VERIFIED, self._last_verify_result)
+
         self.config.set_private_signature(self.edit_sig_private.toPlainText())
         self.config.set_business_signature(self.edit_sig_business.toPlainText())
 
@@ -219,7 +230,38 @@ class SettingsDialog(QDialog):
         self.settings_changed.emit()
         self.accept()
 
-    def _refresh_models(self):
+    def _on_api_key_changed(self):
+        """Triggers a silent refresh when the user finished typing/pasting a key."""
+        # Reset status icon when key changes
+        self._update_status_icon(None)
+        self._last_verify_result = None
+
+        if not hasattr(self, "_refresh_timer"):
+            from PyQt6.QtCore import QTimer
+            self._refresh_timer = QTimer()
+            self._refresh_timer.setSingleShot(True)
+            self._refresh_timer.timeout.connect(lambda: self._refresh_models(silent=True))
+        
+        # Debounce: wait for 1.5 seconds after last change
+        self._refresh_timer.start(1500)
+
+    def _update_status_icon(self, success: Optional[bool]):
+        """Updates the status label with a green check or red X."""
+        if success is True:
+            # Using KDE/Qt Standard Pixmaps (Checkmark)
+            icon = self.style().standardIcon(self.style().StandardPixmap.SP_DialogApplyButton)
+            self.lbl_key_status.setPixmap(icon.pixmap(18, 18))
+            self.lbl_key_status.setToolTip(self.tr("API Key Verified"))
+        elif success is False:
+            # Using KDE/Qt Standard Pixmaps (Cancel/X)
+            icon = self.style().standardIcon(self.style().StandardPixmap.SP_DialogCancelButton)
+            self.lbl_key_status.setPixmap(icon.pixmap(18, 18))
+            self.lbl_key_status.setToolTip(self.tr("API Key Invalid"))
+        else:
+            self.lbl_key_status.clear()
+            self.lbl_key_status.setToolTip("")
+
+    def _refresh_models(self, silent=False):
         """Dynamic fetch of available Gemini models."""
         api_key = self.edit_api_key.text().strip()
         if not api_key:
@@ -227,16 +269,19 @@ class SettingsDialog(QDialog):
             return
 
         self.setCursor(Qt.CursorShape.WaitCursor)
-        self.btn_refresh_models.setEnabled(False)
+        self.btn_verify_key.setEnabled(False)
         try:
             # We use a temporary analyzer to list models
-            analyzer = AIAnalyzer(api_key)
+            analyzer = AIAnalyzer(api_key, model_name=self.config.get_gemini_model())
             models = analyzer.list_models()
             
             if models:
+                self._last_verify_result = True
+                self._update_status_icon(True)
                 current_model = self.combo_model.currentText()
                 self.combo_model.clear()
                 self.combo_model.addItems(models)
+                self.config._cached_models = models.copy()
                 # Recover selection if it was in the new list
                 idx = self.combo_model.findText(current_model)
                 if idx >= 0:
@@ -244,12 +289,15 @@ class SettingsDialog(QDialog):
                 else:
                     self.combo_model.setCurrentText(current_model)
             else:
-                show_selectable_message_box(
-                    self, 
-                    self.tr("Refresh Failed"), 
-                    self.tr("API returned an empty model list. Please check if your API Key has access to Gemini models."), 
-                    icon=QMessageBox.Icon.Warning
-                )
+                self._last_verify_result = False
+                self._update_status_icon(False)
+                if not silent:
+                    show_selectable_message_box(
+                        self, 
+                        self.tr("Refresh Failed"), 
+                        self.tr("API returned an empty model list. Please check if your API Key has access to Gemini models."), 
+                        icon=QMessageBox.Icon.Warning
+                    )
         except Exception as e:
             # Check for common auth errors
             error_msg = str(e)
@@ -260,10 +308,15 @@ class SettingsDialog(QDialog):
             else:
                 msg = f"{self.tr('Failed to list models')}:\n{error_msg}"
             
-            show_selectable_message_box(self, self.tr("Error"), msg, icon=QMessageBox.Icon.Critical)
+            if not silent:
+                self._last_verify_result = False
+                self._update_status_icon(False)
+                show_selectable_message_box(self, self.tr("Error"), msg, icon=QMessageBox.Icon.Critical)
+            else:
+                print(f"[AI] Background model refresh failed: {msg}")
         finally:
             self.setCursor(Qt.CursorShape.ArrowCursor)
-            self.btn_refresh_models.setEnabled(True)
+            self.btn_verify_key.setEnabled(True)
 
     def _analyze_signature(self, id_type: str):
         """

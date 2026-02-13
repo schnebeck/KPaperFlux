@@ -58,66 +58,77 @@ class HybridEngine:
         except Exception:
             return False
 
-    def calculate_pair_score(self, scan_path: str, native_path: str) -> float:
+    def calculate_pair_score(self, scan_path: str, native_path: str, 
+                             native_img_cached: np.ndarray = None, 
+                             scan_img_cached: np.ndarray = None,
+                             kp_native_cached = None,
+                             des_native_cached = None,
+                             kp_scan_cached = None,
+                             des_scan_cached = None,
+                             dpi: int = 150) -> float:
         """
-        Calculates a matching 'distance' score between a scan and a native PDF.
-        Lower scores = better alignment.
+        Calculates a matching 'distance' score.
+        Accepts DPI parameter for two-stage matching (Fast 72 DPI or Precise 150 DPI).
         """
         try:
-            doc_scan = fitz.open(scan_path)
-            doc_native = fitz.open(native_path)
+            # 1. Get Images (from cache or file)
+            if scan_img_cached is not None:
+                img_scan_raw = scan_img_cached
+            else:
+                doc_scan = fitz.open(scan_path)
+                img_scan_raw = self.pdf_page_to_numpy(doc_scan, 0, dpi=dpi)
+                doc_scan.close()
             
-            if len(doc_scan) < 1 or len(doc_native) < 1: return float('inf')
+            if native_img_cached is not None:
+                img_native = native_img_cached
+            else:
+                doc_native = fitz.open(native_path)
+                img_native = self.pdf_page_to_numpy(doc_native, 0, dpi=dpi)
+                doc_native.close()
             
-            mat = fitz.Matrix(1.0, 1.0)
-            pix_scan = doc_scan[0].get_pixmap(matrix=mat)
-            pix_native = doc_native[0].get_pixmap(matrix=mat)
+            # 2. Align (Optimized)
+            img_scan_aligned, sim_score = self.align_and_compare(
+                img_native, img_scan_raw,
+                kp_native=kp_native_cached,
+                des_native=des_native_cached,
+                kp_scan=kp_scan_cached,
+                des_scan=des_scan_cached
+            )
             
-            img_scan = self.pixmap_to_cv_image(pix_scan)
-            img_native = self.pixmap_to_cv_image(pix_native)
+            if sim_score < 0.50: return 1000000.0
             
+            # 3. Ink Recall Analysis
             gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY)
-            gray_scan = cv2.cvtColor(img_scan, cv2.COLOR_BGR2GRAY)
+            gray_aligned = cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY)
             
-            orb = cv2.ORB_create(3000)
-            kp1, des1 = orb.detectAndCompute(gray_native, None)
-            kp2, des2 = orb.detectAndCompute(gray_scan, None)
+            _, native_text_mask = cv2.threshold(gray_native, 215, 255, cv2.THRESH_BINARY_INV)
+            native_ink_count = cv2.countNonZero(native_text_mask)
             
-            if des1 is None or des2 is None: return float('inf')
-            
-            matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-            matches = matcher.match(des1, des2)
-            matches = sorted(matches, key=lambda x: x.distance)
-            good_matches = matches[:int(len(matches) * 0.20)]
-            
-            if len(good_matches) < 4: return float('inf')
-            
-            src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-            dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-            
-            M, _ = cv2.estimateAffine2D(dst_pts, src_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0)
-            if M is None: return float('inf')
-            
-            height, width = gray_native.shape
-            aligned_scan = cv2.warpAffine(img_scan, M, (width, height))
-            
-            gray_aligned = cv2.cvtColor(aligned_scan, cv2.COLOR_BGR2GRAY)
-            
-            _, native_text_mask = cv2.threshold(gray_native, 200, 255, cv2.THRESH_BINARY_INV)
-            kernel = np.ones((3,3), np.uint8)
-            native_text_mask = cv2.dilate(native_text_mask, kernel, iterations=2)
-            
+            if native_ink_count < 20: return 500000.0
+
             _, scan_ink_mask = cv2.threshold(gray_aligned, 205, 255, cv2.THRESH_BINARY_INV)
+            # Use conservative dilation: 1 iter is usually enough for alignment jitter
+            # but preserve character shapes to distinguish similar text.
+            dil_iter = 1 
+            scan_ink_dilated = cv2.dilate(scan_ink_mask, None, iterations=dil_iter) 
             
-            diff_mask = cv2.bitwise_and(scan_ink_mask, scan_ink_mask, mask=cv2.bitwise_not(native_text_mask))
-            diff_mask = cv2.morphologyEx(diff_mask, cv2.MORPH_OPEN, kernel)
+            overlap = cv2.bitwise_and(native_text_mask, scan_ink_dilated)
+            recall = cv2.countNonZero(overlap) / native_ink_count
             
-            score = cv2.countNonZero(diff_mask)
+            # 4. Strict Recall (No dilation) for fine-grained tie-breaking
+            overlap_strict = cv2.bitwise_and(native_text_mask, scan_ink_mask)
+            recall_strict = cv2.countNonZero(overlap_strict) / native_ink_count
             
-            doc_scan.close()
-            doc_native.close()
-            return score
-        except Exception:
+            # Weighted Distance: Prioritize ink recall over structural similarity
+            # recall_strict is very sensitive to alignment, so we use it as a 
+            # powerful tie-breaker for layouts that are almost identical.
+            distance = (1.0 - recall) * 12000.0 + \
+                       (1.0 - recall_strict) * 6000.0 + \
+                       (1.0 - sim_score) * 2000.0
+            
+            return distance
+        except Exception as e:
+            print(f"[HybridEngine] Score Calculation Failed: {e}")
             return float('inf')
 
     @staticmethod
@@ -137,60 +148,102 @@ class HybridEngine:
             return img
 
     @staticmethod
-    def align_and_compare_base(img_native: np.ndarray, img_scan: np.ndarray) -> Tuple[np.ndarray, float]:
-        """Base implementation of ORB alignment."""
-        gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY)
-        gray_scan = cv2.cvtColor(img_scan, cv2.COLOR_BGR2GRAY)
+    def get_orb_features(img: np.ndarray, max_points: int = 1500) -> Tuple[list, np.ndarray]:
+        """Precomputes ORB features for an image (Optimized to 1500 points)."""
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
+        orb = cv2.ORB_create(max_points)
+        kp, des = orb.detectAndCompute(gray, None)
+        return kp, des
 
-        orb = cv2.ORB_create(10000)
-        kp1, des1 = orb.detectAndCompute(gray_native, None)
-        kp2, des2 = orb.detectAndCompute(gray_scan, None)
+    @staticmethod
+    def align_and_compare_base(img_native: np.ndarray, img_scan: np.ndarray, 
+                               kp_native=None, des_native=None, 
+                               kp_scan=None, des_scan=None) -> Tuple[np.ndarray, float]:
+        """Base implementation of ORB alignment with optional cached features."""
+        gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY) if len(img_native.shape) == 3 else img_native
+        gray_scan = cv2.cvtColor(img_scan, cv2.COLOR_BGR2GRAY) if len(img_scan.shape) == 3 else img_scan
 
-        if des1 is None or des2 is None:
-            return img_scan, 0.0
+        # Use provided features or compute on the fly
+        if kp_native is None or des_native is None:
+            kp1, des1 = HybridEngine.get_orb_features(gray_native)
+        else:
+            kp1, des1 = kp_native, des_native
+            
+        if kp_scan is None or des_scan is None:
+            kp2, des2 = HybridEngine.get_orb_features(gray_scan)
+        else:
+            kp2, des2 = kp_scan, des_scan
+
+        if des1 is None or des2 is None: return img_scan, 0.0
 
         bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-        matches = bf.match(des1, des2)
-        matches = sorted(matches, key=lambda x: x.distance)
-
-        good_matches = matches[:int(len(matches) * 0.20)]
-        if len(good_matches) < 4:
+        try:
+            matches = bf.match(des1, des2)
+        except Exception:
             return img_scan, 0.0
+            
+        if not matches: return img_scan, 0.0
+        
+        matches = sorted(matches, key=lambda x: x.distance)
+        good_matches = matches[:int(len(matches) * 0.35)] # Increased slightly for robustness
+
+        if len(good_matches) < 7: return img_scan, 0.0
 
         src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
-        M, _ = cv2.estimateAffine2D(dst_pts, src_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0)
-        if M is None:
-            return img_scan, 0.0
+        M, _ = cv2.estimateAffine2D(dst_pts, src_pts, method=cv2.RANSAC, ransacReprojThreshold=4.0)
+        if M is None: return img_scan, 0.0
 
-        h, w = gray_native.shape
-        img_scan_aligned = cv2.warpAffine(img_scan, M, (w, h))
+        h_n, w_n = gray_native.shape
+        img_scan_aligned = cv2.warpAffine(img_scan, M, (w_n, h_n))
 
-        diff = cv2.absdiff(gray_native, cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY))
-        _, diff_thresh = cv2.threshold(diff, 35, 255, cv2.THRESH_BINARY)
+        # Precision Similarity Check (Resolution scales with DPI)
+        cmp_res = 512 if gray_native.shape[0] > 1500 else 256
+        s_native = cv2.resize(gray_native, (cmp_res, cmp_res))
+        s_scan = cv2.resize(cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY), (cmp_res, cmp_res))
+        
+        diff = cv2.absdiff(s_native, s_scan)
+        # Use lower threshold for higher resolution to catch text differences
+        thresh_val = 35 if cmp_res == 512 else 40
+        _, diff_thresh = cv2.threshold(diff, thresh_val, 255, cv2.THRESH_BINARY)
         non_zero_count = np.count_nonzero(diff_thresh)
-        similarity = 1.0 - (non_zero_count / (w * h))
+        similarity = 1.0 - (non_zero_count / (cmp_res * cmp_res))
 
         return img_scan_aligned, similarity
 
     @staticmethod
-    def align_and_compare(img_native: np.ndarray, img_scan: np.ndarray) -> Tuple[np.ndarray, float]:
-        """
-        Aligns img_scan to img_native with automatic 4-way rotation fallback.
-        Checks 0, 90, 180, 270 degrees.
-        """
-        best_img, best_sim = HybridEngine.align_and_compare_base(img_native, img_scan)
+    def align_and_compare(img_native: np.ndarray, img_scan: np.ndarray, 
+                          kp_native=None, des_native=None,
+                          kp_scan=None, des_scan=None) -> Tuple[np.ndarray, float]:
+        """Align_and_compare with aggressive early exit and cached features for both sides."""
         
-        # If match is poor (< 0.85), check rotations
-        if best_sim < 0.85:
-            # Check 180, 90, 270
-            for rot in [cv2.ROTATE_180, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
-                img_rot = cv2.rotate(img_scan, rot)
-                aligned, sim = HybridEngine.align_and_compare_base(img_native, img_rot)
-                if sim > best_sim + 0.1:
-                    best_img, best_sim = aligned, sim
-                    if best_sim > 0.95: break
+        # Use provided scan features or compute ONCE
+        if kp_scan is None or des_scan is None:
+            kp_s, des_s = HybridEngine.get_orb_features(img_scan)
+        else:
+            kp_s, des_s = kp_scan, des_scan
+        
+        best_img, best_sim = HybridEngine.align_and_compare_base(
+            img_native, img_scan, 
+            kp_native=kp_native, des_native=des_native,
+            kp_scan=kp_s, des_scan=des_s
+        )
+        
+        if best_sim > 0.90:
+            return best_img, best_sim
+            
+        # Only check rotations if 0-deg is poor
+        for rot in [cv2.ROTATE_180, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
+            img_rot = cv2.rotate(img_scan, rot)
+            # Features MUST be recomputed for rotations as they are not invariant to large rotations
+            aligned, sim = HybridEngine.align_and_compare_base(
+                img_native, img_rot, 
+                kp_native=kp_native, des_native=des_native
+            )
+            if sim > best_sim:
+                best_img, best_sim = aligned, sim
+                if best_sim > 0.90: break
                 
         return best_img, best_sim
 

@@ -23,7 +23,7 @@ def test_ask_type_check_formatting(analyzer):
     Reproduce the 'Invalid format specifier' error.
     This occurs if curly braces in the f-string template are not escaped.
     """
-    with patch.object(analyzer, "_generate_json") as mock_gen:
+    with patch.object(analyzer.client, "generate_json") as mock_gen:
         mock_gen.return_value = {"primary_type": "INVOICE"}
         
         # This will raise a ValueError or NameError if the f-string is broken

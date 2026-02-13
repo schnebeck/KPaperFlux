@@ -30,40 +30,58 @@ class AppConfig:
     KEY_GEMINI_MODEL: str = "gemini_model"
     KEY_LANGUAGE: str = "language"
     KEY_API_KEY: str = "api_key"
+    KEY_API_VERIFIED: str = "api_verified"
     KEY_AI_RETRIES: str = "ai_retries"
     KEY_TRANSFER_PATH: str = "transfer_path"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
-    DEFAULT_MODEL: str = "gemini-1.5-flash"
-    DEFAULT_AI_RETRIES: int = 2
+    DEFAULT_MODEL: str = "gemini-2.0-flash"
+    DEFAULT_AI_RETRIES: int = 3
 
     APP_ID: str = "kpaperflux"
+    _active_profile: Optional[str] = None
+    _cached_models: list[str] = []
 
-    def __init__(self) -> None:
+    def __init__(self, profile: Optional[str] = None) -> None:
         """
         Initializes the configuration manager.
         Ensures a flat structure by explicitly naming the application and organization.
+        
+        Args:
+            profile: Optional profile name (e.g. 'dev', 'test').
+                    If provided, all paths and settings will be isolated (e.g. kpaperflux-dev).
         """
-        self.settings = QSettings(self.APP_ID, self.APP_ID)
+        # If no profile provided, use the last active one (Global Singleton-like)
+        if profile is None:
+            profile = AppConfig._active_profile
+        else:
+            AppConfig._active_profile = profile
+
+        self.profile = profile
+        self.active_id = self.APP_ID
+        if profile:
+            self.active_id = f"{self.APP_ID}-{profile}"
+            
+        self.settings = QSettings(self.active_id, self.active_id)
 
     def get_config_dir(self) -> Path:
         """
         Returns the path to the application configuration directory.
-        Forces a flat structure: ~/.config/kpaperflux/
+        Forces a flat structure: ~/.config/kpaperflux[-profile]/
         """
         base_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.ConfigLocation)
-        config_dir = Path(base_path) / self.APP_ID
+        config_dir = Path(base_path) / self.active_id
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir
 
     def get_data_dir(self) -> Path:
         """
         Returns the path to the application data directory.
-        Forces a flat structure: ~/.local/share/kpaperflux/
+        Forces a flat structure: ~/.local/share/kpaperflux[-profile]/
         """
         base_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.GenericDataLocation)
-        data_dir = Path(base_path) / self.APP_ID
+        data_dir = Path(base_path) / self.active_id
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 

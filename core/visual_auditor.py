@@ -112,6 +112,11 @@ Your goal is to separate the document into two distinct layers (Document Text vs
 - Determine if the Raw OCR is corrupted by the stamps/overlays.
 - Decide which source (Vision or OCR) is safer for extracting numbers/dates.
 
+### MISSION 4: EXCLUSIVITY RULE (CRITICAL)
+- **STRICTLY FORBIDDEN:** Do NOT extract any financial data (Amounts, Tax, Items), banking information, or party details into the root of your JSON.
+- **SCOPE:** Your mission is ONLY to audit the stamps/handwriting and verify the document integrity. 
+- **NO SEMANTIC BODIES:** Do NOT return any keys like `finance_body`, `legal_body`, or `health_body`.
+
 ### OUTPUT SCHEMA (JSON ONLY)
 {{
   "audit_summary": {{
@@ -173,6 +178,11 @@ Your goal is to audit the document structure, extract overlays (forms/stamps), a
 - Compare the visual image with the provided "RAW OCR".
 - Determine if the Raw OCR is corrupted by the stamps/overlays.
 - Decide which source (Vision or OCR) is safer for extracting numbers/dates.
+
+### MISSION 5: EXCLUSIVITY RULE (CRITICAL)
+- **STRICTLY FORBIDDEN:** Do NOT extract any financial data (Amounts, Tax, Items), banking information, or party details into the root of your JSON.
+- **SCOPE:** Your mission is ONLY to audit the stamps/handwriting, verify document integrity, and check for signatures.
+- **NO SEMANTIC BODIES:** Do NOT return any keys like `finance_body`, `legal_body`, or `health_body`.
 
 ### OUTPUT SCHEMA (JSON ONLY)
 {{
@@ -415,6 +425,18 @@ class VisualAuditor:
         )
 
         if res_json:
+            # SAFETY PURGE: Remove any illegal semantic bodies that AI might have hallucinated
+            # despite the Exclusivity Rule in the prompt.
+            illegal_keys = ["finance_body", "legal_body", "health_body", "other_body", "meta_header"]
+            found_illegal = []
+            for k in illegal_keys:
+                if k in res_json:
+                    found_illegal.append(k)
+                    del res_json[k]
+            
+            if found_illegal:
+                print(f"[VisualAuditor] ⚠️ Stage 1.5 returned ILLEGAL semantic keys: {found_illegal}. Pruned.")
+
             res_json["meta_mode"] = audit_mode
             return res_json
 

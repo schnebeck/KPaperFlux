@@ -137,7 +137,8 @@ class SplitterDialog(QDialog):
             except: pass
 
         count = len(file_info_list)
-        self.setWindowTitle(self.tr(f"Import Assistant: Batch ({count} files)"))
+        msg = self.tr("Import Assistant: Batch (%n file(s))", "", len(file_info_list))
+        self.setWindowTitle(msg)
         self.strip.load_from_paths(file_info_list)
         self.adjust_size_to_content(total_pages)
         self.btn_cancel.setText(self.tr("Abort Import"))
@@ -181,8 +182,13 @@ class SplitterDialog(QDialog):
 
         # Dynamic Text to be helpful
         if has_splits:
-            verb = self.tr("Import & Split") if self.mode == "IMPORT" else self.tr("Save & Split")
-            self.btn_confirm.setText(f"{verb} into {len(splits) + 1} Parts")
+            # Phase 105: Translatable plural format
+            num_parts = len(splits) + 1
+            if self.mode == "IMPORT":
+                text = self.tr("Import and Split into %n Part(s)", "", num_parts)
+            else:
+                text = self.tr("Save and Split into %n Part(s)", "", num_parts)
+            self.btn_confirm.setText(text)
         else:
             base = self.tr("Import Document") if self.mode == "IMPORT" else self.tr("Save Changes")
             self.btn_confirm.setText(base)

@@ -15,8 +15,7 @@ def qapp():
     
     # Patch Gemini/AI at the start of the session to avoid API key errors
     # during widget instantiation in smoke tests.
-    with patch("google.genai.Client"), \
-         patch("core.ai_analyzer.AIAnalyzer._fetch_model_limits"):
+    with patch("google.genai.Client"):
         yield app
 
 def test_workflow_manager_instantiation(qapp):

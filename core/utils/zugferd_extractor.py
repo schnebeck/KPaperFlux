@@ -53,10 +53,17 @@ class ZugferdExtractor:
         """Parses UN/CEFACT CII XML into our internal FinanceBody structure."""
         root = etree.fromstring(xml_bytes)
         
-        # Helper to find text safely
+        # Helper to find text safely (handles Elements and Attributes)
         def t(xpath, context=root):
             elements = context.xpath(xpath, namespaces=cls.NS)
-            return elements[0].text if elements else None
+            if not elements:
+                return None
+            res = elements[0]
+            # If it's an attribute (string result), return it directly
+            if isinstance(res, (str, bytes)):
+                return str(res)
+            # If it's an element, return its text content
+            return res.text if hasattr(res, 'text') else str(res)
 
         # --- 1. Basic Header (BT-1, BT-2, BT-9) ---
         invoice_number = t("//rsm:ExchangedDocument/ram:ID")
@@ -99,8 +106,23 @@ class ZugferdExtractor:
                     "bank_name": t("ram:PayeePartyCreditorFinancialInstitution/ram:Name", pm)
                 })
 
-        # --- 2. Monetary Summation ---
-        summation = root.xpath("//ram:ApplicableTradeSettlementMonetarySummation", namespaces=cls.NS)
+        # --- 2. Tax Breakdown (BT-116 to BT-119) ---
+        tax_breakdown = []
+        tax_nodes = root.xpath("//ram:ApplicableTradeSettlement/ram:ApplicableTradeTax", namespaces=cls.NS)
+        for tn in tax_nodes:
+            tax_breakdown.append({
+                "tax_basis_amount": t("ram:BasisAmount", tn),
+                "tax_amount": t("ram:CalculatedAmount", tn),
+                "tax_rate": t("ram:RateApplicablePercent", tn),
+                "tax_type_code": t("ram:TypeCode", tn),
+                "tax_category_code": t("ram:CategoryCode", tn),
+            })
+
+        # --- 3. Monetary Summation ---
+        # Try both common tags (Standard is Specified, some older/custom use Applicable)
+        summation = root.xpath("//ram:SpecifiedTradeSettlementMonetarySummation", namespaces=cls.NS)
+        if not summation:
+            summation = root.xpath("//ram:ApplicableTradeSettlementMonetarySummation", namespaces=cls.NS)
         monetary_data = {}
         if summation:
             s = summation[0]
@@ -165,6 +187,7 @@ class ZugferdExtractor:
                 "payment_terms": payment_terms,
                 "payment_accounts": payment_accounts,
                 "monetary_summation": monetary_data,
+                "tax_breakdown": tax_breakdown,
                 "line_items": items,
             }
         }
