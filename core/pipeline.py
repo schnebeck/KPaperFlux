@@ -42,7 +42,7 @@ class PipelineProcessor:
     def __init__(
         self,
         base_path: str = "vault",
-        db_path: str = "kpaperflux.db",
+        db_path: str = ":memory:",
         vault: Optional[DocumentVault] = None,
         db: Optional[DatabaseManager] = None,
     ) -> None:

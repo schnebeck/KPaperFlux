@@ -138,7 +138,7 @@ class AppConfig:
         Returns:
             The vault path string.
         """
-        return str(self._get_setting("Storage", self.KEY_VAULT_PATH, ""))
+        return str(self._get_setting("Storage", self.KEY_VAULT_PATH, "vault"))
 
     def set_vault_path(self, path: str) -> None:
         """

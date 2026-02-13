@@ -34,7 +34,7 @@ class DatabaseManager:
     API for document persistence and retrieval.
     """
 
-    def __init__(self, db_path: str = "kpaperflux.db") -> None:
+    def __init__(self, db_path: str = ":memory:") -> None:
         """
         Initializes the DatabaseManager.
 
