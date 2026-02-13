@@ -23,7 +23,7 @@ from core.config import AppConfig
 from core.database import DatabaseManager
 from core.models.semantic import SemanticExtraction
 from core.models.virtual import VirtualDocument as Document
-from core.models.canonical_entity import CanonicalEntity, DocType
+from core.models.types import DocType
 from core.models.identity import IdentityProfile
 from core.models.virtual import SourceReference, VirtualDocument
 from core.repositories.logical_repo import LogicalRepository
@@ -726,38 +726,5 @@ class CanonizerService:
 
         return score >= threshold
 
-    def _classify_direction(self, entity: CanonicalEntity) -> None:
-        """
-        Determines the document direction (INCOMING/OUTGOING) based on identity profiles.
 
-        Args:
-            entity: The CanonicalEntity to classify.
-        """
-        priv_json = self.config.get_private_profile_json()
-        bus_json = self.config.get_business_profile_json()
-
-        identities: List[IdentityProfile] = []
-        try:
-            if priv_json:
-                identities.append(IdentityProfile.model_validate_json(priv_json))
-            if bus_json:
-                identities.append(IdentityProfile.model_validate_json(bus_json))
-        except Exception as e:
-            print(f"[Canonizer] Profile Load Error: {e}")
-
-        # Check Sender
-        sender_name = entity.parties.sender.name
-        sender_addr = entity.parties.sender.address
-        for prof in identities:
-            if self._fuzzy_identity_match(sender_name, sender_addr, prof):
-                entity.direction = "OUTGOING"
-                return
-
-        # Check Recipient
-        recipient_name = entity.parties.recipient.name
-        recipient_addr = entity.parties.recipient.address
-        for prof in identities:
-            if self._fuzzy_identity_match(recipient_name, recipient_addr, prof):
-                entity.direction = "INCOMING"
-                return
 

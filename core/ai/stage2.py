@@ -24,20 +24,7 @@ from google.genai import types
 from pydantic import ValidationError
 
 from core.ai import prompts
-from core.models.canonical_entity import (
-    BankStatementData,
-    ContractData,
-    DocType,
-    ExpenseData,
-    InsuranceData,
-    InvoiceData,
-    LegalMetaData,
-    LogisticsData,
-    MedicalData,
-    TaxAssessmentData,
-    UtilityData,
-    VehicleData,
-)
+from core.models.types import DocType
 from core.models.identity import IdentityProfile
 from core.models.semantic import SemanticExtraction, FinanceBody, LegalBody
 
@@ -496,56 +483,6 @@ class Stage2Processor:
 
         return errors
 
-    def extract_canonical_data(self, primary_type: Any, text: str) -> Dict[str, Any]:
-        """Legacy style extraction."""
-        if isinstance(primary_type, str):
-            try: primary_type = DocType(primary_type.upper())
-            except: pass
-
-        model_map = {
-            DocType.INVOICE: InvoiceData, DocType.CREDIT_NOTE: InvoiceData,
-            DocType.ORDER: InvoiceData, DocType.QUOTE: InvoiceData,
-            DocType.ORDER_CONFIRMATION: InvoiceData, DocType.DELIVERY_NOTE: LogisticsData,
-            DocType.RECEIPT: InvoiceData, DocType.DUNNING: InvoiceData,
-            DocType.BANK_STATEMENT: BankStatementData, DocType.TAX_ASSESSMENT: TaxAssessmentData,
-            DocType.EXPENSE_REPORT: ExpenseData, DocType.UTILITY_BILL: UtilityData,
-            DocType.CONTRACT: ContractData, DocType.INSURANCE_POLICY: InsuranceData,
-            DocType.OFFICIAL_LETTER: LegalMetaData, DocType.LEGAL_CORRESPONDENCE: LegalMetaData,
-            DocType.VEHICLE_REGISTRATION: VehicleData, DocType.MEDICAL_DOCUMENT: MedicalData,
-            DocType.OTHER: None
-        }
-
-        target_model = model_map.get(primary_type)
-        val = primary_type.value if hasattr(primary_type, 'value') else str(primary_type)
-
-        specific_schema_hint = ""
-        if target_model:
-            try:
-                schema = target_model.model_json_schema()
-                props = schema.get("properties", {})
-                field_list = [f'"{k}": "{v.get("type", "string")}"' for k, v in props.items()]
-                joined_fields = ",\n               ".join(field_list)
-                specific_schema_hint = f' "specific_data": {{\n               // Fields for {val}:\n               {joined_fields}\n          }},'
-            except: pass
-
-        prompt = prompts.PROMPT_STAGE_2_EXTRACTION.format(
-            val=val,
-            specific_schema_hint=specific_schema_hint,
-            text_content=text[:100000]
-        )
-
-        try:
-            raw_data = self.client.generate_json(prompt, stage_label="STAGE 2 EXTRACTION") or {}
-            if target_model and "specific_data" in raw_data:
-                try:
-                    spec_data = raw_data.get("specific_data", {})
-                    if spec_data:
-                         validated_spec = target_model(**spec_data)
-                         raw_data["specific_data"] = validated_spec.model_dump()
-                except: pass
-            return raw_data
-        except: return {}
-
     def generate_smart_filename(self, semantic_data: Dict, entity_types: List[str]) -> str:
         """
         Phase 2.4: Smart Filename Generation.
@@ -568,3 +505,28 @@ class Stage2Processor:
             doc_type = entity_types[0].upper()
         
         return f"{doc_date}__{entity_name}__{doc_type}.pdf"
+
+    def parse_identity_signature(self, text: str) -> Optional[IdentityProfile]:
+        """
+        Analyze signature text to extract structured IdentityProfile.
+        """
+        prompt_str = prompts.PROMPT_IDENTITY_PARSE.format(text=text)
+
+        try:
+            result = self.client.generate_json(prompt_str, stage_label="IDENTITY PARSE REQUEST")
+            if not result:
+                return None
+
+            # Convert to Pydantic Model
+            return IdentityProfile(
+                name=result.get("name"),
+                aliases=result.get("aliases", []),
+                company_name=result.get("company_name"),
+                company_aliases=result.get("company_aliases", []),
+                address_keywords=result.get("address_keywords", []),
+                vat_id=result.get("vat_id"),
+                iban=result.get("iban", [])
+            )
+        except Exception as e:
+            print(f"Identity Parsing Failed: {e}")
+            return None

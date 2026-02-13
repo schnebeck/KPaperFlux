@@ -24,7 +24,7 @@ try:
     from core.metadata_normalizer import MetadataNormalizer
     from core.semantic_translator import SemanticTranslator
     from core.query_parser import QueryParser
-    from core.models.canonical_entity import DocType
+    from core.models.types import DocType
     from gui.widgets.multi_select_combo import MultiSelectComboBox
     from gui.widgets.date_range_picker import DateRangePicker
     from gui.widgets.tag_input import TagInputWidget

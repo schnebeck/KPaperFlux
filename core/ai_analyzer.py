@@ -22,10 +22,7 @@ from core.ai.stage2 import Stage2Processor
 from core.ai import prompts
 from core.config import AppConfig
 from core.models.identity import IdentityProfile
-from core.models.canonical_entity import DocType
-
-
-# AIAnalysisResult and analyze_text removed as they were legacy. Use SemanticExtraction and structured extraction instead.
+from core.models.types import DocType
 
 
 class AIAnalyzer:
@@ -36,28 +33,6 @@ class AIAnalyzer:
     and adaptive scan strategies.
     """
 
-    _printed_prompts: Set[str] = set()  # Debug tracking
-
-    def _print_debug_prompt(self, title: str, prompt: str) -> None:
-        """
-        Prints the AI prompt to the console for debugging purposes (only once per unique prompt).
-
-        Args:
-            title: The debug section title.
-            prompt: The full prompt string.
-        """
-        if prompt not in self._printed_prompts:
-            # Uncomment for verbose prompt debugging
-            # print(f"\n=== [{title}] ===\n{prompt}\n==============================\n")
-            self._printed_prompts.add(prompt)
-
-    @classmethod
-    def get_adaptive_delay(cls) -> float:
-        """
-        Retrieves the current adaptive delay value from AIClient.
-        """
-        return AIClient.get_adaptive_delay()
-
     def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash") -> None:
         """
         Initializes the AIAnalyzer.
@@ -66,6 +41,13 @@ class AIAnalyzer:
         self.client = AIClient(api_key, model_name)
         self.stage1 = Stage1Processor(self.client, self.config)
         self.stage2 = Stage2Processor(self.client, self.config)
+
+    @classmethod
+    def get_adaptive_delay(cls) -> float:
+        """
+        Retrieves the current adaptive delay value from AIClient.
+        """
+        return AIClient.get_adaptive_delay()
 
     def list_models(self) -> List[str]:
         """
@@ -87,8 +69,6 @@ class AIAnalyzer:
         """
         return self.client.generate_json(prompt, stage_label, images)
 
-
-    # analyze_text removed (legacy). Use run_stage_2 for structured extraction.
     def identify_entities(self, text: str, semantic_data: Optional[Dict[str, Any]] = None, detected_entities: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """Delegates to Stage1Processor."""
         return self.stage1.identify_entities(text, semantic_data, detected_entities)
@@ -97,35 +77,9 @@ class AIAnalyzer:
         """Delegates to Stage1Processor."""
         return self.stage1.refine_semantic_entities(semantic_data)
 
-
-    def extract_canonical_data(self, primary_type: Any, text: str) -> Dict[str, Any]:
-        """Delegates to Stage2Processor."""
-        return self.stage2.extract_canonical_data(primary_type, text)
-
     def parse_identity_signature(self, text: str) -> Optional[IdentityProfile]:
-        """
-        Phase 101: Analyze signature text to extract structured IdentityProfile.
-        """
-        prompt_str = prompts.PROMPT_IDENTITY_PARSE.format(text=text)
-
-        try:
-            result = self._generate_json(prompt_str, stage_label="IDENTITY PARSE REQUEST")
-            if not result:
-                return None
-
-            # Convert to Pydantic Model
-            return IdentityProfile(
-                name=result.get("name"),
-                aliases=result.get("aliases", []),
-                company_name=result.get("company_name"),
-                company_aliases=result.get("company_aliases", []),
-                address_keywords=result.get("address_keywords", []),
-                vat_id=result.get("vat_id"),
-                iban=result.get("iban", [])
-            )
-        except Exception as e:
-            print(f"Identity Parsing Failed: {e}")
-            return None
+        """Delegates to Stage2Processor."""
+        return self.stage2.parse_identity_signature(text)
 
     def classify_structure(self, pages_text: List[str],
                           private_id: Optional[IdentityProfile],

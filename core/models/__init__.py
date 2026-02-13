@@ -12,4 +12,4 @@ Description:    Package initializer for core data models. Exports PhysicalFile,
 
 from .physical import PhysicalFile
 from .virtual import VirtualDocument, SourceReference, VirtualPage
-from .canonical_entity import CanonicalEntity
+from .types import DocType

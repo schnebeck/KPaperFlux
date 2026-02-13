@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 try:
     from core.metadata_normalizer import MetadataNormalizer
     from core.semantic_translator import SemanticTranslator
-    from core.models.canonical_entity import DocType
+    from core.models.types import DocType
     from gui.widgets.multi_select_combo import MultiSelectComboBox
     from gui.widgets.date_range_picker import DateRangePicker
 except ImportError:

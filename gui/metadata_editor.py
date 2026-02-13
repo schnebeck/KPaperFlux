@@ -22,7 +22,7 @@ from datetime import datetime
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
-from core.models.canonical_entity import DocType
+from core.models.types import DocType
 from core.utils.girocode import GiroCodeGenerator
 
 # GUI Imports

@@ -31,7 +31,6 @@ def test_stage1_env():
     
     # Mock AI Analyzer
     mock_analyzer = MagicMock(spec=AIAnalyzer)
-    mock_analyzer.extract_canonical_data.return_value = {"dummy": "data"} 
     mock_analyzer.run_stage_1_adaptive.return_value = {
         "detected_entities": [
             {"type_tags": ["INVOICE"], "direction": "INBOUND", "tenant_context": "BUSINESS"}
