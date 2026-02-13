@@ -38,12 +38,12 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 
 <table align="center">
   <tr>
-    <td align="center"><b>Forensic Rules Engine</b><br><img src="docs/screenshots/smart_rules.png" width="380"></td>
+    <td align="center"><b>Forensic Rules Engine</b><br><img src="docs/screenshots/rules_editor.png" width="380"></td>
     <td align="center"><b>Smart Import Splitter</b><br><img src="docs/screenshots/import_splitter.png" width="380"></td>
   </tr>
   <tr>
+    <td align="center"><b>Hybrid PDF Matching</b><br><img src="docs/screenshots/hybrid_matching.png" width="380"></td>
     <td align="center"><b>Vendor Distribution</b><br><img src="docs/screenshots/report_pie_chart.png" width="380"></td>
-    <td align="center"><b>Document Explorer</b><br><img src="docs/screenshots/document_list.png" width="380"></td>
   </tr>
 </table>
 
