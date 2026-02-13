@@ -10,6 +10,7 @@ from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush
 
 from core.reporting import ReportGenerator, ReportRegistry
 from core.models.reporting import ReportDefinition
+from core.exporters.pdf_report import PdfReportGenerator
 from gui.report_editor import ReportEditorWidget
 
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
@@ -227,29 +228,36 @@ class PieChartWidget(ChartWidget):
 
         # 5. Draw Legend (Right Side)
         legend_x = chart_w + 15
-        legend_y = max(40, cy - (len(final_items) * 22) // 2)
+        line_height = 22
+        # Vertically center the entire legend block
+        legend_y = max(40, cy - (len(final_items) * line_height) // 2)
         painter.setFont(QFont("Sans Serif", 8))
         
         for i, item in enumerate(final_items):
-            # Color Box
+            # Color Box (14x14) - vertically centered in line_height
+            box_y = legend_y + (line_height - 14) // 2
             painter.setBrush(item["brush"])
             painter.setPen(QPen(QColor("#cbd5e1"), 1))
-            painter.drawRect(legend_x, legend_y, 14, 14)
+            painter.drawRect(legend_x, box_y, 14, 14)
             
-            # Label with proper elision (clip only at the end)
+            # Label with proper elision and vertical centering
             painter.setPen(QColor("#334155"))
             perc = (item["val"] / total) * 100
             perc_str = f"({perc:.1f}%)"
             
             # Calculate space for label
-            avail_w = legend_w - 70 
+            avail_w = legend_w - 85 # More space for percentages
             elided_label = metrics.elidedText(item["label"], Qt.TextElideMode.ElideRight, avail_w)
             
-            painter.drawText(legend_x + 22, legend_y + 12, avail_w, 20, Qt.AlignmentFlag.AlignLeft, elided_label)
-            # Draw percentage separately on the right of the label area for alignment
-            painter.drawText(legend_x + 22 + avail_w, legend_y + 12, 45, 20, Qt.AlignmentFlag.AlignRight, perc_str)
+            # Text alignment: use a rect covering full line height for perfect vertical centering
+            text_rect = QRect(legend_x + 22, legend_y, avail_w, line_height)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, elided_label)
             
-            legend_y += 22
+            # Draw percentage separately on the right with same vertical centering
+            perc_rect = QRect(legend_x + 22 + avail_w, legend_y, 55, line_height)
+            painter.drawText(perc_rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, perc_str)
+            
+            legend_y += line_height
 
     def mousePressEvent(self, event):
         w = self.width()
@@ -720,8 +728,35 @@ class ReportingWidget(QWidget):
                 with open(path, "wb") as f: f.write(csv_data)
                 
         elif fmt == "pdf":
-            # This would normally use a PDF generator like ReportLab or a Headless Browser
-            QMessageBox.information(self, self.tr("Export PDF"), self.tr("PDF Report Generation is being initialized. This will export the charts and tables into a finished layout."))
+            from PyQt6.QtCore import QBuffer, QIODevice
+            from PyQt6.QtGui import QPixmap
+            
+            # Capture chart images
+            chart_images = []
+            for chart in getattr(self, "active_charts", []):
+                pixmap = chart.grab()
+                buffer = QBuffer()
+                buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+                pixmap.save(buffer, "PNG")
+                chart_images.append(buffer.data().data())
+            
+            # Execute report to get data
+            results = self.repo_gen.run_custom_report(self.db_manager, definition)
+            
+            # Generate PDF
+            pdf_gen = PdfReportGenerator()
+            try:
+                pdf_bytes = pdf_gen.generate(results, chart_images)
+                
+                path, _ = QFileDialog.getSaveFileName(self, self.tr("Export PDF"), f"{definition.name}_Report.pdf", "PDF Files (*.pdf)")
+                if path:
+                    with open(path, "wb") as f:
+                        f.write(pdf_bytes)
+                    QMessageBox.information(self, self.tr("Export PDF"), self.tr("Successfully exported report to PDF."))
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                QMessageBox.critical(self, self.tr("Error"), f"Failed to generate PDF report: {str(e)}")
             
         elif fmt == "zip":
             path, _ = QFileDialog.getSaveFileName(self, self.tr("Export ZIP"), f"{definition.name}_Documents.zip", "ZIP Files (*.zip)")
