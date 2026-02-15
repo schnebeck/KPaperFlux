@@ -2,10 +2,10 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdi
                              QPushButton, QComboBox, QSpinBox, QColorDialog)
 from PyQt6.QtCore import Qt
 
-class DashboardEntryDialog(QDialog):
+class CockpitEntryDialog(QDialog):
     def __init__(self, filter_tree, parent=None, entry_data=None):
         super().__init__(parent)
-        self.setWindowTitle(self.tr("Dashboard Filter View"))
+        self.setWindowTitle(self.tr("Cockpit View Configuration"))
         self.setMinimumWidth(300)
         self.filter_tree = filter_tree
         self.entry_data = entry_data or {}

@@ -740,9 +740,22 @@ class DatabaseManager:
             end = today.replace(year=last_year, month=12, day=31).isoformat()
             return (start, end)
 
+        if val.startswith("relative:"):
+            try:
+                # Format: relative:-90d or relative:30d
+                offset_str = val.split(":")[1]
+                unit = offset_str[-1] # 'd', 'm', 'y'
+                amount = int(offset_str[:-1])
+                
+                if unit == 'd':
+                    start = (today + timedelta(days=amount)).isoformat()
+                    return start
+                # Add more units if needed (months/years)
+            except Exception as e:
+                logger.error(f"Failed to parse relative date {val}: {e}")
+
         if "," in val and len(val.split(",")) == 2:
-             # Already a range string from UI
-             return tuple(val.split(","))
+            return tuple(val.split(","))
 
         return val
 

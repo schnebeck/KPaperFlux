@@ -1,24 +1,23 @@
 {
-    "id": "tax_overview",
-    "name": "Tax Overview",
-    "description": "Comparison of Net, Tax, and Gross amounts.",
-    "group_by": "doc_date:month",
-    "aggregations": [
-        {
-            "field": "net_amount",
-            "op": "sum"
-        },
-        {
-            "field": "tax",
-            "op": "sum"
-        },
-        {
-            "field": "amount",
-            "op": "sum"
-        }
-    ],
-    "visualizations": [
-        "bar_chart",
-        "table"
-    ]
+  "id": "tax_overview",
+  "name": "Tax Overview",
+  "description": "Comparison of Net, Tax, and Gross amounts.",
+  "filter_query": {},
+  "group_by": "doc_date:month",
+  "aggregations": [
+    {
+      "field": "net_amount",
+      "op": "sum"
+    },
+    {
+      "field": "tax",
+      "op": "sum"
+    },
+    {
+      "field": "amount",
+      "op": "sum"
+    }
+  ],
+  "visualizations": [],
+  "components": []
 }

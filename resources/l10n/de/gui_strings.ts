@@ -484,126 +484,126 @@
         <translation type="unfinished" />
     </message>
 </context><context>
-    <name>DashboardEntryDialog</name>
+    <name>CockpitEntryDialog</name>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="8" />
-        <source>Dashboard Filter View</source>
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="8" />
+        <source>Cockpit View Configuration</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="19" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="19" />
         <source>Display Title:</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="21" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="21" />
         <source>e.g. My Invoices</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="25" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="25" />
         <source>Linked Filter Rule:</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="34" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="34" />
         <source>--- Choose Filter ---</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="35" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="35" />
         <source>Inbox (NEW)</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="36" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="36" />
         <source>Total Documents</source>
         <translation>Gesamtanzahl Dokumente</translation>
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="37" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="37" />
         <source>Processed Documents</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="53" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="53" />
         <source>Filter: %s</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="61" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="61" />
         <source>Aggregation Mode:</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="63" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="63" />
         <source>Count documents</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="64" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="64" />
         <source>Sum amounts (€)</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="72" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="72" />
         <source>Color Theme:</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="73" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="73" />
         <source>Choose Color...</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="83" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="83" />
         <source>Save View</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="86" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="86" />
         <source>Cancel</source>
         <translation>Abbrechen</translation>
     </message>
     <message>
-        <location filename="../../../gui/dialogs/dashboard_entry_dialog.py" line="109" />
+        <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="109" />
         <source>Filter:</source>
         <translation type="unfinished" />
     </message>
 </context><context>
-    <name>DashboardWidget</name>
+    <name>CockpitWidget</name>
     <message>
-        <location filename="../../../gui/dashboard.py" line="184" />
+        <location filename="../../../gui/cockpit.py" line="184" />
         <source>Inbox</source>
         <translation>Eingang</translation>
     </message>
     <message>
-        <location filename="../../../gui/dashboard.py" line="185" />
+        <location filename="../../../gui/cockpit.py" line="185" />
         <source>Total Documents</source>
         <translation>Gesamtanzahl Dokumente</translation>
     </message>
     <message>
-        <location filename="../../../gui/dashboard.py" line="186" />
+        <location filename="../../../gui/cockpit.py" line="186" />
         <source>Total Invoiced</source>
         <translation>Summe Rechnungen</translation>
     </message>
     <message>
-        <location filename="../../../gui/dashboard.py" line="187" />
+        <location filename="../../../gui/cockpit.py" line="187" />
         <source>Processed</source>
         <translation>Verarbeitet</translation>
     </message>
     <message>
-        <location filename="../../../gui/dashboard.py" line="398" />
+        <location filename="../../../gui/cockpit.py" line="398" />
         <source>Unlock Layout (Enable Dragging)</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dashboard.py" line="398" />
+        <location filename="../../../gui/cockpit.py" line="398" />
         <source>Lock Layout (Prevent Dragging)</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dashboard.py" line="404" />
+        <location filename="../../../gui/cockpit.py" line="404" />
         <source>Add New Filter View...</source>
         <translation type="unfinished" />
     </message>
@@ -1695,7 +1695,7 @@ Are you completely sure you want to reset the system?</source>
     </message>
     <message>
         <location filename="../../../gui/main_window.py" line="2013" />
-        <source>Dashboard</source>
+        <source>Cockpit</source>
         <translation>Übersicht</translation>
     </message>
     <message>
@@ -3165,13 +3165,13 @@ Please install 'qrcode' package.</source>
 </context><context>
     <name>StatCard</name>
     <message>
-        <location filename="../../../gui/dashboard.py" line="108" />
+        <location filename="../../../gui/cockpit.py" line="108" />
         <source>Edit View...</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../gui/dashboard.py" line="109" />
-        <source>Remove from Dashboard</source>
+        <location filename="../../../gui/cockpit.py" line="109" />
+        <source>Remove from Cockpit</source>
         <translation type="unfinished" />
     </message>
 </context><context>

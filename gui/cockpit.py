@@ -1,11 +1,11 @@
 """
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
-File:           gui/dashboard.py
+File:           gui/cockpit.py
 Version:        2.1.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Gemini 3pro
-Description:    Interactive dashboard for document statistics and quick filters.
+Description:    Interactive cockpit for document statistics and quick filters.
 ------------------------------------------------------------------------------
 """
 
@@ -15,11 +15,10 @@ import shutil
 from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
                              QHBoxLayout, QScrollArea, QSizePolicy, QMenu, QInputDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer
-from PyQt6.QtGui import QAction, QCursor, QPalette, QPainter, QColor, QFont, QPen, QBrush, QLinearGradient, QPainterPath
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer, QRect
+from PyQt6.QtGui import QAction, QCursor, QPalette, QPainter, QColor, QFont, QPen, QBrush, QLinearGradient, QPainterPath
 
-from gui.dialogs.dashboard_entry_dialog import DashboardEntryDialog
+from gui.dialogs.cockpit_entry_dialog import CockpitEntryDialog
 from core.config import AppConfig
 
 CELL_WIDTH = 280
@@ -182,7 +181,7 @@ class StatCard(QFrame):
         rename_action = menu.addAction(self.tr("Rename..."))
         edit_action = menu.addAction(self.tr("Edit Configuration..."))
         menu.addSeparator()
-        delete_action = menu.addAction(self.tr("Remove from Dashboard"))
+        delete_action = menu.addAction(self.tr("Remove from Cockpit"))
         
         action = menu.exec(self.mapToGlobal(pos))
         if action == rename_action:
@@ -192,25 +191,15 @@ class StatCard(QFrame):
         elif action == delete_action:
             self.delete_requested.emit()
 
-class DashboardWidget(QWidget):
+class CockpitWidget(QWidget):
     navigation_requested = pyqtSignal(dict) # Emits filter query to MainWindow
 
-    def __init__(self, db_manager, filter_tree=None, parent=None):
+    def __init__(self, db_manager, filter_tree=None, parent=None, app_config=None):
         super().__init__(parent)
         self.db_manager = db_manager
         self.filter_tree = filter_tree
-        
-        self.app_config = AppConfig()
-        self.config_path = self.app_config.get_config_dir() / "dashboard_config.json"
-        
-        # Migration: Check if old config exists in CWD and move it if target doesn't exist
-        old_config = Path("dashboard_config.json")
-        if old_config.exists() and not self.config_path.exists():
-            try:
-                shutil.move(str(old_config), str(self.config_path))
-                print(f"[Info] Migrated dashboard config to {self.config_path}")
-            except Exception as e:
-                print(f"[Error] Failed to migrate dashboard config: {e}")
+        self.app_config = app_config or AppConfig()
+        self.config_path = self.app_config.get_config_dir() / "cockpit_config.json"
         
         self.cards_config = []
         self.card_widgets = []
@@ -236,7 +225,7 @@ class DashboardWidget(QWidget):
         
         self.content_widget = QWidget()
         self.content_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.content_widget.customContextMenuRequested.connect(self._show_dashboard_menu)
+        self.content_widget.customContextMenuRequested.connect(self._show_cockpit_menu)
         
         self.scroll.setWidget(self.content_widget)
         main_layout.addWidget(self.scroll)
@@ -274,7 +263,7 @@ class DashboardWidget(QWidget):
                 }
                 json.dump(data, f, indent=2)
         except Exception as e:
-            print(f"[Error] Failed to save dashboard config: {e}")
+            print(f"[Error] Failed to save cockpit config: {e}")
 
     def get_pos_from_cell(self, row, col):
         x = MARGIN + col * (CELL_WIDTH + SPACING)
@@ -492,7 +481,7 @@ class DashboardWidget(QWidget):
         )
 
 
-    def _show_dashboard_menu(self, pos):
+    def _show_cockpit_menu(self, pos):
         menu = QMenu(self)
         
         lock_text = self.tr("Unlock Layout (Enable Dragging)") if self.locked else self.tr("Lock Layout (Prevent Dragging)")
@@ -511,7 +500,7 @@ class DashboardWidget(QWidget):
 
     def _add_new_card(self):
         if not self.filter_tree: return
-        dlg = DashboardEntryDialog(self.filter_tree, self)
+        dlg = CockpitEntryDialog(self.filter_tree, self)
         if dlg.exec():
             data = dlg.get_data()
             # Find next free spot? Or just append at end.
@@ -521,7 +510,7 @@ class DashboardWidget(QWidget):
 
     def _edit_card(self, index):
         if index >= len(self.cards_config): return
-        dlg = DashboardEntryDialog(self.filter_tree, self, self.cards_config[index])
+        dlg = CockpitEntryDialog(self.filter_tree, self, self.cards_config[index])
         if dlg.exec():
             self.cards_config[index] = dlg.get_data()
             self.save_config()

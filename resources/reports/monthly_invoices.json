@@ -2,17 +2,6 @@
   "id": "monthly_invoices",
   "name": "Monthly Invoice Count",
   "description": "Counter for number of invoices processed per month.",
-  "group_by": "doc_date:month",
-  "aggregations": [
-    {
-      "field": "uuid",
-      "op": "count"
-    }
-  ],
-  "visualizations": [
-    "bar_chart",
-    "table"
-  ],
   "filter_query": {
     "operator": "AND",
     "conditions": [
@@ -22,5 +11,35 @@
         "value": "INVOICE"
       }
     ]
-  }
+  },
+  "group_by": "doc_date:month",
+  "aggregations": [
+    {
+      "field": "uuid",
+      "op": "count"
+    }
+  ],
+  "visualizations": [],
+  "components": [
+    {
+      "type": "bar_chart",
+      "content": null,
+      "settings": {}
+    },
+    {
+      "type": "table",
+      "content": null,
+      "settings": {}
+    },
+    {
+      "type": "text",
+      "content": "",
+      "settings": {}
+    },
+    {
+      "type": "text",
+      "content": "",
+      "settings": {}
+    }
+  ]
 }

@@ -782,6 +782,23 @@ class MetadataEditorWidget(QWidget):
 
         self._populate_semantic_table(sd_dict)
 
+        # Phase 113: Auto-assign Playbook based on Tags if none is set
+        if sd and (not getattr(sd, "workflow", None) or not sd.workflow.playbook_id):
+            from core.workflow import WorkflowRegistry
+            registry = WorkflowRegistry()
+            # Try type tags first
+            tags = doc.type_tags or []
+            matched_pb = registry.find_playbook_for_tags(tags)
+            if matched_pb:
+                if not getattr(sd, "workflow", None):
+                    from core.models.semantic import WorkflowInfo
+                    sd.workflow = WorkflowInfo()
+                
+                print(f"[Workflow-GUI] Auto-assigning agent '{matched_pb.id}' for document {doc.uuid}")
+                sd.workflow.playbook_id = matched_pb.id
+                sd.workflow.current_step = "NEW"
+                self._mark_dirty()
+
         # Workflow Logic (Dynamic)
         wf_data = getattr(sd, "workflow", None)
         playbook_id = wf_data.playbook_id if wf_data else None

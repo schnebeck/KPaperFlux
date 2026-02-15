@@ -119,3 +119,29 @@ def test_context_menu_actions(qtbot, mock_db):
     with qtbot.waitSignal(widget.reprocess_requested) as blocker:
         widget.reprocess_requested.emit([doc.uuid])
     assert blocker.args[0] == [doc.uuid]
+def test_positional_persistence_on_refresh(qtbot, mock_db):
+    """Test that selection jumps to the next document at the same row index after refresh."""
+    doc1 = Document(uuid="doc1", original_filename="doc1.pdf")
+    doc2 = Document(uuid="doc2", original_filename="doc2.pdf")
+    
+    # State 1: Two docs
+    mock_db.get_all_entities_view.return_value = [doc1, doc2]
+    
+    widget = DocumentListWidget(db_manager=mock_db)
+    qtbot.addWidget(widget)
+    widget.refresh_list()
+    
+    # Select first doc
+    widget.selectRow(0)
+    assert widget.get_selected_uuids() == ["doc1"]
+    
+    # State 2: doc1 is gone, only doc2 remains
+    mock_db.get_all_entities_view.return_value = [doc2]
+    
+    # Refresh (this should trigger positional jump)
+    # Note: refresh_list might emit multiple signals (clear then select)
+    widget.refresh_list()
+    qtbot.wait_until(lambda: widget.get_selected_uuids() == ["doc2"], timeout=2000)
+    
+    # Check current state
+    assert widget.get_selected_uuids() == ["doc2"]

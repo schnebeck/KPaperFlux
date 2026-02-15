@@ -421,8 +421,27 @@ class FilterManagerDialog(QDialog):
             return
 
         menu = QMenu(self)
+        menu.addAction("Export to Exchange...", lambda: self.export_item(item))
+        menu.addSeparator()
         menu.addAction("Delete", self.delete_item)
         menu.exec(self.tree_widget.viewport().mapToGlobal(pos))
+
+    def export_item(self, item):
+        """Export selected node as portable exchange file."""
+        node = self.item_map.get(id(item))
+        if not node:
+               return
+               
+        from core.exchange import ExchangeService
+        payload_type = "smart_list" if node.node_type == NodeType.FILTER else "filter_tree"
+        
+        path, _ = QFileDialog.getSaveFileName(self, self.tr("Export Item"), f"{node.name}.kpfx", "KPaperFlux Exchange (*.kpfx *.json)")
+        if path:
+            try:
+                ExchangeService.save_to_file(payload_type, node.to_dict(), path)
+                show_selectable_message_box(self, self.tr("Export Successful"), self.tr("Exported to %s") % path)
+            except Exception as e:
+                QMessageBox.critical(self, self.tr("Error"), f"Failed to export: {e}")
 
     def on_item_dropped(self, source_item, target_item):
         source_node = self.item_map.get(id(source_item))

@@ -32,7 +32,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 ## 🖼️ Showcase: Intelligence in Action
 
 <p align="center">
-  <img src="docs/screenshots/dashboard_main.png" alt="Monthly Spending Trends" width="800"><br>
+  <img src="docs/screenshots/cockpit_main.png" alt="Monthly Spending Trends" width="800"><br>
   <em><strong>Visual Analytics:</strong> Seamlessly track financial trends with high-density charting and dynamic zooming.</em>
 </p>
 
@@ -73,7 +73,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 *   **Playbooks:** Process documents through custom-defined state machines (e.g., `VERIFIED` → `TO_PAY` → `ARCHIVED`).
 *   **Automation:** Intelligent routing based on AI-evaluated metadata.
 
-### 📊 Advanced Reporting & Dynamic Dashboards
+### 📊 Advanced Reporting & Dynamic Cockpits
 *   **Dynamic Analytics:** Real-time generation of charts (Bar, Pie, Line) based on your entire document corpus.
 *   **Intelligent Visualization:** Pie charts with automatic "Others" grouping, side legends with elision, and pattern-based color distinction for maximum readability.
 *   **Relative Date Filtering:** Predefined smart filters (Today, YTD, Last 90 Days) that stay dynamic as time passes.
@@ -88,7 +88,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 
 ## 🏗️ Status & Development
 *   **Current State:** Active development. High-stability core with rapidly evolving reporting and export capabilities.
-*   **Reporting:** Feature-complete dynamic dashboard engine with multi-format export.
+*   **Reporting:** Feature-complete dynamic reporting engine with multi-format export.
 *   **GUI:** Solid desktop experience; optimized for high-density information displays.
 *   **Standardization:** Strict adherence to European invoicing standards (EN 16931).
 

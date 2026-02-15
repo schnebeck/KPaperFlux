@@ -2,8 +2,8 @@ from typing import List, Dict, Any, Optional
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QFrame, QScrollArea, QComboBox, QSizePolicy,
-                             QMenu, QTextEdit, QToolButton)
-from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer
+                             QMenu, QTextEdit, QToolButton, QFileDialog, QMessageBox)
+from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer, QThread
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush, QIcon
 
 from core.reporting import ReportGenerator, ReportRegistry
@@ -14,6 +14,23 @@ from gui.report_editor import ReportEditorWidget
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
 import math
 import os
+
+class ReportWorker(QThread):
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+
+    def __init__(self, repo_gen, db_manager, definition):
+        super().__init__()
+        self.repo_gen = repo_gen
+        self.db_manager = db_manager
+        self.definition = definition
+
+    def run(self):
+        try:
+            results = self.repo_gen.run_custom_report(self.db_manager, self.definition)
+            self.finished.emit(results)
+        except Exception as e:
+            self.error.emit(str(e))
 
 class ChartWidget(QWidget):
     """Base class for interactive charts."""
@@ -375,6 +392,9 @@ class ReportingWidget(QWidget):
         self.current_definition = None
         self.zoom_level = 1.0
         self.active_charts = []
+        self.active_definitions = []
+        self.pending_workers = [] # Keep references to threads
+        self.setAcceptDrops(True)
         self.init_ui()
         self.load_available_reports()
 
@@ -391,14 +411,37 @@ class ReportingWidget(QWidget):
         self.combo_reports.setMinimumWidth(250)
         self.combo_reports.currentIndexChanged.connect(self.refresh_data)
         toolbar.addWidget(self.combo_reports)
+
+        self.btn_comment = QPushButton("💬 " + self.tr("Add Comment"))
+        self.btn_comment.setToolTip(self.tr("Add a text block to the current report"))
+        self.btn_comment.clicked.connect(self.add_text_block)
+        toolbar.addWidget(self.btn_comment)
         
-        self.btn_edit = QPushButton("⚙️ " + self.tr("Edit Definition"))
-        self.btn_edit.clicked.connect(self.open_editor)
-        toolbar.addWidget(self.btn_edit)
-        
-        self.btn_new = QPushButton("✚ " + self.tr("New Report"))
+        self.btn_new = QPushButton("✚ " + self.tr("New Definition"))
+        self.btn_new.setToolTip(self.tr("Create a new report template"))
         self.btn_new.clicked.connect(self.create_new_report)
         toolbar.addWidget(self.btn_new)
+
+        self.btn_import = QPushButton("📥 " + self.tr("Import Style"))
+        self.btn_import.setToolTip(self.tr("Import report definition from an exported PDF file"))
+        self.btn_import.clicked.connect(self.import_report_from_file)
+        toolbar.addWidget(self.btn_import)
+
+        self.btn_clear = QPushButton("🗑️ " + self.tr("Clear"))
+        self.btn_clear.clicked.connect(self.clear_results)
+        toolbar.addWidget(self.btn_clear)
+
+        toolbar.addSpacing(20)
+
+        self.btn_save_layout = QPushButton("💾 " + self.tr("Save Layout"))
+        self.btn_save_layout.setToolTip(self.tr("Save the current canvas arrangement"))
+        self.btn_save_layout.clicked.connect(self.save_layout)
+        toolbar.addWidget(self.btn_save_layout)
+
+        self.btn_load_layout = QPushButton("📂 " + self.tr("Load Layout"))
+        self.btn_load_layout.setToolTip(self.tr("Load a saved canvas arrangement"))
+        self.btn_load_layout.clicked.connect(self.load_layout)
+        toolbar.addWidget(self.btn_load_layout)
 
         toolbar.addStretch()
 
@@ -467,6 +510,130 @@ class ReportingWidget(QWidget):
         # Result Placeholder
         self.clear_results()
 
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        from core.exchange import ExchangeService
+        urls = event.mimeData().urls()
+        if not urls:
+            return
+
+        imported_reports = 0
+        layouts_loaded = 0
+
+        for url in urls:
+            path = url.toLocalFile()
+            if not os.path.exists(path):
+                continue
+
+            payload = ExchangeService.load_from_file(path)
+            if not payload:
+                continue
+
+            if payload.type == "report_definition":
+                # For a fresh drop, common expectation is to see ONLY this report
+                self.clear_results()
+                
+                # 1. Import to library
+                if self._save_report_definition(payload.payload):
+                    imported_reports += 1
+                
+                # 2. ALSO run/show it immediately
+                try:
+                    from core.reporting import ReportDefinition
+                    definition = ReportDefinition(**payload.payload)
+                    
+                    # Ensure it's in the combo box so Export works
+                    idx = self.combo_reports.findData(definition.id)
+                    if idx >= 0:
+                        self.combo_reports.setCurrentIndex(idx)
+                    else:
+                        self.load_available_reports()
+                        idx = self.combo_reports.findData(definition.id)
+                        if idx >= 0:
+                            self.combo_reports.setCurrentIndex(idx)
+
+                    self._generate_report_for_definition(definition)
+                    # Scroll to top to ensure it's visible
+                    self.scroll.verticalScrollBar().setValue(0)
+                except Exception as e:
+                    print(f"Failed to auto-run dropped report: {e}")
+
+            elif payload.type == "layout":
+                self.clear_results()
+                reports = payload.payload.get("reports", [])
+                from core.reporting import ReportDefinition
+                for r_data in reports:
+                    try:
+                        definition = ReportDefinition(**r_data)
+                        self._generate_report_for_definition(definition)
+                    except Exception as e:
+                        print(f"Failed to load report from dropped layout: {e}")
+                layouts_loaded += 1
+                self.scroll.verticalScrollBar().setValue(0)
+
+        if imported_reports > 0 or layouts_loaded > 0:
+            self.load_available_reports()
+            from gui.utils import show_notification
+            msg = []
+            if imported_reports > 0:
+                msg.append(self.tr("Report style imported and displayed."))
+            if layouts_loaded > 0:
+                msg.append(self.tr("Layout loaded."))
+            
+            show_notification(self, self.tr("Import Successful"), " ".join(msg))
+
+    def import_report_from_file(self):
+        path, _ = QFileDialog.getOpenFileName(self, self.tr("Import Report Style"), "", "PDF Files (*.pdf)")
+        if path:
+            if self._import_from_pdf(path):
+                self.load_available_reports()
+                show_selectable_message_box(
+                    self, 
+                    self.tr("Import Successful"), 
+                    self.tr("The report style was successfully imported and added to your library."),
+                    icon=QMessageBox.Icon.Information
+                )
+            else:
+                from gui.utils import show_selectable_message_box
+                from PyQt6.QtWidgets import QMessageBox
+                show_selectable_message_box(
+                    self, 
+                    self.tr("Import Failed"), 
+                    self.tr("Could not find an embedded report configuration in this PDF."),
+                    icon=QMessageBox.Icon.Warning
+                )
+
+    def _import_from_pdf(self, path) -> bool:
+        """Extracts report definition from PDF via ExchangeService."""
+        from core.exchange import ExchangeService
+        payload = ExchangeService.extract_from_pdf(path)
+        if payload and payload.type == "report_definition":
+            return self._save_report_definition(payload.payload)
+        return False
+
+    def _save_report_definition(self, config: Dict[str, Any]) -> bool:
+        """Saves a report definition dictionary to the local report directory."""
+        import json
+        # Ensure custom ID to avoid overwriting defaults
+        rid = config.get("id", "imported")
+        if rid.startswith("default_"):
+            rid = rid.replace("default_", "custom_")
+            config["id"] = rid
+                        
+        out_path = os.path.join(self.report_dir, f"{rid}.json")
+        try:
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(json.dumps(config, indent=2))
+            return True
+        except Exception as e:
+            print(f"Failed to save report definition: {e}")
+            return False
+
     def load_available_reports(self):
         self._lock_refreshes = True
         self.registry.load_from_directory(self.report_dir)
@@ -480,12 +647,12 @@ class ReportingWidget(QWidget):
 
     def clear_results(self):
         self.active_charts = []
-        for i in reversed(range(self.content_layout.count())): 
-            item = self.content_layout.itemAt(i)
+        self.active_definitions = []
+        while self.content_layout.count():
+            item = self.content_layout.takeAt(0)
             if item.widget():
                 item.widget().setParent(None)
             elif item.layout():
-                # Recursively clear layouts (like charts_row)
                 self._clear_layout(item.layout())
         
         placeholder = QLabel(self.tr("Please select a report to display data."))
@@ -508,18 +675,61 @@ class ReportingWidget(QWidget):
         
         report_id = self.combo_reports.currentData()
         if not report_id:
-            self.clear_results()
             return
             
         definition = self.registry.get_report(report_id)
         if not definition: return
-        self.current_definition = definition
+        self.current_definition = definition # Track the last selected for Editor
         
-        # Execute report via engine
-        results = self.repo_gen.run_custom_report(self.db_manager, definition)
+        self._generate_report_for_definition(definition)
+
+    def _generate_report_for_definition(self, definition: ReportDefinition):
+        """Asynchronously triggers report generation for a given definition."""
+        # UI Feedback
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        self.combo_reports.setEnabled(False)
+
+        # Execute report via background worker
+        if definition not in self.active_definitions:
+            self.active_definitions.append(definition)
+            
+        worker = ReportWorker(self.repo_gen, self.db_manager, definition)
+        worker.finished.connect(lambda res, d=definition, w=worker: self._on_report_finished(res, d, w))
+        worker.error.connect(lambda err, w=worker: self._on_report_error(err, w))
+        self.pending_workers.append(worker)
+        worker.start()
+
+    def _on_report_finished(self, results, definition, worker):
+        if worker in self.pending_workers:
+            self.pending_workers.remove(worker)
+        
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.combo_reports.setEnabled(True)
+        # Remove placeholder if it's there
+        if self.content_layout.count() > 0:
+            item = self.content_layout.itemAt(0)
+            if item.widget() and isinstance(item.widget(), QLabel) and item.widget().text().startswith(self.tr("Please select")):
+                item.widget().setParent(None)
+                
         self.render_report(results, definition)
 
-    def render_report(self, results, definition: ReportDefinition):
+    def _on_report_error(self, error_msg, worker):
+        if worker in self.pending_workers:
+            self.pending_workers.remove(worker)
+        
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.combo_reports.setEnabled(True)
+        from gui.utils import show_selectable_message_box
+        from PyQt6.QtWidgets import QMessageBox
+        show_selectable_message_box(self, self.tr("Report Error"), f"{self.tr('Failed to generate report')}:\n{error_msg}", icon=QMessageBox.Icon.Critical)
+
+    def render_report(self, results, definition: ReportDefinition, clear_active_charts=False):
+        # 0. Strip the bottom stretch if exists
+        self.strip_bottom_stretch()
+        
+        if clear_active_charts:
+            self.active_charts = []
+        
         # 1. Migration/Preparation: Ensure components list exists
         if not definition.components:
             # Migrate legacy visualizations to components
@@ -528,48 +738,61 @@ class ReportingWidget(QWidget):
             # Clear legacy list to prefer components
             definition.visualizations = []
 
-        # Clear previous
-        for i in reversed(range(self.content_layout.count())): 
-            item = self.content_layout.itemAt(i)
-            if item.widget(): item.widget().setParent(None)
-            elif item.layout(): self._clear_layout(item.layout())
+        # Phase 113: Artifact Prevention
+        # If a report has no components (e.g. all deleted), we don't render its title/sep.
+        if not definition.components:
+            if definition in self.active_definitions:
+                self.active_definitions.remove(definition)
             
+            # If nothing else is visible, restore placeholder
+            if not self.active_definitions and self.content_layout.count() == 0:
+                self.clear_results()
+            return
+
+        # Separator for multiple reports
+        if self.content_layout.count() > 0:
+            sep = QFrame()
+            sep.setFrameShape(QFrame.Shape.HLine)
+            sep.setFrameShadow(QFrame.Shadow.Sunken)
+            sep.setStyleSheet("color: #e2e8f0; margin: 20px 0;")
+            self.content_layout.addWidget(sep)
+
         # Title & Info
         title_lbl = QLabel(self.tr(results["title"]))
-        title_lbl.setStyleSheet("font-size: 18pt; font-weight: bold; color: #2c3e50;")
+        title_lbl.setStyleSheet("font-size: 18pt; font-weight: bold; color: #2c3e50; margin-top: 10px;")
         self.content_layout.addWidget(title_lbl)
         
         if definition.description:
             desc_lbl = QLabel(self.tr(definition.description))
-            desc_lbl.setStyleSheet("color: #7f8c8d; font-style: italic;")
+            desc_lbl.setStyleSheet("color: #7f8c8d; font-style: italic; margin-bottom: 20px;")
             self.content_layout.addWidget(desc_lbl)
-
-        self.active_charts = []
-        report_name = QCoreApplication.translate("ReportingWidget", results["title"])
 
         # Render each component in order
         for idx, comp in enumerate(definition.components):
             widget = None
             if comp.type == "bar_chart":
                 chart = BarChartWidget()
+                chart.definition = definition # Store for drill-down
                 chart.set_data(results["labels"], results["series"])
                 chart.segment_clicked.connect(self._on_chart_drill_down)
                 self.active_charts.append(chart)
-                widget = self._wrap_component(chart, self.tr("Bar Chart"), idx)
+                widget = self._wrap_component(chart, self.tr("Bar Chart"), idx, definition)
             
             elif comp.type == "pie_chart":
                 chart = PieChartWidget()
+                chart.definition = definition
                 chart.set_data(results["labels"], results["series"])
                 chart.segment_clicked.connect(self._on_chart_drill_down)
                 self.active_charts.append(chart)
-                widget = self._wrap_component(chart, self.tr("Vendor Distribution"), idx)
+                widget = self._wrap_component(chart, self.tr("Vendor Distribution"), idx, definition)
 
             elif comp.type == "line_chart" or comp.type == "trend_chart":
                 chart = LineChartWidget()
+                chart.definition = definition
                 chart.set_data(results["labels"], results["series"])
                 chart.segment_clicked.connect(self._on_chart_drill_down)
                 self.active_charts.append(chart)
-                widget = self._wrap_component(chart, self.tr("Trend Analysis"), idx)
+                widget = self._wrap_component(chart, self.tr("Trend Analysis"), idx, definition)
 
             elif comp.type == "table":
                 table = QTableWidget()
@@ -588,7 +811,11 @@ class ReportingWidget(QWidget):
                     table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
                     table.setMinimumHeight(300)
                     table.setStyleSheet("background: white; border: 1px solid #ddd; border-radius: 4px;")
-                    widget = self._wrap_component(table, self.tr("Detailed Data"), idx)
+                    
+                    # Phase 113: Drill-Down Support for Tables
+                    table.cellClicked.connect(lambda r, c, t=table, d=definition: self._on_table_drill_down(r, c, t, d))
+
+                    widget = self._wrap_component(table, self.tr("Detailed Data"), idx, definition)
                 else:
                     widget = QLabel(self.tr("No data for table."))
 
@@ -600,20 +827,25 @@ class ReportingWidget(QWidget):
                 editor.setStyleSheet("background: #fdfdfd; font-family: sans-serif; font-size: 11pt; border: 1px solid #e2e8f0;")
                 
                 # Update content on change
-                def update_content(c=comp, e=editor):
+                def update_content(c=comp, e=editor, d=definition):
                     c.content = e.toPlainText()
-                    self._mark_dirty()
+                    self._mark_dirty(d)
 
                 editor.textChanged.connect(update_content)
-                widget = self._wrap_component(editor, self.tr("Annotation / Comment"), idx)
+                widget = self._wrap_component(editor, self.tr("Annotation / Comment"), idx, definition)
 
             if widget:
                 self.content_layout.addWidget(widget)
 
         self.apply_zoom_visuals()
-        self.content_layout.addStretch()
+    def strip_bottom_stretch(self):
+        """Removes the stretch at the end of content_layout if it exists."""
+        if self.content_layout.count() > 0:
+            item = self.content_layout.itemAt(self.content_layout.count() - 1)
+            if item.spacerItem():
+                self.content_layout.removeItem(item)
 
-    def _wrap_component(self, inner_widget, title, index):
+    def _wrap_component(self, inner_widget, title, index, definition):
         frame = QFrame()
         frame.setObjectName("ComponentCard")
         frame.setStyleSheet("""
@@ -634,20 +866,20 @@ class ReportingWidget(QWidget):
         btn_up = QToolButton()
         btn_up.setText("↑")
         btn_up.setToolTip(self.tr("Move Up"))
-        btn_up.clicked.connect(lambda: self.move_component(index, -1))
+        btn_up.clicked.connect(lambda: self.move_component(index, -1, definition))
         btn_up.setEnabled(index > 0)
         
         btn_down = QToolButton()
         btn_down.setText("↓")
         btn_down.setToolTip(self.tr("Move Down"))
-        btn_down.clicked.connect(lambda: self.move_component(index, 1))
-        btn_down.setEnabled(index < len(self.current_definition.components) - 1)
+        btn_down.clicked.connect(lambda: self.move_component(index, 1, definition))
+        btn_down.setEnabled(index < len(definition.components) - 1)
 
         btn_del = QToolButton()
         btn_del.setText("✕")
         btn_del.setToolTip(self.tr("Delete Component"))
         btn_del.setStyleSheet("color: #e74c3c;")
-        btn_del.clicked.connect(lambda: self.delete_component(index))
+        btn_del.clicked.connect(lambda: self.delete_component(index, definition))
 
         header.addWidget(btn_up)
         header.addWidget(btn_down)
@@ -657,45 +889,60 @@ class ReportingWidget(QWidget):
         main_ly.addWidget(inner_widget)
         return frame
 
-    def move_component(self, index, delta):
-        if not self.current_definition: return
-        comps = self.current_definition.components
+    def move_component(self, index, delta, definition):
+        comps = definition.components
         new_idx = index + delta
         if 0 <= new_idx < len(comps):
             comps[index], comps[new_idx] = comps[new_idx], comps[index]
-            self._mark_dirty()
-            self.refresh_data()
+            self._mark_dirty(definition)
+            self.refresh_data_all() # Fully refresh all reports to reflect move within one
 
-    def delete_component(self, index):
-        if not self.current_definition: return
-        self.current_definition.components.pop(index)
-        self._mark_dirty()
-        self.refresh_data()
+    def delete_component(self, index, definition):
+        definition.components.pop(index)
+        self._mark_dirty(definition)
+        self.refresh_data_all()
 
     def add_text_block(self):
         if not self.current_definition: return
         self.current_definition.components.append(ReportComponent(type="text", content=""))
-        self._mark_dirty()
-        self.refresh_data()
+        self._mark_dirty(self.current_definition)
+        self.refresh_data_all()
 
-    def _mark_dirty(self):
-        """Sets a timer to save the report definition after a short delay."""
-        if hasattr(self, "_save_timer") and self._save_timer.isActive():
-            self._save_timer.stop()
+    def _mark_dirty(self, definition):
+        """Sets a timer to save a specific report definition."""
+        if not hasattr(self, "_save_timers"): self._save_timers = {}
         
-        self._save_timer = QTimer()
-        self._save_timer.setSingleShot(True)
-        self._save_timer.timeout.connect(self._save_current_report)
-        self._save_timer.start(1000) # Save after 1 second of inactivity
+        timer = self._save_timers.get(definition.id)
+        if timer and timer.isActive():
+            timer.stop()
+        
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(lambda: self._save_report(definition))
+        self._save_timers[definition.id] = timer
+        timer.start(1000)
 
-    def _save_current_report(self):
-        if not self.current_definition: return
-        path = os.path.join(self.report_dir, f"{self.current_definition.id}.json")
+    def _save_report(self, definition):
+        path = os.path.join(self.report_dir, f"{definition.id}.json")
         try:
             with open(path, "w", encoding="utf-8") as f:
-                f.write(self.current_definition.model_dump_json(indent=2))
+                f.write(definition.model_dump_json(indent=2))
         except Exception as e:
             print(f"Failed to save report: {e}")
+
+    def refresh_data_all(self):
+        """Clears and re-renders all currently involve reports."""
+        defs_to_reload = list(self.active_definitions)
+        self.clear_results()
+        
+        # Remove placeholder added by clear_results
+        if self.content_layout.count() > 0:
+            item = self.content_layout.itemAt(0)
+            if item.widget() and isinstance(item.widget(), QLabel):
+                item.widget().setParent(None)
+
+        for definition in defs_to_reload:
+            self._generate_report_for_definition(definition)
 
     def set_global_zoom(self, level):
         self.zoom_level = max(0.5, min(3.0, level))
@@ -728,13 +975,26 @@ class ReportingWidget(QWidget):
 
     def _on_chart_drill_down(self, label):
         """Builds a filter based on the clicked chart element and sends it to MainWindow."""
-        if not self.current_definition: return
+        chart = self.sender()
+        definition = getattr(chart, "definition", self.current_definition)
+        self._apply_drill_down(label, definition)
+
+    def _on_table_drill_down(self, row, col, table, definition):
+        """Builds a filter based on the clicked table row (Group Label)."""
+        # We always take the first column as the grouping label
+        item = table.item(row, 0)
+        if item:
+            self._apply_drill_down(item.text(), definition)
+
+    def _apply_drill_down(self, label, definition):
+        """Unified drill-down logic for charts and tables."""
+        if not definition: return
         
         # Base filter from report
-        query = self.current_definition.filter_query or {"operator": "AND", "conditions": []}
+        query = definition.filter_query or {"operator": "AND", "conditions": []}
         
         drill_cond = None
-        group_field = self.current_definition.group_by
+        group_field = definition.group_by
         
         if group_field:
             if group_field == "doc_date:month":
@@ -756,9 +1016,17 @@ class ReportingWidget(QWidget):
                 drill_cond = {"field": group_field, "op": "equals", "value": label}
 
         if drill_cond:
-            # Add to current query
-            new_query = {"operator": "AND", "conditions": [query, drill_cond]}
-            self.filter_requested.emit(new_query)
+            # Phase 115: Better Drill-Down
+            # We filter for EVERYTHING shown in the report/histogram (base query)
+            # but we request SELECTION for the specific bucket/segment.
+            bucket_query = {"operator": "AND", "conditions": [query, drill_cond]}
+            
+            payload = {
+                "query": query, 
+                "select_query": bucket_query,
+                "label": f"{definition.name} ({label})"
+            }
+            self.filter_requested.emit(payload)
 
     def open_editor(self):
         report_id = self.combo_reports.currentData()
@@ -862,10 +1130,15 @@ class ReportingWidget(QWidget):
                 elif comp.type == "text":
                     render_items.append({"type": "text", "value": comp.content})
             
-            # 3. Generate PDF
+            # 3. Generate PDF (with embedded config for re-import)
             pdf_gen = PdfReportGenerator()
             try:
-                pdf_bytes = pdf_gen.generate(results["title"], render_items)
+                # Use model_dump() directly for the new metadata API
+                pdf_bytes = pdf_gen.generate(
+                    results["title"], 
+                    render_items, 
+                    metadata=definition.model_dump()
+                )
                 
                 path, _ = QFileDialog.getSaveFileName(self, self.tr("Export PDF"), f"{definition.name}_Report.pdf", "PDF Files (*.pdf)")
                 if path:
@@ -878,6 +1151,7 @@ class ReportingWidget(QWidget):
                 QMessageBox.critical(self, self.tr("Error"), f"Failed to generate PDF report: {str(e)}")
             
         elif fmt == "zip":
+            # ... existing zip code ...
             path, _ = QFileDialog.getSaveFileName(self, self.tr("Export ZIP"), f"{definition.name}_Documents.zip", "ZIP Files (*.zip)")
             if path:
                 import zipfile
@@ -885,9 +1159,54 @@ class ReportingWidget(QWidget):
                     with zipfile.ZipFile(path, 'w') as zip_f:
                         for doc in docs:
                             if os.path.exists(doc.path):
-                                # Add file to zip, using its display name
                                 arcname = os.path.basename(doc.path)
                                 zip_f.write(doc.path, arcname)
                     QMessageBox.information(self, self.tr("Export ZIP"), self.tr("Successfully created ZIP archive with %d documents.") % len(docs))
                 except Exception as e:
                     QMessageBox.critical(self, self.tr("Error"), f"Failed to create ZIP: {str(e)}")
+
+    def save_layout(self):
+        """Saves current canvas state via ExchangeService."""
+        if not self.active_definitions:
+            QMessageBox.warning(self, self.tr("Save Layout"), self.tr("Canvas is empty."))
+            return
+            
+        from core.exchange import ExchangeService
+        
+        # Prepare payload: list of current report definitions
+        layout_data = {
+            "name": "My Layout",
+            "reports": [d.model_dump() for d in self.active_definitions]
+        }
+        
+        path, _ = QFileDialog.getSaveFileName(self, self.tr("Save Layout"), "my_layout.kpfx", "KPaperFlux Exchange (*.kpfx *.json)")
+        if path:
+            try:
+                ExchangeService.save_to_file("layout", layout_data, path)
+                QMessageBox.information(self, self.tr("Save Layout"), self.tr("Layout saved successfully."))
+            except Exception as e:
+                QMessageBox.critical(self, self.tr("Error"), f"Failed to save layout: {e}")
+
+    def load_layout(self):
+        """Loads a layout arrangement via ExchangeService."""
+        path, _ = QFileDialog.getOpenFileName(self, self.tr("Load Layout"), "", "KPaperFlux Files (*.kpfx *.json *.pdf)")
+        if not path:
+            return
+            
+        from core.exchange import ExchangeService
+        payload = ExchangeService.load_from_file(path)
+            
+        if payload and payload.type == "layout":
+            self.clear_results()
+            reports = payload.payload.get("reports", [])
+            for r_data in reports:
+                try:
+                    definition = ReportDefinition(**r_data)
+                    self._generate_report_for_definition(definition)
+                except Exception as e:
+                    print(f"Failed to load report in layout: {e}")
+            QMessageBox.information(self, self.tr("Load Layout"), self.tr("Layout loaded successfully."))
+        elif payload:
+             QMessageBox.warning(self, self.tr("Load Layout"), self.tr("File is not a Layout (Type: %s)") % payload.type)
+        else:
+             QMessageBox.warning(self, self.tr("Load Layout"), self.tr("No valid KPaperFlux payload found."))

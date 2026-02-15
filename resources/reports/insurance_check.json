@@ -1,26 +1,40 @@
 {
-    "id": "insurance_check",
-    "name": "Insurances Trend",
-    "description": "Analysis of insurance costs over time.",
-    "group_by": "doc_date:month",
-    "aggregations": [
-        {
-            "field": "amount",
-            "op": "sum"
-        }
-    ],
-    "visualizations": [
-        "line_chart",
-        "table"
-    ],
-    "filter_query": {
-        "operator": "AND",
-        "conditions": [
-            {
-                "field": "sender",
-                "op": "contains",
-                "value": "Versicherung"
-            }
-        ]
+  "id": "insurance_check",
+  "name": "Insurances Trend",
+  "description": "Analysis of insurance costs over time.",
+  "filter_query": {
+    "operator": "AND",
+    "conditions": [
+      {
+        "field": "sender",
+        "op": "contains",
+        "value": "Versicherung"
+      }
+    ]
+  },
+  "group_by": "doc_date:month",
+  "aggregations": [
+    {
+      "field": "amount",
+      "op": "sum"
     }
+  ],
+  "visualizations": [],
+  "components": [
+    {
+      "type": "line_chart",
+      "content": null,
+      "settings": {}
+    },
+    {
+      "type": "table",
+      "content": null,
+      "settings": {}
+    },
+    {
+      "type": "text",
+      "content": "",
+      "settings": {}
+    }
+  ]
 }

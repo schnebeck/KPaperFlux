@@ -1,27 +1,24 @@
 {
-    "id": "monthly_spending",
-    "name": "Monthly Spending Trend",
-    "description": "Historical view of gross spending across all categories.",
-    "group_by": "doc_date:month",
-    "aggregations": [
-        {
-            "field": "amount",
-            "op": "sum"
-        }
-    ],
-    "visualizations": [
-        "bar_chart",
-        "trend_chart",
-        "table"
-    ],
-    "filter_query": {
-        "operator": "AND",
-        "conditions": [
-            {
-                "field": "doc_date",
-                "op": "gte",
-                "value": "2025-01-01"
-            }
-        ]
+  "id": "monthly_spending",
+  "name": "Monthly Spending Trend",
+  "description": "Historical view of gross spending across all categories.",
+  "filter_query": {
+    "operator": "AND",
+    "conditions": [
+      {
+        "field": "doc_date",
+        "op": "gte",
+        "value": "2025-01-01"
+      }
+    ]
+  },
+  "group_by": "doc_date:month",
+  "aggregations": [
+    {
+      "field": "amount",
+      "op": "sum"
     }
+  ],
+  "visualizations": [],
+  "components": []
 }

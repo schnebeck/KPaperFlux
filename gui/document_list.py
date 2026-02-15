@@ -159,7 +159,7 @@ class DocumentListWidget(QWidget):
         self.current_filter = {}
         self.current_filter_text = ""
         self.current_advanced_query = None
-        self.current_dashboard_query = None # Phase 105: Dashboard Precedence
+        self.current_cockpit_query = None # Phase 105: Cockpit Precedence
         self.advanced_filter_active = True   # Phase 105: Active Rule Toggle
         self.target_uuid_to_restore = None   # Phase 105: Programmatic override
         self.dynamic_columns = []
@@ -224,6 +224,12 @@ class DocumentListWidget(QWidget):
         self.tree.header().setSectionsMovable(True) # Explicitly enable DnD reordering
         layout.addWidget(self.tree)
 
+        # Phase 113: Lazy Loading / Infinite Scroll
+        self.CHUNK_SIZE = 100
+        self._all_docs = []
+        self._loaded_count = 0
+        self.tree.verticalScrollBar().valueChanged.connect(self._check_scroll_bottom)
+
         # 5. Initialization and Restoration
         self.update_breadcrumb()
         
@@ -239,7 +245,8 @@ class DocumentListWidget(QWidget):
         # Final Header setup
         header.setStretchLastSection(False)
         header.setCascadingSectionResizes(True)
-        header.setSectionsMovable(True) 
+        header.setSectionsMovable(True)
+        header.setSectionsClickable(True)
 
         # Persistence: Auto-save on move/resize/sort (Debounced)
         self._save_timer = QTimer()
@@ -300,17 +307,13 @@ class DocumentListWidget(QWidget):
         dlg = ViewManagerDialog(
             self.filter_tree,
             parent=self,
-            db_manager=None, # Passed if available, DocumentList might not have it directly?
-            # DocumentList is usually child of MainWindow which has db_manager.
-            # We might need to access parent or store db_manager.
+            db_manager=None,
             current_state_callback=self.get_view_state
         )
 
-        # We need db_manager for saving deeply.
-        # Assuming MainWindow sets it or we traverse parent.
         mw = self.window()
-        if hasattr(mw, "db_manager"):
-            dlg.db_manager = mw.db_manager
+        if hasattr(mw, "save_filter_tree"):
+            dlg.save_callback = mw.save_filter_tree
 
         dlg.view_selected.connect(self._on_view_loaded)
         dlg.exec()
@@ -731,15 +734,15 @@ class DocumentListWidget(QWidget):
             docs = self.db_manager.get_deleted_entities_view()
         else:
             # FIX: Prioritize Advanced Filter (Search) if it is set, regardless of "active" flag if it comes from search
-            # The issue was that Dashboard Filter was overriding Search.
+            # The issue was that Cockpit Filter was overriding Search.
             # We assume if current_advanced_query is SET, it should be used.
             # advanced_filter_active might be toggled by the UI checkbox, but search should override.
             if self.current_advanced_query:
                 active_query = self.current_advanced_query
                 print(f"[DEBUG] refresh_list: Using Advanced/Search Filter: {active_query}")
-            elif self.current_dashboard_query:
-                active_query = self.current_dashboard_query
-                print(f"[DEBUG] refresh_list: Rule Editor INACTIVE. Using Dashboard Filter: {active_query}")
+            elif self.current_cockpit_query:
+                active_query = self.current_cockpit_query
+                print(f"[DEBUG] refresh_list: Rule Editor INACTIVE. Using Cockpit Filter: {active_query}")
 
             if active_query:
                  docs = self.db_manager.search_documents_advanced(active_query)
@@ -785,7 +788,7 @@ class DocumentListWidget(QWidget):
         self.tree.blockSignals(True)
         restored = False
 
-        # 1. Higher Priority: Explicit Target ( from Dashboard or Re-analysis)
+        # 1. Higher Priority: Explicit Target ( from Cockpit or Re-analysis)
         if self.target_uuid_to_restore:
              self.select_document(self.target_uuid_to_restore)
              self.target_uuid_to_restore = None
@@ -818,10 +821,25 @@ class DocumentListWidget(QWidget):
 
         self.tree.blockSignals(False)
 
-        # Emit selection signal manually if we forced a new selection
-        # (Signals were blocked during restoration)
-        if restored:
-             self._on_selection_changed()
+        # 5. Handle Programmatic Target Selection (Drill-Down Phase 115)
+        if hasattr(self, "target_select_query") and self.target_select_query:
+            try:
+                select_docs = self.db_manager.search_documents_advanced(self.target_select_query)
+                select_uuids = [d.uuid for d in select_docs]
+                if select_uuids:
+                    # Ensure all documents are loaded into the tree for selection to work
+                    # (Infinite scroll would otherwise hide these items)
+                    while self._loaded_count < len(self._all_docs):
+                        self._load_next_chunk()
+
+                    self.select_rows_by_uuids(select_uuids)
+                    restored = True
+            except Exception as e:
+                print(f"[ERROR] Drill-down selection failed: {e}")
+            self.target_select_query = None # Clear after use
+
+        # 6. Emit selection signal manually to ensure UI sync
+        self._on_selection_changed()
 
         self.document_count_changed.emit(len(docs), len(docs))
         self.update_breadcrumb()
@@ -1118,7 +1136,7 @@ class DocumentListWidget(QWidget):
             if label:
                  self.view_context = label
             elif query and "field" in query and query["field"] == "uuid" and query["op"] == "in":
-                 self.view_context = "Manual Selection" # Usually from Dashboard or Maintenance
+                 self.view_context = "Manual Selection" # Usually from Cockpit or Maintenance
             else:
                  self.view_context = "Advanced Filter"
 
@@ -1128,159 +1146,183 @@ class DocumentListWidget(QWidget):
         self.tree.setFocus()
 
     def set_advanced_filter_active(self, active: bool):
-        """Toggle between Rule Editor and Dashboard Filter precedence."""
+        """Toggle between Rule Editor and Cockpit Filter precedence."""
         self.advanced_filter_active = active
         self.refresh_list(force_select_first=True)
         self.tree.setFocus()
 
-    def populate_tree(self, docs):
-        """Populate the tree with document data, including dynamic columns."""
+    def _check_scroll_bottom(self, value):
+        """Infinite Scroll Trigger: Loads more data if user reaches 90% of current view."""
+        vbar = self.tree.verticalScrollBar()
+        if vbar.maximum() > 0 and value > vbar.maximum() * 0.9:
+            self._load_next_chunk()
+
+    def _load_next_chunk(self, reset=False):
+        """Paging engine for QTreeWidget items."""
+        if reset:
+            self.tree.setSortingEnabled(False)
+            self.tree.clear()
+            self._loaded_count = 0
+            self.tree.verticalScrollBar().setValue(0)
+        
+        if self._loaded_count >= len(self._all_docs):
+            return
+
+        # Disable sorting temporarily to speed up bulk insertion
+        was_sorting = self.tree.isSortingEnabled()
         self.tree.setSortingEnabled(False)
 
-        # Stability: Capture scroll position
+        end = min(self._loaded_count + self.CHUNK_SIZE, len(self._all_docs))
+        chunk = self._all_docs[self._loaded_count:end]
+        
+        for doc in chunk:
+            item = self._create_tree_item(doc)
+            self.tree.addTopLevelItem(item)
+            
+        self._loaded_count = end
+        
+        # Restore sorting if it was active
+        if was_sorting:
+            self.tree.setSortingEnabled(True)
+
+    def _create_tree_item(self, doc) -> SortableTreeWidgetItem:
+        """Centralized factory for document list items."""
+        created_str = format_datetime(doc.created_at)
+        created_sort = str(doc.created_at) if doc.created_at else ""
+
+        filename = doc.original_filename or f"Entity {doc.uuid[:8]}"
+        pages_sort = doc.page_count if doc.page_count is not None else 0
+        pages_str = str(pages_sort)
+        status_raw = getattr(doc, "status", "NEW").upper()
+        status = self.status_labels.get(status_raw, status_raw)
+        type_tags = getattr(doc, "type_tags", []) or []
+        combined_types = self.sort_type_tags(set(type_tags))
+        
+        import_str = format_datetime(doc.created_at) or "-"
+        used_str = format_datetime(doc.last_used) or "-"
+        deleted_str = format_datetime(doc.deleted_at) or "-"
+        locked_at_str = format_datetime(doc.locked_at) or "-"
+        processed_str = format_datetime(doc.last_processed_at) or "-"
+        exported_str = format_datetime(doc.exported_at) or "-"
+        
+        sd = doc.semantic_data
+        
+        filename_display = filename
+        p_class = getattr(doc, "pdf_class", "C")
+        if p_class in ["A", "AB"]:
+            filename_display = f"🛡️ {filename}"
+        elif p_class == "B":
+            filename_display = f"⚙️ {filename}"
+        elif p_class == "H":
+            filename_display = f"📦 {filename}"
+
+        col_data = [
+            "",                 # 0: #
+            doc.uuid,           # 1: Entity ID
+            filename_display,   # 2: Filename
+            pages_str,          # 3: Pages
+            import_str,         # 4: Imported Date
+            used_str,           # 5: Used Date
+            deleted_str,        # 6: Deleted Date
+            locked_at_str,      # 7: Locked Date
+            processed_str,      # 8: Autoprocessed Date
+            exported_str,       # 9: Exported Date
+            status,             # 10: Status
+            ", ".join(self.format_tag(t) for t in combined_types if t), # 11: Type Tags
+            ", ".join(str(t) for t in (doc.tags or []) if t), # 12: Tags
+        ]
+
+        # Dynamic Columns
+        num_fixed = len(self.fixed_columns)
+        for key in self.dynamic_columns:
+            val = getattr(doc, key, None)
+            if val is None and doc.semantic_data:
+                val = getattr(doc.semantic_data, key, None)
+                if val is None and hasattr(doc.semantic_data, "model_extra") and doc.semantic_data.model_extra:
+                    val = doc.semantic_data.model_extra.get(key)
+            
+            if key in ["total_amount", "total_gross", "total_net"] and val is not None:
+                try:
+                    locale = QLocale.system()
+                    txt = locale.toCurrencyString(float(val))
+                except:
+                    txt = str(val)
+            elif val is None:
+                txt = "-"
+            elif isinstance(val, (list, dict)):
+                txt = json.dumps(val)
+            else:
+                txt = str(val)
+            col_data.append(txt)
+
+        item = SortableTreeWidgetItem(col_data)
+        item.setData(1, Qt.ItemDataRole.UserRole, doc.uuid)
+        item.setData(3, Qt.ItemDataRole.UserRole, pages_sort)
+        item.setData(4, Qt.ItemDataRole.UserRole, str(doc.created_at or ""))
+        item.setData(5, Qt.ItemDataRole.UserRole, str(doc.last_used or ""))
+        item.setData(6, Qt.ItemDataRole.UserRole, str(doc.deleted_at or ""))
+        item.setData(7, Qt.ItemDataRole.UserRole, str(doc.locked_at or ""))
+        item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_processed_at or ""))
+        item.setData(9, Qt.ItemDataRole.UserRole, str(doc.exported_at or ""))
+        item.setData(10, Qt.ItemDataRole.UserRole, doc.status)
+        item.setData(2, Qt.ItemDataRole.UserRole, p_class)
+
+        if p_class != "C":
+            tips = {
+                "A": self.tr("Digital Original (Signed)"),
+                "B": self.tr("Digital Original (ZUGFeRD/Factur-X)"),
+                "AB": self.tr("Digital Original (Signed & ZUGFeRD)"),
+                "H": self.tr("Hybrid Container (KPaperFlux Protected)")
+            }
+            item.setToolTip(2, tips.get(p_class, ""))
+
+        if combined_types:
+            item.setToolTip(11, "\n".join(self.format_tag(t) for t in combined_types if t))
+
+        if doc.tags:
+            tag_str = ", ".join(str(t) for t in doc.tags if t)
+            item.setData(12, Qt.ItemDataRole.UserRole, tag_str)
+            item.setToolTip(12, "\n".join(str(t) for t in doc.tags if t))
+
+        for d_idx, key in enumerate(self.dynamic_columns):
+            col_idx = num_fixed + d_idx
+            val = getattr(doc, key, None)
+            if val is None and doc.semantic_data:
+                val = getattr(doc.semantic_data, key, None)
+                if val is None and hasattr(doc.semantic_data, "model_extra") and doc.semantic_data.model_extra:
+                    val = doc.semantic_data.model_extra.get(key)
+            if val is not None:
+                item.setData(col_idx, Qt.ItemDataRole.UserRole, val)
+
+        if getattr(doc, "is_immutable", False):
+            brush = QBrush(Qt.GlobalColor.gray)
+            for i in range(len(col_data)):
+                item.setForeground(i, brush)
+        
+        return item
+
+    def populate_tree(self, docs):
+        """Populate the tree using lazy incremental loading."""
+        self.tree.setSortingEnabled(False)
+        self._all_docs = docs
+        self.documents_cache = {doc.uuid: doc for doc in docs}
+        
+        # Stability: Capture current scroll bar state if we are refreshing
         v_bar = self.tree.verticalScrollBar()
         scroll_val = v_bar.value()
 
-        self.tree.clear()
-        self.documents_cache = {doc.uuid: doc for doc in docs}
+        # Phase 113: Load first chunk and reset state
+        self._load_next_chunk(reset=True)
 
-        num_fixed = len(self.fixed_columns)
+        if self.tree.header().sortIndicatorSection() < 0:
+             sort_col = 6 if self.is_trash_mode else 4
+             self.tree.sortByColumn(sort_col, Qt.SortOrder.DescendingOrder)
+        else:
+             self.tree.sortByColumn(self.tree.sortColumn(), self.tree.header().sortIndicatorOrder())
 
-        for i, doc in enumerate(docs):
-            created_str = format_datetime(doc.created_at)
-            created_sort = str(doc.created_at) if doc.created_at else ""
-
-            filename = doc.original_filename or f"Entity {doc.uuid[:8]}"
-            pages_sort = doc.page_count if doc.page_count is not None else 0
-            pages_str = str(pages_sort)
-            status_raw = getattr(doc, "status", "NEW").upper()
-            status = self.status_labels.get(status_raw, status_raw)
-            type_tags = getattr(doc, "type_tags", []) or []
-            # Sort for consistent display
-            combined_types = self.sort_type_tags(set(type_tags))
-            locked_str = self.tr("Yes") if getattr(doc, "is_immutable", False) else self.tr("No")
-
-            # Format all system dates
-            import_str = format_datetime(doc.created_at) or "-"
-            used_str = format_datetime(doc.last_used) or "-"
-            deleted_str = format_datetime(doc.deleted_at) or "-"
-            locked_at_str = format_datetime(doc.locked_at) or "-"
-            processed_str = format_datetime(doc.last_processed_at) or "-"
-            exported_str = format_datetime(doc.exported_at) or "-"
-            sd = doc.semantic_data
-            if sd:
-                data_date_str = str(sd.document_date or "-")
-            else:
-                data_date_str = "-"
-
-
-            filename_display = filename
-            p_class = getattr(doc, "pdf_class", "C")
-            if p_class in ["A", "AB"]:
-                filename_display = f"🛡️ {filename}"
-            elif p_class == "B":
-                filename_display = f"⚙️ {filename}"
-            elif p_class == "H":
-                filename_display = f"📦 {filename}"
-
-            col_data = [
-                "",                 # 0: #
-                doc.uuid,           # 1: Entity ID
-                filename_display,   # 2: Filename
-                pages_str,          # 3: Pages
-                import_str,         # 4: Imported Date
-                used_str,           # 5: Used Date
-                deleted_str,        # 6: Deleted Date
-                locked_at_str,      # 7: Locked Date
-                processed_str,      # 8: Autoprocessed Date
-                exported_str,       # 9: Exported Date
-                status,             # 10: Status
-                ", ".join(self.format_tag(t) for t in combined_types if t), # 11: Type Tags
-                ", ".join(str(t) for t in (doc.tags or []) if t), # 12: Tags
-            ]
-
-            # Phase 102/110: Support Dynamic Columns (including semantic shortcuts)
-            for key in self.dynamic_columns:
-                # Try to get from Doc attributes or semantic_data dict
-                val = getattr(doc, key, None)
-                if val is None and doc.semantic_data:
-                    # Check for direct attribute on semantic_data
-                    val = getattr(doc.semantic_data, key, None)
-                    if val is None and hasattr(doc.semantic_data, "model_extra") and doc.semantic_data.model_extra:
-                        val = doc.semantic_data.model_extra.get(key)
-
-
-                # Consistent Formatting logic
-                if key in ["total_amount", "total_gross", "total_net"] and val is not None:
-                     try:
-                         locale = QLocale.system()
-                         txt = locale.toCurrencyString(float(val))
-                     except:
-                         txt = str(val)
-                elif val is None:
-                    txt = "-"
-                elif isinstance(val, (list, dict)):
-                    txt = json.dumps(val)
-                else:
-                    txt = str(val)
-
-                col_data.append(txt)
-
-            item = SortableTreeWidgetItem(col_data)
-
-            # Set data for identification and sorting
-            item.setData(1, Qt.ItemDataRole.UserRole, doc.uuid) # Logical index 1 is UUID
-            item.setData(3, Qt.ItemDataRole.UserRole, pages_sort)
-            # Sorting and Tooltips for Metadata
-            item.setData(4, Qt.ItemDataRole.UserRole, str(doc.created_at or ""))
-            item.setData(5, Qt.ItemDataRole.UserRole, str(doc.last_used or ""))
-            item.setData(6, Qt.ItemDataRole.UserRole, str(doc.deleted_at or ""))
-            item.setData(7, Qt.ItemDataRole.UserRole, str(doc.locked_at or ""))
-            item.setData(8, Qt.ItemDataRole.UserRole, str(doc.last_processed_at or ""))
-            item.setData(9, Qt.ItemDataRole.UserRole, str(doc.exported_at or ""))
-            item.setData(10, Qt.ItemDataRole.UserRole, doc.status)
-            item.setData(2, Qt.ItemDataRole.UserRole, p_class) # For sorting/filtering
-
-            if p_class != "C":
-                tips = {
-                    "A": self.tr("Digital Original (Signed)"),
-                    "B": self.tr("Digital Original (ZUGFeRD/Factur-X)"),
-                    "AB": self.tr("Digital Original (Signed & ZUGFeRD)"),
-                    "H": self.tr("Hybrid Container (KPaperFlux Protected)")
-                }
-                item.setToolTip(2, tips.get(p_class, ""))
-
-            if combined_types:
-                item.setToolTip(11, "\n".join(self.format_tag(t) for t in combined_types if t))
-
-            if doc.tags:
-                tag_str = ", ".join(str(t) for t in doc.tags if t)
-                item.setData(12, Qt.ItemDataRole.UserRole, tag_str)
-                item.setToolTip(12, "\n".join(str(t) for t in doc.tags if t))
-
-            # Dynamic Columns Sort Data
-            for d_idx, key in enumerate(self.dynamic_columns):
-                col_idx = num_fixed + d_idx
-
-                val = getattr(doc, key, None)
-                if val is None and doc.semantic_data:
-                    val = getattr(doc.semantic_data, key, None)
-                    if val is None and hasattr(doc.semantic_data, "model_extra") and doc.semantic_data.model_extra:
-                        val = doc.semantic_data.model_extra.get(key)
-
-                if val is not None:
-                    item.setData(col_idx, Qt.ItemDataRole.UserRole, val)
-
-            if getattr(doc, "is_immutable", False):
-                brush = QBrush(Qt.GlobalColor.gray)
-                for i in range(len(col_data)):
-                    item.setForeground(i, brush)
-
-            self.tree.addTopLevelItem(item)
-
-        self.tree.setSortingEnabled(True)
-        # Restore scroll
-        v_bar.setValue(scroll_val)
+        # If it was an internal refresh, try to restore scroll
+        if scroll_val > 0:
+            v_bar.setValue(scroll_val)
         # Default sort by Created Descending - only if not already sorted by user/state
         # header.sortIndicatorSection() returns the current sort column (-1 if none)
         # Note: If restored state had a sort, it's already set.
@@ -1353,7 +1395,7 @@ class DocumentListWidget(QWidget):
     def clear_filters(self):
         """Reset all filters and view context."""
         self.current_advanced_query = None
-        self.current_dashboard_query = None
+        self.current_cockpit_query = None
         self.current_filter_text = ""
         self.view_context = "All Documents"
         self.show_trash_bin(False, refresh=True)

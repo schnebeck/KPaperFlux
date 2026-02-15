@@ -10,13 +10,14 @@ import json
 class ViewManagerDialog(QDialog):
     view_selected = pyqtSignal(dict) # Emits the view state dict
 
-    def __init__(self, filter_tree, parent=None, db_manager=None, current_state_callback=None):
+    def __init__(self, filter_tree, parent=None, db_manager=None, current_state_callback=None, save_callback=None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Manage Views"))
         self.resize(400, 500)
         self.filter_tree = filter_tree
         self.db_manager = db_manager
         self.current_state_callback = current_state_callback
+        self.save_callback = save_callback
 
         self.layout = QVBoxLayout(self)
 
@@ -88,8 +89,8 @@ class ViewManagerDialog(QDialog):
             node = FilterNode(name, NodeType.VIEW, data=state)
             self.filter_tree.root.add_child(node)
 
-            if self.db_manager:
-                self.db_manager.save_filter_tree(self.filter_tree)
+            if self.save_callback:
+                self.save_callback()
 
             self.refresh_list()
 
@@ -119,6 +120,6 @@ class ViewManagerDialog(QDialog):
             if confirm == QMessageBox.StandardButton.Yes:
                 if node.parent:
                     node.parent.remove_child(node)
-                    if self.db_manager:
-                        self.db_manager.save_filter_tree(self.filter_tree)
+                    if self.save_callback:
+                        self.save_callback()
                     self.refresh_list()

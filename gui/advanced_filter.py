@@ -158,10 +158,18 @@ class AdvancedFilterWidget(QWidget):
         self.btn_save.clicked.connect(self.save_current_filter)
         top_bar.addWidget(self.btn_save)
 
+        self.btn_export = QPushButton(self.tr("Export..."))
+        self.btn_export.setToolTip(self.tr("Export current filter as a portable exchange file"))
+        self.btn_export.clicked.connect(self.export_current_filter)
+        top_bar.addWidget(self.btn_export)
+
         self.btn_manage = QPushButton(self.tr("Manage"))
         self.btn_manage.clicked.connect(self.manage_filters)
         top_bar.addWidget(self.btn_manage)
         filter_layout.addLayout(top_bar)
+        
+        # Add Drag & Drop support
+        self.setAcceptDrops(True)
 
         # Conditions Area
         self.scroll = QScrollArea()
@@ -1039,6 +1047,52 @@ class AdvancedFilterWidget(QWidget):
                 if idx >= 0:
                     self.combo_filters.setCurrentIndex(idx)
                     self.loaded_filter_node = target_node
+
+    def export_current_filter(self):
+        """Exports the current filter to a standalone .kpfx file."""
+        query = self.get_query_object()
+        if not query or not query.get("conditions"):
+             QMessageBox.warning(self, self.tr("Export Filter"), self.tr("No conditions to export."))
+             return
+             
+        from core.exchange import ExchangeService
+        name = self.loaded_filter_node.name if self.loaded_filter_node else "CustomFilter"
+        
+        path, _ = QFileDialog.getSaveFileName(self, self.tr("Export Filter"), f"{name}.kpfx", "KPaperFlux Exchange (*.kpfx *.json)")
+        if path:
+            try:
+                # We export it as a smart_list type
+                ExchangeService.save_to_file("smart_list", {"name": name, "query": query}, path)
+                show_notification(self, self.tr("Export Successful"), self.tr("Filter exported to %s") % os.path.basename(path))
+            except Exception as e:
+                QMessageBox.critical(self, self.tr("Error"), f"Failed to export filter: {e}")
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+        if not urls:
+               return
+               
+        path = urls[0].toLocalFile()
+        if not os.path.exists(path):
+               return
+               
+        from core.exchange import ExchangeService
+        payload = ExchangeService.load_from_file(path)
+                 
+        if payload and payload.type == "smart_list":
+             data = payload.payload
+             name = data.get("name", "Imported Filter")
+             query = data.get("query", {})
+             if query:
+                  self.load_from_object(query)
+                  show_notification(self, self.tr("Filter Imported"), self.tr("Loaded filter: %s") % name)
+                  # If we have a filter tree, we could auto-save it, but let's just load it for now
+        elif payload:
+             QMessageBox.warning(self, self.tr("Import Failed"), self.tr("File is of type '%s', expected 'smart_list'.") % payload.type)
 
     def manage_filters(self):
         self.open_filter_manager()

@@ -1,7 +1,7 @@
 # KPaperFlux: Strategic Evaluation & Reporting Concept
 
 **Date:** 2026-02-14
-**Status:** Reporting Engine & Visual Dashboards Live (Phase Transition)
+**Status:** Reporting Engine & Visual Cockpits Live (Phase Transition)
 
 ## 1. Status Quo: Forensic Maturity
 
@@ -23,7 +23,7 @@ The goal is now to leverage the "treasure" of extracted data. Reporting in this 
 ### A. Financial Intelligence & Reporting (Mandatory)
 *   **Finance Hub:** Aggregation of `amount` values over custom time periods.
 *   **Tax Preparation:** Automated export (CSV/ZIP) for tax consultants, grouped by categories and tax rates.
-*   **Expense Dashboard:** Visualization of cash flow and burn rates (e.g., "Software Subscriptions", "Insurance").
+*   **Expense Cockpit:** Visualization of cash flow and burn rates (e.g., "Software Subscriptions", "Insurance").
 
 ### B. Process Management & Workflow (Task-Based Interaction)
 *   **Generic State Machine:** Moving from a hard-coded "Processing" state to a freely-definable Workflow Engine (Finite State Machine).
@@ -69,7 +69,7 @@ A "Watchdog" module assesses data health (Anomaly Detection).
 *   **Visual Polish:** Fixed legend alignments and implemented chart-sync-zooming.
 
 ### Phase 2: Actionability (DONE / IN PROGRESS)
-*   **Dashboard Integration:** Multiple report views (Top Senders, Trends) active.
+*   **Cockpit Integration:** Multiple report views (Top Senders, Trends) active.
 *   **Multi-Format Export:** CSV strategy implemented; PDF/ZIP hooks prepared.
 *   **GiroCode Generator:** Core logic ready, needs final UI hook in the payment tab.
 
@@ -116,7 +116,7 @@ While the `HybridEngine` and `Foreground Detection` are complete, the native sup
     *   **Data Injection**: If valid XML is found, inject this data directly into the `SemanticExtraction` model *before* the AI is involved. This ensures 100% accuracy and massive token savings.
 
 2.  **UI - Integrity Status Bar:**
-    *   **Dashboarding in the Viewer**: Add a slim status bar (or top-overlay) to `PdfViewerWidget` with interactive icons:
+    *   **Cockpiting in the Viewer**: Add a slim status bar (or top-overlay) to `PdfViewerWidget` with interactive icons:
         *   🛡️ **Signature Shield**: Verified Digital Signature status (Link to verification details).
         *   ⚙️ **Data Gear**: Presence of ZUGFeRD / EN 16931 structured data.
         *   📎 **Forensic Clip**: Indicator for embedded attachments (Original Source, XML).

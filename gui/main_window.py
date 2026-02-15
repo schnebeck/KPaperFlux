@@ -38,13 +38,14 @@ from core.filter_tree import FilterTree, NodeType
 from core.config import AppConfig
 from core.integrity import IntegrityManager
 from core.utils.forensics import check_pdf_immutable, PDFClass, get_pdf_class
+from core.exchange import ExchangeService, ExchangePayload
 
 # GUI Imports
 from gui.workers import ImportWorker, MainLoopWorker, SimilarityWorker, ReprocessWorker
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
-from gui.dashboard import DashboardWidget
+from gui.cockpit import CockpitWidget
 from gui.advanced_filter import AdvancedFilterWidget
 from gui.settings_dialog import SettingsDialog
 from gui.splitter_dialog import SplitterDialog
@@ -112,7 +113,7 @@ class MainWindow(QMainWindow):
         self.pending_selection = []
 
         # Phase 105: Selection Tracking
-        self._dashboard_selections = {} # query_str -> uuid
+        self._cockpit_selections = {} # query_str -> uuid
         self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
 
         # --- Phase 200: Plugin System ---
@@ -145,10 +146,10 @@ class MainWindow(QMainWindow):
         self.central_stack = QStackedWidget()
         self.setCentralWidget(self.central_stack)
 
-        # --- Page 0: Dashboard (Home) ---
-        self.dashboard_widget = DashboardWidget(self.db_manager, filter_tree=self.filter_tree)
-        self.dashboard_widget.navigation_requested.connect(self.navigate_to_list_filter)
-        self.central_stack.addWidget(self.dashboard_widget)
+        # --- Page 0: Cockpit (Home) ---
+        self.cockpit_widget = CockpitWidget(self.db_manager, filter_tree=self.filter_tree, app_config=self.app_config)
+        self.cockpit_widget.navigation_requested.connect(self.navigate_to_list_filter)
+        self.central_stack.addWidget(self.cockpit_widget)
 
         # --- Page 1: Explorer (Splitter) ---
         self.explorer_widget = QWidget()
@@ -170,7 +171,7 @@ class MainWindow(QMainWindow):
         self.workflow_manager = WorkflowManagerWidget(filter_tree=self.filter_tree)
         self.central_stack.addWidget(self.workflow_manager)
 
-        self.central_stack.setCurrentIndex(0) # Start with Dashboard
+        self.central_stack.setCurrentIndex(0) # Start with Cockpit
         self.central_stack.currentChanged.connect(self._on_tab_changed)
 
         # --- Left Pane (Filter | List | Editor) ---
@@ -230,8 +231,8 @@ class MainWindow(QMainWindow):
 
             # Connect Editor Signals
             self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
-            if hasattr(self, 'dashboard_widget'):
-                 self.editor_widget.metadata_saved.connect(self.dashboard_widget.refresh_stats)
+            if hasattr(self, 'cockpit_widget'):
+                 self.editor_widget.metadata_saved.connect(self.cockpit_widget.refresh_stats)
             # Phase 105: Ensure Rule Editor stays in sync
             self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
 
@@ -288,7 +289,7 @@ class MainWindow(QMainWindow):
         self.read_settings()
 
         # Initial Refresh & UI Sync
-        # We explicitly trigger _on_tab_changed(0) here to ensure the Dashboard looks active 
+        # We explicitly trigger _on_tab_changed(0) here to ensure the Cockpit looks active 
         # and the Filter button is hidden from the very first frame.
         self._on_tab_changed(0)
 
@@ -343,13 +344,24 @@ class MainWindow(QMainWindow):
             self.pdf_viewer.set_highlight_text(search_text)
 
     def load_filter_tree(self):
-        """Load Filter Tree from JSON file, with fallback to starter kit."""
+        """Load Filter Tree using ExchangeService, with fallback to starter kit."""
         if self.filter_config_path.exists():
             print(f"[DEBUG] Loading Filter Tree from: {self.filter_config_path}")
             try:
                 with open(self.filter_config_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.filter_tree.load(data)
+                    content = f.read()
+                    try:
+                        # Try loading as a modern exchange payload
+                        payload = ExchangePayload.model_validate_json(content)
+                        if payload.type == "filter_tree":
+                            self.filter_tree.load(payload.payload)
+                        else:
+                            # If it's a payload but wrong type, log and skip
+                            print(f"[ERROR] Found exchange payload in filter tree, but type is {payload.type}")
+                    except Exception:
+                        # Fallback for transient period/starter: Load raw JSON
+                        data = json.loads(content)
+                        self.filter_tree.load(data)
                 print(f"[DEBUG] Loaded {len(self.filter_tree.root.children)} root items.")
             except Exception as e:
                 print(f"[ERROR] Error loading filter tree: {e}")
@@ -372,13 +384,12 @@ class MainWindow(QMainWindow):
             self.filter_tree.add_trash(root)
 
     def save_filter_tree(self):
-        """Save Filter Tree to JSON file."""
+        """Save Filter Tree using ExchangeService (Universal Standard)."""
         try:
             print(f"[DEBUG] Saving Filter Tree to: {self.filter_config_path}")
-            with open(self.filter_config_path, "w", encoding="utf-8") as f:
-                f.write(self.filter_tree.to_json())
-                f.flush()
-                os.fsync(f.fileno()) # Force write to disk
+            # Save the full tree data (including favorites)
+            tree_data = json.loads(self.filter_tree.to_json())
+            ExchangeService.save_to_file("filter_tree", tree_data, str(self.filter_config_path))
             print("[DEBUG] Filter Tree saved successfully.")
         except Exception as e:
              print(f"[ERROR] Error saving filter tree: {e}")
@@ -669,8 +680,8 @@ class MainWindow(QMainWindow):
         self._refresh_current_editor_selection()
         
         # Refresh Stats
-        if hasattr(self, "dashboard_widget"):
-             self.dashboard_widget.refresh_stats()
+        if hasattr(self, "cockpit_widget"):
+             self.cockpit_widget.refresh_stats()
 
     def _refresh_current_editor_selection(self):
         """Re-fetches and updates the content of the metadata editor for current selection."""
@@ -837,13 +848,13 @@ class MainWindow(QMainWindow):
                              self.db_manager.mark_documents_deleted([uuid])
                         deleted_count += 1
 
-                self.list_widget.refresh_list()
                 self.editor_widget.clear()
                 self.pdf_viewer.clear()
+                self.list_widget.refresh_list()
 
                 # Refresh Stats
-                if hasattr(self, "dashboard_widget"):
-                     self.dashboard_widget.refresh_stats()
+                if hasattr(self, "cockpit_widget"):
+                     self.cockpit_widget.refresh_stats()
                 if hasattr(self, "filter_tree_widget"):
                      self.filter_tree_widget.load_tree()
 
@@ -927,9 +938,9 @@ class MainWindow(QMainWindow):
         if uuid_to_restore and uuid_to_restore in processed_uuids:
              self.list_widget.select_document(uuid_to_restore)
 
-        # Trigger Dashboard Refresh
-        if hasattr(self, 'dashboard_widget') and self.dashboard_widget:
-            self.dashboard_widget.refresh_stats()
+        # Trigger Cockpit Refresh
+        if hasattr(self, 'cockpit_widget') and self.cockpit_widget:
+            self.cockpit_widget.refresh_stats()
 
         # Phase 107 Update: We NO LONGER add tasks manually to ai_worker.
         # The MainLoopWorker will pick up 'NEW' documents automatically.
@@ -1448,8 +1459,8 @@ class MainWindow(QMainWindow):
                   show_notification(self, self.tr("Import Finished"),
                                     self.tr(f"Imported {len(imported_uuids)} documents.\nBackground processing started."))
 
-        if hasattr(self, "dashboard_widget"):
-             self.dashboard_widget.refresh_stats()
+        if hasattr(self, "cockpit_widget"):
+             self.cockpit_widget.refresh_stats()
 
         if hasattr(self, "filter_tree_widget"):
              self.filter_tree_widget.load_tree()
@@ -1770,8 +1781,8 @@ class MainWindow(QMainWindow):
                 if hasattr(self, 'editor_widget'): self.editor_widget.clear()
                 if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
 
-                if hasattr(self, "dashboard_widget"):
-                    self.dashboard_widget.refresh_stats()
+                if hasattr(self, "cockpit_widget"):
+                    self.cockpit_widget.refresh_stats()
 
                 if hasattr(self, "filter_tree_widget"):
                     self.filter_tree_widget.load_tree()
@@ -1826,16 +1837,17 @@ class MainWindow(QMainWindow):
         QCoreApplication.processEvents()
 
         q_str = json.dumps(filter_query, sort_keys=True)
-        target_uuid = self._dashboard_selections.get("DASH:" + q_str)
+        target_uuid = self._cockpit_selections.get("DASH:" + q_str)
         self.list_widget.target_uuid_to_restore = target_uuid
-        self.list_widget.current_dashboard_query = filter_query
+        self.list_widget.current_cockpit_query = filter_query
 
-        # Phase 107: Breadcrumb Support for Dashboard
-        label = payload.get("name") or payload.get("label")
-        if label:
-            self.list_widget.view_context = f"Dashboard > {label}"
-        else:
-            self.list_widget.view_context = "Dashboard View"
+        # Phase 107: Breadcrumb Support for Cockpit
+        # Phase 107: Breadcrumb Support for Cockpit
+        label = payload.get("label") or payload.get("name")
+        self.list_widget.view_context = label if label else "Cockpit View"
+        
+        # Phase 115: Pass select_query to list_widget
+        self.list_widget.target_select_query = payload.get("select_query")
 
         if self.advanced_filter.chk_active.isChecked():
              self.advanced_filter.chk_active.setChecked(False)
@@ -1849,10 +1861,10 @@ class MainWindow(QMainWindow):
                 query = self.advanced_filter.get_query_object()
                 key = "RULE:" + json.dumps(query, sort_keys=True)
             else:
-                query = self.list_widget.current_dashboard_query or {}
+                query = self.list_widget.current_cockpit_query or {}
                 key = "DASH:" + json.dumps(query, sort_keys=True)
 
-            self._dashboard_selections[key] = uuid
+            self._cockpit_selections[key] = uuid
         except:
             pass
 
@@ -1925,8 +1937,8 @@ class MainWindow(QMainWindow):
                       if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
                       if hasattr(self, 'editor_widget'): self.editor_widget.clear()
 
-                      if hasattr(self, "dashboard_widget"):
-                          self.dashboard_widget.refresh_stats()
+                      if hasattr(self, "cockpit_widget"):
+                          self.cockpit_widget.refresh_stats()
 
                   except Exception as e:
                        import traceback
@@ -1935,10 +1947,10 @@ class MainWindow(QMainWindow):
                        show_selectable_message_box(self, self.tr("Error"), f"Failed to apply structural changes: {e}", icon=QMessageBox.Icon.Critical)
 
     def go_home_slot(self):
-        """Switch to Dashboard."""
+        """Switch to Cockpit."""
         self.central_stack.setCurrentIndex(0)
-        if hasattr(self, "dashboard_widget") and self.dashboard_widget:
-            self.dashboard_widget.refresh_stats()
+        if hasattr(self, "cockpit_widget") and self.cockpit_widget:
+            self.cockpit_widget.refresh_stats()
 
     def create_tool_bar(self):
         self.navbar = QToolBar("Navigation")
@@ -2039,23 +2051,24 @@ class MainWindow(QMainWindow):
         """)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.navbar)
 
-        # Tab: Dashboard
-        self.dash_container = QWidget()
-        self.dash_container.setObjectName("tabContainer")
-        dash_layout = QHBoxLayout(self.dash_container)
-        dash_layout.setContentsMargins(0, 0, 0, 0)
-        dash_layout.setSpacing(0)
-        dash_layout.setAlignment(Qt.AlignmentFlag.AlignBottom) # Consistent bottom alignment
+        # Tab: Cockpit
+        self.cockpit_nav_container = QWidget()
+        self.cockpit_nav_container.setObjectName("tabContainer")
+        cockpit_nav_layout = QHBoxLayout(self.cockpit_nav_container)
+        cockpit_nav_layout.setContentsMargins(0, 0, 0, 0)
+        cockpit_nav_layout.setSpacing(0)
+        cockpit_nav_layout.setAlignment(Qt.AlignmentFlag.AlignBottom) # Consistent bottom alignment
         
-        self.btn_dashboard = QToolButton()
-        self.btn_dashboard.setObjectName("mainTabBtn")
-        self.btn_dashboard.setCheckable(True)
-        self.btn_dashboard.setText(self.tr("Dashboard"))
-        self.btn_dashboard.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_dashboard.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
-        self.btn_dashboard.clicked.connect(self.go_home_slot)
-        dash_layout.addWidget(self.btn_dashboard)
-        self.navbar.addWidget(self.dash_container)
+        self.btn_cockpit = QToolButton()
+        self.btn_cockpit.setObjectName("mainTabBtn")
+        self.btn_cockpit.setCheckable(True)
+        self.btn_cockpit.setText(self.tr("Cockpit"))
+        self.btn_cockpit.setToolTip(self.tr("Main overview and statistics"))
+        self.btn_cockpit.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_cockpit.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+        self.btn_cockpit.clicked.connect(self.go_home_slot)
+        cockpit_nav_layout.addWidget(self.btn_cockpit)
+        self.navbar.addWidget(self.cockpit_nav_container)
 
         # Tab Area: Documents (Includes Filter)
         self.doc_container = QWidget()
@@ -2168,31 +2181,31 @@ class MainWindow(QMainWindow):
 
     def _on_tab_changed(self, index):
         """Update navigation UI when stack changes."""
-        is_dashboard = (index == 0)
+        is_cockpit = (index == 0)
         is_explorer = (index == 1)
         is_reporting = (index == 2)
         is_workflow = (index == 3)
         
         # Update Tab Highlighting
-        self.dash_container.setProperty("active", is_dashboard)
+        self.cockpit_nav_container.setProperty("active", is_cockpit)
         self.doc_container.setProperty("active", is_explorer)
         self.report_container.setProperty("active", is_reporting)
         self.wf_container.setProperty("active", is_workflow)
         
         # Force Style Refresh
-        for btn in [self.btn_dashboard, self.btn_documents, self.btn_reports, self.btn_workflows]:
+        for btn in [self.btn_cockpit, self.btn_documents, self.btn_reports, self.btn_workflows]:
             btn.setProperty("active", False)
-            if (is_dashboard and btn == self.btn_dashboard) or \
+            if (is_cockpit and btn == self.btn_cockpit) or \
                (is_explorer and btn == self.btn_documents) or \
                (is_reporting and btn == self.btn_reports) or \
                (is_workflow and btn == self.btn_workflows):
                 btn.setProperty("active", True)
             
-        for container in [self.dash_container, self.doc_container, self.report_container, self.wf_container]:
+        for container in [self.cockpit_nav_container, self.doc_container, self.report_container, self.wf_container]:
             container.style().unpolish(container)
             container.style().polish(container)
 
-        self.btn_dashboard.setChecked(is_dashboard)
+        self.btn_cockpit.setChecked(is_cockpit)
         self.btn_documents.setChecked(is_explorer)
         self.btn_reports.setChecked(is_reporting)
         self.btn_workflows.setChecked(is_workflow)
@@ -2206,8 +2219,8 @@ class MainWindow(QMainWindow):
             self.sub_mode_container.setVisible(is_explorer and self.action_toggle_filter.isChecked())
         
         # Refresh Data for specific tabs
-        if is_dashboard:
-            self.dashboard_widget.refresh_stats()
+        if is_cockpit:
+            self.cockpit_widget.refresh_stats()
         elif is_reporting:
             self.reporting_widget.refresh_data()
         elif is_workflow:
@@ -2217,7 +2230,7 @@ class MainWindow(QMainWindow):
                 self.list_widget.target_uuid_to_restore = self._last_selected_uuid
             self.list_widget.refresh_list(force_select_first=True)
 
-        for container in [self.dash_container, self.doc_container, self.report_container, self.wf_container]:
+        for container in [self.cockpit_nav_container, self.doc_container, self.report_container, self.wf_container]:
             container.style().unpolish(container)
             container.style().polish(container)
             # Ensure children are also refreshed specifically for text colors

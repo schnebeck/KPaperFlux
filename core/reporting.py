@@ -156,12 +156,19 @@ class ReportGenerator:
         for doc in docs:
             key = "Overall"
             if group_field:
-                if group_field == "doc_date:month":
+                if group_field == "doc_date:day":
+                    d = doc.doc_date
+                    key = d[:10] if d and isinstance(d, str) else "Unknown"
+                elif group_field == "doc_date:month":
                     d = doc.doc_date
                     key = "-".join(d.split("-")[:2]) if d and isinstance(d, str) else "Unknown"
                 elif group_field == "doc_date:year":
                     d = doc.doc_date
                     key = d.split("-")[0] if d and isinstance(d, str) else "Unknown"
+                elif group_field == "created_at:day":
+                    d = doc.created_at
+                    # created_at is usually ISO or DB timestamp
+                    key = d[:10] if d and isinstance(d, str) else "Unknown"
                 elif group_field == "sender":
                     key = doc.sender_name or "Unknown"
                 elif group_field == "type":

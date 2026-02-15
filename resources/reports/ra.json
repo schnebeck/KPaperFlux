@@ -1,0 +1,10 @@
+{
+  "id": "ra",
+  "name": "Report A",
+  "description": null,
+  "filter_query": {},
+  "group_by": null,
+  "aggregations": [],
+  "visualizations": [],
+  "components": []
+}
