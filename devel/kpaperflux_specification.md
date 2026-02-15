@@ -113,3 +113,22 @@ To ensure **Data Integrity** while allowing **Visual Traceability** (Stamping), 
 
 ### **6.3 Forensic Auditing**
 *   **Media Break Detection:** During Stage 1.5, the AI identifies visual markers of digital originals (e.g., ZUGFeRD headers) on physical scans and suggests importing the original digital file.
+
+## **7. Workflow Engine & Rules**
+
+To automate document lifecycles beyond extraction, KPaperFlux implements a deterministic **Workflow Engine** governed by human-readable **Workflow Rules**.
+
+### **7.1 Workflow Rules**
+Workflow Rules are JSON/YAML definitions that specify the state machine for a document type.
+*   **States:** High-level positions in the lifecycle (e.g., `NEW`, `AUDITED`, `VERIFIED`, `PAID`, `ARCHIVED`).
+*   **Transitions:** Logic-based jumps between states triggered by:
+    *   **AI Metadata:** Confidence scores or specific values (e.g., `total_amount > 1000`).
+    *   **System Events:** Successful completion of Stage 2 extraction.
+    *   **User Interaction:** Manual approval or "Move to..." actions in the GUI.
+*   **Automations:** Tasks executed upon entering or exiting a state (e.g., applying tags, moving files, generating GiroCodes).
+
+### **7.2 Workflow Engine**
+The Engine is the backend component responsible for applying Rules to Documents.
+*   **Determinism:** The same input and configuration always result in the same state transition.
+*   **Persistence:** The current state is stored in the `virtual_documents` table under the `status` field.
+*   **Auditability:** Every transition is logged (forensic focus) to maintain a clear history of document processing.

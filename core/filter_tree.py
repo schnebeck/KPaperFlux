@@ -336,20 +336,20 @@ class FilterTree:
 
         return _recurse(self.root)
 
-    def find_workflow_usages(self, playbook_id: str) -> List[FilterNode]:
+    def find_rule_usages(self, rule_id: str) -> List[FilterNode]:
         """
-        Finds all filter nodes that assign the given workflow playbook.
+        Finds all filter nodes that assign the given workflow rule.
         
         Args:
-            playbook_id: The ID of the agent to search for.
+            rule_id: The ID of the rule to search for.
             
         Returns:
-            A list of FilterNode objects using this agent.
+            A list of FilterNode objects using this rule.
         """
         results: List[FilterNode] = []
         
         def _recurse(node: FilterNode) -> None:
-            if node.assign_workflow == playbook_id:
+            if node.assign_workflow == rule_id:
                 results.append(node)
             for child in node.children:
                 _recurse(child)

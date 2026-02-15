@@ -2,7 +2,7 @@ import pytest
 from PyQt6.QtWidgets import QApplication
 from unittest.mock import MagicMock, patch
 
-from gui.workflow_manager import WorkflowManagerWidget, WorkflowFormEditor, AgentManagerDialog
+from gui.workflow_manager import WorkflowManagerWidget, WorkflowRuleFormEditor, WorkflowRuleManagerDialog
 from gui.document_list import DocumentListWidget
 from gui.main_window import MainWindow
 
@@ -22,15 +22,15 @@ def test_workflow_manager_instantiation(qapp):
     """Smoke test to ensure the widget can be created without NameErrors/AttributeErrors."""
     widget = WorkflowManagerWidget()
     assert widget is not None
-    assert widget.combo_agents is not None
+    assert widget.combo_rules is not None
 
 def test_workflow_form_editor_instantiation(qapp):
-    widget = WorkflowFormEditor()
+    widget = WorkflowRuleFormEditor()
     assert widget is not None
 
-def test_agent_manager_dialog_instantiation(qapp):
+def test_rule_manager_dialog_instantiation(qapp):
     # Dialogs usually need a parent or at least a QApp
-    dialog = AgentManagerDialog()
+    dialog = WorkflowRuleManagerDialog()
     assert dialog is not None
 
 def test_document_list_debug_signal(qapp):

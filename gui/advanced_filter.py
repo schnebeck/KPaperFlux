@@ -32,7 +32,7 @@ try:
     from gui.widgets.filter_group import FilterGroupWidget
     from gui.widgets.filter_condition import FilterConditionWidget
     from gui.workers import BatchTaggingWorker
-    from core.workflow import WorkflowRegistry
+    from core.workflow import WorkflowRuleRegistry
 except ImportError as e:
     print(f"Warnung: Importfehler in advanced_filter.py: {e}")
     # --- MOCKS START ---
@@ -317,8 +317,8 @@ class AdvancedFilterWidget(QWidget):
         self.combo_assign_wf.clear()
         self.combo_assign_wf.addItem(self.tr("--- No Change ---"), None)
         
-        registry = WorkflowRegistry()
-        for pb in registry.list_playbooks():
+        registry = WorkflowRuleRegistry()
+        for pb in registry.list_rules():
             self.combo_assign_wf.addItem(pb.name or pb.id, pb.id)
         self.combo_assign_wf.blockSignals(False)
 

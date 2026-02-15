@@ -194,7 +194,7 @@ class MetadataEditorWidget(QWidget):
         # Phase 111: Dynamic Workflow Controls
         self.workflow_controls = WorkflowControlsWidget()
         self.workflow_controls.transition_triggered.connect(self.on_workflow_transition)
-        self.workflow_controls.playbook_changed.connect(self.on_playbook_changed)
+        self.workflow_controls.rule_changed.connect(self.on_rule_changed)
         lock_layout.addWidget(self.workflow_controls)
         
         self.btn_audit = QPushButton(self.tr("🔍 Audit"))
@@ -521,12 +521,12 @@ class MetadataEditorWidget(QWidget):
         self.metadata_saved.emit()
         show_notification(self, "Workflow Updated", f"State transitioned to {target_state}")
 
-    def on_playbook_changed(self, new_pb_id: str):
-        """Handler for manual playbook reassignment."""
+    def on_rule_changed(self, new_rule_id: str):
+        """Handler for manual rule reassignment."""
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
             
-        print(f"[Workflow-GUI] Changing Playbook to '{new_pb_id}'")
+        print(f"[Workflow-GUI] Changing Rule to '{new_rule_id}'")
         
         sd = self.doc.semantic_data
         if not sd: return
@@ -535,14 +535,14 @@ class MetadataEditorWidget(QWidget):
             from core.models.semantic import WorkflowInfo
             sd.workflow = WorkflowInfo()
             
-        sd.workflow.playbook_id = new_pb_id if new_pb_id else None
-        # Reset step to NEW if changing playbook? Usually yes.
+        sd.workflow.rule_id = new_rule_id if new_rule_id else None
+        # Reset step to NEW if changing rule? Usually yes.
         sd.workflow.current_step = "NEW"
         
         # Log it
         from core.models.semantic import WorkflowLog
         sd.workflow.history.append(WorkflowLog(
-            action=f"AGENT_CHANGE: {new_pb_id or 'NONE'}",
+            action=f"RULE_CHANGE: {new_rule_id or 'NONE'}",
             comment="Manual reassignment"
         ))
         
@@ -552,7 +552,7 @@ class MetadataEditorWidget(QWidget):
             
         self.display_documents([self.doc])
         self.metadata_saved.emit()
-        show_notification(self, "Agent Updated", f"Workflow assigned: {new_pb_id or 'None'}")
+        show_notification(self, "Workflow Updated", f"Rule assigned: {new_rule_id or 'None'}")
         
         # Live Update Audit Window
         if self.audit_window and self.audit_window.isVisible():
@@ -586,14 +586,14 @@ class MetadataEditorWidget(QWidget):
         # Phase 111: Hot-update workflow buttons as the user types
         if self.doc and self.doc.semantic_data:
             wf = self.doc.semantic_data.workflow
-            if wf and wf.playbook_id:
+            if wf and wf.rule_id:
                 # Mock current data for the check
                 current_data = {
                     "total_gross": self.pay_amount_edit.text(),
                     "iban": self.pay_iban_edit.text(),
                     "sender_name": self.sender_edit.text(),
                 }
-                self.workflow_controls.update_workflow(wf.playbook_id, wf.current_step, current_data)
+                self.workflow_controls.update_workflow(wf.rule_id, wf.current_step, current_data)
 
     def _reset_dirty(self):
         """Disable save button and reset style."""
@@ -782,26 +782,26 @@ class MetadataEditorWidget(QWidget):
 
         self._populate_semantic_table(sd_dict)
 
-        # Phase 113: Auto-assign Playbook based on Tags if none is set
-        if sd and (not getattr(sd, "workflow", None) or not sd.workflow.playbook_id):
-            from core.workflow import WorkflowRegistry
-            registry = WorkflowRegistry()
+        # Phase 113: Auto-assign Rule based on Tags if none is set
+        if sd and (not getattr(sd, "workflow", None) or not sd.workflow.rule_id):
+            from core.workflow import WorkflowRuleRegistry
+            registry = WorkflowRuleRegistry()
             # Try type tags first
             tags = doc.type_tags or []
-            matched_pb = registry.find_playbook_for_tags(tags)
+            matched_pb = registry.find_rule_for_tags(tags)
             if matched_pb:
                 if not getattr(sd, "workflow", None):
                     from core.models.semantic import WorkflowInfo
                     sd.workflow = WorkflowInfo()
                 
-                print(f"[Workflow-GUI] Auto-assigning agent '{matched_pb.id}' for document {doc.uuid}")
-                sd.workflow.playbook_id = matched_pb.id
+                print(f"[Workflow-GUI] Auto-assigning rule '{matched_pb.id}' for document {doc.uuid}")
+                sd.workflow.rule_id = matched_pb.id
                 sd.workflow.current_step = "NEW"
                 self._mark_dirty()
 
         # Workflow Logic (Dynamic)
         wf_data = getattr(sd, "workflow", None)
-        playbook_id = wf_data.playbook_id if wf_data else None
+        rule_id = wf_data.rule_id if wf_data else None
         current_step = wf_data.current_step if wf_data else "NEW"
         
         # Prepare flat data for requirement check (e.g. amount, iban, etc.)
@@ -835,7 +835,7 @@ class MetadataEditorWidget(QWidget):
         except Exception as e:
             logger.debug(f"Time calculation failed: {e}")
 
-        self.workflow_controls.update_workflow(playbook_id, current_step, doc_data_for_wf)
+        self.workflow_controls.update_workflow(rule_id, current_step, doc_data_for_wf)
         
         # PKV Sync
         with QSignalBlocker(self.chk_pkv):

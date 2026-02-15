@@ -167,7 +167,7 @@ class MainWindow(QMainWindow):
         self.reporting_widget.filter_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.reporting_widget)
 
-        # --- Page 3: Workflow Agents ---
+        # --- Page 3: Workflow Rules ---
         self.workflow_manager = WorkflowManagerWidget(filter_tree=self.filter_tree)
         self.central_stack.addWidget(self.workflow_manager)
 

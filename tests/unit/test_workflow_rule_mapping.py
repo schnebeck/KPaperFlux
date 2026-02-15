@@ -22,7 +22,7 @@ def test_rule_assignment_of_workflow(mock_db, filter_tree):
     # 1. Setup a document without workflow
     doc = VirtualDocument(uuid="test-uuid")
     doc.semantic_data = SemanticExtraction()
-    assert doc.semantic_data.workflow.playbook_id is None
+    assert doc.semantic_data.workflow.rule_id is None
 
     # 2. Setup a rule with workflow assignment
     rule = FilterNode("Test Workflow Rule", NodeType.FILTER)
@@ -35,13 +35,13 @@ def test_rule_assignment_of_workflow(mock_db, filter_tree):
     
     # 4. Verify assignment
     assert modified is True
-    assert doc.semantic_data.workflow.playbook_id == "special_invoice_flow"
+    assert doc.semantic_data.workflow.rule_id == "special_invoice_flow"
 
 def test_rule_assignment_precedence(mock_db, filter_tree):
     # Setup document
     doc = VirtualDocument(uuid="test-uuid")
     doc.semantic_data = SemanticExtraction()
-    doc.semantic_data.workflow.playbook_id = "old_flow"
+    doc.semantic_data.workflow.rule_id = "old_flow"
 
     # Setup rule that changes it
     rule = FilterNode("Override Workflow", NodeType.FILTER)
@@ -51,13 +51,13 @@ def test_rule_assignment_precedence(mock_db, filter_tree):
     modified = engine.apply_rules_to_entity(doc, rules=[rule])
     
     assert modified is True
-    assert doc.semantic_data.workflow.playbook_id == "new_flow"
+    assert doc.semantic_data.workflow.rule_id == "new_flow"
 
 def test_rule_assignment_no_change(mock_db, filter_tree):
     # Setup document
     doc = VirtualDocument(uuid="test-uuid")
     doc.semantic_data = SemanticExtraction()
-    doc.semantic_data.workflow.playbook_id = "correct_flow"
+    doc.semantic_data.workflow.rule_id = "correct_flow"
 
     # Setup rule with same workflow
     rule = FilterNode("Same Workflow", NodeType.FILTER)

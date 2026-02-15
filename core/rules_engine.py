@@ -88,8 +88,8 @@ class RulesEngine:
                 from core.models.semantic import SemanticExtraction
                 v_doc.semantic_data = SemanticExtraction()
             
-            if v_doc.semantic_data.workflow.playbook_id != new_workflow:
-                v_doc.semantic_data.workflow.playbook_id = new_workflow
+            if v_doc.semantic_data.workflow.rule_id != new_workflow:
+                v_doc.semantic_data.workflow.rule_id = new_workflow
                 modified = True
 
         return modified

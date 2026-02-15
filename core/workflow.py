@@ -23,7 +23,7 @@ class WorkflowState(BaseModel):
     transitions: List[WorkflowTransition] = Field(default_factory=list)
     final: bool = False
 
-class WorkflowPlaybook(BaseModel):
+class WorkflowRule(BaseModel):
     id: str
     name: str = ""
     description: str = ""
@@ -31,13 +31,13 @@ class WorkflowPlaybook(BaseModel):
     triggers: Dict[str, List[Any]] = Field(default_factory=dict)
 
 class WorkflowEngine:
-    def __init__(self, playbook: WorkflowPlaybook):
-        self.playbook = playbook
+    def __init__(self, rule: WorkflowRule):
+        self.rule = rule
 
     def get_next_state(self, current_state: str, action: str) -> str:
-        state = self.playbook.states.get(current_state)
+        state = self.rule.states.get(current_state)
         if not state:
-            raise ValueError(f"State {current_state} not found in playbook {self.playbook.id}")
+            raise ValueError(f"State {current_state} not found in rule {self.rule.id}")
             
         for trans in state.transitions:
             if trans.action == action:
@@ -46,7 +46,7 @@ class WorkflowEngine:
         raise ValueError(f"Action {action} not allowed in state {current_state}")
 
     def can_transition(self, current_state: str, action: str, data: Dict[str, Any]) -> bool:
-        state = self.playbook.states.get(current_state)
+        state = self.rule.states.get(current_state)
         if not state:
             return False
             
@@ -89,19 +89,19 @@ class WorkflowEngine:
 
 logger = logging.getLogger("KPaperFlux.Workflow")
 
-class WorkflowRegistry:
-    """Singleton registry for managing document workflow playbooks."""
+class WorkflowRuleRegistry:
+    """Singleton registry for managing document workflow rules."""
     _instance = None
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(WorkflowRegistry, cls).__new__(cls)
-            cls._instance.playbooks = {}
+            cls._instance = super(WorkflowRuleRegistry, cls).__new__(cls)
+            cls._instance.rules = {}
         return cls._instance
 
     def load_from_directory(self, path: str):
-        """Loads all .json files from the specified directory as playbooks."""
-        self.playbooks.clear() # Reset cache to handle deleted files
+        """Loads all .json files from the specified directory as rules."""
+        self.rules.clear() # Reset cache to handle deleted files
         if not os.path.exists(path):
             logger.warning(f"Workflow directory not found: {path}")
             return
@@ -112,23 +112,23 @@ class WorkflowRegistry:
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
-                        playbook = WorkflowPlaybook(**data)
-                        self.playbooks[playbook.id] = playbook
-                        logger.info(f"Loaded workflow playbook: {playbook.id}")
+                        rule = WorkflowRule(**data)
+                        self.rules[rule.id] = rule
+                        logger.info(f"Loaded workflow rule: {rule.id}")
                 except Exception as e:
-                    logger.error(f"Failed to load playbook from {filename}: {e}")
+                    logger.error(f"Failed to load rule from {filename}: {e}")
 
-    def get_playbook(self, playbook_id: str) -> Optional[WorkflowPlaybook]:
-        return self.playbooks.get(playbook_id)
+    def get_rule(self, rule_id: str) -> Optional[WorkflowRule]:
+        return self.rules.get(rule_id)
 
-    def find_playbook_for_tags(self, tags: List[str]) -> Optional[WorkflowPlaybook]:
+    def find_rule_for_tags(self, tags: List[str]) -> Optional[WorkflowRule]:
         """Simple trigger-based lookup."""
-        for pb in self.playbooks.values():
-            trigger_tags = pb.triggers.get("type_tags", [])
+        for rule in self.rules.values():
+            trigger_tags = rule.triggers.get("type_tags", [])
             if any(t in tags for t in trigger_tags):
-                return pb
+                return rule
         return None
 
-    def list_playbooks(self) -> List[WorkflowPlaybook]:
-        """Returns all registered playbooks."""
-        return list(self.playbooks.values())
+    def list_rules(self) -> List[WorkflowRule]:
+        """Returns all registered rules."""
+        return list(self.rules.values())

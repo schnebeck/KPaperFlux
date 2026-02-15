@@ -1,9 +1,9 @@
 
 import pytest
-from core.workflow import WorkflowEngine, WorkflowPlaybook
+from core.workflow import WorkflowEngine, WorkflowRule
 
-def test_load_playbook():
-    playbook_data = {
+def test_load_rule():
+    rule_data = {
         "id": "test_flow",
         "states": {
             "NEW": {
@@ -18,12 +18,12 @@ def test_load_playbook():
             }
         }
     }
-    playbook = WorkflowPlaybook(**playbook_data)
-    assert playbook.id == "test_flow"
-    assert "NEW" in playbook.states
+    rule = WorkflowRule(**rule_data)
+    assert rule.id == "test_flow"
+    assert "NEW" in rule.states
 
 def test_engine_transition():
-    playbook_data = {
+    rule_data = {
         "id": "test_flow",
         "states": {
             "NEW": {
@@ -35,8 +35,8 @@ def test_engine_transition():
             "DONE": {"label": "Done", "final": True}
         }
     }
-    playbook = WorkflowPlaybook(**playbook_data)
-    engine = WorkflowEngine(playbook)
+    rule = WorkflowRule(**rule_data)
+    engine = WorkflowEngine(rule)
     
     # Valid transition
     next_state = engine.get_next_state("NEW", "proceed")
@@ -47,7 +47,7 @@ def test_engine_transition():
         engine.get_next_state("NEW", "invalid_action")
 
 def test_requirements_check():
-    playbook_data = {
+    rule_data = {
         "id": "req_flow",
         "states": {
             "NEW": {
@@ -62,8 +62,8 @@ def test_requirements_check():
             "OK": {"final": True}
         }
     }
-    playbook = WorkflowPlaybook(**playbook_data)
-    engine = WorkflowEngine(playbook)
+    rule = WorkflowRule(**rule_data)
+    engine = WorkflowEngine(rule)
     
     # Missing data
     data = {"iban": "DE123"}
@@ -76,7 +76,7 @@ def test_requirements_check():
 def test_semantic_integration():
     from core.models.semantic import SemanticExtraction, FinanceBody, MonetarySummation
     
-    playbook_data = {
+    rule_data = {
         "id": "pay_flow",
         "states": {
             "NEW": {
@@ -85,8 +85,8 @@ def test_semantic_integration():
             "PAID": {"final": True}
         }
     }
-    pb = WorkflowPlaybook(**playbook_data)
-    engine = WorkflowEngine(pb)
+    rule = WorkflowRule(**rule_data)
+    engine = WorkflowEngine(rule)
     
     # 1. Setup Document
     sem = SemanticExtraction()
@@ -107,17 +107,17 @@ def test_semantic_integration():
     assert "TRANSITION: verify" in sem.workflow.history[-1].action
 
 def test_registry_loading():
-    from core.workflow import WorkflowRegistry
+    from core.workflow import WorkflowRuleRegistry
     import os
     
-    registry = WorkflowRegistry()
+    registry = WorkflowRuleRegistry()
     registry.load_from_directory("resources/workflows")
     
-    pb = registry.get_playbook("invoice_standard")
-    assert pb is not None
-    assert pb.id == "invoice_standard"
+    rule = registry.get_rule("invoice_standard")
+    assert rule is not None
+    assert rule.id == "invoice_standard"
     
     # Check trigger find
-    found = registry.find_playbook_for_tags(["INVOICE", "URGENT"])
+    found = registry.find_rule_for_tags(["INVOICE", "URGENT"])
     assert found is not None
     assert found.id == "invoice_standard"

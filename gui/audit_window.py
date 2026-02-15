@@ -174,7 +174,7 @@ class AuditWindow(QMainWindow):
 
         # Update Workflow Buttons
         wf_data = getattr(doc.semantic_data, "workflow", None)
-        playbook_id = wf_data.playbook_id if wf_data else None
+        rule_id = wf_data.rule_id if wf_data else None
         current_step = wf_data.current_step if wf_data else "NEW"
         
         doc_data_for_wf = {
@@ -184,7 +184,7 @@ class AuditWindow(QMainWindow):
             "doc_date": doc.doc_date,
             "doc_number": doc.doc_number
         }
-        self.workflow_controls.update_workflow(playbook_id, current_step, doc_data_for_wf)
+        self.workflow_controls.update_workflow(rule_id, current_step, doc_data_for_wf)
         
         self.setWindowTitle(f"Audit: {doc.original_filename or doc.uuid}")
 

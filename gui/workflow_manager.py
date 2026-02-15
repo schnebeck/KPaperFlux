@@ -10,20 +10,20 @@ from PyQt6.QtWidgets import (
     QTabWidget, QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker
-from core.workflow import WorkflowRegistry, WorkflowPlaybook, WorkflowState, WorkflowTransition, WorkflowCondition
+from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition
 from gui.widgets.semantic_selector import SemanticVariableSelector
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger("KPaperFlux.Workflow")
 
-class WorkflowFormEditor(QWidget):
-    """Structured editor for a single Workflow Playbook."""
+class WorkflowRuleFormEditor(QWidget):
+    """Structured editor for a single Rule."""
     changed = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._init_ui()
-        self.current_pb = None
+        self.current_rule = None
         self._lock_signals = False
 
     def _init_ui(self):
@@ -32,9 +32,9 @@ class WorkflowFormEditor(QWidget):
         
         # Metadata Header (Always visible)
         self.meta_frame = QFrame()
-        self.meta_frame.setObjectName("AgentMetaFrame")
+        self.meta_frame.setObjectName("WorkflowRuleMetaFrame")
         self.meta_frame.setStyleSheet("""
-            QFrame#AgentMetaFrame {
+            QFrame#WorkflowRuleMetaFrame {
                 background: #fdfdfd; 
                 border: 1px solid #e0e0e0; 
                 border-radius: 6px;
@@ -48,9 +48,9 @@ class WorkflowFormEditor(QWidget):
         gen_layout.setSpacing(10)
         
         self.edit_name = QLineEdit()
-        self.edit_name.setPlaceholderText(self.tr("Enter agent name..."))
+        self.edit_name.setPlaceholderText(self.tr("Enter rule name..."))
         self.edit_desc = QTextEdit()
-        self.edit_desc.setPlaceholderText(self.tr("What does this agent do?"))
+        self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
         self.edit_desc.setMaximumHeight(60)
         self.edit_triggers = QLineEdit()
         self.edit_triggers.setPlaceholderText("INVOICE, TELEKOM, ...")
@@ -176,13 +176,13 @@ class WorkflowFormEditor(QWidget):
                 item.setText(new_text.strip())
                 self._on_changed()
 
-    def load_playbook(self, pb: WorkflowPlaybook):
+    def load_rule(self, rule: WorkflowRule):
         self._lock_signals = True
-        self.current_pb = pb
-        self.edit_name.setText(pb.name)
-        self.edit_desc.setPlainText(pb.description)
+        self.current_rule = rule
+        self.edit_name.setText(rule.name)
+        self.edit_desc.setPlainText(rule.description)
         
-        triggers = pb.triggers.get("type_tags", [])
+        triggers = rule.triggers.get("type_tags", [])
         self.edit_triggers.setText(", ".join(triggers))
         
         # Load States
@@ -220,8 +220,8 @@ class WorkflowFormEditor(QWidget):
                 
         self._lock_signals = False
 
-    def get_playbook(self) -> WorkflowPlaybook:
-        pb_id = self.current_pb.id if self.current_pb else "new_agent"
+    def get_rule(self) -> WorkflowRule:
+        pb_id = self.current_pb.id if self.current_pb else "new_rule"
         name = self.edit_name.text().strip()
         desc = self.edit_desc.toPlainText().strip()
         triggers = [t.strip() for t in self.edit_triggers.text().split(",") if t.strip()]
@@ -282,7 +282,7 @@ class WorkflowFormEditor(QWidget):
             trans = WorkflowTransition(action=action, target=target, required_fields=req, user_interaction=ui, conditions=conditions)
             states[from_s].transitions.append(trans)
             
-        return WorkflowPlaybook(id=pb_id, name=name, description=desc, states=states, triggers={"type_tags": triggers})
+        return WorkflowRule(id=pb_id, name=name, description=desc, states=states, triggers={"type_tags": triggers})
 
     def _add_state_row(self):
         self._lock_signals = True
@@ -364,12 +364,12 @@ class WorkflowFormEditor(QWidget):
         self._on_changed()
 
 class WorkflowManagerWidget(QWidget):
-    """Management console for Workflow Playbooks."""
+    """Management console for Rules."""
     workflows_changed = pyqtSignal()
 
     def __init__(self, parent=None, filter_tree=None):
         super().__init__(parent)
-        self.registry = WorkflowRegistry()
+        self.registry = WorkflowRuleRegistry()
         self.filter_tree = filter_tree
         self.workflow_dir = "resources/workflows"
         self._is_dirty = False
@@ -382,27 +382,27 @@ class WorkflowManagerWidget(QWidget):
         layout.setSpacing(10)
 
         # Header Title
-        title_lbl = QLabel(self.tr("Manage Agents"))
+        title_lbl = QLabel(self.tr("Manage Rules"))
         title_lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #1565c0;")
         layout.addWidget(title_lbl)
 
         # Harmonized Top Bar
         top_bar = QHBoxLayout()
-        top_bar.addWidget(QLabel(self.tr("Select Agent:")))
+        top_bar.addWidget(QLabel(self.tr("Select Rule:")))
         
-        self.combo_agents = QComboBox()
-        self.combo_agents.currentIndexChanged.connect(self._on_combo_changed)
-        top_bar.addWidget(self.combo_agents, 1)
+        self.combo_rules = QComboBox()
+        self.combo_rules.currentIndexChanged.connect(self._on_combo_changed)
+        top_bar.addWidget(self.combo_rules, 1)
 
         self.btn_revert = QPushButton(self.tr("Revert"))
         self.btn_revert.setEnabled(False)
         self.btn_revert.clicked.connect(self._revert_changes)
         top_bar.addWidget(self.btn_revert)
 
-        self.btn_save = QPushButton(self.tr("Save Agent"))
+        self.btn_save = QPushButton(self.tr("Save Rule"))
         self.btn_save.setEnabled(False)
         self.btn_save.setStyleSheet("background-color: #2e7d32; color: white; font-weight: bold;")
-        self.btn_save.clicked.connect(self._save_playbook)
+        self.btn_save.clicked.connect(self._save_rule)
         top_bar.addWidget(self.btn_save)
 
         self.btn_manage = QPushButton(self.tr("Manage..."))
@@ -428,7 +428,7 @@ class WorkflowManagerWidget(QWidget):
         content_layout = QVBoxLayout(self.content_container)
         content_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.form_editor = WorkflowFormEditor()
+        self.form_editor = WorkflowRuleFormEditor()
         self.form_editor.changed.connect(self._mark_dirty)
         content_layout.addWidget(self.form_editor, 1)
         
@@ -453,32 +453,32 @@ class WorkflowManagerWidget(QWidget):
         self.btn_revert.setEnabled(False)
 
     def load_workflows(self):
-        self.combo_agents.blockSignals(True)
-        current_id = self.combo_agents.currentData()
+        self.combo_rules.blockSignals(True)
+        current_id = self.combo_rules.currentData()
         
-        self.combo_agents.clear()
-        self.combo_agents.addItem(self.tr("--- Select Agent ---"), None)
+        self.combo_rules.clear()
+        self.combo_rules.addItem(self.tr("--- Select Rule ---"), None)
         
         if not os.path.exists(self.workflow_dir):
             os.makedirs(self.workflow_dir, exist_ok=True)
             
-        registry = WorkflowRegistry()
+        registry = WorkflowRuleRegistry()
         registry.load_from_directory(self.workflow_dir)
         
         idx_to_restore = 0
-        for i, pb in enumerate(registry.list_playbooks()):
-            label = pb.name or pb.id
-            self.combo_agents.addItem(label, pb.id)
-            if pb.id == current_id:
+        for i, rule in enumerate(registry.list_rules()):
+            label = rule.name or rule.id
+            self.combo_rules.addItem(label, rule.id)
+            if rule.id == current_id:
                 idx_to_restore = i + 1 # +1 because of placeholder
             
-        self.combo_agents.setCurrentIndex(idx_to_restore)
-        self.combo_agents.blockSignals(False)
+        self.combo_rules.setCurrentIndex(idx_to_restore)
+        self.combo_rules.blockSignals(False)
         
-        # If the formerly selected agent is gone, clear the form
+        # If the formerly selected rule is gone, clear the form
         if current_id and idx_to_restore == 0:
-            self.form_editor.load_playbook(WorkflowPlaybook(id="new", name="", states={}))
-            self.status_lbl.setText(self.tr("Agent deleted."))
+            self.form_editor.load_rule(WorkflowRule(id="new", name="", states={}))
+            self.status_lbl.setText(self.tr("Rule deleted."))
             self._clear_dirty()
 
     def _on_combo_changed(self, index):
@@ -493,19 +493,19 @@ class WorkflowManagerWidget(QWidget):
                 self.load_workflows() # Quick fix to reset selection
                 return
 
-        pb_id = self.combo_agents.currentData()
-        if not pb_id:
+        rule_id = self.combo_rules.currentData()
+        if not rule_id:
             return
             
-        reg = WorkflowRegistry()
-        pb = reg.get_playbook(pb_id)
-        if pb:
-            self.form_editor.load_playbook(pb)
+        reg = WorkflowRuleRegistry()
+        rule = reg.get_rule(rule_id)
+        if rule:
+            self.form_editor.load_rule(rule)
             self._clear_dirty()
-            self.status_lbl.setText(self.tr(f"Editing: {pb.name or pb_id}"))
+            self.status_lbl.setText(self.tr(f"Editing: {rule.name or rule_id}"))
 
-    def _create_new_playbook(self):
-        pb = WorkflowPlaybook(
+    def _create_new_rule(self):
+        rule = WorkflowRule(
             id="new_workflow",
             name="New Workflow",
             description="Generated via GUI",
@@ -517,26 +517,26 @@ class WorkflowManagerWidget(QWidget):
             },
             triggers={"type_tags": ["NEW_TAG"]}
         )
-        self.form_editor.load_playbook(pb)
-        self.combo_agents.setCurrentIndex(0)
+        self.form_editor.load_rule(rule)
+        self.combo_rules.setCurrentIndex(0)
         self._mark_dirty()
 
-    def _save_playbook(self):
+    def _save_rule(self):
         try:
-            pb = self.form_editor.get_playbook()
+            rule = self.form_editor.get_rule()
             # Check for duplicate names (excluding current ID)
-            reg = WorkflowRegistry()
-            for existing in reg.list_playbooks():
-                if existing.name == pb.name and existing.id != pb.id:
+            reg = WorkflowRuleRegistry()
+            for existing in reg.list_rules():
+                if existing.name == rule.name and existing.id != rule.id:
                     QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                        self.tr(f"An agent with the name '{pb.name}' already exists."))
+                                        self.tr(f"A rule with the name '{rule.name}' already exists."))
                     return
 
-            file_path = os.path.join(self.workflow_dir, f"{pb.id}.json")
+            file_path = os.path.join(self.workflow_dir, f"{rule.id}.json")
             with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(pb.model_dump(), f, indent=2)
+                json.dump(rule.model_dump(), f, indent=2)
                 
-            QMessageBox.information(self, self.tr("Success"), self.tr(f"Agent '{pb.name}' saved and activated."))
+            QMessageBox.information(self, self.tr("Success"), self.tr(f"Rule '{rule.name}' saved and activated."))
             
             self._clear_dirty()
             
@@ -545,46 +545,46 @@ class WorkflowManagerWidget(QWidget):
             self.load_workflows()
             
             # Select the saved one
-            self._select_agent_by_id(pb.id)
+            self._select_rule_by_id(rule.id)
             
             self.workflows_changed.emit()
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save playbook: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to save rule: {e}")
 
     def _revert_changes(self):
-        """Cancel changes and reload current agent."""
-        pb_id = self.combo_agents.currentData()
-        if pb_id:
-            reg = WorkflowRegistry()
-            pb = reg.get_playbook(pb_id)
-            if pb:
-                self.form_editor.load_playbook(pb)
+        """Cancel changes and reload current rule."""
+        rule_id = self.combo_rules.currentData()
+        if rule_id:
+            reg = WorkflowRuleRegistry()
+            rule = reg.get_rule(rule_id)
+            if rule:
+                self.form_editor.load_rule(rule)
         self._clear_dirty()
         
     def _on_manage_clicked(self):
-        """Open a management dialog for agents."""
-        dlg = AgentManagerDialog(self, filter_tree=self.filter_tree)
-        dlg.agent_selected.connect(self._select_agent_by_id)
+        """Open a management dialog for rules."""
+        dlg = WorkflowRuleManagerDialog(self, filter_tree=self.filter_tree)
+        dlg.rule_selected.connect(self._select_rule_by_id)
         dlg.exec()
         self.load_workflows()
 
-    def _select_agent_by_id(self, pb_id: str):
-        idx = self.combo_agents.findData(pb_id)
+    def _select_rule_by_id(self, rule_id: str):
+        idx = self.combo_rules.findData(rule_id)
         if idx >= 0:
-            self.combo_agents.setCurrentIndex(idx)
+            self.combo_rules.setCurrentIndex(idx)
 
     def _on_rule_apply_requested(self):
         # Placeholder if needed by main window, but currently agents are assigned via Rules tab
         pass
 
-class AgentManagerDialog(QDialog):
-    """Simplified management dialog for Agent files."""
-    agent_selected = pyqtSignal(str)
+class WorkflowRuleManagerDialog(QDialog):
+    """Simplified management dialog for Rule files."""
+    rule_selected = pyqtSignal(str)
 
     def __init__(self, parent=None, filter_tree=None):
         super().__init__(parent)
-        self.setWindowTitle("Manage Agents")
+        self.setWindowTitle(self.tr("Manage Rules"))
         self.resize(400, 500)
         self.workflow_dir = "resources/workflows"
         self.filter_tree = filter_tree
@@ -640,8 +640,8 @@ class AgentManagerDialog(QDialog):
         if ok and name:
             name = name.strip()
             # Check for duplicates
-            reg = WorkflowRegistry()
-            if any(p.name == name for p in reg.list_playbooks()):
+            reg = WorkflowRuleRegistry()
+            if any(p.name == name for p in reg.list_rules()):
                 QMessageBox.warning(self, self.tr("Duplicate Name"), 
                                     self.tr(f"A workflow with the name '{name}' already exists."))
                 return
@@ -650,7 +650,7 @@ class AgentManagerDialog(QDialog):
             clean_name = re.sub(r'[^a-zA-Z0-9]', '_', name.lower())
             pb_id = f"{clean_name}_{int(time.time())}"
             
-            pb = WorkflowPlaybook(
+            pb = WorkflowRule(
                 id=pb_id,
                 name=name,
                 states={"NEW": WorkflowState(label="Start", final=True)}
@@ -659,7 +659,7 @@ class AgentManagerDialog(QDialog):
             with open(file_path, "w") as f:
                 json.dump(pb.model_dump(), f, indent=2)
             self._reload_list()
-            self.agent_selected.emit(pb_id)
+            self.rule_selected.emit(pb_id)
 
     def _rename_display_name(self):
         item = self.list_widget.currentItem()
@@ -678,17 +678,17 @@ class AgentManagerDialog(QDialog):
                 if new_name == old_name: return
                 
                 # Duplicate check
-                reg = WorkflowRegistry()
-                if any(p.name == new_name for p in reg.list_playbooks()):
+                reg = WorkflowRuleRegistry()
+                if any(p.name == new_name for p in reg.list_rules()):
                     QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                        self.tr(f"An agent with the name '{new_name}' already exists."))
+                                        self.tr(f"A rule with the name '{new_name}' already exists."))
                     return
 
                 data["name"] = new_name
                 with open(file_path, "w") as f:
                     json.dump(data, f, indent=2)
                 self._reload_list()
-                self.agent_selected.emit(pb_id)
+                self.rule_selected.emit(pb_id)
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), str(e))
 
@@ -705,7 +705,7 @@ class AgentManagerDialog(QDialog):
                 rule_names = ", ".join([node.name for node in usages])
                 QMessageBox.critical(
                     self, self.tr("Workflow in Use"),
-                    self.tr(f"The agent '{name}' cannot be deleted because it is still used in the following rules:\n\n{rule_names}\n\nPlease remove the assignment from these rules first.")
+                    self.tr(f"The rule '{name}' cannot be deleted because it is still used in the following rules:\n\n{rule_names}\n\nPlease remove the assignment from these rules first.")
                 )
                 return
 
@@ -717,9 +717,9 @@ class AgentManagerDialog(QDialog):
                 try:
                     os.remove(file_path)
                     # Also remove from registry if active
-                    reg = WorkflowRegistry()
-                    if pb_id in reg.playbooks:
-                        del reg.playbooks[pb_id]
+                    reg = WorkflowRuleRegistry()
+                    if pb_id in reg.rules:
+                        del reg.rules[pb_id]
                 except Exception as e:
                     QMessageBox.warning(self, self.tr("Error"), f"Could not delete file: {e}")
             self._reload_list()

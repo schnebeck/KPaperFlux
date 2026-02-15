@@ -117,7 +117,7 @@ class WorkflowInfo(BaseModel):
     is_verified: bool = False
     verified_at: Optional[str] = None
     verified_by: Optional[str] = None
-    playbook_id: Optional[str] = None
+    rule_id: Optional[str] = None
     current_step: str = "NEW"
     history: List[WorkflowLog] = Field(default_factory=list)
 
