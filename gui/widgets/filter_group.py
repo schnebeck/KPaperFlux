@@ -17,11 +17,12 @@ class FilterGroupWidget(QWidget):
     remove_requested = pyqtSignal()
     changed = pyqtSignal()
 
-    def __init__(self, parent=None, extra_keys=None, available_tags=None, available_system_tags=None, is_root=False):
+    def __init__(self, parent=None, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None, is_root=False):
         super().__init__(parent)
         self.extra_keys = extra_keys
         self.available_tags = available_tags
         self.available_system_tags = available_system_tags or []
+        self.available_workflow_steps = available_workflow_steps or []
         self.is_root = is_root
 
         # Style
@@ -88,7 +89,8 @@ class FilterGroupWidget(QWidget):
         child = FilterConditionWidget(self,
                                       extra_keys=self.extra_keys,
                                       available_tags=self.available_tags,
-                                      available_system_tags=self.available_system_tags)
+                                      available_system_tags=self.available_system_tags,
+                                      available_workflow_steps=self.available_workflow_steps)
         if data:
             child.set_condition(data)
 
@@ -104,6 +106,7 @@ class FilterGroupWidget(QWidget):
                                   extra_keys=self.extra_keys,
                                   available_tags=self.available_tags,
                                   available_system_tags=self.available_system_tags,
+                                  available_workflow_steps=self.available_workflow_steps,
                                   is_root=False)
         if data:
             child.set_query(data)
@@ -115,14 +118,15 @@ class FilterGroupWidget(QWidget):
         child.changed.connect(self.changed)
         self.changed.emit()
 
-    def update_metadata(self, extra_keys, available_tags, available_system_tags=None):
+    def update_metadata(self, extra_keys, available_tags, available_system_tags=None, available_workflow_steps=None):
         """Recursively update metadata for all children."""
         self.extra_keys = extra_keys
         self.available_tags = available_tags
         self.available_system_tags = available_system_tags or []
+        self.available_workflow_steps = available_workflow_steps or []
         for child in self.children_widgets:
              if hasattr(child, "update_metadata"):
-                 child.update_metadata(extra_keys, available_tags, available_system_tags)
+                 child.update_metadata(extra_keys, available_tags, available_system_tags, self.available_workflow_steps)
                  # FilterConditionWidget hat jetzt auch update_metadata!
 
     def remove_child(self, child_widget):

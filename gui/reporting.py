@@ -417,13 +417,13 @@ class ReportingWidget(QWidget):
         self.btn_comment.clicked.connect(self.add_text_block)
         toolbar.addWidget(self.btn_comment)
         
-        self.btn_new = QPushButton("✚ " + self.tr("New Definition"))
-        self.btn_new.setToolTip(self.tr("Create a new report template"))
+        self.btn_new = QPushButton("✚ " + self.tr("New Report"))
+        self.btn_new.setToolTip(self.tr("Create a new report"))
         self.btn_new.clicked.connect(self.create_new_report)
         toolbar.addWidget(self.btn_new)
 
-        self.btn_import = QPushButton("📥 " + self.tr("Import Style"))
-        self.btn_import.setToolTip(self.tr("Import report definition from an exported PDF file"))
+        self.btn_import = QPushButton("📥 " + self.tr("Import from PDF"))
+        self.btn_import.setToolTip(self.tr("Import report style from an exported PDF file"))
         self.btn_import.clicked.connect(self.import_report_from_file)
         toolbar.addWidget(self.btn_import)
 

@@ -7,11 +7,13 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QTextEdit, QLabel, QMessageBox, QSplitter, QFrame,
     QLineEdit, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView,
-    QTabWidget, QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog
+    QTabWidget, QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog,
+    QStackedWidget, QButtonGroup
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker
-from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition
+from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition, WorkflowEngine
 from gui.widgets.semantic_selector import SemanticVariableSelector
+from gui.cockpit import StatCard
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger("KPaperFlux.Workflow")
@@ -187,7 +189,7 @@ class WorkflowRuleFormEditor(QWidget):
         
         # Load States
         self.states_table.setRowCount(0)
-        for s_id, s_data in pb.states.items():
+        for s_id, s_data in rule.states.items():
             row = self.states_table.rowCount()
             self.states_table.insertRow(row)
             self.states_table.setItem(row, 0, QTableWidgetItem(s_id))
@@ -200,7 +202,7 @@ class WorkflowRuleFormEditor(QWidget):
             
         # Load Transitions
         self.trans_table.setRowCount(0)
-        for s_id, s_data in pb.states.items():
+        for s_id, s_data in rule.states.items():
             for t in s_data.transitions:
                 row = self.trans_table.rowCount()
                 self.trans_table.insertRow(row)
@@ -215,13 +217,13 @@ class WorkflowRuleFormEditor(QWidget):
                 self.trans_table.setCellWidget(row, 4, chk_ui)
                 
                 # Conditions (Phase 112)
-                cond_str = "; ".join([f"{c.field} {c.op} {c.value}" for c in t.conditions])
+                cond_str = "; ".join([f"{c.field}{c.op}{c.value}" for c in t.conditions])
                 self.trans_table.setItem(row, 5, QTableWidgetItem(cond_str))
                 
         self._lock_signals = False
 
     def get_rule(self) -> WorkflowRule:
-        pb_id = self.current_pb.id if self.current_pb else "new_rule"
+        pb_id = self.current_rule.id if self.current_rule else "new_rule"
         name = self.edit_name.text().strip()
         desc = self.edit_desc.toPlainText().strip()
         triggers = [t.strip() for t in self.edit_triggers.text().split(",") if t.strip()]
@@ -363,9 +365,103 @@ class WorkflowRuleFormEditor(QWidget):
         self._lock_signals = False
         self._on_changed()
 
+class WorkflowDashboardWidget(QWidget):
+    """Overview of workflow performance and document distribution."""
+    navigation_requested = pyqtSignal(dict)
+
+    def __init__(self, db_manager, parent=None):
+        super().__init__(parent)
+        self.db_manager = db_manager
+        self._init_ui()
+
+    def _init_ui(self):
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setSpacing(15)
+
+        # 1. Stats Row (Total, Urgent, Pending)
+        self.stats_layout = QHBoxLayout()
+        self.layout.addLayout(self.stats_layout)
+
+        # 2. Rule List / Summary
+        self.rule_summary_lbl = QLabel(self.tr("Active Rule Load:"))
+        self.rule_summary_lbl.setStyleSheet("font-weight: bold; margin-top: 20px;")
+        self.layout.addWidget(self.rule_summary_lbl)
+
+        self.rules_table = QTableWidget(0, 3)
+        self.rules_table.setHorizontalHeaderLabels([self.tr("Workflow Rule"), self.tr("Active Documents"), self.tr("Completion Rate")])
+        self.rules_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.rules_table.setStyleSheet("background: white; border: 1px solid #e0e0e0; border-radius: 4px;")
+        self.layout.addWidget(self.rules_table)
+
+        self.layout.addStretch()
+
+    def refresh(self):
+        """Fetch fresh data from DB."""
+        if not self.db_manager:
+            return
+
+        # Clear existing cards
+        while self.stats_layout.count():
+            item = self.stats_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # 1. Total in Workflow
+        total_q = {"field": "workflow_step", "op": "is_not_empty", "value": None}
+        total_count = self.db_manager.count_documents_advanced(total_q)
+        
+        # 2. Urgent
+        urgent_q = {"field": "workflow_step", "op": "equals", "value": "URGENT"}
+        urgent_count = self.db_manager.count_documents_advanced(urgent_q)
+
+        # 3. New/Inbox
+        new_q = {"field": "workflow_step", "op": "equals", "value": "NEW"}
+        new_count = self.db_manager.count_documents_advanced(new_q)
+
+        # Create Cards
+        c1 = StatCard(self.tr("Total in Pipeline"), total_count, "#3b82f6", total_q, parent=self)
+        c2 = StatCard(self.tr("Urgent Actions"), urgent_count, "#ef4444", urgent_q, parent=self)
+        c3 = StatCard(self.tr("New Tasks"), new_count, "#10b981", new_q, parent=self)
+
+        for c in [c1, c2, c3]:
+            c.clicked.connect(self.navigation_requested.emit)
+            self.stats_layout.addWidget(c)
+
+        # 4. Populate Rules Table
+        registry = WorkflowRuleRegistry()
+        rules = registry.list_rules()
+        self.rules_table.setRowCount(len(rules))
+        
+        for i, rule in enumerate(rules):
+            # Count per rule
+            rule_q = {"field": "semantic:workflow.rule_id", "op": "equals", "value": rule.id}
+            count = self.db_manager.count_documents_advanced(rule_q)
+            if not isinstance(count, (int, float)): count = 0
+            
+            # Finished count (final states)
+            final_states = [sid for sid, s in rule.states.items() if s.final]
+            finished_q = {
+                "operator": "AND",
+                "conditions": [
+                    {"field": "semantic:workflow.rule_id", "op": "equals", "value": rule.id},
+                    {"field": "workflow_step", "op": "in", "value": final_states}
+                ]
+            }
+            finished_count = self.db_manager.count_documents_advanced(finished_q)
+            if not isinstance(finished_count, (int, float)): finished_count = 0
+            
+            total_history = count + finished_count
+            rate = f"{(finished_count / total_history * 100):.1f}%" if total_history > 0 else "0%"
+
+            self.rules_table.setItem(i, 0, QTableWidgetItem(rule.name or rule.id))
+            self.rules_table.setItem(i, 1, QTableWidgetItem(str(count)))
+            self.rules_table.setItem(i, 2, QTableWidgetItem(rate))
+
 class WorkflowManagerWidget(QWidget):
     """Management console for Rules."""
     workflows_changed = pyqtSignal()
+    navigation_requested = pyqtSignal(dict)
 
     def __init__(self, parent=None, filter_tree=None):
         super().__init__(parent)
@@ -378,55 +474,139 @@ class WorkflowManagerWidget(QWidget):
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(10)
+        layout.setContentsMargins(15, 10, 15, 15)
+        layout.setSpacing(0)
 
-        # Header Title
-        title_lbl = QLabel(self.tr("Manage Rules"))
-        title_lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #1565c0;")
-        layout.addWidget(title_lbl)
+        # Custom Sub-Navigation Bar
+        sub_nav_container = QWidget()
+        sub_nav_layout = QHBoxLayout(sub_nav_container)
+        sub_nav_layout.setContentsMargins(0, 5, 0, 10)
+        sub_nav_layout.setSpacing(8)
 
-        # Harmonized Top Bar
-        top_bar = QHBoxLayout()
-        top_bar.addWidget(QLabel(self.tr("Select Rule:")))
-        
-        self.combo_rules = QComboBox()
-        self.combo_rules.currentIndexChanged.connect(self._on_combo_changed)
-        top_bar.addWidget(self.combo_rules, 1)
+        self.sub_mode_group = QButtonGroup(self)
+        self.sub_mode_group.setExclusive(True)
 
-        self.btn_revert = QPushButton(self.tr("Revert"))
-        self.btn_revert.setEnabled(False)
-        self.btn_revert.clicked.connect(self._revert_changes)
-        top_bar.addWidget(self.btn_revert)
+        button_height = 30
+        button_style = f"""
+            QToolButton {{ 
+                padding: 0px 20px; 
+                height: {button_height}px;
+                border: 1px solid #ddd; 
+                border-radius: 4px;
+                background: #f8f9fa;
+                color: #555; 
+                font-size: 15px; 
+                font-weight: 500; 
+            }}
+            QToolButton:hover {{ background: #eee; }}
+            QToolButton:checked {{ 
+                background: #1565c0; 
+                color: white; 
+                border-color: #0d47a1;
+                font-weight: bold; 
+            }}
+        """
 
-        self.btn_save = QPushButton(self.tr("Save Rule"))
-        self.btn_save.setEnabled(False)
-        self.btn_save.setStyleSheet("background-color: #2e7d32; color: white; font-weight: bold;")
-        self.btn_save.clicked.connect(self._save_rule)
-        top_bar.addWidget(self.btn_save)
+        # Dashboard Button
+        self.btn_show_dashboard = QToolButton()
+        self.btn_show_dashboard.setText("📊 " + self.tr("Dashboard"))
+        self.btn_show_dashboard.setCheckable(True)
+        self.btn_show_dashboard.setChecked(True)
+        self.btn_show_dashboard.setFixedHeight(button_height)
+        self.btn_show_dashboard.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_show_dashboard.setStyleSheet(button_style)
+        self.btn_show_dashboard.clicked.connect(lambda: self.main_stack.setCurrentIndex(0))
+        self.sub_mode_group.addButton(self.btn_show_dashboard, 0)
+        sub_nav_layout.addWidget(self.btn_show_dashboard)
 
-        self.btn_manage = QPushButton(self.tr("Manage..."))
-        self.btn_manage.clicked.connect(self._on_manage_clicked)
-        top_bar.addWidget(self.btn_manage)
+        # Rule Editor Button
+        self.btn_show_editor = QToolButton()
+        self.btn_show_editor.setText("⚙️ " + self.tr("Rule Editor"))
+        self.btn_show_editor.setCheckable(True)
+        self.btn_show_editor.setFixedHeight(button_height)
+        self.btn_show_editor.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_show_editor.setStyleSheet(button_style)
+        self.btn_show_editor.clicked.connect(lambda: self.main_stack.setCurrentIndex(1))
+        self.sub_mode_group.addButton(self.btn_show_editor, 1)
+        sub_nav_layout.addWidget(self.btn_show_editor)
 
-        layout.addLayout(top_bar)
+        sub_nav_layout.addStretch()
+        layout.addWidget(sub_nav_container)
 
         # Horizontal separator
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("color: #ddd;")
+        line.setStyleSheet("background-color: #ddd; max-height: 1px; margin-bottom: 15px;")
         layout.addWidget(line)
 
+        # Main Stack for Content
+        self.main_stack = QStackedWidget()
+        self.main_stack.currentChanged.connect(self._on_stack_changed)
+        
+        # 1. Dashboard View
+        self.dashboard_tab = WorkflowDashboardWidget(self.filter_tree.db_manager if self.filter_tree else None)
+        self.dashboard_tab.navigation_requested.connect(self.navigation_requested.emit)
+        self.main_stack.addWidget(self.dashboard_tab)
+        
+        # 2. Rule Editor View
+        self.editor_widget = QWidget()
+        editor_layout = QVBoxLayout(self.editor_widget)
+        editor_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Move previous header/top_bar logic into editor_layout
+        self.top_bar_widget = QWidget()
+        self.top_bar = QHBoxLayout(self.top_bar_widget)
+        self.top_bar.setContentsMargins(0, 0, 0, 0)
+        
+        self.top_bar.addWidget(QLabel(self.tr("Select Rule:")))
+        
+        self.combo_rules = QComboBox()
+        self.combo_rules.setMinimumWidth(250)
+        self.combo_rules.currentIndexChanged.connect(self._on_combo_changed)
+        self.top_bar.addWidget(self.combo_rules)
+
+        self.btn_new = QPushButton("✚ " + self.tr("New Rule"))
+        self.btn_new.setToolTip(self.tr("Create a new workflow rule"))
+        self.btn_new.clicked.connect(self._create_new_rule)
+        self.top_bar.addWidget(self.btn_new)
+
+        self.btn_revert = QPushButton("🔄 " + self.tr("Revert"))
+        self.btn_revert.setToolTip(self.tr("Discard unsaved changes"))
+        self.btn_revert.setEnabled(False)
+        self.btn_revert.clicked.connect(self._revert_changes)
+        self.top_bar.addWidget(self.btn_revert)
+
+        self.btn_save = QPushButton("💾 " + self.tr("Save Rule"))
+        self.btn_save.setEnabled(False)
+        self.btn_save.setToolTip(self.tr("Save and activate the current rule"))
+        self.btn_save.clicked.connect(self._save_rule)
+        self.top_bar.addWidget(self.btn_save)
+
+        self.btn_manage = QPushButton("⚙️ " + self.tr("Manage..."))
+        self.btn_manage.setToolTip(self.tr("Manage rule files (delete, rename, import)"))
+        self.btn_manage.clicked.connect(self._on_manage_clicked)
+        self.top_bar.addWidget(self.btn_manage)
+
+        self.top_bar.addStretch()
+
+        editor_layout.addWidget(self.top_bar_widget)
+
+        # Horizontal separator (inner)
+        line2 = QFrame()
+        line2.setFrameShape(QFrame.Shape.HLine)
+        line2.setFrameShadow(QFrame.Shadow.Sunken)
+        line2.setStyleSheet("color: #ddd;")
+        editor_layout.addWidget(line2)
+
         # Form Editor Area
-        # Centered Content Wrapper
         h_center = QHBoxLayout()
         h_center.addStretch(1)
         
         self.content_container = QWidget()
-        self.content_container.setFixedWidth(1000) # Balanced width for FHD screens
+        self.content_container.setFixedWidth(1000)
         content_layout = QVBoxLayout(self.content_container)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setContentsMargins(0, 20, 0, 0)
         
         self.form_editor = WorkflowRuleFormEditor()
         self.form_editor.changed.connect(self._mark_dirty)
@@ -435,12 +615,24 @@ class WorkflowManagerWidget(QWidget):
         h_center.addWidget(self.content_container)
         h_center.addStretch(1)
         
-        layout.addLayout(h_center, 1)
+        editor_layout.addLayout(h_center, 1)
+
+        self.main_stack.addWidget(self.editor_widget)
+        layout.addWidget(self.main_stack, 1)
 
         # Status Bar
         self.status_lbl = QLabel()
         self.status_lbl.setStyleSheet("color: #666; font-style: italic;")
         layout.addWidget(self.status_lbl)
+
+    def _on_stack_changed(self, index):
+        if index == 0:
+            self.dashboard_tab.refresh()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self.main_stack.currentIndex() == 0:
+            self.dashboard_tab.refresh()
 
     def _mark_dirty(self):
         self._is_dirty = True

@@ -667,6 +667,7 @@ class DatabaseManager:
             "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
             "classification": "json_extract(type_tags, '$[0]')",
             "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
+            "workflow_step": "json_extract(semantic_data, '$.workflow.current_step')",
             
             # Forensic/Stamp aggregations
             "stamp_text": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.raw_content'), '')) "

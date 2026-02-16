@@ -17,6 +17,8 @@ class WorkflowTransition(BaseModel):
     required_fields: List[str] = Field(default_factory=list)
     conditions: List[WorkflowCondition] = Field(default_factory=list)
     user_interaction: bool = False
+    auto: bool = False
+    icon: Optional[str] = None
 
 class WorkflowState(BaseModel):
     label: str = ""
@@ -34,37 +36,71 @@ class WorkflowEngine:
     def __init__(self, rule: WorkflowRule):
         self.rule = rule
 
-    def get_next_state(self, current_state: str, action: str) -> str:
+    def get_next_state(self, current_state: str, action: str, data: Optional[Dict[str, Any]] = None) -> str:
         state = self.rule.states.get(current_state)
         if not state:
             raise ValueError(f"State {current_state} not found in rule {self.rule.id}")
             
         for trans in state.transitions:
             if trans.action == action:
-                return trans.target
+                if data is None or self.evaluate_transition(trans, data):
+                    return trans.target
                 
-        raise ValueError(f"Action {action} not allowed in state {current_state}")
+        raise ValueError(f"Action {action} not allowed/applicable in state {current_state}")
 
     def can_transition(self, current_state: str, action: str, data: Dict[str, Any]) -> bool:
         state = self.rule.states.get(current_state)
         if not state:
             return False
             
-        transition = next((t for t in state.transitions if t.action == action), None)
-        if not transition:
-            return False
+        for trans in state.transitions:
+            if trans.action == action:
+                if self.evaluate_transition(trans, data):
+                    return True
+        return False
+
+    def get_auto_transition(self, current_state: str, data: Dict[str, Any]) -> Optional[str]:
+        """
+        Check if any 'auto' transition is applicable from the current state.
+        Returns the target state of the first matching auto-transition.
+        """
+        state = self.rule.states.get(current_state)
+        if not state:
+            return None
             
-        # 1. Check required fields (presence)
+        for trans in state.transitions:
+            if trans.auto:
+                if self.evaluate_transition(trans, data):
+                    return trans.target
+        return None
+
+    def process_auto_transitions(self, start_state: str, data: Dict[str, Any], max_depth: int = 10) -> str:
+        """
+        Recursively process auto-transitions until no more are applicable 
+        or a max depth is reached (to prevent infinite loops).
+        """
+        current = start_state
+        for _ in range(max_depth):
+            nxt = self.get_auto_transition(current, data)
+            if not nxt or nxt == current:
+                break
+            current = nxt
+        return current
+
+    def evaluate_transition(self, transition: WorkflowTransition, data: Dict[str, Any]) -> bool:
+        """
+        Logic for evaluating if a specific transition object is applicable.
+        """
+        # 1. Check required fields
         for field in transition.required_fields:
             if field not in data or data[field] is None:
                 return False
 
-        # 2. Evaluate conditions (logic)
+        # 2. Evaluate conditions
         for cond in transition.conditions:
             val = data.get(cond.field)
             if val is None: return False
             
-            # Simple numeric or string comparison
             try:
                 if cond.op == ">": 
                     if not (float(val) > float(cond.value)): return False
@@ -79,12 +115,10 @@ class WorkflowEngine:
                 elif cond.op == "!=":
                     if str(val) == str(cond.value): return False
             except (ValueError, TypeError):
-                # Fallback to string comparison if numeric fails
                 if cond.op == "=":
                     if str(val) != str(cond.value): return False
                 else:
                     return False
-                
         return True
 
 logger = logging.getLogger("KPaperFlux.Workflow")
@@ -132,3 +166,10 @@ class WorkflowRuleRegistry:
     def list_rules(self) -> List[WorkflowRule]:
         """Returns all registered rules."""
         return list(self.rules.values())
+
+    def get_all_steps(self) -> List[str]:
+        """Gathers all unique state keys across all loaded rules."""
+        steps = set()
+        for rule in self.rules.values():
+            steps.update(rule.states.keys())
+        return sorted(list(steps))

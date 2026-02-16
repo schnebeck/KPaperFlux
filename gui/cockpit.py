@@ -249,9 +249,9 @@ class CockpitWidget(QWidget):
         if not self.cards_config:
             self.cards_config = [
                 {"title": self.tr("Inbox"), "preset_id": "NEW", "color": "#3b82f6", "row": 0, "col": 0},
-                {"title": self.tr("Total Documents"), "preset_id": "ALL", "color": "#10b981", "row": 0, "col": 1},
-                {"title": self.tr("Total Invoiced"), "preset_id": "INVOICES", "color": "#f59e0b", "aggregation": "sum", "row": 0, "col": 2},
-                {"title": self.tr("Processed"), "preset_id": "PROCESSED", "color": "#6b7280", "row": 0, "col": 3}
+                {"title": self.tr("Urgent"), "preset_id": "WORKFLOW_URGENT", "color": "#ef4444", "row": 0, "col": 1},
+                {"title": self.tr("Total Documents"), "preset_id": "ALL", "color": "#10b981", "row": 0, "col": 2},
+                {"title": self.tr("Total Invoiced"), "preset_id": "INVOICES", "color": "#f59e0b", "aggregation": "sum", "row": 0, "col": 3}
             ]
 
     def save_config(self):
@@ -307,6 +307,10 @@ class CockpitWidget(QWidget):
                     title = self.tr("Total Documents")
                 elif pid == "INVOICES":
                     title = self.tr("Total Invoiced")
+                elif pid == "WORKFLOW_URGENT":
+                    title = self.tr("Urgent")
+                elif pid == "WORKFLOW_REVIEW":
+                    title = self.tr("Review")
 
                 if self.db_manager:
                     if pid == "NEW":
@@ -315,6 +319,10 @@ class CockpitWidget(QWidget):
                         query = {"field": "status", "op": "equals", "value": "PROCESSED"}
                     elif pid == "INVOICES":
                         query = {"operator": "AND", "conditions": [{"field": "type_tags", "op": "contains", "value": ["INVOICE"]}]}
+                    elif pid == "WORKFLOW_URGENT":
+                        query = {"field": "workflow_step", "op": "equals", "value": "URGENT"}
+                    elif pid == "WORKFLOW_REVIEW":
+                        query = {"field": "workflow_step", "op": "equals", "value": "REVIEW"}
                     else:
                         query = {}
                     

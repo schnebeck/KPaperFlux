@@ -35,6 +35,8 @@ class CockpitEntryDialog(QDialog):
         self.combo_filter.addItem(self.tr("Inbox (NEW)"), {"type": "preset", "id": "NEW"})
         self.combo_filter.addItem(self.tr("Total Documents"), {"type": "preset", "id": "ALL"})
         self.combo_filter.addItem(self.tr("Processed Documents"), {"type": "preset", "id": "PROCESSED"})
+        self.combo_filter.addItem(self.tr("Urgent Workflows"), {"type": "preset", "id": "WORKFLOW_URGENT"})
+        self.combo_filter.addItem(self.tr("Review Workflows"), {"type": "preset", "id": "WORKFLOW_REVIEW"})
         # self.combo_filter.addItem("--- Custom Filters ---", None) # Optional separator
 
         current_idx = 0

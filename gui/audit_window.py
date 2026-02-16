@@ -26,7 +26,7 @@ class AuditWindow(QMainWindow):
     A non-modal window for side-by-side verification of document vs. extracted data.
     """
     closed = pyqtSignal()
-    workflow_triggered = pyqtSignal(str, str) # action, target
+    workflow_triggered = pyqtSignal(str, str, bool) # action, target, is_auto
 
     def __init__(self, pipeline=None, parent=None):
         super().__init__(parent)

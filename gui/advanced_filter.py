@@ -12,7 +12,8 @@ Description:    Panel for managing complex search filters and document rules.
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QComboBox, QLineEdit, QScrollArea, QFrame,
                              QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox,
-                             QSizePolicy, QProgressDialog, QStackedWidget, QTabWidget, QDialog)
+                             QSizePolicy, QProgressDialog, QStackedWidget, QTabWidget, QDialog,
+                             QToolButton, QButtonGroup)
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint, QCoreApplication
 from PyQt6.QtGui import QAction
 import json
@@ -81,6 +82,7 @@ class AdvancedFilterWidget(QWidget):
         self.extra_keys = []
         self.available_tags = []
         self.available_system_tags = []
+        self.available_workflow_steps = []
         self.loaded_filter_node = None
         self._loading = False
         self.parser = QueryParser() # For smart search
@@ -97,13 +99,75 @@ class AdvancedFilterWidget(QWidget):
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(0)
 
-        self.tabs = QTabWidget()
-        # Phase 108: Navigation is consolidated into the main toolbar (MainWindow)
-        self.tabs.tabBar().hide()
-        self.tabs.setStyleSheet("QTabWidget::pane { border-top: 1px solid #ddd; background: white; margin-top: -1px; }")
-        layout.addWidget(self.tabs)
+        # Custom Sub-Navigation Bar
+        sub_nav_container = QWidget()
+        sub_nav_layout = QHBoxLayout(sub_nav_container)
+        sub_nav_layout.setContentsMargins(0, 0, 0, 5)
+        sub_nav_layout.setSpacing(5)
+
+        self.sub_mode_group = QButtonGroup(self)
+        self.sub_mode_group.setExclusive(False) # Manual toggle logic
+
+        button_height = 30
+        button_style = f"""
+            QToolButton {{ 
+                padding: 0px 20px; 
+                height: {button_height}px;
+                border: 1px solid #ddd; 
+                border-radius: 4px;
+                background: #f8f9fa;
+                color: #555; 
+                font-size: 15px; 
+                font-weight: 500; 
+            }}
+            QToolButton:hover {{ background: #eee; }}
+            QToolButton:checked {{ 
+                background: #1565c0; 
+                color: white; 
+                border-color: #0d47a1;
+                font-weight: bold; 
+            }}
+        """
+
+        modes = [
+            (0, "🔍 " + self.tr("Search")),
+            (1, "🎯 " + self.tr("Filter")),
+            (2, "🤖 " + self.tr("Rules"))
+        ]
+
+        for idx, label in modes:
+            btn = QToolButton()
+            btn.setText(label)
+            btn.setCheckable(True)
+            btn.setFixedHeight(button_height)
+            btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+            btn.setStyleSheet(button_style)
+            btn.clicked.connect(lambda checked, i=idx: self._on_sub_mode_clicked(i))
+            sub_nav_layout.addWidget(btn)
+            self.sub_mode_group.addButton(btn, idx)
+
+        sub_nav_layout.addStretch()
+        layout.addWidget(sub_nav_container)
+        
+        # Consistent vertical spacing (10px gap before content starts)
+        self.nav_spacer = QWidget()
+        self.nav_spacer.setFixedHeight(10)
+        layout.addWidget(self.nav_spacer)
+
+        # Horizontal separator
+        self.sep_line = QFrame()
+        self.sep_line.setFrameShape(QFrame.Shape.HLine)
+        self.sep_line.setFrameShadow(QFrame.Shadow.Sunken)
+        self.sep_line.setStyleSheet("background-color: #ddd; max-height: 1px; margin-bottom: 12px;")
+        layout.addWidget(self.sep_line)
+
+        self.stack = QStackedWidget()
+        layout.addWidget(self.stack)
+        
+        self._update_stack_visibility()
 
         # --- TAB 1: Suche ---
         self.search_tab = QWidget()
@@ -136,7 +200,7 @@ class AdvancedFilterWidget(QWidget):
         search_layout.addLayout(opt_layout)
         search_layout.addStretch()
 
-        self.tabs.addTab(self.search_tab, "🔍 " + self.tr("Search"))
+        self.stack.addWidget(self.search_tab)
 
         # --- TAB 2: Ansicht filtern ---
         self.filter_tab = QWidget()
@@ -177,6 +241,7 @@ class AdvancedFilterWidget(QWidget):
         self.root_group = FilterGroupWidget(extra_keys=self.extra_keys,
                                             available_tags=self.available_tags,
                                             available_system_tags=self.available_system_tags,
+                                            available_workflow_steps=self.available_workflow_steps,
                                             is_root=True)
         self.root_group.changed.connect(self._set_dirty)
         self.scroll.setWidget(self.root_group)
@@ -201,11 +266,11 @@ class AdvancedFilterWidget(QWidget):
         bottom_bar.addWidget(self.chk_active)
         filter_layout.addLayout(bottom_bar)
 
-        self.tabs.addTab(self.filter_tab, "🎯 " + self.tr("Filter View"))
+        self.stack.addWidget(self.filter_tab)
 
         # --- TAB 3: Auto-Tagging Rules ---
         self._init_rules_tab()
-        self.tabs.addTab(self.rules_tab, "🤖 " + self.tr("Rules"))
+        self.stack.addWidget(self.rules_tab)
 
     def _init_rules_tab(self):
         self.rules_tab = QWidget()
@@ -264,6 +329,7 @@ class AdvancedFilterWidget(QWidget):
         self.rules_scroll.setWidgetResizable(True)
         self.rules_root_group = FilterGroupWidget(extra_keys=self.extra_keys,
                                                   available_tags=self.available_tags,
+                                                  available_workflow_steps=self.available_workflow_steps,
                                                   is_root=True)
         self.rules_root_group.changed.connect(self._set_rule_dirty)
         self.rules_scroll.setWidget(self.rules_root_group)
@@ -614,6 +680,45 @@ class AdvancedFilterWidget(QWidget):
         # Refresh UI? Better to emit a signal so MainWindow can refresh list.
         self.refresh_dynamic_data()
 
+    def _on_sub_mode_clicked(self, index):
+        btn = self.sub_mode_group.button(index)
+        
+        # If we clicked the already checked button -> uncheck all
+        if not btn.isChecked():
+            # This happens if clicking a checked button with non-exclusive group?
+            # Actually, with non-exclusive, clicking toggles normally.
+            pass
+
+        # Since we want "one or none", if checking one, uncheck others
+        if btn.isChecked():
+            for other in self.sub_mode_group.buttons():
+                if other != btn:
+                    other.setChecked(False)
+            self.stack.setCurrentIndex(index)
+        
+        self._update_stack_visibility()
+    def _update_stack_visibility(self):
+        has_selection = any(b.isChecked() for b in self.sub_mode_group.buttons())
+        self.stack.setVisible(has_selection)
+        self.sep_line.setVisible(has_selection)
+        if hasattr(self, 'nav_spacer'):
+            self.nav_spacer.setVisible(has_selection)
+        
+        # KEEP TOP MARGIN STABLE at 10 to avoid jumping!
+        # Bottom margin is 10 when open, 5 when closed for a tiny breathing room
+        self.layout().setContentsMargins(10, 10, 10, 10 if has_selection else 5)
+        
+        if not has_selection:
+            # Fixed height to avoid any redistribution of space in Splitter
+            # 10 (top) + 30 (button) + 5 (internal layout bottom) + 3 (new bottom margin) = 48
+            self.setFixedHeight(48) 
+        else:
+            self.setMinimumHeight(0)
+            self.setMaximumHeight(16777215)
+            self.setFixedHeight(16777215) 
+            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+            self.updateGeometry() # Force parent splitter to reconsider
+
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
         print(f"[Search-Debug] Raw Input: '{text}'")
@@ -726,9 +831,14 @@ class AdvancedFilterWidget(QWidget):
         if self.db_manager:
             self.available_tags = self.db_manager.get_available_tags(system=False)
             self.available_system_tags = self.db_manager.get_available_tags(system=True)
+            
+            # 113: Collect available workflow steps from rules
+            registry = WorkflowRuleRegistry()
+            self.available_workflow_steps = registry.get_all_steps()
 
         if self.root_group:
-            self.root_group.update_metadata(self.extra_keys, self.available_tags, self.available_system_tags)
+            self.root_group.update_metadata(self.extra_keys, self.available_tags, 
+                                            self.available_system_tags, self.available_workflow_steps)
 
     def remove_condition(self, row):
         # Handled internally by groups

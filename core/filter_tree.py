@@ -103,10 +103,11 @@ class FilterTree:
     Manages a hierarchy of FilterNodes.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, db_manager: Optional[Any] = None) -> None:
         """Initializes an empty FilterTree with a root folder."""
         self.root: FilterNode = FilterNode("Root", NodeType.FOLDER)
         self.favorites: List[str] = []  # List of node UUIDs
+        self.db_manager = db_manager
 
     def add_folder(self, parent: FilterNode, name: str) -> FilterNode:
         """

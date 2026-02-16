@@ -5,7 +5,8 @@ import logging
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, 
     QTextEdit, QComboBox, QTableWidget, QTableWidgetItem, 
-    QPushButton, QLabel, QCheckBox, QHeaderView, QFrame, QMessageBox
+    QPushButton, QLabel, QCheckBox, QHeaderView, QFrame, QMessageBox,
+    QScrollArea
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.models.reporting import ReportDefinition, Aggregation

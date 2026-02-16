@@ -139,7 +139,7 @@ class MainWindow(QMainWindow):
         # Toolbar/Shortcuts moved down to ensure all widgets like list_widget exist before initial status update
 
         # --- Global Models ---
-        self.filter_tree = FilterTree()
+        self.filter_tree = FilterTree(self.db_manager)
         self.load_filter_tree()
 
         # Central Widget is now a Stacked Widget
@@ -161,15 +161,16 @@ class MainWindow(QMainWindow):
         explorer_layout.addWidget(self.main_splitter)
         self.central_stack.addWidget(self.explorer_widget)
         
-        # --- Page 2: Reporting ---
+        # --- Page 2: Workflow Rules ---
+        self.workflow_manager = WorkflowManagerWidget(filter_tree=self.filter_tree)
+        self.workflow_manager.navigation_requested.connect(self.navigate_to_list_filter)
+        self.central_stack.addWidget(self.workflow_manager)
+
+        # --- Page 3: Reporting ---
         from gui.reporting import ReportingWidget
         self.reporting_widget = ReportingWidget(self.db_manager, filter_tree=self.filter_tree)
         self.reporting_widget.filter_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.reporting_widget)
-
-        # --- Page 3: Workflow Rules ---
-        self.workflow_manager = WorkflowManagerWidget(filter_tree=self.filter_tree)
-        self.central_stack.addWidget(self.workflow_manager)
 
         self.central_stack.setCurrentIndex(0) # Start with Cockpit
         self.central_stack.currentChanged.connect(self._on_tab_changed)
@@ -296,14 +297,30 @@ class MainWindow(QMainWindow):
         if self.db_manager and hasattr(self, 'list_widget') and isinstance(self.list_widget, DocumentListWidget):
             self.list_widget.refresh_list()
 
-    def _sync_sub_modes(self, index):
-        """Synchronize toolbar buttons with internal filter tabs."""
-        if hasattr(self, 'sub_mode_buttons'):
-            btn = self.sub_mode_buttons.get(index)
-            if btn:
-                btn.blockSignals(True)
-                btn.setChecked(True)
-                btn.blockSignals(False)
+    def setup_shortcuts(self):
+        # Global shortcuts for main navigation
+        QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(lambda: self.central_stack.setCurrentIndex(0))
+        QShortcut(QKeySequence("Ctrl+2"), self).activated.connect(lambda: self.central_stack.setCurrentIndex(1))
+        QShortcut(QKeySequence("Ctrl+3"), self).activated.connect(lambda: self.central_stack.setCurrentIndex(2))
+        QShortcut(QKeySequence("Ctrl+4"), self).activated.connect(lambda: self.central_stack.setCurrentIndex(3))
+
+        self.shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
+        # self.shortcut_save.activated.connect(lambda: self.editor_widget.save_changes()) # editor_widget might be MetadataEditor or something else
+
+        self.shortcut_search = QShortcut(QKeySequence("Ctrl+F"), self)
+        if hasattr(self, "advanced_filter"):
+            def focus_search():
+                if not self.advanced_filter.isVisible():
+                    self._toggle_filter_view(True)
+                self.advanced_filter.stack.setCurrentIndex(0)
+                # Also select the button in sub-nav
+                btn = self.advanced_filter.sub_mode_group.button(0)
+                if btn: btn.setChecked(True)
+                self.advanced_filter.txt_smart_search.setFocus()
+            self.shortcut_search.activated.connect(focus_search)
+
+        self.shortcut_home = QShortcut(QKeySequence("Ctrl+H"), self)
+        self.shortcut_home.activated.connect(self.go_home_slot)
 
         if self.pipeline:
              self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
@@ -2070,92 +2087,26 @@ class MainWindow(QMainWindow):
         cockpit_nav_layout.addWidget(self.btn_cockpit)
         self.navbar.addWidget(self.cockpit_nav_container)
 
-        # Tab Area: Documents (Includes Filter)
+        # Tab Area: Documents
         self.doc_container = QWidget()
         self.doc_container.setObjectName("tabContainer")
         doc_layout = QHBoxLayout(self.doc_container)
         doc_layout.setContentsMargins(0, 0, 0, 0)
         doc_layout.setSpacing(0)
-        doc_layout.setAlignment(Qt.AlignmentFlag.AlignBottom) # Anchor to the bottom for the underline
-
+        doc_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        
         self.btn_documents = QToolButton()
         self.btn_documents.setObjectName("mainTabBtn")
         self.btn_documents.setCheckable(True)
         self.btn_documents.setText(self.tr("Documents"))
+        self.btn_documents.setToolTip(self.tr("Browse and manage document list"))
         self.btn_documents.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_documents.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_DirIcon))
+        self.btn_documents.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_DirHomeIcon))
         self.btn_documents.clicked.connect(lambda: self.central_stack.setCurrentIndex(1))
         doc_layout.addWidget(self.btn_documents)
 
-        # Filter Action (Integrated into the same "Tab area")
-        # Note: self.action_toggle_filter now created in create_menu_bar
-        
-        self.btn_filter = QToolButton()
-        self.btn_filter.setObjectName("filterBtn")
-        self.btn_filter.setDefaultAction(self.action_toggle_filter)
-        doc_layout.addWidget(self.btn_filter)
-
-        # Sub-Mode Navigation (Integrated into the same white tab area)
-        self.sub_mode_container = QWidget()
-        self.sub_mode_layout = QHBoxLayout(self.sub_mode_container)
-        self.sub_mode_layout.setContentsMargins(0, 0, 0, 0)
-        self.sub_mode_layout.setSpacing(1)
-        
-        # Vertical Separator
-        v_sep = QFrame()
-        v_sep.setFixedWidth(1)
-        v_sep.setStyleSheet("background-color: #ddd; margin: 6px 10px;") 
-        self.sub_mode_layout.addWidget(v_sep)
-
-        self.sub_mode_group = QButtonGroup(self)
-        self.sub_mode_group.setExclusive(True)
-        self.sub_mode_buttons = {}
-        
-        sub_modes = [
-            (0, "🔍 " + self.tr("Search")),
-            (1, "🎯 " + self.tr("Filter")),
-            (2, "🤖 " + self.tr("Rules"))
-        ]
-        
-        for idx, label in sub_modes:
-            btn = QToolButton()
-            btn.setObjectName("subModeBtn")
-            btn.setText(label)
-            btn.setCheckable(True)
-            # lambda captures idx correctly here via default argument
-            btn.clicked.connect(lambda checked, i=idx: self.advanced_filter.tabs.setCurrentIndex(i))
-            self.sub_mode_layout.addWidget(btn)
-            self.sub_mode_group.addButton(btn, idx)
-            self.sub_mode_buttons[idx] = btn
-            
-        doc_layout.addWidget(self.sub_mode_container)
-        self.sub_mode_container.setVisible(self.action_toggle_filter.isChecked())
-
-        # Connect to sync UI when tabs change internally (e.g. via shortcut)
-        if hasattr(self, 'advanced_filter'):
-            self.advanced_filter.tabs.currentChanged.connect(self._sync_sub_modes)
-            self._sync_sub_modes(self.advanced_filter.tabs.currentIndex())
-        
         self.navbar.addWidget(self.doc_container)
         
-        # Tab Area: Reporting
-        self.report_container = QWidget()
-        self.report_container.setObjectName("tabContainer")
-        report_layout = QHBoxLayout(self.report_container)
-        report_layout.setContentsMargins(0, 0, 0, 0)
-        report_layout.setSpacing(0)
-        report_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
-        
-        self.btn_reports = QToolButton()
-        self.btn_reports.setObjectName("mainTabBtn")
-        self.btn_reports.setCheckable(True)
-        self.btn_reports.setText(self.tr("Reports"))
-        self.btn_reports.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_reports.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView))
-        self.btn_reports.clicked.connect(lambda: self.central_stack.setCurrentIndex(2))
-        report_layout.addWidget(self.btn_reports)
-        self.navbar.addWidget(self.report_container)
-
         # Tab Area: Workflows
         self.wf_container = QWidget()
         self.wf_container.setObjectName("tabContainer")
@@ -2170,9 +2121,27 @@ class MainWindow(QMainWindow):
         self.btn_workflows.setText("🤖 " + self.tr("Workflows"))
         self.btn_workflows.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn_workflows.setIcon(QIcon()) # Remove the arrow icon
-        self.btn_workflows.clicked.connect(lambda: self.central_stack.setCurrentIndex(3))
+        self.btn_workflows.clicked.connect(lambda: self.central_stack.setCurrentIndex(2))
         wf_layout.addWidget(self.btn_workflows)
         self.navbar.addWidget(self.wf_container)
+
+        # Tab Area: Reporting
+        self.report_container = QWidget()
+        self.report_container.setObjectName("tabContainer")
+        report_layout = QHBoxLayout(self.report_container)
+        report_layout.setContentsMargins(0, 0, 0, 0)
+        report_layout.setSpacing(0)
+        report_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        
+        self.btn_reports = QToolButton()
+        self.btn_reports.setObjectName("mainTabBtn")
+        self.btn_reports.setCheckable(True)
+        self.btn_reports.setText(self.tr("Reports"))
+        self.btn_reports.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_reports.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView))
+        self.btn_reports.clicked.connect(lambda: self.central_stack.setCurrentIndex(3))
+        report_layout.addWidget(self.btn_reports)
+        self.navbar.addWidget(self.report_container)
 
         # Spacer
         spacer = QWidget()
@@ -2183,14 +2152,14 @@ class MainWindow(QMainWindow):
         """Update navigation UI when stack changes."""
         is_cockpit = (index == 0)
         is_explorer = (index == 1)
-        is_reporting = (index == 2)
-        is_workflow = (index == 3)
+        is_workflow = (index == 2)
+        is_reporting = (index == 3)
         
         # Update Tab Highlighting
         self.cockpit_nav_container.setProperty("active", is_cockpit)
         self.doc_container.setProperty("active", is_explorer)
-        self.report_container.setProperty("active", is_reporting)
         self.wf_container.setProperty("active", is_workflow)
+        self.report_container.setProperty("active", is_reporting)
         
         # Force Style Refresh
         for btn in [self.btn_cockpit, self.btn_documents, self.btn_reports, self.btn_workflows]:
@@ -2210,13 +2179,7 @@ class MainWindow(QMainWindow):
         self.btn_reports.setChecked(is_reporting)
         self.btn_workflows.setChecked(is_workflow)
         
-        # Toggle filter visibility (only in Explorer)
-        if hasattr(self, 'btn_filter'):
-            self.btn_filter.setVisible(is_explorer)
-        
-        # Toggle sub-mode visibility (only in Explorer AND if filter is active)
-        if hasattr(self, 'sub_mode_container'):
-            self.sub_mode_container.setVisible(is_explorer and self.action_toggle_filter.isChecked())
+        # Sub-mode visibility is now handled internally in Documents and Workflows
         
         # Refresh Data for specific tabs
         if is_cockpit:
@@ -2238,36 +2201,12 @@ class MainWindow(QMainWindow):
                 child.style().unpolish(child)
                 child.style().polish(child)
 
-    def setup_shortcuts(self):
-        """Initialize global keyboard shortcuts."""
-        self.shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
-        self.shortcut_save.activated.connect(lambda: self.editor_widget.save_changes())
-
-        self.shortcut_search = QShortcut(QKeySequence("Ctrl+F"), self)
-        if hasattr(self, "advanced_filter"):
-            def focus_search():
-                if not self.advanced_filter.isVisible():
-                    self._toggle_filter_view(True)
-                self.advanced_filter.tabs.setCurrentIndex(0)
-                self.advanced_filter.txt_smart_search.setFocus()
-            self.shortcut_search.activated.connect(focus_search)
-
-        self.shortcut_home = QShortcut(QKeySequence("Ctrl+H"), self)
-        self.shortcut_home.activated.connect(self.go_home_slot)
-
-        self.shortcut_home_alt = QShortcut(QKeySequence("Alt+Home"), self)
-        self.shortcut_home_alt.activated.connect(self.go_home_slot)
-
     def _toggle_filter_view(self, checked):
         """Toggle visibility of the unified filter console."""
         if hasattr(self, "advanced_filter"):
             self.advanced_filter.setVisible(checked)
             if hasattr(self, "action_toggle_filter"):
                 self.action_toggle_filter.setChecked(checked)
-            # Sync sub-modes visibility
-            if hasattr(self, 'sub_mode_container'):
-                 is_docs = (self.central_stack.currentIndex() == 1)
-                 self.sub_mode_container.setVisible(checked and is_docs)
 
     def open_tag_manager_slot(self):
         """Open the Tag Manager dialog."""

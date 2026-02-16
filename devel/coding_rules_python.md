@@ -37,6 +37,11 @@ Description:    [Insert concise description]
 * **Path Handling:** Use **pathlib** instead of os.path where applicable.
 * **Collections:** Use literal syntax for lists/dicts (e.g., [], {}) instead of list(), dict().
 
+### **C. No Legacy Code Support**
+* **Strict Modernization:** Support for legacy data structures or old code paths within production logic is **forbidden**.
+* **Transition Strategy:** If breaking changes occur (e.g., schema migration), implement a separate, isolated conversion script or routine to migrate user data once.
+* **Refactoring:** After migration, delete all legacy code immediately. Do not keep "backward compatibility" branches or `if legacy:` blocks in the main logic.
+
 ## **4. Documentation Standards**
 * **Docstrings:** Every Class, Method, and Function must have a docstring (Google Style preferred).
 * **Content:** Describe purpose, Args, Returns, and Raises.

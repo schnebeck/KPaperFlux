@@ -495,17 +495,20 @@ class MetadataEditorWidget(QWidget):
                   self.pay_amount_edit, self.pay_purpose_edit]:
             w.textChanged.connect(self._mark_dirty)
 
-    def on_workflow_transition(self, action: str, target_state: str):
+    def on_workflow_transition(self, action: str, target_state: str, is_auto: bool = False):
         """Action handler for workflow button clicks."""
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
             
-        print(f"[Workflow-GUI] Triggering ACTION '{action}' -> '{target_state}'")
+        source = "SYSTEM" if is_auto else "USER"
+        comment = self.tr("Auto-transition triggered") if is_auto else self.tr("Action triggered via UI")
+        
+        print(f"[Workflow-GUI] Triggering ACTION '{action}' -> '{target_state}' (Auto: {is_auto})")
         
         # 1. Update In-Memory Object
         sd = self.doc.semantic_data
         if sd and sd.workflow:
-            sd.workflow.apply_transition(action, target_state, user="USER", comment=self.tr("Action triggered via UI"))
+            sd.workflow.apply_transition(action, target_state, user=source, comment=comment)
             
             # If target state is 'PAID', we might want to update status to 'DONE' etc.
             # But the playbook should ideally define if a state is 'final'.

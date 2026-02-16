@@ -57,6 +57,7 @@ class FilterConditionWidget(QWidget):
             "Status": "status",
             "Tags": "tags",
             "System Tags": "type_tags",
+            "Workflow Step": "workflow_step",
             "Full Text": "cached_full_text",
         },
         "ai": {
@@ -99,10 +100,11 @@ class FilterConditionWidget(QWidget):
         ("Between", "between") # Added for ranges
     ]
 
-    def __init__(self, parent=None, extra_keys=None, available_tags=None, available_system_tags=None):
+    def __init__(self, parent=None, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None):
         super().__init__(parent)
         self.available_tags = available_tags or []
         self.available_system_tags = available_system_tags or []
+        self.available_workflow_steps = available_workflow_steps or []
         self.extra_keys = extra_keys or []
         self.last_field = None
         self.layout = QHBoxLayout(self)
@@ -149,11 +151,12 @@ class FilterConditionWidget(QWidget):
         self.input_date.rangeChanged.connect(lambda: self.changed.emit())
         self.btn_remove.clicked.connect(self.remove_requested)
 
-    def update_metadata(self, extra_keys=None, available_tags=None, available_system_tags=None):
+    def update_metadata(self, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None):
         """Update available keys/tags and refresh UI without losing state."""
         if extra_keys is not None: self.extra_keys = extra_keys
         if available_tags is not None: self.available_tags = available_tags
         if available_system_tags is not None: self.available_system_tags = available_system_tags
+        if available_workflow_steps is not None: self.available_workflow_steps = available_workflow_steps
 
         # Refresh active input if it depends on tags
         if self.field_key in ["type_tags", "tags", "classification", "direction", "tenant_context"]:
@@ -256,15 +259,17 @@ class FilterConditionWidget(QWidget):
         # Logic to switch inputs
         if field_key in ["doc_date", "created_at", "last_processed_at", "last_used"]:
             self.input_stack.setCurrentIndex(2) # Date
-        elif field_key in ["type_tags", "tags"]:
+        elif field_key in ["type_tags", "tags", "workflow_step"]:
             self.input_stack.setCurrentIndex(1) # Multi
             self.input_multi.clear()
-
+            
             if field_key == "type_tags":
-                # System Tags - dynamically from DB
                 self.input_multi.addItems(self.available_system_tags)
+            elif field_key == "workflow_step":
+                steps = self.available_workflow_steps
+                if not steps: steps = ["NEW", "PAID", "URGENT", "REVIEW"] # Fallback
+                self.input_multi.addItems(steps)
             else:
-                # User Tags
                 self.input_multi.addItems(self.available_tags)
         elif field_key == "direction":
              self.input_stack.setCurrentIndex(1)
