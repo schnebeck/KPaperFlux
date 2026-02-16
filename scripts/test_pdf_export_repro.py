@@ -22,6 +22,10 @@ def test_manual_pdf():
         print(f"FAILED with error: {e}")
         import traceback
         traceback.print_exc()
+    finally:
+        if os.path.exists("repro_test.pdf"):
+            print("Cleaning up repro_test.pdf...")
+            os.remove("repro_test.pdf")
 
 if __name__ == "__main__":
     test_manual_pdf()
