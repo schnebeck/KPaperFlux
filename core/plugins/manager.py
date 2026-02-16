@@ -87,6 +87,15 @@ class PluginManager:
                 plugin_class = getattr(module, class_name)
                 if issubclass(plugin_class, KPaperFluxPlugin) or any(base.__name__ == 'KPaperFluxPlugin' for base in plugin_class.__mro__):
                     instance = plugin_class(self.api)
+                    
+                    # --- l10n Support ---
+                    lang = self.api.config.get_language() if self.api.config else "en"
+                    if lang != "en":
+                        l10n_path = plugin_path / "l10n" / lang / "messages.qm"
+                        if l10n_path.exists():
+                            instance.load_translator(str(l10n_path))
+                            print(f"[PluginManager] Loaded {lang} translations for: {plugin_path.name}")
+                    
                     self.plugins.append(instance)
                     print(f"[PluginManager] Successfully loaded plugin: {manifest.get('name', plugin_path.name)}")
                 else:

@@ -73,7 +73,8 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 *   **Re-Materialization:** Generates high-quality, DIN 5008 compliant PDF documents from semantic data.
 *   **Advanced Layouting:** Dynamic column calculation for item lists, automatic pagination, and specialized support for certificates (RoHS, REACH) and legal statements.
 
-### 🧩 Hybrid PDF & Forensic Trust
+### 🧩 Plugin System & Localization
+*   **Localized Plugin Architecture:** Standardized internationalization (l10n) support for external plugins. Menu entries, dialogs, and status messages automatically adapt to the user's selected language (e.g., German).
 *   **Vector Protection:** Instead of "baking" scans into PDFs, KPaperFlux overlays transparent signatures on original vector documents, preserving 1:1 text quality and minimal file size.
 *   **Chain of Trust:** Hybrid PDFs automatically embed the original digitally signed source document as an attachment for legal validity.
 

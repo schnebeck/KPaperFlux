@@ -33,12 +33,29 @@ class ApiContext:
             self.logical_repo = None
             self.physical_repo = None
 
-class KPaperFluxPlugin:
+from PyQt6.QtCore import QObject, QTranslator
+
+class KPaperFluxPlugin(QObject):
     """
     Abstract base class for all KPaperFlux plugins.
     """
     def __init__(self, api: ApiContext):
+        super().__init__()
         self.api = api
+        self._translators: List[QTranslator] = []
+
+    def load_translator(self, qm_path: str):
+        """Loads a .qm file and installs it for this plugin instance."""
+        if not Path(qm_path).exists():
+            return False
+            
+        from PyQt6.QtCore import QCoreApplication
+        translator = QTranslator(self)
+        if translator.load(qm_path):
+            QCoreApplication.installTranslator(translator)
+            self._translators.append(translator)
+            return True
+        return False
 
     def get_info(self) -> Dict[str, Any]:
         """

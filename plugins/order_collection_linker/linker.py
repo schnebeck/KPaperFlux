@@ -15,10 +15,10 @@ class OrderCollectionLinker(KPaperFluxPlugin):
     """
     
     def get_name(self) -> str:
-        return "Order Collection Linker"
+        return self.tr("Order Collection Linker")
 
     def get_tool_actions(self, parent=None) -> List[QAction]:
-        action = QAction("Create Order Collections...", parent)
+        action = QAction(self.tr("Create Order Collections..."), parent)
         action.triggered.connect(lambda: self.run_collection_flow(parent))
         return [action]
 
@@ -29,7 +29,7 @@ class OrderCollectionLinker(KPaperFluxPlugin):
         db = self.api.db
         all_docs = db.get_all_entities_view()
         if not all_docs:
-            QMessageBox.information(parent, "Order Collection", "No document data available to build collections.")
+            QMessageBox.information(parent, self.tr("Order Collection"), self.tr("No document data available to build collections."))
             return
 
         # Map to track which IDs point to which documents
@@ -91,12 +91,12 @@ class OrderCollectionLinker(KPaperFluxPlugin):
                         updates += 1
 
         # Summary
-        msg = (f"Order Collection Discovery Complete:\n\n"
-               f"• Identified {len(process_clusters)} collections\n"
-               f"• Established {new_processes} new organic process IDs\n"
-               f"• Linked {updates} documents semantically")
+        msg = (self.tr("Order Collection Discovery Complete:") + "\n\n"
+               f"• {self.tr('Identified %1 collections').replace('%1', str(len(process_clusters)))}\n"
+               f"• {self.tr('Established %1 new organic process IDs').replace('%1', str(new_processes))}\n"
+               f"• {self.tr('Linked %1 documents semantically').replace('%1', str(updates))}")
         
-        QMessageBox.information(parent, "Order Collection Linker", msg)
+        QMessageBox.information(parent, self.tr("Order Collection Linker"), msg)
         
         if updates > 0 and self.api.main_window:
             self.api.main_window.list_widget.refresh_list()

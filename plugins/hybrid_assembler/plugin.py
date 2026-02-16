@@ -4,7 +4,6 @@ import cv2
 import fitz
 import numpy as np
 from pathlib import Path
-from PyQt6.QtCore import QObject
 from core.plugins.base import KPaperFluxPlugin
 from core.utils.hybrid_engine import HybridEngine
 from core.utils.forensics import check_pdf_immutable
@@ -20,14 +19,14 @@ class HybridAssemblerPlugin(KPaperFluxPlugin):
         self.dialog = None
 
     def get_name(self) -> str:
-        return "Hybrid Assembler"
+        return self.tr("Hybrid Assembler")
 
     def get_description(self) -> str:
-        return "Assembles hybrid PDFs from native and scanned versions."
+        return self.tr("Assembles hybrid PDFs from native and scanned versions.")
 
     def get_tool_actions(self, parent=None):
         from PyQt6.QtGui import QAction
-        action = QAction("Assemble Hybrid PDFs...", parent)
+        action = QAction(self.tr("Assemble Hybrid PDFs..."), parent)
         action.triggered.connect(lambda: self.open_matching_dialog(parent))
         return [action]
 

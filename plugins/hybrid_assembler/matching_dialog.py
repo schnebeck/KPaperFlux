@@ -31,7 +31,7 @@ class MatchWorker(QThread):
             self.finished.emit([])
             return
 
-        self.status_msg.emit(f"Analyzing {len(files)} files...")
+        self.status_msg.emit(self.tr("Analyzing %1 files...").replace("%1", str(len(files))))
         natives_paths = []
         scans_paths = []
 
@@ -42,7 +42,7 @@ class MatchWorker(QThread):
                 scans_paths.append(f)
 
         # 1. TWO-STAGE PARALLEL CACHING
-        self.status_msg.emit("Two-Stage Data Preparation (100/150 DPI)...")
+        self.status_msg.emit(self.tr("Two-Stage Data Preparation (100/150 DPI)..."))
         cache_100 = {}
         cache_150 = {}
         
@@ -60,7 +60,7 @@ class MatchWorker(QThread):
             if self._is_cancelled: return
             executor.map(render_file, natives_paths + scans_paths)
 
-        self.status_msg.emit(f"Matching {len(scans_paths)} Scans (Smart Two-Stage)...")
+        self.status_msg.emit(self.tr("Matching %1 Scans (Smart Two-Stage)...").replace("%1", str(len(scans_paths))))
         results = []
         available_natives = list(natives_paths)
         
@@ -169,7 +169,7 @@ class MatchingDialog(QDialog):
             if not self.pipeline and hasattr(self.plugin.api, 'pipeline'):
                 self.pipeline = self.plugin.api.pipeline
 
-        self.setWindowTitle("Hybrid Matching-Dialog")
+        self.setWindowTitle(self.tr("Hybrid Matching-Dialog"))
         
         # Geometry Persistence
         self.settings = QSettings("KPaperFlux", "MatchingDialog")
@@ -229,14 +229,14 @@ class MatchingDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Header / Description
-        header = QLabel("<b>Hybrid Matching-Dialog</b><br>Finds pairs of scanned and native PDFs in a folder to merge them.")
+        header = QLabel(self.tr("<b>Hybrid Matching-Dialog</b><br>Finds pairs of scanned and native PDFs in a folder to merge them."))
         header.setStyleSheet("font-size: 14px;")
         layout.addWidget(header)
 
         # Folder Selection
         folder_layout = QHBoxLayout()
-        self.lbl_folder = QLabel(self.current_folder if self.current_folder else "No folder selected.")
-        btn_browse = QPushButton("Browse Folder...")
+        self.lbl_folder = QLabel(self.current_folder if self.current_folder else self.tr("No folder selected."))
+        btn_browse = QPushButton(self.tr("Browse Folder..."))
         btn_browse.clicked.connect(self.on_browse)
         folder_layout.addWidget(self.lbl_folder, 1)
         folder_layout.addWidget(btn_browse)
@@ -244,7 +244,7 @@ class MatchingDialog(QDialog):
 
         # Options
         options_layout = QHBoxLayout()
-        self.chk_delete_originals = QCheckBox("Delete original files after successful merge")
+        self.chk_delete_originals = QCheckBox(self.tr("Delete original files after successful merge"))
         options_layout.addWidget(self.chk_delete_originals)
         layout.addLayout(options_layout)
 
@@ -258,7 +258,9 @@ class MatchingDialog(QDialog):
 
         # Results Table
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["Scan File", "Best Native Match", "Status", "Actions"])
+        self.table.setHorizontalHeaderLabels([
+            self.tr("Scan File"), self.tr("Best Native Match"), self.tr("Status"), self.tr("Actions")
+        ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
 
@@ -266,14 +268,14 @@ class MatchingDialog(QDialog):
         btn_layout = QHBoxLayout()
         
         # Primary Action Button (Smart Workflow Button)
-        self.btn_primary_action = QPushButton("Start Analysis")
-        self.btn_primary_action.setToolTip("Start scanning folder or process results")
+        self.btn_primary_action = QPushButton(self.tr("Start Analysis"))
+        self.btn_primary_action.setToolTip(self.tr("Start scanning folder or process results"))
         self.btn_primary_action.setEnabled(True)
         self.btn_primary_action.clicked.connect(self.on_primary_action)
         self.btn_primary_action.setStyleSheet("min-width: 180px; padding: 8px; font-weight: bold;")
         
         common_style = "min-width: 100px; padding: 6px;"
-        btn_close = QPushButton("Close")
+        btn_close = QPushButton(self.tr("Close"))
         btn_close.clicked.connect(self.close)
         btn_close.setStyleSheet(common_style)
         
@@ -296,7 +298,7 @@ class MatchingDialog(QDialog):
 
     def start_analysis(self):
         if not hasattr(self, 'current_folder') or not os.path.exists(self.current_folder):
-            QMessageBox.warning(self, "Error", "Please select a valid folder first.")
+            QMessageBox.warning(self, self.tr("Error"), self.tr("Please select a valid folder first."))
             return
 
         self._is_analyzing = True
@@ -322,7 +324,7 @@ class MatchingDialog(QDialog):
         self.results = results
         self._is_analyzing = False
         self.progress_bar.setVisible(False)
-        self.lbl_status.setText(f"Analysis complete. Found {len(results)} potential scans.")
+        self.lbl_status.setText(self.tr("Analysis complete. Found %1 potential scans.").replace("%1", str(len(results))))
         self.populate_table()
         self.update_button_states()
 
@@ -337,7 +339,7 @@ class MatchingDialog(QDialog):
             
             status_text = res["status"]
             if res.get("output_path") and res.get("status") != "Imported":
-                status_text = "Assembled"
+                status_text = self.tr("Assembled")
                 
             status_item = QTableWidgetItem(status_text)
             
@@ -352,9 +354,13 @@ class MatchingDialog(QDialog):
                 status_item.setText(f"✗ {status_text}")
                 status_item.setForeground(Qt.GlobalColor.red)
             elif status_text == "Match":
+                status_item.setText(self.tr("Match"))
                 status_item.setForeground(Qt.GlobalColor.green)
             elif status_text == "Unsure":
+                status_item.setText(self.tr("Unsure"))
                 status_item.setForeground(Qt.GlobalColor.darkYellow)
+            elif status_text == "Mismatch":
+                 status_item.setText(self.tr("Mismatch"))
             
             self.table.setItem(i, 2, status_item)
 
@@ -367,25 +373,25 @@ class MatchingDialog(QDialog):
             btn_style = "min-width: 85px;"
 
             if res.get("output_path") and res.get("status") != "Imported":
-                btn_view_res = QPushButton("View")
+                btn_view_res = QPushButton(self.tr("View"))
                 btn_view_res.setStyleSheet(btn_style)
                 btn_view_res.clicked.connect(lambda checked, r=res: self.on_view_result(r))
-                btn_import = QPushButton("Import")
+                btn_import = QPushButton(self.tr("Import"))
                 btn_import.setStyleSheet(btn_style + " font-weight: bold; color: #2e7d32;")
                 btn_import.clicked.connect(lambda checked, r=res: self.on_import_result(r))
                 actions_layout.addWidget(btn_view_res)
                 actions_layout.addWidget(btn_import)
             elif res.get("status") == "Imported":
-                lbl_imported = QLabel("Imported ✓")
+                lbl_imported = QLabel(self.tr("Imported ✓"))
                 lbl_imported.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 actions_layout.addWidget(lbl_imported)
             else:
-                btn_view = QPushButton("Verify")
+                btn_view = QPushButton(self.tr("Verify"))
                 btn_view.setStyleSheet(btn_style)
-                btn_view.setToolTip("Side-by-side comparison and verification")
+                btn_view.setToolTip(self.tr("Side-by-side comparison and verification"))
                 btn_view.clicked.connect(lambda checked, r=res: self.on_view(r))
                 
-                btn_merge = QPushButton("Merge")
+                btn_merge = QPushButton(self.tr("Merge"))
                 btn_merge.setStyleSheet(btn_style)
                 btn_merge.setEnabled(res["status"] != "Mismatch" or res.get("verified") is True)
                 btn_merge.clicked.connect(lambda checked, r=res: self.on_merge(r))
@@ -399,7 +405,7 @@ class MatchingDialog(QDialog):
     def update_button_states(self):
         """Enable/Disable primary action button based on workflow state."""
         if self._is_analyzing:
-            self.btn_primary_action.setText("Analyzing...")
+            self.btn_primary_action.setText(self.tr("Analyzing..."))
             self.btn_primary_action.setEnabled(False)
             return
 
@@ -407,15 +413,15 @@ class MatchingDialog(QDialog):
         importable = [r for r in self.results if r.get("output_path") and r.get("status") != "Imported"]
         
         if len(mergeable) >= 2:
-            self.btn_primary_action.setText("Merge Matched")
+            self.btn_primary_action.setText(self.tr("Merge Matched"))
             self.btn_primary_action.setEnabled(True)
             self._current_mode = "MERGE"
         elif len(importable) >= 2:
-            self.btn_primary_action.setText("Import Merged")
+            self.btn_primary_action.setText(self.tr("Import Merged"))
             self.btn_primary_action.setEnabled(True)
             self._current_mode = "IMPORT"
         else:
-            self.btn_primary_action.setText("Start Analysis")
+            self.btn_primary_action.setText(self.tr("Start Analysis"))
             self.btn_primary_action.setEnabled(True)
             self._current_mode = "SCAN"
 
@@ -478,7 +484,7 @@ class MatchingDialog(QDialog):
         self.btn_primary_action.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0) # Pulsing progress
-        self.lbl_status.setText(f"Creating Hybrid PDF: {os.path.basename(out_path)}...")
+        self.lbl_status.setText(self.tr("Creating Hybrid PDF: %1...").replace("%1", os.path.basename(out_path)))
         self.table.setEnabled(False)
         
         res["status"] = "Merging..."
@@ -492,12 +498,12 @@ class MatchingDialog(QDialog):
         """Batch merge all confident/verified matches."""
         pending = [r for r in self.results if not r.get("output_path") and (r["status"] == "Match" or r.get("verified") is True)]
         if not pending:
-            QMessageBox.information(self, "Batch Merge", "No pending matches found to merge.")
+            QMessageBox.information(self, self.tr("Batch Merge"), self.tr("No pending matches found to merge."))
             return
             
         # Ask for output folder once
         last_save_dir = self.settings.value("last_save_dir", "")
-        out_dir = QFileDialog.getExistingDirectory(self, "Select Output Folder for Hybrid PDFs", last_save_dir)
+        out_dir = QFileDialog.getExistingDirectory(self, self.tr("Select Output Folder for Hybrid PDFs"), last_save_dir)
         
         if out_dir:
             self.settings.setValue("last_save_dir", out_dir)
@@ -516,7 +522,7 @@ class MatchingDialog(QDialog):
             self.table.setEnabled(True)
             self.update_button_states() # Refresh button text/state
             self.progress_bar.setVisible(False)
-            self.lbl_status.setText("Batch merge complete.")
+            self.lbl_status.setText(self.tr("Batch merge complete."))
             return
 
         res, out_path = self._merge_queue.pop(0)
@@ -530,27 +536,28 @@ class MatchingDialog(QDialog):
             
         if success:
             res["output_path"] = out_path
-            self.lbl_status.setText(f"Merge success: {os.path.basename(out_path)}")
+            res["status"] = "Assembled"
+            self.lbl_status.setText(self.tr("Merge success: %1").replace("%1", os.path.basename(out_path)))
             if self.chk_delete_originals.isChecked():
                 try:
                     os.remove(res["scan"])
                     os.remove(res["native"])
                 except: pass
         else:
-            QMessageBox.warning(self, "Error", f"Failed to merge: {os.path.basename(out_path)}")
+            QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to merge: %1").replace("%1", os.path.basename(out_path)))
 
         self.populate_table()
         
         if self._is_batch_merging:
             self._process_next_batch_merge()
         elif success:
-            QMessageBox.information(self, "Success", f"Hybrid PDF created:\n{out_path}")
+            QMessageBox.information(self, self.tr("Success"), self.tr("Hybrid PDF created:") + f"\n{out_path}")
 
     def on_import_all(self):
         """Import all assembled PDFs in one go."""
         importable = [r for r in self.results if r.get("output_path")]
         if not importable:
-            QMessageBox.information(self, "Import All", "No assembled documents found to import.")
+            QMessageBox.information(self, self.tr("Import All"), self.tr("No assembled documents found to import."))
             return
             
         count = 0
@@ -558,7 +565,7 @@ class MatchingDialog(QDialog):
             self.on_import_result(res)
             count += 1
             
-        QMessageBox.information(self, "Import All", f"Triggered import for {count} documents.")
+        QMessageBox.information(self, self.tr("Import All"), self.tr("Triggered import for %1 documents.").replace("%1", str(count)))
 
     def on_view_result(self, res):
         """Shows the generated hybrid PDF in the internal viewer."""
@@ -583,4 +590,4 @@ class MatchingDialog(QDialog):
             res["status"] = "Imported"
             self.populate_table()
         else:
-            QMessageBox.warning(self, "Import Error", "Main window not available for standard import.")
+            QMessageBox.warning(self, self.tr("Import Error"), self.tr("Main window not available for standard import."))
