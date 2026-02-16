@@ -50,7 +50,8 @@ class DatabaseManager:
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            tags, deleted_at, locked_at, exported_at, pdf_class
+            tags, deleted_at, locked_at, exported_at, pdf_class,
+            archived, storage_location, ai_confidence, process_id
         """
 
     def _connect(self) -> None:
@@ -108,7 +109,11 @@ class DatabaseManager:
             page_count_virt INTEGER DEFAULT 0,
             type_tags TEXT, -- JSON List of strings
             tags TEXT,
-            pdf_class TEXT DEFAULT 'C'
+            pdf_class TEXT DEFAULT 'C',
+            archived INTEGER DEFAULT 0,
+            storage_location TEXT,
+            ai_confidence REAL DEFAULT 1.0,
+            process_id TEXT
         );
         """
 
@@ -129,7 +134,6 @@ class DatabaseManager:
             self.connection.execute(create_physical_files_table)
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_virtual_documents_fts)
-            self._migrate_schema()
             self._create_fts_triggers()
             self._create_usage_triggers()
             self._create_ref_count_triggers()
@@ -236,7 +240,8 @@ class DatabaseManager:
             "status", "export_filename", "deleted", "is_immutable",
             "type_tags", "cached_full_text", "last_used", "last_processed_at",
             "semantic_data", "tags",
-            "deleted_at", "locked_at", "exported_at", "pdf_class"
+            "deleted_at", "locked_at", "exported_at", "pdf_class",
+            "archived", "storage_location", "ai_confidence", "process_id"
         ]
         filtered = {k: v for k, v in updates.items() if k in allowed}
 
@@ -668,6 +673,13 @@ class DatabaseManager:
             "classification": "json_extract(type_tags, '$[0]')",
             "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
             "workflow_step": "json_extract(semantic_data, '$.workflow.current_step')",
+            "archived": "archived",
+            "storage_location": "storage_location",
+            "ai_confidence": "ai_confidence",
+            "process_id": "process_id",
+            "expiry_date": "COALESCE(json_extract(semantic_data, '$.bodies.legal_body.termination_date'), "
+                           "json_extract(semantic_data, '$.bodies.legal_body.valid_until'), "
+                           "json_extract(semantic_data, '$.bodies.finance_body.due_date'))",
             
             # Forensic/Stamp aggregations
             "stamp_text": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.raw_content'), '')) "
@@ -911,6 +923,10 @@ class DatabaseManager:
             "deleted_at": data.get("deleted_at"),
             "locked_at": data.get("locked_at"),
             "exported_at": data.get("exported_at"),
+            "archived": bool(data.get("archived", False)),
+            "storage_location": data.get("storage_location"),
+            "ai_confidence": float(data.get("ai_confidence", 1.0)),
+            "process_id": data.get("process_id")
         }
 
         try:
@@ -1305,27 +1321,32 @@ class DatabaseManager:
 
     def purge_all_data(self, vault_path: str) -> bool:
         """
-        DESTRUCTIVE: Resets database and clears vault directory.
-        Used for full environment reset.
-
-        Args:
-            vault_path: Path to the immutable vault.
-
-        Returns:
-            True if purge completed successfully.
+        DESTRUCTIVE: Deletes database file and clears vault directory.
+        Forces a full system reset.
         """
         import os
         import shutil
-        
+
         try:
-            cursor = self.connection.cursor()
-            cursor.execute("DROP TABLE IF EXISTS virtual_documents")
-            cursor.execute("DROP TABLE IF EXISTS physical_files")
-            cursor.execute("DROP TABLE IF EXISTS virtual_documents_fts")
-            self.connection.commit()
-            
+            # 1. Close Connection
+            if self.connection:
+                self.connection.close()
+                self.connection = None
+
+            # 2. Delete Database File (Nuclear Option)
+            if self.db_path != ":memory:" and os.path.exists(self.db_path):
+                # Delete main file and WAL/SHM
+                for suffix in ["", "-wal", "-shm"]:
+                    p = self.db_path + suffix
+                    if os.path.exists(p):
+                        os.unlink(p)
+                logger.info(f"Purge: Deleted database file {self.db_path}")
+
+            # 3. Re-initialize
+            self._connect()
             self.init_db()
-            
+
+            # 4. Clear Vault
             if vault_path and os.path.exists(vault_path):
                 for filename in os.listdir(vault_path):
                     file_path = os.path.join(vault_path, filename)
@@ -1337,7 +1358,13 @@ class DatabaseManager:
                     except Exception as e:
                         print(f"Purge error at {file_path}: {e}")
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Purge failed: {e}")
+            # Try to recover connection at least
+            try:
+                 self._connect()
+                 self.init_db()
+            except: pass
             return False
 
     def get_source_mapping_from_entity(self, entity_uuid: str) -> Optional[List[Dict[str, Any]]]:
@@ -1373,21 +1400,7 @@ class DatabaseManager:
             return str(mapping[0].get("file_uuid"))
         return None
 
-    def _migrate_schema(self) -> None:
-        """Adds missing columns for hybrid protection support."""
-        if not self.connection: return
-        
-        cursor = self.connection.cursor()
-        cursor.execute("PRAGMA table_info(virtual_documents)")
-        cols = [row[1] for row in cursor.fetchall()]
-        
-        if "pdf_class" not in cols:
-            print("[DB] Migrating: Adding 'pdf_class' to virtual_documents")
-            try:
-                with self.connection:
-                    self.connection.execute("ALTER TABLE virtual_documents ADD COLUMN pdf_class TEXT DEFAULT 'C'")
-            except Exception as e:
-                print(f"[DB] Migration Error: {e}")
+    # Removed _migrate_schema as per 'No Migrations' directive.
 
     def _create_fts_triggers(self) -> None:
         """Maintains FTS synchronicity via SQLite triggers."""

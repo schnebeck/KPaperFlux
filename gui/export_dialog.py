@@ -9,20 +9,28 @@ class ExportWorker(QThread):
     progress = pyqtSignal(int)
     finished = pyqtSignal(bool, str) # Success, ErrorMsg
 
-    def __init__(self, documents, output_path, include_pdfs):
+    def __init__(self, documents, output_path, include_pdfs, mode="ZIP"):
         super().__init__()
         self.documents = documents
         self.output_path = output_path
         self.include_pdfs = include_pdfs
+        self.mode = mode
 
     def run(self):
         try:
-            DocumentExporter.export_to_zip(
-                self.documents, 
-                self.output_path, 
-                self.include_pdfs, 
-                self.progress.emit
-            )
+            if self.mode == "PDF_MERGE":
+                DocumentExporter.export_to_pdf_batch(
+                    self.documents,
+                    self.output_path,
+                    self.progress.emit
+                )
+            else:
+                DocumentExporter.export_to_zip(
+                    self.documents, 
+                    self.output_path, 
+                    self.include_pdfs, 
+                    self.progress.emit
+                )
             self.finished.emit(True, "")
         except Exception as e:
             self.finished.emit(False, str(e))
@@ -45,6 +53,10 @@ class ExportDialog(QDialog):
         self.chk_pdfs = QCheckBox(self.tr("Include PDF files (in 'documents/' folder)"))
         self.chk_pdfs.setChecked(True)
         layout.addWidget(self.chk_pdfs)
+
+        self.chk_merge_pdf = QCheckBox(self.tr("Export as single MERGED PDF file"))
+        self.chk_merge_pdf.toggled.connect(self._on_merge_toggled)
+        layout.addWidget(self.chk_merge_pdf)
         
         # File Selection
         file_layout = QHBoxLayout()
@@ -87,11 +99,20 @@ class ExportDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def browse_file(self):
+        if self.chk_merge_pdf.isChecked():
+            caption = self.tr("Save Merged PDF")
+            default_name = f"merged_{len(self.documents)}_docs.pdf"
+            filter_str = self.tr("PDF Document (*.pdf)")
+        else:
+            caption = self.tr("Save Export Archive")
+            default_name = f"export_{len(self.documents)}_docs.zip"
+            filter_str = self.tr("ZIP Archive (*.zip)")
+
         filename, _ = QFileDialog.getSaveFileName(
             self, 
-            self.tr("Save Export Archive"),
-            f"export_{len(self.documents)}_docs.zip",
-            self.tr("ZIP Archive (*.zip)")
+            caption,
+            default_name,
+            filter_str
         )
         if filename:
             if not filename.lower().endswith(".zip"):
@@ -109,7 +130,8 @@ class ExportDialog(QDialog):
         self.worker = ExportWorker(
             self.documents, 
             self.output_path, 
-            self.chk_pdfs.isChecked()
+            self.chk_pdfs.isChecked(),
+            mode="PDF_MERGE" if self.chk_merge_pdf.isChecked() else "ZIP"
         )
         self.worker.progress.connect(self.progress_bar.setValue)
         self.worker.finished.connect(self.on_finished)
@@ -124,6 +146,13 @@ class ExportDialog(QDialog):
             show_selectable_message_box(self, self.tr("Error"), self.tr(f"Export failed:\n{error_msg}"), icon=QMessageBox.Icon.Critical)
             self.btn_export.setEnabled(True)
             self.btn_transfer.setEnabled(True)
+
+    def _on_merge_toggled(self, checked):
+        """Update UI based on merge mode."""
+        self.chk_pdfs.setEnabled(not checked)
+        self.output_path = ""
+        self.lbl_path.setText(self.tr("No file selected"))
+        self.btn_export.setEnabled(False)
 
     def export_to_transfer(self):
         transfer_path = self.config.get_transfer_path()

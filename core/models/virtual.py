@@ -61,6 +61,12 @@ class VirtualDocument(BaseModel):
     type_tags: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     
+    # Extended Metadata (DMS Strategy)
+    storage_location: Optional[str] = None # e.g. "Folder 3 / A5"
+    ai_confidence: float = 1.0 # 0.0 to 1.0
+    process_id: Optional[str] = None # Grouping ID for related documents
+    archived: bool = False
+    
     # Semantic Data (V2)
     semantic_data: Optional[SemanticExtraction] = None
     extra_data: Optional[Dict[str, Any]] = None
@@ -209,6 +215,30 @@ class VirtualDocument(BaseModel):
         return self.semantic_data.get_financial_value("monetary_summation.tax_total_amount") if self.semantic_data else None
 
     @property
+    def expiry_date(self) -> Optional[str]:
+        """
+        Intelligent harvest of the next relevant deadline.
+        Prioritizes termination/validity for contracts, and due_date for invoices.
+        """
+        if not self.semantic_data: return None
+        
+        # 1. Legal/Contract deadlines
+        legal = self.semantic_data.bodies.get("legal_body")
+        if legal:
+            # Check fields in priority order
+            for field in ["termination_date", "valid_until", "effective_date"]:
+                val = getattr(legal, field, None) if not isinstance(legal, dict) else legal.get(field)
+                if val: return val
+        
+        # 2. Financial deadlines
+        finance = self.semantic_data.bodies.get("finance_body")
+        if finance:
+            val = getattr(finance, "due_date", None) if not isinstance(finance, dict) else finance.get("due_date")
+            if val: return val
+            
+        return None
+
+    @property
     def currency(self) -> Optional[str]:
         return self.semantic_data.get_financial_value("currency") if self.semantic_data else None
 
@@ -332,7 +362,12 @@ class VirtualDocument(BaseModel):
                 "tags": row[14],
                 "deleted_at": row[15],
                 "locked_at": row[16],
-                "exported_at": row[17]
+                "exported_at": row[17],
+                "pdf_class": row[18],
+                "archived": bool(row[19]),
+                "storage_location": row[20],
+                "ai_confidence": float(row[21]),
+                "process_id": row[22]
             }
         elif hasattr(row, 'keys'): # Handle sqlite3.Row or dict
             data = dict(row)
@@ -374,5 +409,9 @@ class VirtualDocument(BaseModel):
             deleted_at=data.get("deleted_at"),
             exported_at=data.get("exported_at"),
             page_count_virt=data.get("page_count_virt", 0),
-            pdf_class=data.get("pdf_class", "C")
+            pdf_class=data.get("pdf_class", "C"),
+            archived=bool(data.get("archived", False)),
+            storage_location=data.get("storage_location"),
+            ai_confidence=float(data.get("ai_confidence", 1.0)),
+            process_id=data.get("process_id")
         )

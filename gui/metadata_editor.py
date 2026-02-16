@@ -257,6 +257,12 @@ class MetadataEditorWidget(QWidget):
         self.tags_edit.setToolTip(self.tr("Custom Tags: Enter keywords, separated by commas or Enter."))
         general_layout.addRow(self.tr("Tags:"), self.tags_edit)
 
+        self.archived_chk = QCheckBox(self.tr("Archived"))
+        general_layout.addRow("", self.archived_chk)
+        
+        self.storage_location_edit = QLineEdit()
+        general_layout.addRow(self.tr("Storage Location:"), self.storage_location_edit)
+
         self.tab_widget.addTab(self.general_scroll, self.tr("General"))
 
         # --- Tab 2: Analysis & AI Core ---
@@ -498,6 +504,8 @@ class MetadataEditorWidget(QWidget):
         self.stamps_table.itemChanged.connect(self._mark_dirty)
         self.semantic_table.itemChanged.connect(self._mark_dirty)
         self.chk_pkv.toggled.connect(self._mark_dirty)
+        self.archived_chk.toggled.connect(self._mark_dirty)
+        self.storage_location_edit.textChanged.connect(self._mark_dirty)
 
         # Payment field changes
         self.pay_recipient_edit.textChanged.connect(self._trigger_giro_refresh)
@@ -684,6 +692,11 @@ class MetadataEditorWidget(QWidget):
         self.sender_edit.clear()
         self.sender_edit.setPlaceholderText("<Multiple Values>")
 
+        self.archived_chk.setTristate(True)
+        self.archived_chk.setCheckState(Qt.CheckState.PartiallyChecked)
+        self.storage_location_edit.clear()
+        self.storage_location_edit.setPlaceholderText("<Multiple Values>")
+
         self.source_viewer.setPlainText(self.tr("%n document(s) selected.", "", len(docs)))
         self.semantic_viewer.setPlainText("-")
         
@@ -715,6 +728,10 @@ class MetadataEditorWidget(QWidget):
             self.status_combo.setCurrentText(stat)
 
         self.export_filename_edit.setText(doc.original_filename or "")
+
+        self.archived_chk.setTristate(False)
+        self.archived_chk.setChecked(bool(doc.archived))
+        self.storage_location_edit.setText(doc.storage_location or "")
 
         # Phase 106: Display User Tags from the dedicated 'tags' column
         user_tags = getattr(doc, "tags", []) or []
@@ -1261,7 +1278,9 @@ class MetadataEditorWidget(QWidget):
             "status": self.status_combo.currentData(),
             "export_filename": self.export_filename_edit.text().strip(),
             "type_tags": final_tags,
-            "tags": custom_tags
+            "tags": custom_tags,
+            "archived": int(self.archived_chk.isChecked()),
+            "storage_location": self.storage_location_edit.text().strip()
         }
 
         # 2. Semantic Metadata (Extracted Data)

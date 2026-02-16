@@ -140,6 +140,9 @@ class FilterManagerDialog(QDialog):
         elif node.node_type == NodeType.TRASH:
             item.setIcon(0, QIcon.fromTheme("user-trash"))
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsDragEnabled) # Trash is dragging disabled
+        elif node.node_type == NodeType.ARCHIVE:
+            item.setIcon(0, QIcon.fromTheme("archive-folder", QIcon.fromTheme("document-export")))
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsDragEnabled) 
         else:
             # Check if it's a Static List (UUID IN ...)
             is_static_list = False
@@ -214,6 +217,9 @@ class FilterManagerDialog(QDialog):
             return
             
         self.update_details(node)
+        
+        # Disable delete for specialized nodes
+        self.btn_delete.setEnabled(node.node_type not in [NodeType.TRASH, NodeType.ARCHIVE])
 
     def focus_node(self, node: FilterNode):
         """Finds and selects the item for a given node."""
@@ -248,7 +254,12 @@ class FilterManagerDialog(QDialog):
 
         if node.node_type == NodeType.TRASH:
             self.details_label.setText(f"<b>{node.name}</b>")
-            self.details_text.setHtml("<p>Deleted documents live here.</p><p>Select this implementation to restore or permanently delete files.</p>")
+            self.details_text.setHtml("<p>Deleted documents live here.</p><p>Select this filter to restore or permanently delete files.</p>")
+            return
+
+        if node.node_type == NodeType.ARCHIVE:
+            self.details_label.setText(f"<b>{node.name}</b>")
+            self.details_text.setHtml("<p>Your long-term document storage.</p><p>This filter shows all documents marked as 'Archived'.</p>")
             return
 
         # Regular Filter or Snapshot
@@ -396,7 +407,7 @@ class FilterManagerDialog(QDialog):
             return
             
         node = self.item_map.get(id(current_item))
-        if not node:
+        if not node or node.node_type in [NodeType.TRASH, NodeType.ARCHIVE]:
             return
             
         confirm = show_selectable_message_box(self, "Delete", f"Delete '{node.name}'?", icon=QMessageBox.Icon.Question, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)

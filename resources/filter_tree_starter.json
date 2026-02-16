@@ -122,6 +122,16 @@
                 "name": "Papierkorb",
                 "type": "trash",
                 "children": []
+            },
+            {
+                "name": "Archiv",
+                "type": "archive",
+                "data": {
+                    "field": "archived",
+                    "op": "equals",
+                    "value": true
+                },
+                "children": []
             }
         ]
     }

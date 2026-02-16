@@ -23,6 +23,7 @@ class NodeType(str, Enum):
     FILTER = "filter"
     SNAPSHOT = "snapshot"
     TRASH = "trash"
+    ARCHIVE = "archive"
     VIEW = "view"
 
 
@@ -171,6 +172,20 @@ class FilterTree:
         parent.add_child(node)
         return node
 
+    def add_archive(self, parent: FilterNode) -> FilterNode:
+        """
+        Adds an archive node with a pre-defined filter.
+        """
+        rule = {
+            "operator": "AND",
+            "conditions": [
+                {"field": "archived", "op": "equals", "value": True}
+            ]
+        }
+        node = FilterNode("Archive", NodeType.ARCHIVE, data=rule, parent=parent)
+        parent.add_child(node)
+        return node
+
     def move_node(self, node: FilterNode, new_parent: FilterNode) -> None:
         """
         Moves a node to a new parent.
@@ -182,8 +197,8 @@ class FilterTree:
         Raises:
             ValueError: If attempting to move the Trash node.
         """
-        if node.node_type == NodeType.TRASH:
-            raise ValueError("Trash cannot be moved.")
+        if node.node_type in [NodeType.TRASH, NodeType.ARCHIVE]:
+            raise ValueError(f"{node.name} cannot be moved.")
         if node.parent:
             node.parent.remove_child(node)
         new_parent.add_child(node)

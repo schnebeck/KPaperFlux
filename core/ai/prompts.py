@@ -341,12 +341,29 @@ Use the following standardized terminology for extraction:
   - BT-112 (Grand Total) -> "grand_total_amount"
   - BT-115 (Payable) -> "due_payable_amount"
 
-### 📜 LEGAL & CERTIFICATE DIRECTIVES
+### 📜 LEGAL & CONTRACTUAL DIRECTIVES
 If extracting into "legal_body":
-- **document_title:** The exact title (e.g., "Certificate of Compliance", "RoHS Statement").
-- **certificate_id:** Any unique serial or reference number of the document.
-- **issuer:** The authority or organization that issued the document.
-- **subject_reference:** The part number, batch, or item the certificate refers to.
-- **statements:** A list of the actual core declarations (e.g., ["Item is RoHS compliant", "Free of hazardous substances"]).
-- **compliance_standards:** Relevant norms (e.g., ["ISO 9001", "REACH", "CE"]).
+- **document_title:** The exact title (e.g., "Rental Agreement", "Insurance Policy").
+- **contract_id:** Any unique reference or policy number.
+- **issuer:** The issuing party (e.g., Landlord, Insurer).
+- **beneficiary:** The protected or served party (e.g., You).
+- **effective_date:** The start date of the contract (YYYY-MM-DD).
+- **termination_date:** The date the contract ends IF it has already been cancelled (YYYY-MM-DD).
+- **valid_until:** The fixed expiration or warranty end date (YYYY-MM-DD). Use this for fixed terms or one-off certificates.
+- **notice_period:** 
+  - **value:** Numerical duration (e.g., 3).
+  - **unit:** Time unit (DAYS, WEEKS, MONTHS, YEARS).
+  - **anchor_type:** START_OF, END_OF, or ANY_TIME.
+  - **anchor_scope:** WEEK, MONTH, QUARTER, HALF_YEAR, or YEAR.
+  - **original_text:** The raw text describing the notice period (e.g., '6 weeks to quarter end').
+- **renewal_clause:** Text describing auto-renewal (e.g., '12 months').
+- **contract_type:** RENTAL, INSURANCE, EMPLOYMENT, etc.
+
+### 🔗 UNIVERSAL SEMANTIC LINKING (MetaHeader)
+For ALL document types, extract ALL found IDs into the "references" list:
+- **CUSTOMER_ID:** Your reference number at the sender.
+- **ORDER_NUMBER:** Reference to a specific purchase order (BT-13).
+- **PROJECT_REFERENCE:** Reference to a project or site (BT-11).
+- **INVOICE_ID:** If found as a reference in a non-invoice document.
+- **OTHER:** Use for any other significant technical identifiers.
 """

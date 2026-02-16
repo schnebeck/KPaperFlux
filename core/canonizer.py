@@ -495,6 +495,9 @@ class CanonizerService:
                         new_semantic.type_tags = target_doc.semantic_data.type_tags
 
                 target_doc.semantic_data = new_semantic
+                
+                # Sync first-class DMS fields from semantic result to Document object
+                target_doc.ai_confidence = new_semantic.ai_confidence
             except Exception as e:
                 print(f"[Canonizer] Error hydrating Stage 2 result: {e}")
                 # Fallback: keep partial data if possible

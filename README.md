@@ -9,7 +9,7 @@
     <img src="https://img.shields.io/badge/Status-Active_Development-green" alt="Status">
     <img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python">
     <img src="https://img.shields.io/badge/UI-PyQt6-blue" alt="UI">
-    <img src="https://img.shields.io/badge/AI-Gemini_2.0-red" alt="AI">
+    <img src="https://img.shields.io/badge/AI-Gemini_Flash_/_Pro-red" alt="AI">
   </p>
 </div>
 
@@ -60,6 +60,13 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 *   **Multi-Stage Extraction:** Uses an adaptive pipeline (Stage 1 to 2) to classify documents and extract structured JSON compliant with **EN 16931 (ZUGFeRD 2.2)**.
 *   **Visual Auditor (X-Ray):** Separates visual artifacts (accounting stamps, handwritten "Paid" notes, signatures) from the background text for independent analysis.
 *   **Mathematical Integrity:** Automated cross-checking of net/tax/gross totals to ensure 100% calculation consistency.
+*   **Confidence Scoring:** AI self-assessment scores are captured and persisted for every extraction pass to ensure data reliability.
+
+### 📂 Document Management (DMS) Evolution
+*   **Physical Tracking:** Integrated `Storage Location` field for bridging the gap between digital vault and physical shelf (e.g., "Box A / Folder 5").
+*   **Long-Term Archiving:** Dedicated `Archive` status with specialized sidebar filters for audited documents.
+*   **Live Aggregation:** Real-time financial summation in the status bar for multi-selected documents (Σ ... EUR).
+*   **Zero Migration Policy:** Strictly follows a re-ingestion-based strategy for schema updates, using a destructive **Reset/Purge All Data** mechanism for development stability.
 
 ### 📄 Professional PDF Rendering
 *   **Re-Materialization:** Generates high-quality, DIN 5008 compliant PDF documents from semantic data.
@@ -82,6 +89,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 ### 📦 Multi-Format Data Export
 *   **Structured Data:** Export report results to CSV for external spreadsheet analysis.
 *   **Document Archives:** One-click ZIP export of all original PDF source documents associated with a specific report.
+*   **Batch PDF Export:** Merge multiple virtual documents into a single, paginated PDF file directly from the export dialog (Stitching).
 *   **Hybrid PDF Reports:** (In Progress) Exporting visual reports as PDFs with embedded semantic metadata.
 
 ---
@@ -100,7 +108,8 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 2.  **Env:** `python3 -m venv venv && source venv/bin/activate`
 3.  **Install:** `pip install -r requirements.txt`
 4.  **Hardware:** `sudo apt install sane-airscan` (Recommended for network scanners).
-5.  **API Key:** Provide a Google Gemini API Key in `~/.config/kpaperflux/KPaperFlux.conf`.
+5.  **API Key:** Enter your Google Gemini API Key in the **Settings Dialog** within the app.
+6.  **AI Selection:** Dynamically choose between **Gemini Flash** (fast/cheap) and **Gemini Pro** (high-reasoning) directly in the configuration menu.
 
 ---
 

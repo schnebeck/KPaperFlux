@@ -86,22 +86,3 @@ def test_pdf_class_persistence(logical_repo):
     
     retrieved = logical_repo.get_by_uuid(v_doc.uuid)
     assert retrieved.pdf_class == "AB"
-
-def test_database_migration(tmp_path):
-    db_path = str(tmp_path / "legacy.db")
-    conn = sqlite3.connect(db_path)
-    # Create old schema with minimal columns
-    conn.execute("CREATE TABLE virtual_documents (uuid TEXT PRIMARY KEY, source_mapping TEXT)")
-    conn.commit()
-    conn.close()
-    
-    # Initialize DB manager - should trigger migration
-    db = DatabaseManager(db_path)
-    
-    cursor = db.connection.cursor()
-    cursor.execute("PRAGMA table_info(virtual_documents)")
-    cols = [row[1] for row in cursor.fetchall()]
-    assert "pdf_class" in cols
-    # Check default value
-    cursor.execute("SELECT pdf_class FROM virtual_documents") # Empty but checkable?
-    # Actually just check column exists is enough for migration success

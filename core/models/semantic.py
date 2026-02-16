@@ -29,6 +29,12 @@ class AddressInfo(BaseModel):
             return "".join(v.split()).upper()
         return v
 
+class DocumentReference(BaseModel):
+    """External ID or reference found in the document (e.g. Project ID, Order ID)."""
+    model_config = ConfigDict(populate_by_name=True)
+    ref_type: str = Field(..., description="e.g. CUSTOMER_ID, ORDER_NUMBER, PROJECT_ID")
+    ref_value: str = Field(..., description="The actual ID value")
+
 class MetaHeader(BaseModel):
     """Document header with sender, recipient and metadata."""
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -37,6 +43,7 @@ class MetaHeader(BaseModel):
     doc_date: Optional[str] = None
     doc_number: Optional[str] = None
     language: str = "de"
+    references: List[DocumentReference] = Field(default_factory=list, description="IDs for semantic linking")
 
 class LineItem(BaseModel):
     """Single line item (BT-126 to BT-155)."""
@@ -90,11 +97,20 @@ class FinanceBody(BaseModel):
     monetary_summation: Optional[MonetarySummation] = Field(default_factory=MonetarySummation, alias="SpecifiedTradeSettlementMonetarySummation")
     tax_breakdown: List[TaxBreakdownRow] = Field(default_factory=list, alias="ApplicableTradeTax")
 
+class NoticePeriod(BaseModel):
+    """Strictly structured notice period for legal evaluation."""
+    model_config = ConfigDict(populate_by_name=True)
+    value: Optional[int] = Field(None, description="Numerical value (e.g. 3, 14)")
+    unit: Optional[str] = Field(None, description="MUST be: DAYS, WEEKS, MONTHS, YEARS")
+    anchor_type: Optional[str] = Field(None, description="MUST be: START_OF, END_OF, ANY_TIME")
+    anchor_scope: Optional[str] = Field(None, description="MUST be: WEEK, MONTH, QUARTER, HALF_YEAR, YEAR")
+    original_text: Optional[str] = Field(None, description="Raw extracted text for verification")
+
 class LegalBody(BaseModel):
-    """Specific data for contracts, certificates, and official letters."""
+    """Enhanced data model for contracts and legal documents."""
     model_config = ConfigDict(populate_by_name=True, extra="allow")
     document_title: Optional[str] = None
-    certificate_id: Optional[str] = None
+    contract_id: Optional[str] = None
     issuer: Optional[str] = None
     beneficiary: Optional[str] = None
     subject_reference: Optional[str] = None
@@ -103,6 +119,8 @@ class LegalBody(BaseModel):
     effective_date: Optional[str] = None
     termination_date: Optional[str] = None
     valid_until: Optional[str] = None
+    notice_period: Optional[NoticePeriod] = Field(default_factory=NoticePeriod)
+    renewal_clause: Optional[str] = None
     contract_type: Optional[str] = None
     parties: List[str] = Field(default_factory=list)
 
@@ -153,6 +171,7 @@ class SemanticExtraction(BaseModel):
     type_tags: List[str] = Field(default_factory=list)
     direction: Optional[str] = "INBOUND"
     tenant_context: Optional[str] = "PRIVATE"
+    ai_confidence: float = Field(1.0, description="Confidence score for the overall extraction (0.0 - 1.0)")
     visual_audit: Optional[VisualAuditResult] = None
 
     @field_validator("bodies", mode="after")

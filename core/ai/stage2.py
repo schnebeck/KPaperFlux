@@ -38,54 +38,8 @@ class Stage2Processor:
         self.client = client
         self.config = config
 
-    @staticmethod
-    def get_address_schema() -> Dict:
-        return {
-            "raw_string": "String (Full address line as fallback)",
-            "street": "String",
-            "house_number": "String",
-            "zip_code": "String",
-            "city": "String",
-            "state_province": "String",
-            "country": "String (ISO Code if possible, e.g. DE)"
-        }
-
-    @staticmethod
-    def get_contact_schema() -> Dict:
-        return {
-            "phones": ["String (List of phone numbers)"],
-            "emails": ["String (List of email addresses)"],
-            "websites": ["String (List of URLs)"],
-            "contact_person": "String (Name of specific person)"
-        }
-
-    @classmethod
-    def get_party_schema(cls) -> Dict:
-        """Detailed structure for Sender/Recipient."""
-        return {
-            "name": "String (Official Company Name or Person Name)",
-            "address": cls.get_address_schema(),
-            "contact": cls.get_contact_schema(),
-            "iban": "String (International Bank Account Number)",
-            "bic": "String (Bank Identifier Code / SWIFT)",
-            "bank_name": "String (Name of the financial institution)",
-            "identifiers": {
-                "vat_id": "String (USt-IdNr)",
-                "tax_id": "String (Steuernummer)",
-                "commercial_register": "String (HRB/HRA Number + Court)",
-                "customer_id": "String (My ID at this company)"
-            }
-        }
-
-    @staticmethod
-    def get_bank_account_schema() -> Dict:
-        return {
-            "bank_name": "String",
-            "account_holder": "String",
-            "iban": "String",
-            "bic": "String",
-            "sort_code": "String (BLZ - optional)"
-        }
+    # Removed get_address_schema, get_contact_schema, get_party_schema, get_bank_account_schema 
+    # to enforce strict Pydantic-based schema generation (No Legacy).
 
     def get_target_schema(self, entity_type: str, include_repair: bool = True) -> str:
         """
@@ -135,6 +89,9 @@ class Stage2Processor:
 
         if include_repair:
             schema_dict["repaired_text"] = "The complete document text with errors fixed."
+        
+        # Add AI self-assessment field
+        schema_dict["ai_confidence"] = "Float (0.0 to 1.0) indicating your confidence in this extraction."
             
         return f"{json.dumps(schema_dict, indent=2)}\n{prompts.ZUGFERD_GUIDE}"
 
@@ -333,12 +290,21 @@ class Stage2Processor:
                             if v and not final_semantic_data["meta_header"].get(k):
                                 final_semantic_data["meta_header"][k] = v
                     
+                    if extraction.get("ai_confidence") is not None:
+                        # Keep the lowest confidence if multiple entity passes are made
+                        curr_conf = final_semantic_data.get("ai_confidence", 1.0)
+                        final_semantic_data["ai_confidence"] = min(curr_conf, float(extraction["ai_confidence"]))
+
                     if extraction.get("repaired_text"):
                         if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
                             final_semantic_data["repaired_text"] = extraction["repaired_text"]
             except Exception as e:
                 print(f"[AI] Stage 2 Error ({entity_type}): {e}")
                 return None
+
+        # Ensure we have a default confidence if missing
+        if "ai_confidence" not in final_semantic_data:
+            final_semantic_data["ai_confidence"] = 1.0
 
         return final_semantic_data
 

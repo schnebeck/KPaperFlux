@@ -106,6 +106,9 @@ class MainWindow(QMainWindow):
 
         self._last_selected_uuid = None
         self.current_search_text = "" # Phase 106: Persistent search terms
+        self._visible_count = 0
+        self._total_count = 0
+        self._selected_sum = 0.0
         self.setWindowTitle(self.tr("KPaperFlux"))
         self.setWindowIcon(QIcon("resources/icon.png"))
         self.resize(1000, 700)
@@ -394,11 +397,15 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     print(f"[ERROR] Error loading starter kit: {e}")
 
-        # Phase 92: Ensure Trash Node exists
+        # Phase 92: Ensure Trash/Archive Nodes exist
         root = self.filter_tree.root
         trash_exists = any(child.node_type == NodeType.TRASH for child in root.children)
         if not trash_exists:
             self.filter_tree.add_trash(root)
+            
+        archive_exists = any(child.node_type == NodeType.ARCHIVE for child in root.children)
+        if not archive_exists:
+            self.filter_tree.add_archive(root)
 
     def save_filter_tree(self):
         """Save Filter Tree using ExchangeService (Universal Standard)."""
@@ -720,12 +727,33 @@ class MainWindow(QMainWindow):
 
         if docs:
             self.editor_widget.display_documents(docs)
+            
+        # Update Status Bar with Sum (Phase 4)
+        total_sum = 0.0
+        for d in docs:
+            if d.total_gross:
+                total_sum += float(d.total_gross or 0)
+        
+        self._selected_sum = total_sum
+        self._refresh_status_bar()
+
+    def _refresh_status_bar(self):
+        """Unified status bar text update."""
+        status_text = self.tr("Docs: %s/%s") % (self._visible_count, self._total_count)
+        
+        if self._selected_sum > 0:
+            # Localized formatting for Currency
+            status_text += f" | Σ {self._selected_sum:,.2f} EUR"
+            
+        self.main_status_label.setText(status_text)
 
     def _on_document_selected(self, uuids: list[str]):
         """Callback when selection changes in document list."""
         if not uuids:
             if hasattr(self, 'editor_widget'): self.editor_widget.clear()
             if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
+            self._selected_sum = 0.0
+            self._refresh_status_bar()
             return
 
         # Fetch Documents from DB
@@ -1659,7 +1687,9 @@ class MainWindow(QMainWindow):
 
     def update_status_bar(self, visible_count: int, total_count: int) -> None:
         """Update status bar with document counts."""
-        self.main_status_label.setText(self.tr("Docs: %s/%s") % (visible_count, total_count))
+        self._visible_count = visible_count
+        self._total_count = total_count
+        self._refresh_status_bar()
 
         if visible_count == 0:
             if hasattr(self, 'pdf_viewer'):
