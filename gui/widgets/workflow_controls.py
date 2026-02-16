@@ -35,8 +35,18 @@ class WorkflowControlsWidget(QWidget):
 
         self.btn_change = QPushButton("⚙️")
         self.btn_change.setToolTip(self.tr("Change/Assign Rule"))
-        self.btn_change.setFixedWidth(30)
-        self.btn_change.setStyleSheet("background: #f5f5f5; border: 1px solid #ccc;")
+        self.btn_change.setFixedWidth(32)
+        self.btn_change.setFixedHeight(28)
+        self.btn_change.setStyleSheet("""
+            QPushButton { 
+                background: #f8f9fa; 
+                border: 1px solid #ccc; 
+                border-radius: 4px;
+                color: #555;
+                font-size: 14px;
+            }
+            QPushButton:hover { background: #eee; border-color: #bbb; }
+        """)
         self.btn_change.clicked.connect(self._show_assignment_menu)
         self.layout.addWidget(self.btn_change)
 
@@ -80,7 +90,16 @@ class WorkflowControlsWidget(QWidget):
         
         # Apply Status Color
         color = self._get_status_color(self.current_step, state_def)
-        self.status_lbl.setStyleSheet(f"font-weight: bold; font-size: 13px; color: white; background: {color}; padding: 3px 8px; border-radius: 4px;")
+        self.status_lbl.setFixedHeight(28)
+        self.status_lbl.setStyleSheet(f"""
+            font-weight: bold; 
+            font-size: 13px; 
+            color: white; 
+            background: {color}; 
+            padding: 0px 15px; 
+            border-radius: 14px;
+            border: 1px solid {color};
+        """)
 
         if state_def:
             for trans in state_def.transitions:
@@ -96,28 +115,33 @@ class WorkflowControlsWidget(QWidget):
                 can_run = engine.can_transition(self.current_step, trans.action, self.document_data)
                 
                 if can_run:
-                    btn.setStyleSheet("""
-                        QPushButton {
+                    btn.setFixedHeight(28)
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
                             background-color: #ffffff; 
-                            color: #2e7d32; 
-                            border: 1px solid #2e7d32;
-                            font-weight: bold; 
-                            padding: 5px 12px;
+                            color: #555; 
+                            border: 1px solid #ccc;
+                            font-weight: 500; 
+                            font-size: 14px;
+                            padding: 0px 15px;
                             border-radius: 4px;
-                        }
-                        QPushButton:hover {
-                            background-color: #e8f5e9;
-                        }
+                        }}
+                        QPushButton:hover {{
+                            background-color: #f8f9fa;
+                            border-color: #bbb;
+                        }}
                     """)
                     btn.setEnabled(True)
                 else:
                     btn.setEnabled(False)
+                    btn.setFixedHeight(28)
                     btn.setStyleSheet("""
                         QPushButton {
-                            background-color: #f5f5f5; 
-                            color: #999; 
-                            border: 1px solid #ddd;
-                            padding: 5px 12px;
+                            background-color: #f8f9fa; 
+                            color: #aaa; 
+                            border: 1px solid #eee;
+                            font-size: 14px;
+                            padding: 0px 15px;
                             border-radius: 4px;
                         }
                     """)
@@ -132,7 +156,8 @@ class WorkflowControlsWidget(QWidget):
         if state_def and state_def.final:
             self.status_lbl.setText(f"✓ {label}")
             # Final states are typically green-ish
-            self.status_lbl.setStyleSheet("font-weight: bold; color: white; background: #2e7d32; padding: 3px 8px; border-radius: 4px;")
+            self.status_lbl.setFixedHeight(28)
+            self.status_lbl.setStyleSheet("font-weight: bold; color: white; background: #2e7d32; padding: 0px 15px; border-radius: 14px;")
             
     def _get_status_color(self, step: str, state_def: Optional[WorkflowState]) -> str:
         """Returns a harmonized color for the status badge."""

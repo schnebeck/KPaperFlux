@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
 
             # --- FIX: Metadata Editor (Unten links) ---
             # Dieser Block fehlte oder war unvollständig, was zum Absturz führte.
-            self.editor_widget = MetadataEditorWidget(self.db_manager)
+            self.editor_widget = MetadataEditorWidget(self.db_manager, pipeline=self.pipeline)
 
             # Connect Editor Signals
             self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
@@ -2101,7 +2101,7 @@ class MainWindow(QMainWindow):
         self.btn_documents.setText(self.tr("Documents"))
         self.btn_documents.setToolTip(self.tr("Browse and manage document list"))
         self.btn_documents.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_documents.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_DirHomeIcon))
+        self.btn_documents.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileIcon))
         self.btn_documents.clicked.connect(lambda: self.central_stack.setCurrentIndex(1))
         doc_layout.addWidget(self.btn_documents)
 

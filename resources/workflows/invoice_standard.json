@@ -15,7 +15,7 @@
                     "action": "verify",
                     "target": "VERIFIED",
                     "required_fields": [
-                        "monetary_summation.grand_total_amount",
+                        "total_gross",
                         "iban",
                         "doc_date",
                         "sender_name"

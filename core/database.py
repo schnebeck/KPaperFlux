@@ -840,29 +840,36 @@ class DatabaseManager:
         
         return [self._row_to_doc(row) for row in rows]
 
-    def _row_to_doc(self, row: Tuple[Any, ...]) -> Document:
+    def _row_to_doc(self, row: Any) -> Document:
         """
-        Converts a database result tuple into a fully hydrated Document object.
-
-        Args:
-            row: The raw database row tuple.
-
-        Returns:
-            A validated Document instance.
+        Converts a database result into a fully hydrated Document object.
+        Supports sqlite3.Row, dict and standard tuples.
         """
-        def safe_json_load(data: Optional[str], default: Any = None) -> Any:
-            if not data:
+        if not row:
+            return None
+
+        # Convert to dict for easier access if it's Row-like
+        if hasattr(row, 'keys'):
+            data = dict(row)
+        elif isinstance(row, dict):
+            data = row
+        else:
+            # Fallback for plain tuples: use model's index-based mapping
+            return Document.from_row(row)
+
+        def safe_json_load(data_in: Optional[str], default: Any = None) -> Any:
+            if not data_in:
                 return default
             try:
-                if isinstance(data, (bytes, str)):
-                    return json.loads(data)
-                return data
+                if isinstance(data_in, (bytes, str)):
+                    return json.loads(data_in)
+                return data_in
             except (json.JSONDecodeError, TypeError):
                 return default
 
-        type_tags = safe_json_load(row["type_tags"], [])
-        semantic_raw = safe_json_load(row["semantic_data"], {})
-        tags_raw = row["tags"]
+        type_tags = safe_json_load(data.get("type_tags"), [])
+        semantic_raw = safe_json_load(data.get("semantic_data"), {})
+        tags_raw = data.get("tags")
         
         # 1. Hydrate Semantic Model
         semantic_data = None
@@ -870,8 +877,7 @@ class DatabaseManager:
             try:
                 semantic_data = SemanticExtraction(**semantic_raw)
             except Exception as e:
-                logger.warning(f"Metadata degradation for {row['uuid']}: {e}")
-                # Fallback: still try to use the raw dict if valid (extra='ignore' in Document will handle it)
+                logger.warning(f"Metadata degradation for {data.get('uuid')}: {e}")
                 semantic_data = None
 
         tags: List[str] = []
@@ -881,27 +887,30 @@ class DatabaseManager:
                 if isinstance(tags, str):
                     tags = [t.strip() for t in tags.split(",") if t.strip()]
             except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"Error parsing tags for {row['uuid']}: {e}")
+                logger.error(f"Error parsing tags for {data.get('uuid')}: {e}")
 
+        source_mapping = safe_json_load(data.get("source_mapping"), [])
+        
         doc_data = {
-            "uuid": row["uuid"],
-            "extra_data": {"source_mapping": row["source_mapping"]},
-            "status": row["status"],
-            "original_filename": row["export_filename"] or f"Entity {str(row['uuid'])[:8]}",
-            "page_count": row["page_count_virt"],
-            "created_at": row["created_at"],
-            "last_used": row["last_used"],
-            "last_processed_at": row["last_processed_at"],
-            "is_immutable": bool(row["is_immutable"]),
-            "deleted": bool(row["deleted"]),
+            "uuid": data.get("uuid"),
+            "source_mapping": source_mapping,
+            "extra_data": {},
+            "status": data.get("status"),
+            "original_filename": data.get("export_filename") or f"Entity {str(data.get('uuid'))[:8]}",
+            "page_count": data.get("page_count_virt"),
+            "created_at": data.get("created_at"),
+            "last_used": data.get("last_used"),
+            "last_processed_at": data.get("last_processed_at"),
+            "is_immutable": bool(data.get("is_immutable", False)),
+            "deleted": bool(data.get("deleted", False)),
             "type_tags": type_tags,
-            "cached_full_text": row["cached_full_text"],
-            "text_content": row["cached_full_text"],
+            "cached_full_text": data.get("cached_full_text"),
+            "text_content": data.get("cached_full_text"),
             "semantic_data": semantic_data,
             "tags": tags,
-            "deleted_at": row["deleted_at"] if "deleted_at" in row.keys() else None,
-            "locked_at": row["locked_at"] if "locked_at" in row.keys() else None,
-            "exported_at": row["exported_at"] if "exported_at" in row.keys() else None,
+            "deleted_at": data.get("deleted_at"),
+            "locked_at": data.get("locked_at"),
+            "exported_at": data.get("exported_at"),
         }
 
         try:
@@ -1549,8 +1558,12 @@ class DatabaseManager:
         type_tags_json = json.dumps(doc.type_tags or [])
         user_tags_json = json.dumps(doc.tags or [])
         sm_json = "[]"
-        if doc.extra_data and "source_mapping" in doc.extra_data:
-            sm_json = json.dumps(doc.extra_data["source_mapping"])
+        if doc.source_mapping:
+            sm_json = json.dumps([m.model_dump() for m in doc.source_mapping])
+        elif doc.extra_data and "source_mapping" in doc.extra_data:
+            # Fallback for truly legacy code
+            sm_raw = doc.extra_data["source_mapping"]
+            sm_json = json.dumps(sm_raw) if not isinstance(sm_raw, str) else sm_raw
 
         sql = """
             INSERT INTO virtual_documents (

@@ -10,7 +10,7 @@
                     "action": "prüfen",
                     "target": "WAITING_FOR_PAYMENT",
                     "required_fields": [
-                        "monetary_summation.grand_total_amount",
+                        "total_gross",
                         "iban"
                     ]
                 }

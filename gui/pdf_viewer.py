@@ -1088,53 +1088,58 @@ class PdfViewerWidget(QWidget):
 
     def load_document(
         self, 
-        path_or_uuid: Union[str, Path], 
+        path_or_uuid: Union[str, Path, Any], 
         uuid: Optional[str] = None, 
         initial_page: int = 1, 
         jump_to_index: int = -1
     ) -> None:
         """
-        Loads a document by path or UUID.
-        
-        Args:
-            path_or_uuid: File path or unique identifier.
-            uuid: Optional explicit UUID.
-            initial_page: 1-indexed start page.
-            jump_to_index: 0-indexed jump target.
+        Loads a document by path, UUID or Document object.
         """
-        target_uuid = uuid if uuid else (
-            str(path_or_uuid) if not Path(str(path_or_uuid)).exists() else None
-        )
-        path = Path(str(path_or_uuid))
+        doc_obj = None
+        target_uuid = None
         
-        if not path.exists() and self.pipeline and target_uuid:
+        # 1. Handle direct Document object
+        if hasattr(path_or_uuid, "source_mapping"):
+            doc_obj = path_or_uuid
+            target_uuid = getattr(doc_obj, "uuid", None)
+            path = Path("NONE_EXISTING_PATH_FOR_MODEL_OBJECT")
+        else:
+            target_uuid = uuid if uuid else (
+                str(path_or_uuid) if not Path(str(path_or_uuid)).exists() else None
+            )
+            path = Path(str(path_or_uuid))
+        
+        # 2. Resolve via Pipeline if only UUID given
+        if not path.exists() and not doc_obj and self.pipeline and target_uuid:
             doc_obj = self.pipeline.get_document(target_uuid)
-            if doc_obj:
-                self.current_uuid = target_uuid
-                self.current_pages_data = []
-                
-                # Flatten the source mapping into a sequential page list
-                for ref in doc_obj.source_mapping:
-                    phys_file = self.pipeline.physical_repo.get_by_uuid(ref.file_uuid)
-                    if phys_file:
-                        for p_idx in ref.pages:
-                            self.current_pages_data.append({
-                                "file_path": phys_file.file_path,
-                                "page_index": p_idx - 1,  # DB uses 1-based, Fitz uses 0-based
-                                "rotation": ref.rotation or 0
-                            })
-                
-                if not self.current_pages_data and hasattr(doc_obj, 'file_path') and doc_obj.file_path:
-                    # Fallback to direct file loading if no fragments/mapping exist
-                    direct_path = Path(doc_obj.file_path)
-                    if direct_path.exists():
-                        self.canvas.set_document(fitz.open(str(direct_path)))
-                        self._update_toolbar_policy()
-                        self.on_document_status_ready()
-                        return
+            
+        # 3. Handle Logical/Virtual reconstruction
+        if doc_obj:
+            self.current_uuid = target_uuid
+            self.current_pages_data = []
+            # Flatten the source mapping into a sequential page list
+            for ref in doc_obj.source_mapping:
+                phys_file = self.pipeline.physical_repo.get_by_uuid(ref.file_uuid)
+                if phys_file:
+                    for p_idx in ref.pages:
+                        self.current_pages_data.append({
+                            "file_path": phys_file.file_path,
+                            "page_index": p_idx - 1,  # DB uses 1-based, Fitz uses 0-based
+                            "rotation": ref.rotation or 0
+                        })
+            
+            if not self.current_pages_data and hasattr(doc_obj, 'file_path') and doc_obj.file_path:
+                # Fallback to direct file loading if no fragments/mapping exist
+                direct_path = Path(doc_obj.file_path)
+                if direct_path.exists():
+                    self.canvas.set_document(fitz.open(str(direct_path)))
+                    self._update_toolbar_policy()
+                    self.on_document_status_ready()
+                    return
 
-                self._refresh_preview()
-                return
+            self._refresh_preview()
+            return
                 
         if path.exists():
             self.current_pages_data = [] # Clear virtual data if loading direct path

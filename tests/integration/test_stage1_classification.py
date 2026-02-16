@@ -79,8 +79,8 @@ def test_stage1_background_flow(test_stage1_env):
     
     # Manually populate raw_ocr_data for the physical file so canonizer can split pages
     doc = db.get_document_by_uuid(doc_uuid)
-    mapping = json.loads(doc.extra_data["source_mapping"])
-    f_uuid = mapping[0]["file_uuid"]
+    mapping = doc.source_mapping
+    f_uuid = mapping[0].file_uuid
     
     physical_repo = test_stage1_env["canonizer"].physical_repo
     pf = physical_repo.get_by_uuid(f_uuid)

@@ -1,6 +1,7 @@
 import logging
 import tempfile
 import os
+from datetime import datetime
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, 
     QLabel, QFrame, QScrollArea, QPushButton, QMainWindow, QStackedWidget
@@ -132,9 +133,8 @@ class AuditWindow(QMainWindow):
             self.pdf_viewer.clear()
             return
 
-        # Load PDF: Prefer direct file_path if available for speed, otherwise use UUID
-        path_or_id = doc.file_path if doc.file_path and os.path.exists(doc.file_path) else doc.uuid
-        self.pdf_viewer.load_document(path_or_id, uuid=doc.uuid)
+        # Load PDF
+        self.pdf_viewer.load_document(doc)
 
         # Render Semantic Data
         if doc.semantic_data:
@@ -172,18 +172,38 @@ class AuditWindow(QMainWindow):
                                      "Keine semantischen Daten vorhanden.</div>")
             self.right_stack.setCurrentWidget(self.render_view)
 
-        # Update Workflow Buttons
+        # Prepare flat data for requirement check (Sync with MetadataEditor)
         wf_data = getattr(doc.semantic_data, "workflow", None)
         rule_id = wf_data.rule_id if wf_data else None
         current_step = wf_data.current_step if wf_data else "NEW"
         
+        now = datetime.now()
         doc_data_for_wf = {
             "total_gross": doc.total_amount,
             "iban": doc.iban,
             "sender_name": doc.sender_name,
             "doc_date": doc.doc_date,
-            "doc_number": doc.doc_number
+            "doc_number": doc.doc_number,
+            "AGE_DAYS": 0,
+            "DAYS_IN_STATE": 0,
+            "DAYS_UNTIL_DUE": 999
         }
+        
+        try:
+            if doc.created_at:
+                doc_data_for_wf["AGE_DAYS"] = (now - datetime.fromisoformat(doc.created_at)).days
+            
+            if wf_data and wf_data.history:
+                last_ts = wf_data.history[-1].timestamp
+                doc_data_for_wf["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
+                
+            if doc.due_date:
+                dd_str = doc.due_date
+                if len(dd_str) == 10: dd_str += "T00:00:00"
+                doc_data_for_wf["DAYS_UNTIL_DUE"] = (datetime.fromisoformat(dd_str) - now).days
+        except Exception as e:
+            logger.debug(f"Time calculation failed: {e}")
+
         self.workflow_controls.update_workflow(rule_id, current_step, doc_data_for_wf)
         
         self.setWindowTitle(f"Audit: {doc.original_filename or doc.uuid}")

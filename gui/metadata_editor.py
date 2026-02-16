@@ -161,9 +161,10 @@ class MetadataEditorWidget(QWidget):
         "ERROR": "Error"
     }
 
-    def __init__(self, db_manager: Optional[DatabaseManager] = None) -> None:
+    def __init__(self, db_manager: Optional[DatabaseManager] = None, pipeline: Optional[Any] = None) -> None:
         super().__init__()
         self.db_manager = db_manager
+        self.pipeline = pipeline
         self.current_uuids = []
         self.doc = None
         self._locked_for_load = False
@@ -199,6 +200,21 @@ class MetadataEditorWidget(QWidget):
         
         self.btn_audit = QPushButton(self.tr("🔍 Audit"))
         self.btn_audit.setToolTip(self.tr("Open side-by-side verification window"))
+        self.btn_audit.setFixedHeight(28)
+        self.btn_audit.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff; 
+                color: #555; 
+                border: 1px solid #ccc;
+                font-size: 14px;
+                padding: 0px 15px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #f8f9fa;
+                border-color: #bbb;
+            }
+        """)
         self.btn_audit.clicked.connect(self.open_audit_window)
         lock_layout.addWidget(self.btn_audit)
         
@@ -568,7 +584,7 @@ class MetadataEditorWidget(QWidget):
             return
 
         if not self.audit_window:
-            self.audit_window = AuditWindow(pipeline=getattr(self.db_manager, 'pipeline', None))
+            self.audit_window = AuditWindow(pipeline=self.pipeline)
             self.audit_window.workflow_triggered.connect(self.on_workflow_transition)
             self.audit_window.closed.connect(self._on_audit_closed)
             
