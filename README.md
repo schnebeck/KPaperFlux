@@ -66,6 +66,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 *   **Physical Tracking:** Integrated `Storage Location` field for bridging the gap between digital vault and physical shelf (e.g., "Box A / Folder 5").
 *   **Long-Term Archiving:** Dedicated `Archive` status with specialized sidebar filters for audited documents.
 *   **Live Aggregation:** Real-time financial summation in the status bar for multi-selected documents (Σ ... EUR).
+*   **Semantic Linking:** Organic "Partner-Verzeigerung" via background agent. Automatically links Quotes, Orders, and Invoices into logical process clusters using extracted reference IDs (PROJECT_ID, ORDER_ID).
 *   **Zero Migration Policy:** Strictly follows a re-ingestion-based strategy for schema updates, using a destructive **Reset/Purge All Data** mechanism for development stability.
 
 ### 📄 Professional PDF Rendering
