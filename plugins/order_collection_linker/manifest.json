@@ -1,0 +1,9 @@
+{
+    "id": "order_collection_linker",
+    "version": "1.1.0",
+    "name": "Order Collection Linker",
+    "description": "Automatically assembles order collections by linking related quotes, orders, and invoices based on shared reference IDs.",
+    "author": "Antigravity",
+    "entry_point": "linker.py",
+    "class_name": "OrderCollectionLinker"
+}

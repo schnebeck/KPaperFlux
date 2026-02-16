@@ -1,9 +1,0 @@
-{
-    "id": "partner_nexus_agent",
-    "version": "1.1.0",
-    "name": "PartnerNexus: Linker Agent",
-    "description": "Implements 'Partner-Verzeigerung' by organic semantic linking. Discovers process clusters (Quote ➔ Order ➔ Invoice) across the database using Stage 2 technical references.",
-    "author": "Antigravity",
-    "entry_point": "linker.py",
-    "class_name": "PartnerNexusAgent"
-}

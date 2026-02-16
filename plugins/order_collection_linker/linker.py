@@ -7,29 +7,29 @@ from PyQt6.QtWidgets import QMessageBox
 from core.plugins.base import KPaperFluxPlugin
 from core.models.virtual import VirtualDocument as Document
 
-class PartnerNexusAgent(KPaperFluxPlugin):
+class OrderCollectionLinker(KPaperFluxPlugin):
     """
-    Linker-Agent implementing 'Partner-Verzeigerung'.
-    This specialized background service analyzes technical reference IDs 
-    to establish organic document chains (Offer -> Order -> Invoice).
+    Plugin implementing 'Partner-Verzeigerung' by creating collections.
+    This service analyzes technical reference IDs to establish 
+    organic document chains (Offer -> Order -> Invoice).
     """
     
     def get_name(self) -> str:
-        return "PartnerNexus Linker"
+        return "Order Collection Linker"
 
     def get_tool_actions(self, parent=None) -> List[QAction]:
-        action = QAction("PartnerNexus: Discover Process Links...", parent)
-        action.triggered.connect(lambda: self.run_agent_flow(parent))
+        action = QAction("Create Order Collections...", parent)
+        action.triggered.connect(lambda: self.run_collection_flow(parent))
         return [action]
 
-    def run_agent_flow(self, parent):
+    def run_collection_flow(self, parent):
         """
-        Executes the specialized linking logic.
+        Executes the collection discovery logic.
         """
         db = self.api.db
         all_docs = db.get_all_entities_view()
         if not all_docs:
-            QMessageBox.information(parent, "PartnerNexus", "No document data available for process discovery.")
+            QMessageBox.information(parent, "Order Collection", "No document data available to build collections.")
             return
 
         # Map to track which IDs point to which documents
@@ -91,12 +91,12 @@ class PartnerNexusAgent(KPaperFluxPlugin):
                         updates += 1
 
         # Summary
-        msg = (f"PartnerNexus Discovery Complete:\n\n"
-               f"• Identified {len(process_clusters)} process clusters\n"
+        msg = (f"Order Collection Discovery Complete:\n\n"
+               f"• Identified {len(process_clusters)} collections\n"
                f"• Established {new_processes} new organic process IDs\n"
                f"• Linked {updates} documents semantically")
         
-        QMessageBox.information(parent, "PartnerNexus Agent", msg)
+        QMessageBox.information(parent, "Order Collection Linker", msg)
         
         if updates > 0 and self.api.main_window:
             self.api.main_window.list_widget.refresh_list()
