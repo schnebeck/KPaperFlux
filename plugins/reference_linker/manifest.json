@@ -1,9 +1,0 @@
-{
-    "id": "reference_linker",
-    "version": "1.0.0",
-    "name": "Semantic Reference Linker",
-    "description": "Automatically links related documents (Quotes, Orders, Invoices) using extracted reference IDs to establish common process contexts.",
-    "author": "Antigravity",
-    "entry_point": "plugin.py",
-    "class_name": "ReferenceLinkerPlugin"
-}
