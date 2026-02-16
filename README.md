@@ -67,7 +67,6 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 *   **Long-Term Archiving:** Dedicated `Archive` status with specialized sidebar filters for audited documents.
 *   **Live Aggregation:** Real-time financial summation in the status bar for multi-selected documents (Σ ... EUR).
 *   **Organic Order Collections:** Automatically assembles logical collections (Quote ➔ Order ➔ Invoice) via background service. Uses extracted technical references (PROJECT_ID, ORDER_ID) to group related documents without manual tagging.
-*   **Zero Migration Policy:** Strictly follows a re-ingestion-based strategy for schema updates, using a destructive **Reset/Purge All Data** mechanism for development stability.
 
 ### 📄 Professional PDF Rendering
 *   **Re-Materialization:** Generates high-quality, DIN 5008 compliant PDF documents from semantic data.
