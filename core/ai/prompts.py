@@ -67,6 +67,12 @@ Current Scan Mode: {mode}
    - **OUTBOUND:** User Identity is in the **SENDER/HEADER** area.
    - **INTERNAL:** User Identity is both Sender and Recipient.
 
+6. **Document Continuity (Annexes, Reports & 'OTHER' Sink):**
+   - Pages following a main document (like an INVOICE) that contain supplementary info ("Usage Report", "Einzelverbindungsnachweis", "Annex", "Appendix", "Anhang", "Detailed breakdown") and do NOT start a new document with a new header/sender MUST be grouped into the SAME logical entity as the preceding page. 
+   - **The 'OTHER' Sink:** If content on subsequent pages cannot be confidently classified as a new, distinct document type (falling back to "OTHER"), these pages MUST belong to the main preceding document rather than being split into a separate entity.
+   - **Confidence Requirement for Splitting:** Only split into a new entity if there is high-confidence evidence for a distinct new document (e.g., a new Header, new Logo, or a complete change in Sender/Recipient).
+   - Avoid splitting a document just because the visual layout changes on subsequent pages (e.g. from tabular data to a text report).
+
 ### 4. ALLOWED DOCTYPES
 [
   "QUOTE", "ORDER", "ORDER_CONFIRMATION", "DELIVERY_NOTE", "INVOICE", "CREDIT_NOTE", "RECEIPT",

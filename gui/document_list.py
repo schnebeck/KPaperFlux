@@ -471,7 +471,10 @@ class DocumentListWidget(QWidget):
         header = self.tree.header()
         if state:
             header.restoreState(state)
-            header.setSectionsMovable(True)
+        
+        # Enforce header properties (DnD and Sorting)
+        header.setSectionsMovable(True)
+        header.setSectionsClickable(True)
         
         # Enforce resize modes
         for i in range(self.tree.columnCount()):
@@ -502,8 +505,10 @@ class DocumentListWidget(QWidget):
         if header_hex:
             try:
                 ba = bytes.fromhex(header_hex)
-                self.tree.header().restoreState(ba)
-                self.tree.header().setSectionsMovable(True) # Ensure DnD persists
+                header = self.tree.header()
+                header.restoreState(ba)
+                header.setSectionsMovable(True) 
+                header.setSectionsClickable(True)
             except Exception as e:
                 print(f"Error restoring header state: {e}")
 
@@ -1303,6 +1308,7 @@ class DocumentListWidget(QWidget):
 
     def populate_tree(self, docs):
         """Populate the tree using lazy incremental loading."""
+        # 0. Temporarily disable sorting for bulk insertion performance
         self.tree.setSortingEnabled(False)
         self._all_docs = docs
         self.documents_cache = {doc.uuid: doc for doc in docs}
@@ -1314,21 +1320,26 @@ class DocumentListWidget(QWidget):
         # Phase 113: Load first chunk and reset state
         self._load_next_chunk(reset=True)
 
-        if self.tree.header().sortIndicatorSection() < 0:
+        # 1. Restore Sort State or apply defaults
+        header = self.tree.header()
+        if header.sortIndicatorSection() < 0:
+             # Default: Sort by Created Date (4) or Deleted Date (6) Descending
              sort_col = 6 if self.is_trash_mode else 4
-             self.tree.sortByColumn(sort_col, Qt.SortOrder.DescendingOrder)
-        else:
-             self.tree.sortByColumn(self.tree.sortColumn(), self.tree.header().sortIndicatorOrder())
+             header.setSortIndicator(sort_col, Qt.SortOrder.DescendingOrder)
+        
+        # 2. Trigger the sort operation
+        self.tree.sortByColumn(header.sortIndicatorSection(), header.sortIndicatorOrder())
 
-        # If it was an internal refresh, try to restore scroll
+        # 3. CRITICAL: Re-enable sorting so user interaction works
+        self.tree.setSortingEnabled(True)
+
+        # 4. Final UI polish
         if scroll_val > 0:
             v_bar.setValue(scroll_val)
-        # Default sort by Created Descending - only if not already sorted by user/state
-        # header.sortIndicatorSection() returns the current sort column (-1 if none)
-        # Note: If restored state had a sort, it's already set.
-        if self.tree.header().sortIndicatorSection() < 0:
-             sort_col = 6 if self.is_trash_mode else 4
-             self.tree.sortByColumn(sort_col, Qt.SortOrder.DescendingOrder)
+
+        # Ensure header remains clickable/movable
+        header.setSectionsClickable(True)
+        header.setSectionsMovable(True)
 
         # v28.2 REMOVED: self.document_count_changed.emit(...)
         # Callers (refresh_list, apply_advanced_filter) must emit manually

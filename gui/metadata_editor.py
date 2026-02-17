@@ -926,19 +926,27 @@ class MetadataEditorWidget(QWidget):
 
 
         # Source Mapping
-        try: # Added try-except block for source mapping parsing
-            mapping = doc.extra_data.get("source_mapping")
+        try:
+            mapping = doc.source_mapping
             if mapping:
-                try:
-                    if isinstance(mapping, str): mapping_data = json.loads(mapping)
-                    else: mapping_data = mapping
-                    self.source_viewer.setPlainText(json.dumps(mapping_data, indent=2, ensure_ascii=False, default=str))
-                except json.JSONDecodeError: # Specific exception for JSON parsing
-                    self.source_viewer.setPlainText(str(mapping)) # Fallback to string if not valid JSON
+                resolved_mapping = []
+                for segment in mapping:
+                    seg_dict = segment.model_dump()
+                    # Resolve Physical File Info
+                    if self.db_manager:
+                        p_file = self.db_manager.get_physical_file(segment.file_uuid)
+                        if p_file:
+                            seg_dict["vault_filename"] = p_file.get("original_filename")
+                            seg_dict["vault_path"] = p_file.get("file_path")
+                            seg_dict["vault_size_kb"] = f"{p_file.get('file_size', 0) / 1024:.1f}"
+                    resolved_mapping.append(seg_dict)
+                
+                self.source_viewer.setPlainText(json.dumps(resolved_mapping, indent=2, ensure_ascii=False, default=str))
             else:
-                 self.source_viewer.setPlainText("No source mapping available.")
+                 self.source_viewer.setPlainText(self.tr("No source mapping available."))
         except Exception as e:
             print(f"Error displaying source mapping: {e}")
+            self.source_viewer.setPlainText(f"Error: {e}")
 
         # Full Text & Semantic Data
         self.full_text_viewer.setPlainText(getattr(doc, "cached_full_text", ""))

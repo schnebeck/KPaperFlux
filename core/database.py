@@ -316,6 +316,18 @@ class DatabaseManager:
             return self._row_to_doc(row)
         return None
 
+    def get_physical_file(self, uuid: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves metadata for a physical file by its UUID.
+        """
+        if not self.connection:
+            return None
+        sql = "SELECT * FROM physical_files WHERE uuid = ?"
+        cursor = self.connection.cursor()
+        cursor.execute(sql, (uuid,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
     def reset_document_for_reanalysis(self, uuid: str) -> None:
         """
         Resets a document's status and AI-derived metadata for fresh processing.

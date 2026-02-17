@@ -18,7 +18,7 @@
 
 ---
 
-## 🏛️ Project Philosophy
+## Project Philosophy
 
 KPaperFlux is a **Document Refiner** designed for precision and technical sovereignty. While traditional systems focus on archival and search, KPaperFlux aims at **deep understanding**: converting visual and textual information into structured, mathematically validated data.
 
@@ -29,12 +29,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 
 ---
 
-## 🖼️ Showcase: Intelligence in Action
-
-<p align="center">
-  <img src="docs/screenshots/cockpit_main.png" alt="Monthly Spending Trends" width="800"><br>
-  <em><strong>Visual Analytics:</strong> Seamlessly track financial trends with high-density charting and dynamic zooming.</em>
-</p>
+## Showcase: Intelligence in Action
 
 <table align="center">
   <tr>
@@ -52,58 +47,51 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 
 ---
 
----
+## Technical Highlights
 
-## 🔥 Technical Highlights
-
-### 🧠 Semantic Analysis Pipeline
+### Semantic Analysis Pipeline
 *   **Multi-Stage Extraction:** Uses an adaptive pipeline (Stage 1 to 2) to classify documents and extract structured JSON compliant with **EN 16931 (ZUGFeRD 2.2)**.
 *   **Visual Auditor (X-Ray):** Separates visual artifacts (accounting stamps, handwritten "Paid" notes, signatures) from the background text for independent analysis.
 *   **Mathematical Integrity:** Automated cross-checking of net/tax/gross totals to ensure 100% calculation consistency.
 *   **Confidence Scoring:** AI self-assessment scores are captured and persisted for every extraction pass to ensure data reliability.
 
-### 📂 Document Management (DMS) Evolution
+### Document Management (DMS) Evolution
 *   **Physical Tracking:** Integrated `Storage Location` field for bridging the gap between digital vault and physical shelf (e.g., "Box A / Folder 5").
 *   **Long-Term Archiving:** Dedicated `Archive` status with specialized sidebar filters for audited documents.
 *   **Live Aggregation:** Real-time financial summation in the status bar for multi-selected documents (Σ ... EUR).
 *   **Organic Order Collections:** Automatically assembles logical collections (Quote ➔ Order ➔ Invoice) via background service. Uses extracted technical references (PROJECT_ID, ORDER_ID) to group related documents without manual tagging.
 
-### 📄 Professional PDF Rendering
-*   **Re-Materialization:** Generates high-quality, DIN 5008 compliant PDF documents from semantic data.
-*   **Advanced Layouting:** Dynamic column calculation for item lists, automatic pagination, and specialized support for certificates (RoHS, REACH) and legal statements.
-
-### 🧩 Plugin System & Localization
-*   **Localized Plugin Architecture:** Standardized internationalization (l10n) support for external plugins. Menu entries, dialogs, and status messages automatically adapt to the user's selected language (e.g., German).
+### Plugin System & Localization
 *   **Vector Protection:** Instead of "baking" scans into PDFs, KPaperFlux overlays transparent signatures on original vector documents, preserving 1:1 text quality and minimal file size.
 *   **Chain of Trust:** Hybrid PDFs automatically embed the original digitally signed source document as an attachment for legal validity.
 
-### 🤖 Agent-Based Workflows
-*   **Playbooks:** Process documents through custom-defined state machines (e.g., `VERIFIED` → `TO_PAY` → `ARCHIVED`).
-*   **Automation:** Intelligent routing based on AI-evaluated metadata.
+### Workflows
+*   **Rules:** Process documents through custom-defined state machines (e.g., `VERIFIED` → `TO_PAY` → `ARCHIVED`).
+*   **Automation:** Intelligent routing based on semantic metadata.
 
-### 📊 Advanced Reporting & Dynamic Cockpits
+### Advanced Reporting & Dynamic Cockpits
 *   **Dynamic Analytics:** Real-time generation of charts (Bar, Pie, Line) based on your entire document corpus.
 *   **Intelligent Visualization:** Pie charts with automatic "Others" grouping, side legends with elision, and pattern-based color distinction for maximum readability.
 *   **Relative Date Filtering:** Predefined smart filters (Today, YTD, Last 90 Days) that stay dynamic as time passes.
 *   **Global Zooming:** Visual consistency from 50% to 300% zoom across all report elements.
 
-### 📦 Multi-Format Data Export
+### Multi-Format Data Export
 *   **Structured Data:** Export report results to CSV for external spreadsheet analysis.
 *   **Document Archives:** One-click ZIP export of all original PDF source documents associated with a specific report.
 *   **Batch PDF Export:** Merge multiple virtual documents into a single, paginated PDF file directly from the export dialog (Stitching).
-*   **Hybrid PDF Reports:** (In Progress) Exporting visual reports as PDFs with embedded semantic metadata.
+*   **Hybrid PDF Reports:** Exporting visual reports as PDFs with embedded semantic metadata.
 
 ---
 
-## 🏗️ Status & Development
-*   **Current State:** Active development. High-stability core with rapidly evolving reporting and export capabilities.
-*   **Reporting:** Feature-complete dynamic reporting engine with multi-format export.
-*   **GUI:** Solid desktop experience; optimized for high-density information displays.
+## Status & Development
+*   **Current State:** Active development. Stable core with rapidly evolving reporting and export capabilities.
+*   **Reporting:** Dynamic reporting engine with multi-format export.
+*   **GUI:** Solid desktop experience
 *   **Standardization:** Strict adherence to European invoicing standards (EN 16931).
 
 ---
 
-## 🚀 Installation & Quick Start
+## Installation & Quick Start
 
 1.  **Clone:** `git clone https://github.com/schnebeck/KPaperFlux.git`
 2.  **Env:** `python3 -m venv venv && source venv/bin/activate`
@@ -114,7 +102,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 
 ---
 
-## 🤝 Contribution & License
+## Contribution & License
 
 KPaperFlux follows strict **Clean Code** and **TDD** principles. Details can be found in the `devel/` folder.
 

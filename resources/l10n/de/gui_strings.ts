@@ -2044,7 +2044,7 @@ Are you completely sure you want to reset the system?</source>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="428" />
         <source>Source Mapping</source>
-        <translation type="unfinished" />
+        <translation>Quell-Verknüpfung</translation>
     </message>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="440" />
