@@ -398,6 +398,12 @@ class ReportingWidget(QWidget):
         self.init_ui()
         self.load_available_reports()
 
+    def sizeHint(self) -> QSize:
+        return QSize(800, 600)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(100, 100)
+
     def init_ui(self):
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)

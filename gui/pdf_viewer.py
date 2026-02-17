@@ -2,7 +2,7 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           gui/pdf_viewer.py
-Version:        1.3.0
+Version:        1.3.1
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Antigravity
 Description:    High-performance PDF viewer based on fitz (PyMuPDF). 
@@ -15,10 +15,14 @@ from pathlib import Path
 import tempfile
 import sys
 import os
+from core.logger import get_logger
+
+logger = get_logger("gui.pdf_viewer")
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QFrame, QMessageBox, QLineEdit, QSplitter, QGraphicsDropShadowEffect, QScrollArea
+    QFrame, QMessageBox, QLineEdit, QSplitter, QGraphicsDropShadowEffect, QScrollArea,
+    QSizePolicy
 )
 from PyQt6.QtCore import (
     Qt, pyqtSignal, QTimer, QSize, QRect, QPoint, QEvent, 
@@ -94,6 +98,10 @@ class PdfDisplayLabel(QLabel):
         
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+
+    def sizeHint(self) -> QSize:
+        """Prevent pushing parents. We handle resizing manually."""
+        return QSize(1, 1)
 
     def set_pdf_highlights(self, fitz_rects: List[fitz.Rect]) -> None:
         """
@@ -257,7 +265,7 @@ class PdfCanvas(QScrollArea):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setWidgetResizable(True)
+        self.setWidgetResizable(False) # CRITICAL: Manual size management prevents window expansion
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.setBackgroundRole(QPalette.ColorRole.Mid)
@@ -274,9 +282,12 @@ class PdfCanvas(QScrollArea):
         self.display_label.text_selected.connect(self.extract_text_from_rect)
         self.display_label.selection_preview.connect(self.preview_text_selection)
         self.display_label.word_double_clicked.connect(self.extract_word_at_pos)
-        self.display_label.clicked_empty.connect(self.display_label.clear_selection)
-        
+        self.display_label.setMinimumSize(1, 1) # CRITICAL: Prevent QLabel from pushing parent window
         self.setWidget(self.display_label)
+        
+        # Ensure scroll area itself doesn't demand huge space
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        self.setMinimumSize(100, 100)
         
         # UI overlays
         self.toast = ToastOverlay(self)
@@ -285,6 +296,12 @@ class PdfCanvas(QScrollArea):
         self.current_page_idx = 0
         self.zoom_factor = 1.0
         self.rotation = 0
+
+    def sizeHint(self) -> QSize:
+        return QSize(10, 10)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(10, 10)
 
     def show_copy_feedback(self, widget_pos: QPoint) -> None:
         """Displays toast notification for successful copy action."""
@@ -366,6 +383,9 @@ class PdfCanvas(QScrollArea):
             ).copy()
             qimg.setDevicePixelRatio(dpr * self.SUPERSAMPLING)
             self.display_label.setPixmap(QPixmap.fromImage(qimg))
+            # Manually set label size to match pixmap logical size
+            self.display_label.resize(int(pix.width / (dpr*self.SUPERSAMPLING)), 
+                                    int(pix.height / (dpr*self.SUPERSAMPLING)))
         finally:
             self.display_label.setUpdatesEnabled(True)
 
@@ -510,21 +530,36 @@ class PdfCanvas(QScrollArea):
             return 1.0
         page_rect = self.doc[self.current_page_idx].rect
         
-        # Use viewport size but fallback to widget size if layout hasn't settled
+        # Use viewport size but fallback conservatively
         v_size = self.viewport().size()
-        if v_size.width() < 100:
-            v_size = self.size()
         
-        if page_rect.width <= 0 or v_size.width() <= 0:
-            return 1.0
+        # Determine current allocated width of the viewer component
+        viewer = self._find_viewer_parent()
+        viewer_w = viewer.width() if viewer else self.width()
+        viewer_h = viewer.height() if viewer else self.height()
+
+        if v_size.width() < 50 or v_size.height() < 50:
+            v_size = QSize(max(50, viewer_w), max(50, viewer_h))
+        
+        if page_rect.width <= 0 or v_size.width() < 10:
+            return 0.1 # Minimum zoom
             
-        # Account for typical scrollbar width (approx 20px) to prevent toggle-flicker
-        padding = self.FIT_FIXED_FRAME * 2 + 5
+        # Account for frame and typical scrollbar overlap
+        padding = self.FIT_FIXED_FRAME * 2 + 15
+        
+        # We must never return a factor that would make the width exceed current viewer width
+        # to avoid the layout trying to expand to accommodate the scroll area's content.
         avail_w = max(10, v_size.width() - padding)
         avail_h = max(10, v_size.height() - padding)
         
+        # Fit logic for both dimensions
         factor = min(avail_w / page_rect.width, avail_h / page_rect.height)
-        return factor * self.FIT_COMFORT_SCALE
+        
+        # Extra safety: Ensure the final logical width doesn't exceed viewer_w
+        if factor * page_rect.width > viewer_w - padding:
+             factor = (viewer_w - padding) / page_rect.width
+             
+        return max(0.05, factor * self.FIT_COMFORT_SCALE)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Handles widget resize to re-trigger 'Fit' calculation if active."""
@@ -643,15 +678,15 @@ class DualPdfViewerWidget(QWidget):
         """Gracefully terminates background threads and clears references."""
         if self._diff_worker:
             worker = self._diff_worker
-            print(f"[DualPdfViewer] Stopping background worker. Status: {worker.isRunning()}")
+            logger.info(f"[DualPdfViewer] Stopping background worker. Status: {worker.isRunning()}")
             if worker.isRunning():
                 worker.cancel()
-                print("[DualPdfViewer] Cancellation requested. Waiting for thread...")
+                logger.info("[DualPdfViewer] Cancellation requested. Waiting for thread...")
                 if not worker.wait(5000): # Wait up to 5 seconds
-                    print("[DualPdfViewer] Worker stuck. Forcing termination!")
+                    logger.info("[DualPdfViewer] Worker stuck. Forcing termination!")
                     worker.terminate()
                     worker.wait()
-                print("[DualPdfViewer] Background thread stopped.")
+                logger.info("[DualPdfViewer] Background thread stopped.")
             self._diff_worker = None
             
         self.left_viewer.canvas.doc = None
@@ -909,6 +944,11 @@ class PdfViewerWidget(QWidget):
         self.current_pages_data: List[dict] = []
         self.temp_pdf_path: Optional[Path] = None
         
+        # Prevent viewer from pushing main window boundaries
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        self.setMinimumWidth(10)
+        self.setMinimumHeight(10)
+        
         # Toolbar Performance Policy (Flex-Approach)
         # Options: 'standard', 'comparison', 'audit'
         self.toolbar_policy = 'comparison' if controller else 'standard'
@@ -920,6 +960,13 @@ class PdfViewerWidget(QWidget):
         self.canvas.zoom_changed.connect(self.update_zoom_label)
         self.canvas.resized.connect(self._on_viewport_resized)
 
+    def sizeHint(self) -> QSize:
+        """Small hint to avoid pushing parent layouts."""
+        return QSize(10, 10)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(10, 10)
+
     def _init_ui(self) -> None:
         """Constructs the viewer's layout and toolbar."""
         layout = QVBoxLayout(self)
@@ -928,6 +975,7 @@ class PdfViewerWidget(QWidget):
         
         self.toolbar = QFrame()
         self.toolbar.setFixedHeight(40)
+        self.toolbar.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.toolbar.setBackgroundRole(QPalette.ColorRole.Window)
         self.toolbar.setAutoFillBackground(True)
         
@@ -1027,11 +1075,7 @@ class PdfViewerWidget(QWidget):
             self.btn_split, self.btn_save
         ]
         for ctrl in controls:
-            # Symmetrical Layout Policy: Retain space when hidden
-            if isinstance(ctrl, QPushButton):
-                p = ctrl.sizePolicy()
-                p.setRetainSizeWhenHidden(True)
-                ctrl.setSizePolicy(p)
+            ctrl.setMinimumWidth(0)
             t_layout.addWidget(ctrl)
             
         t_layout.addStretch()
@@ -1313,10 +1357,23 @@ class PdfViewerWidget(QWidget):
         step = 0.01 if (self.is_slave and self.sync_active) else 0.1
         self.canvas.set_zoom(max(0.1, self.canvas.zoom_factor - step))
 
+    def stop(self) -> None:
+        """Gracefully terminates background threads and clears references."""
+        self.clear()
+
     def clear(self) -> None:
         """Closes the current document and clears the display."""
         self.current_uuid = None
         self.canvas.set_document(None)
+        
+        # Cleanup temporary PDF if it exists
+        if self.temp_pdf_path and self.temp_pdf_path.exists():
+            try:
+                self.temp_pdf_path.unlink()
+            except Exception as e:
+                logger.warning(f"Could not delete temporary PDF {self.temp_pdf_path}: {e}")
+            self.temp_pdf_path = None
+            
         self.update_ui_state(0)
         self.edit_zoom.setText("100%")
         self.btn_fit.setChecked(True)

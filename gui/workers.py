@@ -13,6 +13,9 @@ from typing import Any, Optional, Union, List, Dict
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer, QObject
 import traceback
 import time
+from core.logger import get_logger
+
+logger = get_logger("gui.workers")
 # Core Imports
 from core.pipeline import PipelineProcessor
 from core.ai_analyzer import AIAnalyzer
@@ -146,7 +149,7 @@ class ImportWorker(QThread):
                             imported_uuids.extend(uuids)
                             current_global_idx += len(instructions)
                     except Exception as e:
-                        print(f"Batch Import Error: {e}")
+                        logger.error(f"Batch Import Error: {e}")
                         current_global_idx += len(instructions) # Skip ahead anyway
                     continue
 
@@ -170,8 +173,7 @@ class ImportWorker(QThread):
                     current_global_idx += 1
 
                 except Exception as e:
-                    print(f"Error importing {fpath}: {e}")
-                    traceback.print_exc()
+                    logger.error(f"Error importing {fpath}: {e}")
                     current_global_idx += 1
 
             self.finished.emit(success_count, effective_total, imported_uuids, "")
@@ -216,8 +218,7 @@ class ReprocessWorker(QThread):
                         success_count += 1
                         processed_uuids.append(uuid)
                 except Exception as e:
-                    print(f"Error reprocessing {uuid}: {e}")
-                    traceback.print_exc()
+                    logger.error(f"Error reprocessing {uuid}: {e}")
 
             self.finished.emit(success_count, total, processed_uuids)
 
@@ -254,7 +255,7 @@ class MainLoopWorker(QThread):
                                         logical_repo=pipeline.logical_repo)
 
     def run(self):
-        print("[MainLoop] Worker started.")
+        logger.info("[MainLoop] Worker started.")
         while self.is_running:
             if self.is_paused:
                 self.status_changed.emit("Paused")
@@ -284,10 +285,10 @@ class MainLoopWorker(QThread):
 
                     for i in range(burst_total):
                         if not self.is_running:
-                            print("[MainLoop] Stop requested mid-batch.")
+                            logger.debug("[MainLoop] Stop requested mid-batch.")
                             break
                         if self.is_paused:
-                            print("[MainLoop] Pause requested mid-batch.")
+                            logger.debug("[MainLoop] Pause requested mid-batch.")
                             self.status_changed.emit("Finishing current & Pausing...")
                             break
                             
@@ -305,7 +306,7 @@ class MainLoopWorker(QThread):
 
             except Exception as e:
                 error_details = traceback.format_exc()
-                print(f"[MainLoop] FATAL ERROR: {e}\n{error_details}")
+                logger.error(f"[MainLoop] FATAL ERROR: {e}\n{error_details}")
                 self.fatal_error.emit("Background Pipeline Error", f"A fatal error occurred in the processing pipeline:\n\n{e}")
                 self.is_running = False
                 break
@@ -315,13 +316,13 @@ class MainLoopWorker(QThread):
                 if not self.is_running or self.is_paused: break
                 time.sleep(0.1)
         
-        print("[MainLoop] Worker stopped.")
+        logger.info("[MainLoop] Worker stopped.")
         self.status_changed.emit("Stopped")
 
     def set_paused(self, paused: bool):
         self.is_paused = paused
         state = "PAUSED" if paused else "RESUMED"
-        print(f"[MainLoop] {state} requested.")
+        logger.info(f"[MainLoop] {state} requested.")
         if paused:
             self.status_changed.emit("Finishing current & Pausing...")
         else:
@@ -330,7 +331,7 @@ class MainLoopWorker(QThread):
         self.pause_state_changed.emit(paused)
 
     def stop(self):
-        print("[MainLoop] STOP requested.")
+        logger.info("[MainLoop] STOP requested.")
         self.status_changed.emit("Stopping (Finishing current)...")
         self.is_running = False
         self.is_paused = False
@@ -355,7 +356,7 @@ class SimilarityWorker(QThread):
             )
             self.finished.emit(duplicates)
         except Exception as e:
-            print(f"Similarity Worker Error: {e}")
+            logger.info(f"Similarity Worker Error: {e}")
             traceback.print_exc()
             self.finished.emit([])
 
@@ -390,7 +391,7 @@ class MatchAnalysisWorker(QThread):
         from PyQt6.QtCore import QThread
         
         thread_id = int(QThread.currentThreadId())
-        print(f"[MatchAnalysisThread-{thread_id}] Started.")
+        logger.info(f"[MatchAnalysisThread-{thread_id}] Started.")
 
         try:
             m_doc_native = fitz.open(self.left_path)
@@ -399,17 +400,17 @@ class MatchAnalysisWorker(QThread):
             diff_pdf = fitz.open()
             num_pages = m_doc_native.page_count
             
-            print(f"[MatchAnalysis] Background Pre-calculating {num_pages} pages...")
+            logger.info(f"[MatchAnalysis] Background Pre-calculating {num_pages} pages...")
             
             for i in range(num_pages):
                 if self.is_cancelled:
-                    print(f"[MatchAnalysisThread-{thread_id}] Cancellation detected at page {i+1}")
+                    logger.info(f"[MatchAnalysisThread-{thread_id}] Cancellation detected at page {i+1}")
                     break
                     
                 p_rect = m_doc_native[i].rect
                 page = diff_pdf.new_page(width=p_rect.width, height=p_rect.height)
                 
-                print(f"[MatchAnalysisThread-{thread_id}] Processing page {i+1}/{num_pages}...")
+                logger.info(f"[MatchAnalysisThread-{thread_id}] Processing page {i+1}/{num_pages}...")
                 
                 # Render (lower DPI for speed? Using 130 for now)
                 img_native = self.engine.pdf_page_to_numpy(m_doc_native, i, dpi=130)
@@ -424,10 +425,10 @@ class MatchAnalysisWorker(QThread):
                     page.insert_image(p_rect, stream=buffer.tobytes())
 
             if self.is_cancelled: 
-                print(f"[MatchAnalysisThread-{thread_id}] Safely exiting loop before save.")
+                logger.info(f"[MatchAnalysisThread-{thread_id}] Safely exiting loop before save.")
                 return
 
-            print(f"[MatchAnalysisThread-{thread_id}] Saving result to temp folder...")
+            logger.info(f"[MatchAnalysisThread-{thread_id}] Saving result to temp folder...")
             fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="diff_precalc_")
             os.close(fd)
             diff_pdf.save(temp_path)
@@ -436,14 +437,14 @@ class MatchAnalysisWorker(QThread):
             m_doc_scan.close()
             
             if not self.is_cancelled:
-                print(f"[MatchAnalysisThread-{thread_id}] Finished successfully. Emitting signal.")
+                logger.info(f"[MatchAnalysisThread-{thread_id}] Finished successfully. Emitting signal.")
                 self.finished.emit(temp_path)
         except Exception as e:
             if not self.is_cancelled:
-                print(f"[MatchAnalysisThread-{thread_id}] Error: {e}")
+                logger.info(f"[MatchAnalysisThread-{thread_id}] Error: {e}")
                 self.error.emit(str(e))
         finally:
-            print(f"[MatchAnalysisThread-{thread_id}] Cleanup starting...")
+            logger.info(f"[MatchAnalysisThread-{thread_id}] Cleanup starting...")
             try:
                 if 'diff_pdf' in locals():
                     diff_pdf.close()
@@ -453,7 +454,7 @@ class MatchAnalysisWorker(QThread):
                     m_doc_scan.close()
             except: 
                 pass
-            print(f"[MatchAnalysisThread-{thread_id}] Cleanup complete. Thread record ending.")
+            logger.info(f"[MatchAnalysisThread-{thread_id}] Cleanup complete. Thread record ending.")
 
     def cancel(self) -> None:
         """Requests the worker to stop immediately."""

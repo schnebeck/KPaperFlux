@@ -24,6 +24,7 @@ from core.database import DatabaseManager
 from core.pipeline import PipelineProcessor
 from gui.main_window import MainWindow
 from core.config import AppConfig
+from core.logger import setup_logging, get_logger
 
 # Global list to prevent QTranslator garbage collection
 _translators: list[QTranslator] = []
@@ -53,7 +54,7 @@ def load_translations(app: QApplication, app_config: AppConfig) -> None:
             detected_lang = "en"
             
         app_config.set_language(detected_lang)
-        print(f"[Core] First run: Language auto-detected and saved as '{detected_lang}'")
+        get_logger("core").info(f"First run: Language auto-detected and saved as '{detected_lang}'")
 
     # 2. Source of Truth: Config
     lang = app_config.get_language()
@@ -67,11 +68,11 @@ def load_translations(app: QApplication, app_config: AppConfig) -> None:
             if translator.load(str(qm_path)):
                 app.installTranslator(translator)
                 _translators.append(translator)  # Keep reference
-                print(f"Loaded GUI translation: {qm_path}")
+                get_logger("core").info(f"Loaded GUI translation: {qm_path}")
             else:
-                print(f"Failed to load GUI translation: {qm_path}")
+                get_logger("core").error(f"Failed to load GUI translation: {qm_path}")
         else:
-            print(f"GUI Translation file not found: {qm_path}")
+            get_logger("core").warning(f"GUI Translation file not found: {qm_path}")
 
 
 def main() -> None:
@@ -94,6 +95,15 @@ def main() -> None:
     app.setWindowIcon(QIcon("resources/icon.png"))
     
     app_config = AppConfig(profile=args.profile)
+
+    # Initialize Professional Logging
+    setup_logging(
+        level=app_config.get_log_level(),
+        log_file=str(app_config.get_log_file_path()),
+        component_levels=app_config.get_log_components()
+    )
+    logger = get_logger("core")
+    logger.info(f"KPaperFlux started (Profile: {args.profile or 'default'})")
 
     load_translations(app, app_config)
 

@@ -25,6 +25,9 @@ import sys
 import tempfile
 import shutil
 import json
+from core.logger import get_logger
+
+logger = get_logger("gui.main_window")
 import fitz
 from pathlib import Path
 
@@ -366,7 +369,7 @@ class MainWindow(QMainWindow):
     def load_filter_tree(self):
         """Load Filter Tree using ExchangeService, with fallback to starter kit."""
         if self.filter_config_path.exists():
-            print(f"[DEBUG] Loading Filter Tree from: {self.filter_config_path}")
+            logger.info(f"[DEBUG] Loading Filter Tree from: {self.filter_config_path}")
             try:
                 with open(self.filter_config_path, "r", encoding="utf-8") as f:
                     content = f.read()
@@ -377,25 +380,25 @@ class MainWindow(QMainWindow):
                             self.filter_tree.load(payload.payload)
                         else:
                             # If it's a payload but wrong type, log and skip
-                            print(f"[ERROR] Found exchange payload in filter tree, but type is {payload.type}")
+                            logger.info(f"[ERROR] Found exchange payload in filter tree, but type is {payload.type}")
                     except Exception:
                         # Fallback for transient period/starter: Load raw JSON
                         data = json.loads(content)
                         self.filter_tree.load(data)
-                print(f"[DEBUG] Loaded {len(self.filter_tree.root.children)} root items.")
+                logger.info(f"[DEBUG] Loaded {len(self.filter_tree.root.children)} root items.")
             except Exception as e:
-                print(f"[ERROR] Error loading filter tree: {e}")
+                logger.info(f"[ERROR] Error loading filter tree: {e}")
         else:
             # Phase 130: Starter Kit Fallback
             starter_path = Path(__file__).resolve().parent.parent / "resources" / "filter_tree_starter.json"
             if starter_path.exists():
-                print(f"[DEBUG] Initializing with Starter Kit: {starter_path}")
+                logger.info(f"[DEBUG] Initializing with Starter Kit: {starter_path}")
                 try:
                     with open(starter_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         self.filter_tree.load(data)
                 except Exception as e:
-                    print(f"[ERROR] Error loading starter kit: {e}")
+                    logger.info(f"[ERROR] Error loading starter kit: {e}")
 
         # Phase 92: Ensure Trash/Archive Nodes exist
         root = self.filter_tree.root
@@ -410,13 +413,13 @@ class MainWindow(QMainWindow):
     def save_filter_tree(self):
         """Save Filter Tree using ExchangeService (Universal Standard)."""
         try:
-            print(f"[DEBUG] Saving Filter Tree to: {self.filter_config_path}")
+            logger.info(f"[DEBUG] Saving Filter Tree to: {self.filter_config_path}")
             # Save the full tree data (including favorites)
             tree_data = json.loads(self.filter_tree.to_json())
             ExchangeService.save_to_file("filter_tree", tree_data, str(self.filter_config_path))
-            print("[DEBUG] Filter Tree saved successfully.")
+            logger.info("[DEBUG] Filter Tree saved successfully.")
         except Exception as e:
-             print(f"[ERROR] Error saving filter tree: {e}")
+             logger.info(f"[ERROR] Error saving filter tree: {e}")
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -594,7 +597,7 @@ class MainWindow(QMainWindow):
                     for action in actions:
                         self.plugin_submenu.addAction(action)
             except Exception as e:
-                print(f"[PluginError] Error loading tools from {plugin.__class__.__name__}: {e}")
+                logger.info(f"[PluginError] Error loading tools from {plugin.__class__.__name__}: {e}")
                 
         if not found_any:
             load_errors = getattr(self.plugin_manager, 'load_errors', {})
@@ -654,7 +657,7 @@ class MainWindow(QMainWindow):
              text = criteria.get('fulltext', '')
 
         self.current_search_text = text
-        print(f"[DEBUG] MainWindow updated current_search_text to: '{self.current_search_text}'")
+        logger.info(f"[DEBUG] MainWindow updated current_search_text to: '{self.current_search_text}'")
 
     def _resolve_pdf_path(self, doc_uuid: str) -> Optional[str]:
         """
@@ -691,7 +694,7 @@ class MainWindow(QMainWindow):
                 if os.path.exists(path):
                     return path
         except Exception as e:
-            print(f"Error resolving PDF path for {doc_uuid}: {e}")
+            logger.info(f"Error resolving PDF path for {doc_uuid}: {e}")
 
         return None
 
@@ -779,11 +782,11 @@ class MainWindow(QMainWindow):
                  hits = self.db_manager.find_text_pages_in_document(uuid, self.current_search_text)
                  if hits:
                      target_index = hits[0] # 0-based
-                     print(f"[Search-Hit-Debug] Term: '{self.current_search_text}', UUID: '{uuid}', Found on Pages: {hits} -> Jumping to {target_index}")
+                     logger.info(f"[Search-Hit-Debug] Term: '{self.current_search_text}', UUID: '{uuid}', Found on Pages: {hits} -> Jumping to {target_index}")
 
              self.pdf_viewer.load_document(path, jump_to_index=target_index)
         else:
-             print(f"Error: Could not resolve PDF path for {uuid}")
+             logger.info(f"Error: Could not resolve PDF path for {uuid}")
 
         # Update Info Panel
         if hasattr(self, 'info_panel') and self.info_panel:
@@ -791,7 +794,7 @@ class MainWindow(QMainWindow):
 
         # Update Editor (Batch aware)
         if hasattr(self, 'editor_widget'):
-            print(f"[DEBUG] Ensuring Editor Visible. Current: {self.editor_widget.isVisible()}")
+            logger.info(f"[DEBUG] Ensuring Editor Visible. Current: {self.editor_widget.isVisible()}")
             self.editor_widget.setVisible(True)
             self.editor_widget.display_documents(docs)
 
@@ -809,14 +812,14 @@ class MainWindow(QMainWindow):
         # 1. Main Splitter (Left Pane | PDF Viewer)
         main_sizes = self.main_splitter.sizes()
         if main_sizes and main_sizes[1] == 0:
-            print("[DEBUG] PDF Viewer collapsed! Forcing expand.")
+            logger.info("[DEBUG] PDF Viewer collapsed! Forcing expand.")
             total = sum(main_sizes)
             self.main_splitter.setSizes([int(total*0.4), int(total*0.6)])
 
         # 2. Left Pane Splitter (Filter | List | Editor)
         sizes = self.left_pane_splitter.sizes()
         if sizes and sizes[2] == 0:
-            print("[DEBUG] Editor pane collapsed! Forcing expand.")
+            logger.info("[DEBUG] Editor pane collapsed! Forcing expand.")
             total = sum(sizes)
             new_sizes = [sizes[0], int(total*0.6), int(total*0.4)]
             self.left_pane_splitter.setSizes(new_sizes)
@@ -824,7 +827,7 @@ class MainWindow(QMainWindow):
         # Update PDF Viewer
         if hasattr(self, 'pdf_viewer'):
             if not self.pdf_viewer.isVisible():
-                print(f"[DEBUG] Ensuring Viewer Visible.")
+                logger.info(f"[DEBUG] Ensuring Viewer Visible.")
                 self.pdf_viewer.setVisible(True)
 
             if docs:
@@ -1021,7 +1024,7 @@ class MainWindow(QMainWindow):
                         "is_protected": is_prot
                     })
                 except Exception as e:
-                    print(f"Error classifying PDF {f}: {e}")
+                    logger.info(f"Error classifying PDF {f}: {e}")
                     # Default to standard if check fails
                     file_infos.append({
                         "path": f,
@@ -1038,7 +1041,7 @@ class MainWindow(QMainWindow):
                     instrs = dialog.import_instructions
                     import_items.append(("BATCH", instrs))
                 else:
-                    print("PDF Import cancelled by user.")
+                    logger.info("PDF Import cancelled by user.")
                     # If we only had PDFs, we might want to return here.
                     # But other_files might still need processing.
 
@@ -1047,7 +1050,7 @@ class MainWindow(QMainWindow):
             import_items.append((fpath, None))
 
         if not import_items:
-             print("No files to import (User cancelled all).")
+             logger.info("No files to import (User cancelled all).")
              return
 
         is_batch = any(item[0] == "BATCH" for item in import_items if isinstance(item, tuple))
@@ -1125,7 +1128,7 @@ class MainWindow(QMainWindow):
         
         # Phase 2.0: Hot-Reload AI Components
         if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
-            print("[Core] Settings changed. Re-initializing AI Analyzer...")
+            logger.info("[Core] Settings changed. Re-initializing AI Analyzer...")
             from core.ai_analyzer import AIAnalyzer
             new_analyzer = AIAnalyzer(self.app_config.get_api_key(), self.app_config.get_gemini_model())
             # Update the canonizer's analyzer
@@ -1287,7 +1290,7 @@ class MainWindow(QMainWindow):
                     show_selectable_message_box(self, self.tr("Error"), self.tr("Merge failed."), icon=QMessageBox.Icon.Warning)
             except Exception as e:
                 import traceback
-                print(f"[ERROR] Merge error: {e}")
+                logger.info(f"[ERROR] Merge error: {e}")
                 traceback.print_exc()
                 show_selectable_message_box(
                     self, 
@@ -1418,12 +1421,12 @@ class MainWindow(QMainWindow):
 
                     self.setCursor(Qt.CursorShape.WaitCursor)
                     try:
-                        print(f"[Importer] Converting {path} -> {temp_pdf_path}...")
+                        logger.info(f"[Importer] Converting {path} -> {temp_pdf_path}...")
                         success = PreFlightImporter.convert_to_pdf(path, temp_pdf_path)
                         if success:
                             files.append(temp_pdf_path)
                         else:
-                            print(f"[Importer] Failed to convert: {path}")
+                            logger.info(f"[Importer] Failed to convert: {path}")
                     finally:
                         self.setCursor(Qt.CursorShape.ArrowCursor)
 
@@ -1474,7 +1477,7 @@ class MainWindow(QMainWindow):
             self.import_worker = None
 
         if error_msg:
-             print(f"[ERROR] Import Finished with error: {error_msg}")
+             logger.info(f"[ERROR] Import Finished with error: {error_msg}")
              show_selectable_message_box(self, self.tr("Import Error"), error_msg, icon=QMessageBox.Icon.Critical)
 
         # Refresh List
@@ -1489,11 +1492,11 @@ class MainWindow(QMainWindow):
                   d = self.db_manager.get_document_by_uuid(uid)
 
                   if d:
-                      print(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
+                      logger.info(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
                       # Note: MainLoopWorker will pick this up via status 'NEW'
                       queued_count += 1
                   else:
-                      print(f"[DEBUG] Import Finished: UUID={uid} NOT FOUND in DB!")
+                      logger.info(f"[DEBUG] Import Finished: UUID={uid} NOT FOUND in DB!")
 
                   if d and d.page_count and d.page_count > 1 and not skip_splitter:
                       if not splitter_opened:
@@ -1603,7 +1606,7 @@ class MainWindow(QMainWindow):
                                           fpath = self.pipeline.vault.get_file_path(phys_uuid)
 
                         if not fpath or not os.path.exists(fpath):
-                            print(f"[Stamper] Failed to resolve path for {uid}")
+                            logger.info(f"[Stamper] Failed to resolve path for {uid}")
                             continue
 
                         base, ext = os.path.splitext(fpath)
@@ -1989,7 +1992,7 @@ class MainWindow(QMainWindow):
 
                   except Exception as e:
                        import traceback
-                       print(f"[ERROR] Failed to apply structural changes: {e}")
+                       logger.info(f"[ERROR] Failed to apply structural changes: {e}")
                        traceback.print_exc()
                        show_selectable_message_box(self, self.tr("Error"), f"Failed to apply structural changes: {e}", icon=QMessageBox.Icon.Critical)
 

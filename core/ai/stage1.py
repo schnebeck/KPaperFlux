@@ -13,6 +13,9 @@ Description:    Stage 1 Processor (Classification & Segmentation).
 
 import json
 from typing import Any, Dict, List, Optional
+from core.logger import get_logger
+
+logger = get_logger("ai.stage1")
 
 from core.models.identity import IdentityProfile
 from core.ai import prompts
@@ -77,15 +80,15 @@ class Stage1Processor:
             return {}
 
         # --- PHASE A: PRE-FLIGHT ---
-        print(f"[AI] Stage 1.0 (Pre-Flight) [START] -> Analyzing {total_pages} pages...")
+        logger.info(f"[AI] Stage 1.0 (Pre-Flight) [START] -> Analyzing {total_pages} pages...")
         pre_flight_pages = pages_text[:3]
         pre_flight_res = self.ask_type_check(pre_flight_pages)
-        print("[AI] Stage 1.0 (Pre-Flight) [DONE]")
+        logger.info("[AI] Stage 1.0 (Pre-Flight) [DONE]")
 
         primary_type = pre_flight_res.get("primary_type", "OTHER")
         is_stack_suspicion = pre_flight_res.get("looks_like_stack", False)
 
-        print(f"[AI] Stage 1.0 (Pre-Flight) -> {total_pages} Pages. Type: {primary_type}. Stack: {is_stack_suspicion}")
+        logger.info(f"[AI] Stage 1.0 (Pre-Flight) -> {total_pages} Pages. Type: {primary_type}. Stack: {is_stack_suspicion}")
 
         # --- PHASE B: ROUTING ---
         scan_strategy = "FULL_READ_MODE"
@@ -141,7 +144,7 @@ class Stage1Processor:
                 if not errors:
                     return result
 
-                print(f"[AI] Stage 1.1 Validation Failed (Attempt {attempt+1}): {errors}")
+                logger.info(f"[AI] Stage 1.1 Validation Failed (Attempt {attempt+1}): {errors}")
                 attempt += 1
 
                 error_summary = "\n".join(f"- {e}" for e in errors)
@@ -155,7 +158,7 @@ class Stage1Processor:
 
             return result or {}
         except Exception as e:
-            print(f"[AI] Classification Failed: {e}")
+            logger.info(f"[AI] Classification Failed: {e}")
             return {}
 
     def validate_classification(self, result: Dict[str, Any], ocr_pages: List[str], priv_id: Optional[IdentityProfile] = None, bus_id: Optional[IdentityProfile] = None) -> List[str]:
@@ -216,7 +219,7 @@ class Stage1Processor:
                 return result["entities"]
             return []
         except Exception as e:
-            print(f"[AI] Refinement Failed: {e}")
+            logger.info(f"[AI] Refinement Failed: {e}")
             return []
 
     def _identify_entities_text_fallback(self, text: str, semantic_data: dict = None, detected_entities: List[dict] = None) -> List[dict]:
@@ -261,5 +264,5 @@ class Stage1Processor:
                 return result["entities"]
             return []
         except Exception as e:
-            print(f"[AI] Entity Splitting Failed: {e}")
+            logger.info(f"[AI] Entity Splitting Failed: {e}")
             return []

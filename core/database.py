@@ -13,7 +13,6 @@ Description:    Central database manager for SQLite persistence. Handles
 """
 
 import json
-import logging
 import sqlite3
 import traceback
 import uuid
@@ -23,9 +22,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction
+from core.logger import get_logger, log_sql_query
 
 # --- Central Logging Setup ---
-logger = logging.getLogger("KPaperFlux.Database")
+logger = get_logger("database")
 
 
 class DatabaseManager:
@@ -1412,6 +1412,18 @@ class DatabaseManager:
             return str(mapping[0].get("file_uuid"))
         return None
 
+    def execute(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
+        """
+        Executes a custom SQL query with optional parameters and professional logging.
+        """
+        try:
+            cursor = self.connection.execute(query, params)
+            log_sql_query(query, params)
+            return cursor
+        except sqlite3.Error as e:
+            logger.error(f"SQL Error: {e}\nQuery: {query}\nParams: {params}")
+            raise
+
     # Removed _migrate_schema as per 'No Migrations' directive.
 
     def _create_fts_triggers(self) -> None:
@@ -1442,7 +1454,7 @@ class DatabaseManager:
         ]
         with self.connection:
             for trigger_sql in triggers:
-                self.connection.execute(trigger_sql)
+                self.execute(trigger_sql)
 
     def _create_usage_triggers(self) -> None:
         """
@@ -1487,7 +1499,7 @@ class DatabaseManager:
         ]
         with self.connection:
             for trigger_sql in triggers:
-                self.connection.execute(trigger_sql)
+                self.execute(trigger_sql)
 
     def _update_table(self, table: str, pk_val: str, updates: Dict[str, Any], pk_col: str = "uuid") -> None:
         """Internal generic update helper."""
@@ -1497,7 +1509,7 @@ class DatabaseManager:
         sql = f"UPDATE {table} SET {cols} WHERE {pk_col} = ?"
         vals = list(updates.values()) + [pk_val]
         with self.connection:
-            self.connection.execute(sql, vals)
+            self.execute(sql, tuple(vals))
 
     def rename_tag(self, old_tag: str, new_tag: str) -> int:
         """
@@ -1605,7 +1617,7 @@ class DatabaseManager:
                 else:
                     sd_json = json.dumps(doc.semantic_data or {}, default=str)
 
-                self.connection.execute(sql, (
+                self.execute(sql, (
                     doc.uuid, sm_json, doc.status or "NEW", doc.original_filename or "Unknown",
                     created, type_tags_json, sd_json, (doc.text_content or doc.cached_full_text),
                     user_tags_json,

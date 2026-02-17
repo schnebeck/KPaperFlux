@@ -21,6 +21,9 @@ from typing import Optional, List, Any, Dict
 import datetime
 import os
 import json
+from core.logger import get_logger
+
+logger = get_logger("gui.document_list")
 
 # Core Imports
 from gui.utils import show_selectable_message_box
@@ -451,13 +454,16 @@ class DocumentListWidget(QWidget):
         self.save_state()
 
     def save_state(self):
-        settings = QSettings("KPaperFlux", "DocumentList")
+        settings = QSettings()
+        settings.beginGroup("DocumentList")
         settings.setValue("headerState", self.tree.header().saveState())
         settings.setValue("dynamicColumns", self.dynamic_columns)
+        settings.endGroup()
         settings.sync()
 
     def restore_state(self):
-        settings = QSettings("KPaperFlux", "DocumentList")
+        settings = QSettings()
+        settings.beginGroup("DocumentList")
 
         # Use an empty list as default if no settings exist
         dyn_cols = settings.value("dynamicColumns", [])
@@ -510,7 +516,7 @@ class DocumentListWidget(QWidget):
                 header.setSectionsMovable(True) 
                 header.setSectionsClickable(True)
             except Exception as e:
-                print(f"Error restoring header state: {e}")
+                logger.info(f"Error restoring header state: {e}")
 
         # 3. Apply Filter (Caller must handle this? Or we emit signal?)
         # DocumentListWidget usually receives filter, doesn't generate it.
@@ -744,10 +750,10 @@ class DocumentListWidget(QWidget):
             # advanced_filter_active might be toggled by the UI checkbox, but search should override.
             if self.current_advanced_query:
                 active_query = self.current_advanced_query
-                print(f"[DEBUG] refresh_list: Using Advanced/Search Filter: {active_query}")
+                logger.info(f"[DEBUG] refresh_list: Using Advanced/Search Filter: {active_query}")
             elif self.current_cockpit_query:
                 active_query = self.current_cockpit_query
-                print(f"[DEBUG] refresh_list: Rule Editor INACTIVE. Using Cockpit Filter: {active_query}")
+                logger.info(f"[DEBUG] refresh_list: Rule Editor INACTIVE. Using Cockpit Filter: {active_query}")
 
             if active_query:
                  docs = self.db_manager.search_documents_advanced(active_query)
@@ -757,7 +763,7 @@ class DocumentListWidget(QWidget):
                     docs = self.db_manager.search_documents(query_text)
                 else:
                     docs = self.db_manager.get_all_entities_view()
-                print(f"[DEBUG] Standard View returned {len(docs)} documents.")
+                logger.info(f"[DEBUG] Standard View returned {len(docs)} documents.")
 
         # v28.2: Change Detection / Redraw Prevention
         # We include all timestamps to ensure triggers from the DB are reflected immediately
@@ -771,9 +777,9 @@ class DocumentListWidget(QWidget):
              return
 
         if hasattr(self, '_last_refresh_sig'):
-             print(f"[DEBUG] refresh_list: Change detected in {len(docs)} documents (or forced). Redrawing view.")
+             logger.info(f"[DEBUG] refresh_list: Change detected in {len(docs)} documents (or forced). Redrawing view.")
         else:
-             print(f"[DEBUG] refresh_list: Initial population ({len(docs)} documents).")
+             logger.info(f"[DEBUG] refresh_list: Initial population ({len(docs)} documents).")
 
         self._last_refresh_sig = current_sig
 
@@ -840,7 +846,7 @@ class DocumentListWidget(QWidget):
                     self.select_rows_by_uuids(select_uuids)
                     restored = True
             except Exception as e:
-                print(f"[ERROR] Drill-down selection failed: {e}")
+                logger.info(f"[ERROR] Drill-down selection failed: {e}")
             self.target_select_query = None # Clear after use
 
         # 6. Emit selection signal manually to ensure UI sync
@@ -883,7 +889,7 @@ class DocumentListWidget(QWidget):
                  old_doc.semantic_data == doc.semantic_data):
                   return # Change is irrelevant for view
 
-             print(f"[DEBUG] update_document_item: Updating row for {doc.uuid} ({old_doc.status} -> {doc.status})")
+             logger.info(f"[DEBUG] update_document_item: Updating row for {doc.uuid} ({old_doc.status} -> {doc.status})")
 
         # 1.5 Find matching item
         target_item = None
@@ -1104,7 +1110,7 @@ class DocumentListWidget(QWidget):
 
     def apply_advanced_filter(self, query: dict, label: Optional[str] = None):
         """Apply advanced search query."""
-        print(f"[DEBUG] DocumentList Received Query: {query}")
+        logger.info(f"[DEBUG] DocumentList Received Query: {query}")
 
         # Check if query implies Trash Mode
         is_trash = False
@@ -1126,7 +1132,7 @@ class DocumentListWidget(QWidget):
             return False
 
         is_mode_trash = check_trash(query)
-        print(f"[DEBUG] check_trash result: {is_mode_trash} for query: {query}")
+        logger.info(f"[DEBUG] check_trash result: {is_mode_trash} for query: {query}")
 
         if is_mode_trash:
             self.current_advanced_query = None

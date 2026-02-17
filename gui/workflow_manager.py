@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QTabWidget, QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog,
     QStackedWidget, QButtonGroup
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize
 from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition, WorkflowEngine
 from gui.widgets.semantic_selector import SemanticVariableSelector
 from gui.cockpit import StatCard
@@ -471,6 +471,12 @@ class WorkflowManagerWidget(QWidget):
         self._is_dirty = False
         self._init_ui()
         self.load_workflows()
+
+    def sizeHint(self) -> QSize:
+        return QSize(800, 600)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(100, 100)
 
     def _init_ui(self):
         layout = QVBoxLayout(self)

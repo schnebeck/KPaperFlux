@@ -17,6 +17,9 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from core.logger import get_logger
+
+logger = get_logger("scanner")
 
 from PIL import Image
 
@@ -244,7 +247,7 @@ class SaneScanner(ScannerDriver):
             try:
                 sane.init()
             except Exception as e:
-                print(f"SANE init failed: {e}")
+                logger.error(f"SANE init failed: {e}")
 
     def list_devices(self) -> List[Tuple[str, str, str, str]]:
         """
@@ -262,10 +265,10 @@ class SaneScanner(ScannerDriver):
             except Exception:
                 pass
             devices = sane.get_devices()
-            print(f"[DEBUG] SANE discovered {len(devices)} devices: {devices}")
+            logger.info(f"[DEBUG] SANE discovered {len(devices)} devices: {devices}")
             return devices
         except Exception as e:
-            print(f"SANE list_devices error: {e}")
+            logger.info(f"SANE list_devices error: {e}")
             return []
 
     def _open_device_with_retry(self, device_name: str, retries: int = 3, delay: float = 1.5) -> Any:
@@ -294,7 +297,7 @@ class SaneScanner(ScannerDriver):
                 last_error = e
                 err_str = str(e).lower()
                 if "busy" in err_str or "access denied" in err_str or "io error" in err_str:
-                    print(f"DEBUG: SANE device {device_name} busy or IO error, retrying in {delay}s (Attempt {i+1}/{retries})...")
+                    logger.info(f"DEBUG: SANE device {device_name} busy or IO error, retrying in {delay}s (Attempt {i+1}/{retries})...")
                     time.sleep(delay)
                     continue
                 else:
@@ -321,12 +324,12 @@ class SaneScanner(ScannerDriver):
                 try:
                     sources = opts["source"][8]
                 except Exception as e:
-                    print(f"DEBUG: Could not read source list: {e}")
+                    logger.info(f"DEBUG: Could not read source list: {e}")
                     sources = ["Flatbed"]
             dev.close()
             return sources
         except Exception as e:
-            print(f"DEBUG: get_source_list failed for {device_name} after retries: {e}")
+            logger.info(f"DEBUG: get_source_list failed for {device_name} after retries: {e}")
             # Fallback for UI continuity
             return ["Flatbed", "ADF", "ADF Duplex"]
 
@@ -350,14 +353,14 @@ class SaneScanner(ScannerDriver):
                 try:
                     dev.source = source
                 except Exception as e:
-                    print(f"DEBUG: Could not set source {source} for resolution query: {e}")
+                    logger.info(f"DEBUG: Could not set source {source} for resolution query: {e}")
 
             opts = {opt[1]: opt for opt in dev.get_options()}
             resolutions = self._extract_resolutions(opts)
             dev.close()
             return resolutions
         except Exception as e:
-            print(f"DEBUG: get_resolution_list failed for {device_name}: {e}")
+            logger.info(f"DEBUG: get_resolution_list failed for {device_name}: {e}")
             return [75, 150, 200, 300, 600]
 
     def get_full_capabilities(self, device_name: str) -> Dict[str, Any]:
@@ -389,14 +392,14 @@ class SaneScanner(ScannerDriver):
                     s_opts = {opt[1]: opt for opt in dev.get_options()}
                     res_map[s] = self._extract_resolutions(s_opts)
                 except Exception as e:
-                    print(f"DEBUG: Failed to get resolutions for source {s}: {e}")
+                    logger.info(f"DEBUG: Failed to get resolutions for source {s}: {e}")
                     res_map[s] = [75, 150, 200, 300, 600]
             
             dev.close()
             return {"sources": sources, "resolutions": res_map}
             
         except Exception as e:
-            print(f"DEBUG: get_full_capabilities failed for {device_name}: {e}")
+            logger.info(f"DEBUG: get_full_capabilities failed for {device_name}: {e}")
             fallback_sources = ["Flatbed", "ADF", "ADF Duplex"]
             fallback_res = [75, 150, 200, 300, 600]
             return {
@@ -419,14 +422,14 @@ class SaneScanner(ScannerDriver):
                         if quant <= 0: quant = 50
                         resolutions = list(range(int(min_val), int(max_val) + 1, int(quant)))
                     except Exception as e:
-                        print(f"DEBUG: Failed to parse range constraint {constraint}: {e}")
+                        logger.info(f"DEBUG: Failed to parse range constraint {constraint}: {e}")
                         resolutions = [int(v) for v in constraint]
                 else:
                     # Treat anything else that is a list/tuple as discrete values
                     try:
                         resolutions = [int(v) for v in constraint]
                     except Exception as e:
-                        print(f"DEBUG: Failed to parse list constraint {constraint}: {e}")
+                        logger.info(f"DEBUG: Failed to parse list constraint {constraint}: {e}")
 
         if not resolutions:
             # Fallback to standard set if no resolutions could be determined
@@ -486,7 +489,7 @@ class SaneScanner(ScannerDriver):
                     has_duplex_opt = True
                 dev.close()
             except Exception as e:
-                print(f"DEBUG: Could not check duplex capability: {e}")
+                logger.info(f"DEBUG: Could not check duplex capability: {e}")
 
         # 2. Geometry / Page Size
         geom_args: List[str] = []
@@ -511,7 +514,7 @@ class SaneScanner(ScannerDriver):
                 if results:
                     return results
             except Exception as e:
-                print(f"SANE: scanimage batch failed ({e}), falling back to python-sane loop...")
+                logger.info(f"SANE: scanimage batch failed ({e}), falling back to python-sane loop...")
 
         # FALLBACK: python-sane loop
         return self._scan_via_python_sane(device_name, dpi, color_mode, is_adf, is_duplex, source, duplex_mode, progress_callback)
@@ -562,7 +565,7 @@ class SaneScanner(ScannerDriver):
             "--format=tiff",
         ] + extra_args
 
-        print(f"DEBUG: Running {' '.join(cmd)}")
+        logger.info(f"DEBUG: Running {' '.join(cmd)}")
 
         try:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -580,13 +583,13 @@ class SaneScanner(ScannerDriver):
             # After process finishes, capture results and errors
             stdout, stderr = process.communicate()
             if process.returncode != 0 or not glob.glob(os.path.join(temp_dir, "*.tif")):
-                print(f"ERROR: scanimage failed (Exit {process.returncode})")
+                logger.info(f"ERROR: scanimage failed (Exit {process.returncode})")
                 if stderr:
-                    print(f"SANE Stderr: {stderr.strip()}")
+                    logger.info(f"SANE Stderr: {stderr.strip()}")
                 if stdout:
-                    print(f"SANE Stdout: {stdout.strip()}")
+                    logger.info(f"SANE Stdout: {stdout.strip()}")
         except Exception as e:
-            print(f"ERROR calling scanimage: {e}")
+            logger.info(f"ERROR calling scanimage: {e}")
             return []
 
         results: List[str] = []
@@ -598,7 +601,7 @@ class SaneScanner(ScannerDriver):
                 with Image.open(tif) as im:
                     # PIXEL-LEVEL A4 NORMALIZER (Width-Anchor)
                     if page_format == "A4":
-                        print("\n--- A4 NORMALIZER DEBUG (Width-Anchor) ---")
+                        logger.info("\n--- A4 NORMALIZER DEBUG (Width-Anchor) ---")
                         target_w_mm, target_h_mm = 210.0, 297.0
 
                         # Get reliable DPI
@@ -617,21 +620,21 @@ class SaneScanner(ScannerDriver):
                         scale_factor = target_w_px / im.width
                         scaled_h = int(round(im.height * scale_factor))
 
-                        print(f"I.  Input: {im.width}x{im.height} px at {cur_dpi:.1f} DPI")
-                        print(f"II. Scale: Width mapping to {target_w_px}px (Factor {scale_factor:.4f})")
+                        logger.info(f"I.  Input: {im.width}x{im.height} px at {cur_dpi:.1f} DPI")
+                        logger.info(f"II. Scale: Width mapping to {target_w_px}px (Factor {scale_factor:.4f})")
 
                         im = im.resize((target_w_px, scaled_h), Image.Resampling.LANCZOS)
 
                         # 2. Crop to exactly A4 height
                         if im.height > target_h_px:
                             excess = im.height - target_h_px
-                            print(f"III. [CROP] Removing {excess} px from bottom to reach {target_h_px}px (297mm).")
+                            logger.info(f"III. [CROP] Removing {excess} px from bottom to reach {target_h_px}px (297mm).")
                             im = im.crop((0, 0, target_w_px, target_h_px))
                         else:
-                            print(f"III. [PAD/SKIP] Height {im.height} fits within A4 {target_h_px}.")
+                            logger.info(f"III. [PAD/SKIP] Height {im.height} fits within A4 {target_h_px}.")
 
                         save_resolution = float(cur_dpi)
-                        print(f"IV. Result: {im.width}x{im.height} px (A4 Standard)\n")
+                        logger.info(f"IV. Result: {im.width}x{im.height} px (A4 Standard)\n")
                     else:
                         save_resolution = float(im.info.get("dpi", (dpi, dpi))[0])
 
@@ -641,15 +644,15 @@ class SaneScanner(ScannerDriver):
                     im.save(pdf_path, "PDF", resolution=save_resolution)
                 results.append(pdf_path)
             except Exception as e:
-                print(f"ERROR converting {tif} to PDF: {e}")
+                logger.info(f"ERROR converting {tif} to PDF: {e}")
             finally:
                 try:
                     if os.path.exists(tif):
                         os.remove(tif)
                 except Exception as e:
-                    print(f"DEBUG: Could not remove temp tif {tif}: {e}")
+                    logger.info(f"DEBUG: Could not remove temp tif {tif}: {e}")
 
-        print(f"SANE: scanimage batch finished. Found {len(results)} pages.")
+        logger.info(f"SANE: scanimage batch finished. Found {len(results)} pages.")
         return results
 
     def _scan_via_python_sane(
@@ -696,25 +699,25 @@ class SaneScanner(ScannerDriver):
                 try:
                     dev.resolution = dpi
                 except Exception as e:
-                    print(f"DEBUG: Could not set resolution to {dpi}: {e}")
+                    logger.info(f"DEBUG: Could not set resolution to {dpi}: {e}")
             if "mode" in options:
                 try:
                     dev.mode = color_mode
                 except Exception as e:
-                    print(f"DEBUG: Could not set mode to {color_mode}: {e}")
+                    logger.info(f"DEBUG: Could not set mode to {color_mode}: {e}")
 
             if "source" in options:
                 # Use exactly the source selected by the user
                 try:
                     dev.source = source
                 except Exception as e:
-                    print(f"DEBUG: Could not set source to {source}: {e}")
+                    logger.info(f"DEBUG: Could not set source to {source}: {e}")
 
             if is_duplex and "duplex" in options:
                 try:
                     dev.duplex = True
                 except Exception as e:
-                    print(f"DEBUG: Could not set duplex: {e}")
+                    logger.info(f"DEBUG: Could not set duplex: {e}")
 
             page_idx = 0
             while True:
@@ -731,11 +734,11 @@ class SaneScanner(ScannerDriver):
                     if not is_adf:
                         break
                 except Exception as e:
-                    print(f"SANE loop break: {e}")
+                    logger.info(f"SANE loop break: {e}")
                     break
             return results
         except Exception as e:
-            print(f"SANE python-sane error: {e}")
+            logger.info(f"SANE python-sane error: {e}")
             raise
         finally:
             if dev:

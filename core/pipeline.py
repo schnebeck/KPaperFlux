@@ -20,6 +20,9 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+from core.logger import get_logger
+
+logger = get_logger("pipeline")
 
 import pikepdf
 from pdf2image import convert_from_path
@@ -56,7 +59,7 @@ class PipelineProcessor:
             db: Optional existing DatabaseManager instance.
         """
         self.config = AppConfig()
-        self.vault = vault if vault else DocumentVault(self.config.get_vault_path())
+        self.vault = vault if vault else DocumentVault(Path(base_path))
         self.db = db if db else DatabaseManager(db_path)
         self.vocabulary = VocabularyManager()
 
@@ -69,12 +72,12 @@ class PipelineProcessor:
         """Forcefully terminates any running subprocess."""
         if self.current_process:
             try:
-                print(f"[Pipeline] Terminating subprocess PID {self.current_process.pid}...")
+                logger.info(f"[Pipeline] Terminating subprocess PID {self.current_process.pid}...")
                 self.current_process.kill()
             except ProcessLookupError:
                 pass
             except Exception as e:
-                print(f"Error killing process: {e}")
+                logger.info(f"Error killing process: {e}")
             self.current_process = None
 
     def _compute_sha256(self, path: Path) -> str:
@@ -111,7 +114,7 @@ class PipelineProcessor:
         if not path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        print(f"[STAGE 0] Starting Ingest for: {file_path}")
+        logger.info(f"[STAGE 0] Starting Ingest for: {file_path}")
         file_sha = self._compute_sha256(path)
 
         # Check by SHA (Dedup)
@@ -147,14 +150,14 @@ class PipelineProcessor:
                 created_at=datetime.datetime.now().isoformat(),
             )
             self.physical_repo.save(phys_file)
-            print(f"[Phase A] Imported new physical file: {file_uuid}")
+            logger.info(f"[Phase A] Imported new physical file: {file_uuid}")
         else:
-            print(f"[Phase A] Dedup: Using existing physical file {phys_file.uuid}")
+            logger.info(f"[Phase A] Dedup: Using existing physical file {phys_file.uuid}")
             if move_source:
                 try:
                     os.remove(file_path)
                 except OSError as e:
-                    print(f"Warning: Failed to remove source file after dedup: {e}")
+                    logger.info(f"Warning: Failed to remove source file after dedup: {e}")
 
         return phys_file
 
@@ -194,7 +197,7 @@ class PipelineProcessor:
         
         # 2. Save Logical Entity
         self.logical_repo.save(v_doc)
-        print(f"[Phase C] Persisted VirtualDocument: {new_uuid}")
+        logger.info(f"[Phase C] Persisted VirtualDocument: {new_uuid}")
 
         # 3. AI Analysis
         if not skip_ai:
@@ -230,16 +233,16 @@ class PipelineProcessor:
 
         if v_doc:
             if force_ocr:
-                print(f"[Pipeline] Forcing re-OCR for {v_doc.uuid}...")
+                logger.info(f"[Pipeline] Forcing re-OCR for {v_doc.uuid}...")
                 for ref in v_doc.source_mapping:
                     pf = self.physical_repo.get_by_uuid(ref.file_uuid)
                     if pf and pf.file_path:
-                        print(f"  -> Re-running OCR on: {pf.file_path}")
+                        logger.info(f"  -> Re-running OCR on: {pf.file_path}")
                         new_text_map = self._run_ocr(Path(pf.file_path))
                         if new_text_map:
                             pf.raw_ocr_data = new_text_map
                             self.physical_repo.save(pf)
-                            print(f"  -> OCR data updated for {pf.uuid}")
+                            logger.info(f"  -> OCR data updated for {pf.uuid}")
 
             if not skip_ai:
                 # Helper to get file path for visual audit
@@ -310,7 +313,7 @@ class PipelineProcessor:
         file_uuids_to_check = [ref.file_uuid for ref in v_doc.source_mapping]
 
         if not new_mapping:
-            print(f"[Pipeline] Empty mapping! Deleting entity {entity_uuid}")
+            logger.info(f"[Pipeline] Empty mapping! Deleting entity {entity_uuid}")
             self.delete_entity(entity_uuid)
             self.physical_cleanup(file_uuids_to_check)
             return True
@@ -320,7 +323,7 @@ class PipelineProcessor:
         v_doc.last_processed_at = datetime.datetime.now().isoformat()
 
         self.logical_repo.save(v_doc)
-        print(f"[Pipeline] Updated structure for {entity_uuid}")
+        logger.info(f"[Pipeline] Updated structure for {entity_uuid}")
         return True
 
     def apply_restructure_instructions(self, original_entity_uuid: str, instructions: List[Dict[str, Any]]) -> List[str]:
@@ -420,7 +423,7 @@ class PipelineProcessor:
 
         # 1. Delete Entity
         self.logical_repo.delete_by_uuid(entity_uuid)
-        print(f"[Pipeline] Deleted Entity {entity_uuid}")
+        logger.info(f"[Pipeline] Deleted Entity {entity_uuid}")
 
         # 2. Cleanup orphaned files
         self.physical_cleanup(file_uuids_to_check)
@@ -437,21 +440,21 @@ class PipelineProcessor:
         for f_uuid in set(file_uuids):
             referencing_entities = self.logical_repo.get_by_source_file(f_uuid)
             if not referencing_entities:
-                print(f"[Pipeline] Physical file {f_uuid} is orphaned. Purging...")
+                logger.info(f"[Pipeline] Physical file {f_uuid} is orphaned. Purging...")
                 pf = self.physical_repo.get_by_uuid(f_uuid)
                 if pf:
                     # Remove from Vault
                     if pf.file_path and os.path.exists(pf.file_path):
                         try:
                             os.remove(pf.file_path)
-                            print(f"[Pipeline] Removed file from vault: {pf.file_path}")
+                            logger.info(f"[Pipeline] Removed file from vault: {pf.file_path}")
                         except OSError as e:
-                            print(f"[Pipeline] Error removing vault file: {e}")
+                            logger.info(f"[Pipeline] Error removing vault file: {e}")
 
                     # Remove from Database
                     with self.db.connection:
                         self.db.connection.execute("DELETE FROM physical_files WHERE uuid = ?", (f_uuid,))
-                        print(f"[Pipeline] Removed record from physical_files: {f_uuid}")
+                        logger.info(f"[Pipeline] Removed record from physical_files: {f_uuid}")
 
     def process_document_with_instructions(self, file_path: str, instructions: List[Dict[str, Any]], move_source: bool = False) -> List[str]:
         """
@@ -517,7 +520,7 @@ class PipelineProcessor:
             self.logical_repo.save(v_doc)
             new_uuids.append(v_doc.uuid)
 
-        print(f"[Stage 0] Created {len(new_uuids)} entities from instructions.")
+        logger.info(f"[Stage 0] Created {len(new_uuids)} entities from instructions.")
         return new_uuids
 
     def process_batch_with_instructions(self, file_paths: List[str], instructions: List[Dict[str, Any]], move_source: bool = False, progress_callback=None) -> List[str]:
@@ -604,7 +607,7 @@ class PipelineProcessor:
                 self.logical_repo.save(v_doc)
                 new_uuids.append(v_doc.uuid)
 
-        print(f"[Stage 0 Batch] Created {len(new_uuids)} entities from instructions across {len(file_paths)} files.")
+        logger.info(f"[Stage 0 Batch] Created {len(new_uuids)} entities from instructions across {len(file_paths)} files.")
         return new_uuids
 
     def merge_documents(self, uuids: List[str]) -> bool:
@@ -642,7 +645,7 @@ class PipelineProcessor:
             type_tags=["LOGICAL_MERGE"],
         )
         self.logical_repo.save(merged_doc)
-        print(f"[Pipeline] Logically merged {len(uuids)} documents into {merged_doc.uuid}")
+        logger.info(f"[Pipeline] Logically merged {len(uuids)} documents into {merged_doc.uuid}")
         return True
 
     def merge_documents_physical(self, uuids: List[str]) -> Optional[VirtualDocument]:
@@ -664,21 +667,21 @@ class PipelineProcessor:
         """
         try:
             if self._is_native_pdf(path):
-                print(f"[{doc_uuid}] Detected Native PDF. Extracting text directly.")
+                logger.info(f"[{doc_uuid}] Detected Native PDF. Extracting text directly.")
                 text_map = self._extract_text_native(path)
                 text = "\n".join(text_map.values())
                 # Fallback check
                 if len(text.strip()) < 50:
-                    print(f"[{doc_uuid}] Native text insufficient (<50 chars). Falling back to OCR.")
+                    logger.info(f"[{doc_uuid}] Native text insufficient (<50 chars). Falling back to OCR.")
                     text_map = self._run_ocr(path)
                     return "\n".join(text_map.values())
                 return text
             else:
-                print(f"[{doc_uuid}] Detected Scanned PDF/Image. Running OCR.")
+                logger.info(f"[{doc_uuid}] Detected Scanned PDF/Image. Running OCR.")
                 text_map = self._run_ocr(path)
                 return "\n".join(text_map.values())
         except Exception as e:
-            print(f"Extraction Error [{doc_uuid}]: {e}")
+            logger.info(f"Extraction Error [{doc_uuid}]: {e}")
             return ""
 
     def _is_native_pdf(self, path: Path) -> bool:
@@ -699,7 +702,7 @@ class PipelineProcessor:
                         return True
             return False
         except Exception as e:
-            print(f"Error checking PDF native status: {e}")
+            logger.info(f"Error checking PDF native status: {e}")
             return False
 
     def _extract_text_native(self, path: Path) -> Dict[str, str]:
@@ -723,10 +726,10 @@ class PipelineProcessor:
                     result[str(i + 1)] = text
             return result
         except ImportError:
-            print("pdfminer-six not found. Install it for native PDF extraction.")
+            logger.info("pdfminer-six not found. Install it for native PDF extraction.")
             return {}
         except Exception as e:
-            print(f"Native extraction error: {e}")
+            logger.info(f"Native extraction error: {e}")
             return {}
 
     def _run_ocr(self, path: Path) -> Dict[str, str]:
@@ -761,9 +764,9 @@ class PipelineProcessor:
                 stdout, stderr = self.current_process.communicate()
 
                 if self.current_process.returncode != 0:
-                    print(f"OCR Error: {stderr.decode('utf-8', errors='ignore')}")
+                    logger.info(f"OCR Error: {stderr.decode('utf-8', errors='ignore')}")
             except Exception as e:
-                print(f"Subprocess Error during OCR: {e}")
+                logger.info(f"Subprocess Error during OCR: {e}")
                 if self.current_process:
                     try:
                         self.current_process.kill()
@@ -792,7 +795,7 @@ class PipelineProcessor:
             with pikepdf.Pdf.open(path) as pdf:
                 return len(pdf.pages)
         except Exception as e:
-            print(f"Error counting pages for {path}: {e}")
+            logger.info(f"Error counting pages for {path}: {e}")
             return 0
 
     def _run_ai_analysis(self, doc_obj: Document, file_path: Optional[str] = None) -> None:
@@ -809,10 +812,10 @@ class PipelineProcessor:
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
 
         if isinstance(doc_obj, (VirtualDocument, Document)):
-            print(f"[{doc_obj.uuid}] Starting Intelligent Analysis (Phase 2)...")
+            logger.info(f"[{doc_obj.uuid}] Starting Intelligent Analysis (Phase 2)...")
             canonizer.process_virtual_document(doc_obj)
         else:
-            print(f"[{getattr(doc_obj, 'uuid', '?')}] Unknown object type for analysis.")
+            logger.info(f"[{getattr(doc_obj, 'uuid', '?')}] Unknown object type for analysis.")
 
     def _generate_export_filename(self, doc: Document) -> str:
         """
@@ -853,7 +856,7 @@ class PipelineProcessor:
         # 1. Fetch existing Entity
         virtual_doc = self.logical_repo.get_by_uuid(doc.uuid)
         if not virtual_doc:
-            print(f"[Pipeline] Warning: Attempting to save non-existent entity {doc.uuid}")
+            logger.info(f"[Pipeline] Warning: Attempting to save non-existent entity {doc.uuid}")
             return
 
         # 2. Update Semantic Data if provided

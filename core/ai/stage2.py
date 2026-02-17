@@ -18,6 +18,9 @@ import re
 import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, Union
+from core.logger import get_logger
+
+logger = get_logger("ai.stage2")
 
 import fitz
 from google.genai import types
@@ -123,7 +126,7 @@ class Stage2Processor:
                 "page_index": page_index
             }
         except Exception as e:
-            print(f"[Stage 2] Image generation failed: {e}")
+            logger.info(f"[Stage 2] Image generation failed: {e}")
             return None
 
     def run_stage_2(self, raw_ocr_pages: List[str], stage_1_result: Dict, stage_1_5_result: Dict, pdf_path: Optional[str] = None) -> Dict:
@@ -134,7 +137,7 @@ class Stage2Processor:
         is_long_document = len(raw_ocr_pages) > 10
         
         if len(raw_ocr_pages) > MAX_PAGES_STAGE2:
-            print(f"[AI] Stage 2 -> WARNING: Document has {len(raw_ocr_pages)} pages. Truncating to {MAX_PAGES_STAGE2} for scanning.")
+            logger.info(f"[AI] Stage 2 -> WARNING: Document has {len(raw_ocr_pages)} pages. Truncating to {MAX_PAGES_STAGE2} for scanning.")
             raw_ocr_pages = raw_ocr_pages[:MAX_PAGES_STAGE2]
 
         best_text = self.assemble_best_text_source(raw_ocr_pages, stage_1_5_result)
@@ -146,9 +149,9 @@ class Stage2Processor:
                 try:
                     img_bytes = base64.b64decode(img_data["base64"])
                     images_payload.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
-                    print("[AI] Stage 2 -> Vision context enabled (Page 1)")
+                    logger.info("[AI] Stage 2 -> Vision context enabled (Page 1)")
                 except Exception as e:
-                    print(f"[AI] Stage 2 -> Vision prep failed: {e}")
+                    logger.info(f"[AI] Stage 2 -> Vision prep failed: {e}")
 
         detected_entities = stage_1_result.get("detected_entities", [])
         if not detected_entities:
@@ -183,10 +186,10 @@ class Stage2Processor:
             from core.utils.zugferd_extractor import ZugferdExtractor
             zugferd_data = ZugferdExtractor.extract_from_pdf(pdf_path)
             if zugferd_data:
-                print(f"[AI] ZUGFeRD XML detected (will be merged as priority ground-truth).")
+                logger.info(f"[AI] ZUGFeRD XML detected (will be merged as priority ground-truth).")
 
         if types_to_extract:
-            print(f"[AI] Stage 2 (Extraction) [START] -> Types: {', '.join(types_to_extract)}, Vision: {bool(pdf_path)}")
+            logger.info(f"[AI] Stage 2 (Extraction) [START] -> Types: {', '.join(types_to_extract)}, Vision: {bool(pdf_path)}")
 
         for i, entity_type in enumerate(types_to_extract):
             include_repair = (i == 0)
@@ -299,7 +302,7 @@ class Stage2Processor:
                         if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
                             final_semantic_data["repaired_text"] = extraction["repaired_text"]
             except Exception as e:
-                print(f"[AI] Stage 2 Error ({entity_type}): {e}")
+                logger.info(f"[AI] Stage 2 Error ({entity_type}): {e}")
                 return None
 
         # Ensure we have a default confidence if missing
@@ -315,7 +318,7 @@ class Stage2Processor:
         if not zugferd_data or entity_type.upper() not in ["INVOICE", "RECEIPT", "UTILITY_BILL"]:
             return extraction
             
-        print(f"[AI] Applying ZUGFeRD Ground-Truth Overlay...")
+        logger.info(f"[AI] Applying ZUGFeRD Ground-Truth Overlay...")
 
         xml_meta = zugferd_data.get("meta_data", {})
         if xml_meta:
@@ -506,5 +509,5 @@ class Stage2Processor:
                 iban=result.get("iban", [])
             )
         except Exception as e:
-            print(f"Identity Parsing Failed: {e}")
+            logger.info(f"Identity Parsing Failed: {e}")
             return None

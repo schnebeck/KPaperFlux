@@ -19,7 +19,7 @@ from PyQt6.QtGui import QPixmap, QImage
 import json
 import io
 from datetime import datetime
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale, QSize
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 from core.models.types import DocType
@@ -180,6 +180,12 @@ class MetadataEditorWidget(QWidget):
     def set_db_manager(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
 
+    def sizeHint(self) -> QSize:
+        return QSize(200, 300)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(100, 100)
+
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -334,11 +340,11 @@ class MetadataEditorWidget(QWidget):
         fields_layout.addStretch()
         fields_layout.addLayout(payment_form)
         fields_layout.addStretch()
-        payment_master_layout.addWidget(self.fields_container, 2)
+        payment_master_layout.addWidget(self.fields_container, 1)
         
         # Right Side: GiroCode & Actions
         self.qr_container = QWidget()
-        self.qr_container.setMinimumWidth(320)
+        # Removed hardcoded setMinimumWidth(320) to prevent window expansion
         qr_sub_layout = QVBoxLayout(self.qr_container)
         qr_sub_layout.addStretch()
         
@@ -388,7 +394,9 @@ class MetadataEditorWidget(QWidget):
         self.stamps_table.setHorizontalHeaderLabels([
             self.tr("Type"), self.tr("Text"), self.tr("Page"), self.tr("Confidence")
         ])
-        self.stamps_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.stamps_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.stamps_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.stamps_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         stamps_layout.addWidget(self.stamps_table)
 
         stamps_btn_layout = QHBoxLayout()
@@ -415,7 +423,7 @@ class MetadataEditorWidget(QWidget):
             self.tr("Section"), self.tr("Field"), self.tr("Value")
         ])
         self.semantic_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.semantic_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.semantic_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.semantic_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         semantic_data_layout.addWidget(self.semantic_table)
 
@@ -479,7 +487,6 @@ class MetadataEditorWidget(QWidget):
             self.tr("Time"), self.tr("Action"), self.tr("User"), self.tr("Comment")
         ])
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.history_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.history_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         history_layout.addWidget(self.history_table)
         

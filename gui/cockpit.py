@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
                              QHBoxLayout, QScrollArea, QSizePolicy, QMenu, QInputDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer, QRect
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer, QRect, QSize
 from PyQt6.QtGui import QAction, QCursor, QPalette, QPainter, QColor, QFont, QPen, QBrush, QLinearGradient, QPainterPath
 
 from gui.dialogs.cockpit_entry_dialog import CockpitEntryDialog
@@ -213,6 +213,12 @@ class CockpitWidget(QWidget):
         
         self.load_config()
         self.init_ui()
+
+    def sizeHint(self) -> QSize:
+        return QSize(800, 600)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(100, 100)
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)

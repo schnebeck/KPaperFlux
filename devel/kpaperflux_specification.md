@@ -1,6 +1,6 @@
 # **Project Definition: KPaperFlux**
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Target Platform:** Linux (KDE Plasma)
 **Core Technology:** Python 3.12, PyQt6 (Qt6), SQLite, Google Gemini AI (Vertex AI/Flash)
 
@@ -132,3 +132,30 @@ The Engine is the backend component responsible for applying Rules to Documents.
 *   **Determinism:** The same input and configuration always result in the same state transition.
 *   **Persistence:** The current state is stored in the `virtual_documents` table under the `status` field.
 *   **Auditability:** Every transition is logged (forensic focus) to maintain a clear history of document processing.
+
+## 8. Observability & Logging
+
+KPaperFlux implements a professional, centralized logging system designed for both developer-level forensic analysis and end-user troubleshooting.
+
+### 8.1 Core Logging Architecture
+
+*   **Centralized Provider:** `core.logger` provides a unified `get_logger` interface that enforces a hierarchical namespace (`kpaperflux.<component>`).
+*   **Multi-Target Output:**
+    *   **Console (stdout/stderr):** Real-time monitoring with level-dependent output formatting.
+    *   **Persistent File Logging:** All logs are written to an application log file located in the user's data directory (compliant with XDG Base Directory Specification).
+
+### 8.2 Component-Level Debugging
+
+Logging levels can be controlled globally or overridden per functional component using namespaced loggers.
+*   **Global Level:** Defaults to `WARNING` in production to ensure "quiet" operation.
+*   **Granular Categories:** `ai`, `database`, `pipeline`, `scanner`, `gui`, `exchange`, etc.
+*   **High-Fidelity Debugging:**
+    *   **AI Interaction Logging (`log_ai_interaction`):** Captures raw prompt templates, metadata sent to LLMs, and raw JSON responses for deep technical analysis of the "Flux".
+    *   **Database Query Logging (`log_sql_query`):** Logs every executed SQL statement, including parameters and execution results, via the `DatabaseManager` wrapper.
+
+### 8.3 User Configuration
+
+*   **Logging Tab:** A dedicated GUI in the Settings Dialog allows users to:
+    1.  Toggle the global log level (DEBUG, INFO, WARNING, ERROR).
+    2.  Enable/Disable verbose AI and Database debugging independently.
+    3.  Directly access the log file via the system's default text viewer.

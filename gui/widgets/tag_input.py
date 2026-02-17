@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QLineEdit, QLabel, 
-                             QPushButton, QFrame, QSizePolicy)
+                             QPushButton, QFrame, QSizePolicy, QScrollArea, QVBoxLayout)
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from PyQt6.QtGui import QKeyEvent
 
@@ -73,12 +73,27 @@ class TagInputWidget(QFrame):
         
         self.tags = []
         
-        self.main_layout = QHBoxLayout(self)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll.setFixedHeight(32)
+        
+        self.container = QWidget()
+        self.main_layout = QHBoxLayout(self.container)
         self.main_layout.setContentsMargins(4, 2, 4, 2)
         self.main_layout.setSpacing(4)
         
+        self.scroll.setWidget(self.container)
+        
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(self.scroll)
+
         self.line_edit = QLineEdit()
         self.line_edit.setPlaceholderText("...")
+        self.line_edit.setMinimumWidth(60)
         self.line_edit.textChanged.connect(self._on_text_changed)
         self.line_edit.returnPressed.connect(self._add_current_text)
         self.line_edit.installEventFilter(self)

@@ -114,13 +114,13 @@ class AdvancedFilterWidget(QWidget):
         button_height = 30
         button_style = f"""
             QToolButton {{ 
-                padding: 0px 20px; 
+                padding: 0px 5px; 
                 height: {button_height}px;
                 border: 1px solid #ddd; 
                 border-radius: 4px;
                 background: #f8f9fa;
                 color: #555; 
-                font-size: 15px; 
+                font-size: 13px; 
                 font-weight: 500; 
             }}
             QToolButton:hover {{ background: #eee; }}
@@ -213,21 +213,27 @@ class AdvancedFilterWidget(QWidget):
         self.combo_filters.currentIndexChanged.connect(self._on_saved_filter_selected)
         top_bar.addWidget(self.combo_filters, 1)
 
-        self.btn_revert = QPushButton(self.tr("Revert"))
+        self.btn_revert = QPushButton(self.tr("Rev."))
+        self.btn_revert.setToolTip(self.tr("Revert Changes"))
+        self.btn_revert.setFixedWidth(45)
         self.btn_revert.setEnabled(False)
         self.btn_revert.clicked.connect(self.revert_changes)
         top_bar.addWidget(self.btn_revert)
 
-        self.btn_save = QPushButton(self.tr("Save..."))
+        self.btn_save = QPushButton(self.tr("Save"))
+        self.btn_save.setFixedWidth(55)
         self.btn_save.clicked.connect(self.save_current_filter)
         top_bar.addWidget(self.btn_save)
 
-        self.btn_export = QPushButton(self.tr("Export..."))
-        self.btn_export.setToolTip(self.tr("Export current filter as a portable exchange file"))
+        self.btn_export = QPushButton("📤")
+        self.btn_export.setFixedWidth(30)
+        self.btn_export.setToolTip(self.tr("Export filter"))
         self.btn_export.clicked.connect(self.export_current_filter)
         top_bar.addWidget(self.btn_export)
 
-        self.btn_manage = QPushButton(self.tr("Manage"))
+        self.btn_manage = QPushButton("⚙️")
+        self.btn_manage.setFixedWidth(30)
+        self.btn_manage.setToolTip(self.tr("Manage Filters"))
         self.btn_manage.clicked.connect(self.manage_filters)
         top_bar.addWidget(self.btn_manage)
         filter_layout.addLayout(top_bar)

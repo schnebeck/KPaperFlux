@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
     QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
-    QSpinBox, QLayout
+    QSpinBox, QLayout, QCheckBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer
 import json
@@ -219,6 +219,26 @@ class SettingsDialog(QDialog):
 
         self.tabs.addTab(identity_tab, self.tr("Identity"))
 
+        # --- Logging Tab ---
+        logging_tab = QWidget()
+        form_log = QFormLayout(logging_tab)
+
+        self.combo_log_level = QComboBox()
+        self.combo_log_level.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
+        form_log.addRow(self.tr("Global Log Level:"), self.combo_log_level)
+
+        self.cb_debug_ai = QCheckBox(self.tr("Verbose AI Debugging (Raw Prompts/Responses)"))
+        form_log.addRow("", self.cb_debug_ai)
+
+        self.cb_debug_db = QCheckBox(self.tr("Verbose Database Debugging (SQL Queries)"))
+        form_log.addRow("", self.cb_debug_db)
+
+        self.btn_open_log = QPushButton(self.tr("Open Log File"))
+        self.btn_open_log.clicked.connect(self._open_log_file)
+        form_log.addRow("", self.btn_open_log)
+
+        self.tabs.addTab(logging_tab, self.tr("Logging"))
+
         # Buttons
         btn_box = QHBoxLayout()
         self.btn_save = QPushButton(self.tr("Save"))
@@ -268,6 +288,12 @@ class SettingsDialog(QDialog):
         self.edit_sig_private.setPlainText(self.config.get_private_signature())
         self.edit_sig_business.setPlainText(self.config.get_business_signature())
 
+        # Logging
+        self.combo_log_level.setCurrentText(self.config.get_log_level())
+        cmp_levels = self.config.get_log_components()
+        self.cb_debug_ai.setChecked(cmp_levels.get("ai") == "DEBUG")
+        self.cb_debug_db.setChecked(cmp_levels.get("database") == "DEBUG")
+
     def _browse_vault(self):
         path = QFileDialog.getExistingDirectory(self, self.tr("Select Vault Directory"), self.edit_vault.text())
         if path:
@@ -315,6 +341,15 @@ class SettingsDialog(QDialog):
 
         self.config.set_private_signature(self.edit_sig_private.toPlainText())
         self.config.set_business_signature(self.edit_sig_business.toPlainText())
+
+        # Logging
+        self.config.set_log_level(self.combo_log_level.currentText())
+        cmp_levels = {}
+        if self.cb_debug_ai.isChecked():
+            cmp_levels["ai"] = "DEBUG"
+        if self.cb_debug_db.isChecked():
+            cmp_levels["database"] = "DEBUG"
+        self.config.set_log_components(cmp_levels)
 
         # Trigger signal
         self.settings_changed.emit()
@@ -504,3 +539,17 @@ class SettingsDialog(QDialog):
         except Exception as e:
             self.setCursor(Qt.CursorShape.ArrowCursor)
             show_selectable_message_box(self, self.tr("Connection Failed"), f"{self.tr('Could not connect to Ollama')}:\n{e}", icon=QMessageBox.Icon.Critical)
+
+    def _open_log_file(self):
+        """Attempts to open the log file with the system default viewer."""
+        import subprocess
+        log_path = self.config.get_log_file_path()
+        if log_path.exists():
+            if sys.platform == 'win32':
+                os.startfile(log_path)
+            elif sys.platform == 'darwin':
+                subprocess.call(('open', str(log_path)))
+            else:
+                subprocess.call(('xdg-open', str(log_path)))
+        else:
+            show_selectable_message_box(self, self.tr("Log File Missing"), self.tr("The log file has not been created yet."), icon=QMessageBox.Icon.Information)

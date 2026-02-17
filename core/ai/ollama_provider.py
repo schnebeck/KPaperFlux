@@ -4,8 +4,9 @@ import logging
 import requests
 from typing import Any, List, Optional
 from core.ai.base import AIProvider
+from core.logger import get_logger, log_ai_interaction
 
-logger = logging.getLogger("KPaperFlux.AI.Ollama")
+logger = get_logger("ai.ollama")
 
 class OllamaProvider(AIProvider):
     """Client for local Ollama API (Sovereign AI)."""
@@ -53,7 +54,9 @@ class OllamaProvider(AIProvider):
                     return None
                 
                 try:
-                    return json.loads(response_text)
+                    res_json = json.loads(response_text)
+                    log_ai_interaction(prompt, response_text, res_json)
+                    return res_json
                 except json.JSONDecodeError as je:
                     logger.error(f"Invalid JSON from Ollama: {je}\nResponse: {response_text[:200]}...")
                     return None

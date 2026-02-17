@@ -9,8 +9,9 @@ from google import genai
 from google.genai import types
 
 from core.ai.base import AIProvider
+from core.logger import get_logger, log_ai_interaction
 
-logger = logging.getLogger("KPaperFlux.AI.Gemini")
+logger = get_logger("ai.gemini")
 
 class GeminiProvider(AIProvider):
     """Low-level Gemini API client (Cloud AI)."""
@@ -68,6 +69,8 @@ class GeminiProvider(AIProvider):
         while current_attempt <= max_logical_retries:
             res_json, error_msg = self._generate_json_raw(working_prompt, stage_label, images)
             if res_json is not None:
+                # High-fidelity logging for technical debugging
+                log_ai_interaction(working_prompt, str(res_json), res_json)
                 return res_json
 
             logger.info(f"Logical Retry {current_attempt}/{max_logical_retries} for {stage_label} due to: {error_msg}")

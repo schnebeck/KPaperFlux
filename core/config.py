@@ -40,6 +40,8 @@ class AppConfig:
     KEY_OPENAI_MODEL: str = "openai_model"
     KEY_ANTHROPIC_KEY: str = "anthropic_key"
     KEY_ANTHROPIC_MODEL: str = "anthropic_model"
+    KEY_LOG_LEVEL: str = "log_level"
+    KEY_LOG_COMPONENTS: str = "log_components"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
@@ -400,3 +402,29 @@ class AppConfig:
     def set_anthropic_model(self, model: str) -> None:
         """Saves the Anthropic model name."""
         self._set_setting("AI", self.KEY_ANTHROPIC_MODEL, model)
+
+    def get_log_level(self) -> str:
+        """Retrieves the global log level."""
+        return str(self._get_setting("Logging", self.KEY_LOG_LEVEL, "WARNING"))
+
+    def set_log_level(self, level: str) -> None:
+        """Saves the global log level."""
+        self._set_setting("Logging", self.KEY_LOG_LEVEL, level.upper())
+
+    def get_log_components(self) -> dict:
+        """Retrieves a dictionary of component-specific log levels."""
+        import json
+        raw = str(self._get_setting("Logging", self.KEY_LOG_COMPONENTS, "{}"))
+        try:
+            return json.loads(raw)
+        except:
+            return {}
+
+    def set_log_components(self, components: dict) -> None:
+        """Saves a dictionary of component-specific log levels."""
+        import json
+        self._set_setting("Logging", self.KEY_LOG_COMPONENTS, json.dumps(components))
+
+    def get_log_file_path(self) -> Path:
+        """Returns the absolute path to the log file."""
+        return self.get_data_dir() / "app.log"
