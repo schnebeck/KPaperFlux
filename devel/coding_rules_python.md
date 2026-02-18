@@ -56,3 +56,4 @@ Description:    [Insert concise description]
 * **Strict tr() Usage:** NEVER use hardcoded strings for user-facing GUI elements. Always wrap them in `self.tr("Your String")`.
 * **Dynamic Content:** For strings with variables, use positional placeholders: `self.tr("File %s not found") % filename`.
 * **Resource Maintenance:** Run `pylupdate6` to sync `.ts` files after adding/changing strings.
+* **Dynamic UI Layouts:** To support localized text, avoid fixed widths for UI elements. Use dynamic padding and `setSizeAdjustPolicy` for widgets (see `agent_framework.md` Section 5.2).

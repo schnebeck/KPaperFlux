@@ -35,7 +35,7 @@ class ComparisonDialog(QDialog):
         f_layout.setContentsMargins(15, 5, 15, 5) # Narrower vertical margin
         f_layout.setSpacing(10)
         
-        self.btn_incorrect = QPushButton(" Mismatch")
+        self.btn_incorrect = QPushButton(self.tr("Mismatch"))
         self.btn_incorrect.setStyleSheet("""
             QPushButton {
                 background-color: #d32f2f; 
@@ -48,7 +48,7 @@ class ComparisonDialog(QDialog):
         """)
         self.btn_incorrect.clicked.connect(self.on_match_incorrect)
 
-        self.btn_correct = QPushButton(" Match OK")
+        self.btn_correct = QPushButton(self.tr("Match OK"))
         self.btn_correct.setStyleSheet("""
             QPushButton {
                 background-color: #2e7d32; 

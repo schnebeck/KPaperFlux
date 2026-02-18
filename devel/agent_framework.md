@@ -58,7 +58,22 @@ When provided with code or a task, perform the following steps:
 *   **Management Tool:** Use `tools/l10n_tool.py` for programmatic updates. Do NOT edit the XML manually for bulk updates to avoid corruption.
 *   **Safety:** The `L10nTool` ensures valid XML structure, auto-indents for readability, and handles deduplication.
 
-### **5.2 Localization Workflow**
+#### **5.1.1 Keyboard Shortcut (&) Rules**
+To ensure consistent keyboard navigation and avoid unintended ampersands in labels or tooltips:
+1.  **Direct Control:** The presence of a single `&` in the **Source String** (e.g., `self.tr("&File")`) is the mandatory indicator that a shortcut is desired.
+2.  **Alphanumeric Validation:** An ampersand is only recognized as a shortcut if it is immediately followed by an **alphanumeric character**. Ampersands followed by spaces, punctuation (e.g., `Audit & Verification`), or placeholders are ignored and treated as literal text.
+3.  **Automatic Sync:** The `L10nTool` will automatically ensure the translation has a unique shortcut if the source has one.
+4.  **Strict Masking:** If the Source String lacks a shortcut ampersand, every single ampersand in the translation will be **escaped** (transformed to `&&`) to ensure it is rendered as a literal character and not as a shortcut.
+5.  **Disambiguation:** If the same source string requires different translations (e.g., one with a shortcut for a menu and one without for a tooltip), use different source strings (e.g., `&Search` vs `Search`) or use the disambiguation comment: `self.tr("Search", "menu")` vs `self.tr("Search", "label")`.
+
+### **5.2 Dynamic UI Layouts (L10n Readiness)**
+To ensure the UI adapts to various languages (especially German with long words) and screen resolutions:
+1.  **No Fixed Widths:** Avoid `setFixedWidth()` or hardcoded `min-width` in stylesheets for elements containing text (Buttons, Labels, Combo Boxes).
+2.  **Dynamic Sizing:** Use `setMinimumWidth()` for ergonomy, but allow components to grow based on their content.
+3.  **ComboBox Policy:** Set `setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)` for all selection boxes to prevent squashed text.
+4.  **Padding vs Width:** Use CSS padding (`padding: 4px 10px;`) to maintain aesthetic spacing while letting the text length drive the component size.
+
+### **5.3 Localization Workflow**
 To add or update translations, follow this strict sequence:
 
 1.  **Extraction:** Run `pylupdate6` to scan Python code for `self.tr()` calls.

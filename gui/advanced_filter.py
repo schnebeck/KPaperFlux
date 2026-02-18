@@ -212,29 +212,31 @@ class AdvancedFilterWidget(QWidget):
         self.lbl_filter_select = QLabel("")
         top_bar.addWidget(self.lbl_filter_select)
         self.combo_filters = QComboBox()
+        self.combo_filters.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.combo_filters.setMinimumWidth(150)
         self.combo_filters.currentIndexChanged.connect(self._on_saved_filter_selected)
-        top_bar.addWidget(self.combo_filters, 1)
+        top_bar.addWidget(self.combo_filters, 1) # Still stretch 1 to fill available space
 
         self.btn_revert = QPushButton("")
         self.btn_revert.setToolTip(self.tr("Revert Changes"))
-        self.btn_revert.setFixedWidth(45)
+        # Removed fixedWidth to allow translated text to fit
         self.btn_revert.setEnabled(False)
         self.btn_revert.clicked.connect(self.revert_changes)
         top_bar.addWidget(self.btn_revert)
 
         self.btn_save = QPushButton("")
-        self.btn_save.setFixedWidth(55)
+        # Remove fixedWidth
         self.btn_save.clicked.connect(self.save_current_filter)
         top_bar.addWidget(self.btn_save)
 
         self.btn_export = QPushButton("📤")
-        self.btn_export.setFixedWidth(30)
+        self.btn_export.setMinimumWidth(30) # Use minimum instead of fixed
         self.btn_export.setToolTip(self.tr("Export filter"))
         self.btn_export.clicked.connect(self.export_current_filter)
         top_bar.addWidget(self.btn_export)
 
         self.btn_manage = QPushButton("⚙️")
-        self.btn_manage.setFixedWidth(30)
+        self.btn_manage.setMinimumWidth(30)
         self.btn_manage.setToolTip(self.tr("Manage Filters"))
         self.btn_manage.clicked.connect(self.manage_filters)
         top_bar.addWidget(self.btn_manage)
@@ -289,6 +291,8 @@ class AdvancedFilterWidget(QWidget):
         self.lbl_rule_select = QLabel("")
         top_bar.addWidget(self.lbl_rule_select)
         self.combo_rules = QComboBox()
+        self.combo_rules.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.combo_rules.setMinimumWidth(150)
         self.combo_rules.currentIndexChanged.connect(self._on_saved_rule_selected)
         top_bar.addWidget(self.combo_rules, 1)
 
@@ -1275,7 +1279,7 @@ class AdvancedFilterWidget(QWidget):
         
         # Filter Tab
         self.lbl_filter_select.setText(self.tr("Select:"))
-        self.btn_revert.setText(self.tr("Rev."))
+        self.btn_revert.setText(self.tr("Discard"))
         self.btn_revert.setToolTip(self.tr("Revert Changes"))
         self.btn_save.setText(self.tr("Save"))
         self.btn_export.setToolTip(self.tr("Export filter"))

@@ -35,7 +35,7 @@ class WorkflowControlsWidget(QWidget):
 
         self.btn_change = QPushButton("⚙️")
         self.btn_change.setToolTip(self.tr("Change/Assign Rule"))
-        self.btn_change.setFixedWidth(32)
+        self.btn_change.setMinimumWidth(32) # Use minimum instead of fixed
         self.btn_change.setFixedHeight(28)
         self.btn_change.setStyleSheet("""
             QPushButton { 
@@ -44,6 +44,7 @@ class WorkflowControlsWidget(QWidget):
                 border-radius: 4px;
                 color: #555;
                 font-size: 14px;
+                padding: 0px 5px;
             }
             QPushButton:hover { background: #eee; border-color: #bbb; }
         """)
@@ -91,6 +92,7 @@ class WorkflowControlsWidget(QWidget):
         # Apply Status Color
         color = self._get_status_color(self.current_step, state_def)
         self.status_lbl.setFixedHeight(28)
+        self.status_lbl.setMinimumWidth(80) # Ensure it's readable
         self.status_lbl.setStyleSheet(f"""
             font-weight: bold; 
             font-size: 13px; 

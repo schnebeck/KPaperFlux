@@ -118,6 +118,7 @@ class FilterConditionWidget(QWidget):
         self.field_name = None
 
         self.combo_op = QComboBox()
+        self.combo_op.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.chk_negate = QCheckBox(self.tr("Not"))
         self.input_stack = QStackedWidget()
         self.btn_remove = QPushButton("X")
@@ -138,7 +139,7 @@ class FilterConditionWidget(QWidget):
         # 4. Add to Layout
         self.layout.addWidget(self.btn_field_selector, 1)
         self.layout.addWidget(self.chk_negate)
-        self.layout.addWidget(self.combo_op, 1)
+        self.layout.addWidget(self.combo_op) # Remove fixed-ish stretch/ratio if necessary, but op is usually short
         self.layout.addWidget(self.input_stack, 2)
         self.layout.addWidget(self.btn_remove)
 

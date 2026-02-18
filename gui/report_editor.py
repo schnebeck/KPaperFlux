@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QLabel, QCheckBox, QHeaderView, QFrame, QMessageBox,
     QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from core.models.reporting import ReportDefinition, Aggregation
 from core.reporting import ReportRegistry
 
@@ -37,6 +37,41 @@ class ReportEditorWidget(QWidget):
             self.available_system_tags = self.db_manager.get_available_tags(system=True)
 
         self._init_ui()
+        self.retranslate_ui()
+        self.load_available_reports() if hasattr(self, 'load_available_reports') else None
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        self.lbl_name_prefix.setText(self.tr("Report Name:"))
+        self.lbl_desc_prefix.setText(self.tr("Description:"))
+        self.lbl_group_prefix.setText(self.tr("Group By:"))
+        self.lbl_agg_prefix.setText(self.tr("Aggregations:"))
+        self.lbl_source_prefix.setText(self.tr("Data Source (Filter):"))
+        self.lbl_show_prefix.setText(self.tr("Show as:"))
+        
+        self.btn_add_agg.setText("+ " + self.tr("Add Aggregation"))
+        self.btn_del_agg.setText("- " + self.tr("Remove Selected"))
+        self.btn_save.setText(self.tr("Save Report Definition"))
+        
+        self.chk_table.setText(self.tr("Table"))
+        self.chk_chart.setText(self.tr("Bar Chart"))
+        self.chk_pie.setText(self.tr("Pie Chart"))
+        self.chk_trend.setText(self.tr("Trend"))
+        self.chk_csv.setText(self.tr("CSV Export"))
+        
+        if hasattr(self, "combo_saved_filters"):
+            # Update only the first item (placeholder)
+            self.combo_saved_filters.setItemText(0, "-- " + self.tr("Import from Saved Filter") + " --")
+        
+        # Meta tooltips
+        self.combo_group.setToolTip(self.tr("Select 'amount:X' for histogram view (grouping by price ranges)."))
+        
+        # Table Headers
+        self.agg_table.setHorizontalHeaderLabels([self.tr("Field"), self.tr("Operation")])
 
     def _init_ui(self):
         self.layout = QVBoxLayout(self)
@@ -53,8 +88,10 @@ class ReportEditorWidget(QWidget):
         self.edit_desc.setMaximumHeight(60)
         self.edit_desc.textChanged.connect(self._on_changed)
         
-        meta_layout.addRow("Report Name:", self.edit_name)
-        meta_layout.addRow("Description:", self.edit_desc)
+        self.lbl_name_prefix = QLabel()
+        self.lbl_desc_prefix = QLabel()
+        meta_layout.addRow(self.lbl_name_prefix, self.edit_name)
+        meta_layout.addRow(self.lbl_desc_prefix, self.edit_desc)
         
         self.layout.addWidget(self.meta_frame)
         
@@ -64,21 +101,21 @@ class ReportEditorWidget(QWidget):
         
         # Group By
         group_layout = QHBoxLayout()
-        group_layout.addWidget(QLabel("Group By:"))
+        self.lbl_group_prefix = QLabel()
+        group_layout.addWidget(self.lbl_group_prefix)
         self.combo_group = QComboBox()
         self.combo_group.addItems([
             "None", "doc_date:month", "doc_date:year", "sender", "type",
             "amount:10", "amount:50", "amount:100", "amount:500"
         ])
-        self.combo_group.setToolTip("Select 'amount:X' for histogram view (grouping by price ranges).")
         self.combo_group.currentIndexChanged.connect(self._on_changed)
         group_layout.addWidget(self.combo_group, 1)
         config_layout.addLayout(group_layout)
         
         # Aggregations
-        config_layout.addWidget(QLabel("Aggregations:"))
+        self.lbl_agg_prefix = QLabel()
+        config_layout.addWidget(self.lbl_agg_prefix)
         self.agg_table = QTableWidget(0, 2)
-        self.agg_table.setHorizontalHeaderLabels(["Field", "Operation"])
         self.agg_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.agg_table.itemChanged.connect(self._on_changed)
         config_layout.addWidget(self.agg_table)
@@ -95,12 +132,13 @@ class ReportEditorWidget(QWidget):
         
         # Visualizations
         viz_layout = QHBoxLayout()
-        viz_layout.addWidget(QLabel("Show as:"))
-        self.chk_table = QCheckBox("Table")
-        self.chk_chart = QCheckBox("Bar Chart")
-        self.chk_pie = QCheckBox("Pie Chart")
-        self.chk_trend = QCheckBox("Trend")
-        self.chk_csv = QCheckBox("CSV Export")
+        self.lbl_show_prefix = QLabel()
+        viz_layout.addWidget(self.lbl_show_prefix)
+        self.chk_table = QCheckBox()
+        self.chk_chart = QCheckBox()
+        self.chk_pie = QCheckBox()
+        self.chk_trend = QCheckBox()
+        self.chk_csv = QCheckBox()
         for chk in [self.chk_table, self.chk_chart, self.chk_pie, self.chk_trend, self.chk_csv]:
             chk.stateChanged.connect(self._on_changed)
             viz_layout.addWidget(chk)
@@ -116,12 +154,13 @@ class ReportEditorWidget(QWidget):
         filter_vbox = QVBoxLayout(filter_box)
         
         fl_header = QHBoxLayout()
-        fl_header.addWidget(QLabel("<b>Data Source (Filter):</b>"))
+        self.lbl_source_prefix = QLabel()
+        fl_header.addWidget(self.lbl_source_prefix)
         fl_header.addStretch()
         
         if self.filter_tree:
             self.combo_saved_filters = QComboBox()
-            self.combo_saved_filters.addItem("-- Import from Saved Filter --", None)
+            self.combo_saved_filters.addItem("", None)
             for f in self.filter_tree.get_all_filters():
                 self.combo_saved_filters.addItem(f.name, f.data)
             self.combo_saved_filters.currentIndexChanged.connect(self._import_filter_criteria)
@@ -148,7 +187,7 @@ class ReportEditorWidget(QWidget):
         self.layout.addWidget(filter_box)
         
         # Action Buttons
-        self.btn_save = QPushButton("Save Report Definition")
+        self.btn_save = QPushButton()
         self.btn_save.setStyleSheet("background-color: #2e7d32; color: white; font-weight: bold; padding: 10px;")
         self.btn_save.clicked.connect(self.save_report)
         self.layout.addWidget(self.btn_save)
@@ -270,7 +309,7 @@ class ReportEditorWidget(QWidget):
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(report.model_dump(), f, indent=2)
             
-            QMessageBox.information(self, "Success", f"Report definition '{report.name}' saved.")
+            QMessageBox.information(self, self.tr("Success"), self.tr("Report definition '%s' saved.") % report.name)
             ReportRegistry().load_from_directory(report_dir)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save report: {e}")
+            QMessageBox.critical(self, self.tr("Error"), f"{self.tr('Failed to save report')}: {e}")

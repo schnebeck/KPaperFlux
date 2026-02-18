@@ -272,12 +272,13 @@ class MatchingDialog(QDialog):
         self.btn_primary_action.setToolTip(self.tr("Start scanning folder or process results"))
         self.btn_primary_action.setEnabled(True)
         self.btn_primary_action.clicked.connect(self.on_primary_action)
-        self.btn_primary_action.setStyleSheet("min-width: 180px; padding: 8px; font-weight: bold;")
+        self.btn_primary_action.setMinimumWidth(180)
+        self.btn_primary_action.setStyleSheet("padding: 8px; font-weight: bold;")
         
-        common_style = "min-width: 100px; padding: 6px;"
         btn_close = QPushButton(self.tr("Close"))
         btn_close.clicked.connect(self.close)
-        btn_close.setStyleSheet(common_style)
+        btn_close.setMinimumWidth(100)
+        btn_close.setStyleSheet("padding: 6px;")
         
         btn_layout.addWidget(self.btn_primary_action)
         btn_layout.addStretch()
@@ -370,14 +371,16 @@ class MatchingDialog(QDialog):
             actions_layout.setContentsMargins(4, 2, 4, 2)
             actions_layout.setSpacing(5)
             
-            btn_style = "min-width: 85px;"
+            # Use dynamic sizing with minimum width for action buttons
+            btn_min_w = 85
 
             if res.get("output_path") and res.get("status") != "Imported":
                 btn_view_res = QPushButton(self.tr("View"))
-                btn_view_res.setStyleSheet(btn_style)
+                btn_view_res.setMinimumWidth(btn_min_w)
                 btn_view_res.clicked.connect(lambda checked, r=res: self.on_view_result(r))
                 btn_import = QPushButton(self.tr("Import"))
-                btn_import.setStyleSheet(btn_style + " font-weight: bold; color: #2e7d32;")
+                btn_import.setMinimumWidth(btn_min_w)
+                btn_import.setStyleSheet("font-weight: bold; color: #2e7d32;")
                 btn_import.clicked.connect(lambda checked, r=res: self.on_import_result(r))
                 actions_layout.addWidget(btn_view_res)
                 actions_layout.addWidget(btn_import)
@@ -387,12 +390,12 @@ class MatchingDialog(QDialog):
                 actions_layout.addWidget(lbl_imported)
             else:
                 btn_view = QPushButton(self.tr("Verify"))
-                btn_view.setStyleSheet(btn_style)
+                btn_view.setMinimumWidth(btn_min_w)
                 btn_view.setToolTip(self.tr("Side-by-side comparison and verification"))
                 btn_view.clicked.connect(lambda checked, r=res: self.on_view(r))
                 
                 btn_merge = QPushButton(self.tr("Merge"))
-                btn_merge.setStyleSheet(btn_style)
+                btn_merge.setMinimumWidth(btn_min_w)
                 btn_merge.setEnabled(res["status"] != "Mismatch" or res.get("verified") is True)
                 btn_merge.clicked.connect(lambda checked, r=res: self.on_merge(r))
                 

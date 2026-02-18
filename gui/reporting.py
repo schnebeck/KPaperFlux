@@ -2,8 +2,8 @@ from typing import List, Dict, Any, Optional
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QFrame, QScrollArea, QComboBox, QSizePolicy,
-                             QMenu, QTextEdit, QToolButton, QFileDialog, QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer, QThread
+                             QMenu, QTextEdit, QToolButton, QFileDialog, QMessageBox, QLineEdit, QInputDialog)
+from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer, QThread, QEvent
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush, QIcon
 
 from core.reporting import ReportGenerator, ReportRegistry
@@ -396,6 +396,7 @@ class ReportingWidget(QWidget):
         self.pending_workers = [] # Keep references to threads
         self.setAcceptDrops(True)
         self.init_ui()
+        self.retranslate_ui()
         self.load_available_reports()
 
     def sizeHint(self) -> QSize:
@@ -404,6 +405,43 @@ class ReportingWidget(QWidget):
     def minimumSizeHint(self) -> QSize:
         return QSize(100, 100)
 
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        self.lbl_select_prefix.setText(self.tr("Select Report:"))
+        self.edit_zoom.setText(f"{int(self.zoom_level * 100)}%")
+        
+        self.btn_comment.setText("💬 " + self.tr("Add Comment"))
+        self.btn_comment.setToolTip(self.tr("Add a text block to the current report"))
+        
+        self.btn_new.setText("✚ " + self.tr("New Report"))
+        self.btn_new.setToolTip(self.tr("Create a new report"))
+        
+        self.btn_import.setText("📥 " + self.tr("Import from PDF"))
+        self.btn_import.setToolTip(self.tr("Import report style from an exported PDF file"))
+        
+        self.btn_clear.setText("🗑️ " + self.tr("Clear"))
+        
+        self.btn_save_layout.setText("💾 " + self.tr("Save Layout"))
+        self.btn_save_layout.setToolTip(self.tr("Save the current canvas arrangement"))
+        
+        self.btn_load_layout.setText("📂 " + self.tr("Load Layout"))
+        self.btn_load_layout.setToolTip(self.tr("Load a saved canvas arrangement"))
+        
+        self.btn_fit.setText("↔️ " + self.tr("Fit"))
+        self.btn_export.setText("📤 " + self.tr("Export"))
+        
+        # Actions in export menu
+        self.act_csv.setText("📊 " + self.tr("Export as CSV (Data)"))
+        self.act_pdf.setText("📄 " + self.tr("Export as PDF (Report)"))
+        self.act_zip.setText("📦 " + self.tr("Export as ZIP (Documents)"))
+
+        # Refresh the list to translate names
+        self.load_available_reports()
+
     def init_ui(self):
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
@@ -411,41 +449,38 @@ class ReportingWidget(QWidget):
 
         # Toolbar
         toolbar = QHBoxLayout()
-        toolbar.addWidget(QLabel(self.tr("Select Report:")))
+        self.lbl_select_prefix = QLabel()
+        toolbar.addWidget(self.lbl_select_prefix)
         
         self.combo_reports = QComboBox()
-        self.combo_reports.setMinimumWidth(250)
+        self.combo_reports.setMinimumWidth(200)
+        self.combo_reports.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.combo_reports.currentIndexChanged.connect(self.refresh_data)
         toolbar.addWidget(self.combo_reports)
 
-        self.btn_comment = QPushButton("💬 " + self.tr("Add Comment"))
-        self.btn_comment.setToolTip(self.tr("Add a text block to the current report"))
+        self.btn_comment = QPushButton()
         self.btn_comment.clicked.connect(self.add_text_block)
         toolbar.addWidget(self.btn_comment)
         
-        self.btn_new = QPushButton("✚ " + self.tr("New Report"))
-        self.btn_new.setToolTip(self.tr("Create a new report"))
+        self.btn_new = QPushButton()
         self.btn_new.clicked.connect(self.create_new_report)
         toolbar.addWidget(self.btn_new)
 
-        self.btn_import = QPushButton("📥 " + self.tr("Import from PDF"))
-        self.btn_import.setToolTip(self.tr("Import report style from an exported PDF file"))
+        self.btn_import = QPushButton()
         self.btn_import.clicked.connect(self.import_report_from_file)
         toolbar.addWidget(self.btn_import)
 
-        self.btn_clear = QPushButton("🗑️ " + self.tr("Clear"))
+        self.btn_clear = QPushButton()
         self.btn_clear.clicked.connect(self.clear_results)
         toolbar.addWidget(self.btn_clear)
 
         toolbar.addSpacing(20)
 
-        self.btn_save_layout = QPushButton("💾 " + self.tr("Save Layout"))
-        self.btn_save_layout.setToolTip(self.tr("Save the current canvas arrangement"))
+        self.btn_save_layout = QPushButton()
         self.btn_save_layout.clicked.connect(self.save_layout)
         toolbar.addWidget(self.btn_save_layout)
 
-        self.btn_load_layout = QPushButton("📂 " + self.tr("Load Layout"))
-        self.btn_load_layout.setToolTip(self.tr("Load a saved canvas arrangement"))
+        self.btn_load_layout = QPushButton()
         self.btn_load_layout.clicked.connect(self.load_layout)
         toolbar.addWidget(self.btn_load_layout)
 
@@ -456,50 +491,47 @@ class ReportingWidget(QWidget):
         self.btn_zoom_out.setFixedSize(30, 30)
         self.btn_zoom_out.clicked.connect(lambda: self.set_global_zoom(self.zoom_level - 0.2))
         
-        self.lbl_zoom = QLabel("100%")
-        self.lbl_zoom.setFixedWidth(40)
-        self.lbl_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.edit_zoom = QLineEdit()
+        self.edit_zoom.setFixedWidth(50)
+        self.edit_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.edit_zoom.setToolTip(self.tr("Zoom Level (e.g. 100%)"))
+        self.edit_zoom.returnPressed.connect(self._on_zoom_edited)
         
         self.btn_zoom_in = QPushButton("+")
         self.btn_zoom_in.setFixedSize(30, 30)
         self.btn_zoom_in.clicked.connect(lambda: self.set_global_zoom(self.zoom_level + 0.2))
 
-        self.btn_fit = QPushButton(self.tr("Fit"))
-        self.btn_fit.setFixedSize(50, 30)
+        self.btn_fit = QPushButton()
         self.btn_fit.clicked.connect(lambda: self.set_global_zoom(1.0))
 
-        toolbar.addWidget(self.btn_zoom_out)
-        toolbar.addWidget(self.lbl_zoom)
-        toolbar.addWidget(self.btn_zoom_in)
+        # Group Zoom Controls tightly
+        zoom_group = QHBoxLayout()
+        zoom_group.setSpacing(2)
+        zoom_group.addWidget(self.btn_zoom_out)
+        zoom_group.addWidget(self.edit_zoom)
+        zoom_group.addWidget(self.btn_zoom_in)
+        
+        toolbar.addLayout(zoom_group)
         toolbar.addWidget(self.btn_fit)
         
         toolbar.addSpacing(10)
         
-        self.btn_export = QPushButton("📤 " + self.tr("Export Data"))
-        self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; font-weight: bold; padding: 4px 12px;")
-        
-        self.btn_add_text = QPushButton("📝 " + self.tr("Add Comment"))
-        self.btn_add_text.clicked.connect(self.add_text_block)
-        toolbar.addWidget(self.btn_add_text)
+        self.btn_export = QPushButton()
+        self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; font-weight: bold; padding: 4px 16px;")
         
         # Add Export Menu
-        export_menu = QMenu(self)
+        self.export_menu = QMenu(self)
         
-        act_csv = QAction("📊 " + self.tr("Export as CSV (Data)"), self)
-        act_csv.triggered.connect(lambda: self.export_as("csv"))
+        self.act_csv = self.export_menu.addAction("")
+        self.act_csv.triggered.connect(lambda: self.export_as("csv"))
         
-        act_pdf = QAction("📄 " + self.tr("Export as PDF (Report)"), self)
-        act_pdf.triggered.connect(lambda: self.export_as("pdf"))
+        self.act_pdf = self.export_menu.addAction("")
+        self.act_pdf.triggered.connect(lambda: self.export_as("pdf"))
         
-        act_zip = QAction("📦 " + self.tr("Export as ZIP (Documents)"), self)
-        act_zip.triggered.connect(lambda: self.export_as("zip"))
-        
-        export_menu.addAction(act_csv)
-        export_menu.addAction(act_pdf)
-        export_menu.addSeparator()
-        export_menu.addAction(act_zip)
-        
-        self.btn_export.setMenu(export_menu)
+        self.act_zip = self.export_menu.addAction("")
+        self.act_zip.triggered.connect(lambda: self.export_as("zip"))
+
+        self.btn_export.setMenu(self.export_menu)
         toolbar.addWidget(self.btn_export)
         
         self.main_layout.addLayout(toolbar)
@@ -644,7 +676,7 @@ class ReportingWidget(QWidget):
         self._lock_refreshes = True
         self.registry.load_from_directory(self.report_dir)
         self.combo_reports.clear()
-        self.combo_reports.addItem("--- Select a Report ---", None)
+        self.combo_reports.addItem("--- " + self.tr("Select a Report") + " ---", None)
         
         for r in self.registry.list_reports():
             self.combo_reports.addItem(self.tr(r.name), r.id)
@@ -952,8 +984,21 @@ class ReportingWidget(QWidget):
 
     def set_global_zoom(self, level):
         self.zoom_level = max(0.5, min(3.0, level))
-        self.lbl_zoom.setText(f"{self.zoom_level:.0%}")
+        self.edit_zoom.setText(f"{int(self.zoom_level * 100)}%")
         self.apply_zoom_visuals()
+
+    def _on_zoom_edited(self):
+        """Parse manual zoom input."""
+        text = self.edit_zoom.text().replace("%", "").strip()
+        try:
+            val = float(text)
+            if val < 5: # Assume factor if very small
+                self.set_global_zoom(val)
+            else: # Assume percentage
+                self.set_global_zoom(val / 100.0)
+        except:
+            # Revert to current
+            self.edit_zoom.setText(f"{int(self.zoom_level * 100)}%")
 
     def apply_zoom_visuals(self):
         """Scales the content area and charts."""

@@ -36,7 +36,7 @@ class L10nTool:
         for child in elem:
             self._strip_whitespace(child)
 
-    def update_translation(self, context_name: str, source: str, translation: str):
+    def update_translation(self, context_name: str, source: str, translation: str, comment: str = None):
         tree = self._get_tree()
         root = tree.getroot()
         
@@ -55,7 +55,7 @@ class L10nTool:
         # Find message
         message = None
         for msg in context.findall("message"):
-            if msg.findtext("source") == source:
+            if msg.findtext("source") == source and msg.findtext("comment") == comment:
                 message = msg
                 break
                 
@@ -63,6 +63,9 @@ class L10nTool:
             message = ET.SubElement(context, "message")
             source_elem = ET.SubElement(message, "source")
             source_elem.text = source
+            if comment:
+                comment_elem = ET.SubElement(message, "comment")
+                comment_elem.text = comment
             trans_elem = ET.SubElement(message, "translation")
         else:
             trans_elem = message.find("translation")
@@ -81,13 +84,14 @@ class L10nTool:
         root = tree.getroot()
         
         for context in root.findall("context"):
-            seen = {} # source -> message_elem
+            seen = {} # (source, comment) -> message_elem
             messages = context.findall("message")
             for msg in messages:
                 source = msg.findtext("source")
+                comment = msg.findtext("comment")
                 # If we have a duplicate, we keep the one that actually has a translation
                 # or just the latest one.
-                seen[source] = msg
+                seen[(source, comment)] = msg
                 context.remove(msg)
             
             # Add back unique ones
@@ -98,12 +102,10 @@ class L10nTool:
 
     def resolve_shortcuts_for_context(self, context_name: str, reserved: dict = None):
         """
-        Assigns unique ampersand shortcuts to messages in a context.
-        Strategy:
-        1. Keep existing shortcuts that are already in the XML (if they don't collide).
-        2. Keep reserved shortcuts from 'reserved' dict.
-        3. Assign new shortcuts ONLY to items that need them and don't have them.
-        4. STRIP shortcuts from items that shouldn't have them (tooltips, placeholders).
+        Assigns/Removes ampersand shortcuts based on the source string.
+        Rule: 
+        1. If source HAS a shortcut, translation MUST have one.
+        2. If source HAS NO shortcut, translation MUST NOT have one (except literal &&).
         """
         tree = self._get_tree()
         root = tree.getroot()
@@ -113,130 +115,126 @@ class L10nTool:
             if ctx.findtext("name") == context_name:
                 context = ctx
                 break
-        if not context:
+        if context is None:
             return
 
         import re
         # Regex to match common placeholders: %s, %1, %-1.2f, {name}
         placeholder_pattern = re.compile(r"(%[\d\w.-]+|{[^{}]*})")
 
+        def has_shortcut(text):
+            if not text: return False
+            idx = 0
+            while True:
+                idx = text.find("&", idx)
+                if idx == -1 or idx == len(text) - 1: return False
+                if text[idx+1] == "&":
+                    idx += 2
+                    continue
+                if not text[idx+1].isalnum():
+                    idx += 1
+                    continue
+                return True
+        
+        def get_shortcut_char(text):
+            if not text: return None
+            idx = 0
+            while True:
+                idx = text.find("&", idx)
+                if idx == -1 or idx == len(text) - 1: return None
+                if text[idx+1] == "&":
+                    idx += 2
+                    continue
+                if not text[idx+1].isalnum():
+                    idx += 1
+                    continue
+                return text[idx+1].lower()
+
         used_chars = set()
         messages = context.findall("message")
         
-        # 1. Preliminary Scan: Collect all EXISTING and RESERVED shortcuts
-        # We also identify messages that need processing.
-        msg_states = [] # list of (msg_elem, source, clean_text, current_char, should_have_shortcut)
-        
-        # Track reserved chars first and exclude them from auto-processing
+        # 1. Preliminary Scan: Collect reserved and existing shortcuts
         reserved_sources = set(reserved.keys()) if reserved else set()
         if reserved:
             for source, fixed_trans in reserved.items():
-                idx = fixed_trans.find("&")
-                if idx != -1 and idx < len(fixed_trans) - 1 and fixed_trans[idx+1] != "&":
-                    used_chars.add(fixed_trans[idx+1].lower())
+                char = get_shortcut_char(fixed_trans)
+                if char:
+                    used_chars.add(char)
 
+        msg_states = [] 
+        
         for msg in messages:
             source = msg.findtext("source")
             if source in reserved_sources:
-                continue # Skip reserved items, they are already handled in used_chars
+                continue
             
             trans_elem = msg.find("translation")
             if trans_elem is None or not trans_elem.text:
                 continue
             
             text = trans_elem.text
-            # Heuristic: Identify strings that should NOT have shortcuts
-            is_tooltip = len(source) > 30 or source.strip().endswith(".")
-            is_placeholder = source.startswith("---")
-            is_label = source.strip().endswith(":")
-            # Also check if it's an icon-only string or just a number
-            is_minimal = len(source.strip()) < 2 and not source.isalnum()
+            # Replace single ampersands with double ampersands (literal) instead of stripping
+            clean_text = re.sub(r"(?<!&)&(?!&)", "&&", text) 
             
-            should_have_shortcut = not (is_tooltip or is_placeholder or is_label or is_minimal)
+            # Use source to decide if we SHOULD have a shortcut
+            should_have_shortcut = has_shortcut(source)
+            current_char = get_shortcut_char(text)
             
-            # Find current shortcut
-            current_char = None
-            idx = 0
-            while True:
-                idx = text.find("&", idx)
-                if idx == -1 or idx == len(text) - 1: break
-                if text[idx+1] == "&":
-                    idx += 2
-                    continue
-                current_char = text[idx+1].lower()
-                break
-            
-            clean_text = re.sub(r"(?<!&)&(?!&)", "", text)
-            
-            if should_have_shortcut and current_char:
+            if not should_have_shortcut:
+                # Ensure no shortcut in translation (mask them as literal)
+                trans_elem.text = clean_text
+                continue # No further processing for plain items
+
+            # If it SHOULD have a shortcut:
+            if current_char:
                 if current_char not in used_chars:
                     used_chars.add(current_char)
                 else:
-                    # Collision! We'll need to re-assign this one.
+                    # Collision! Need re-assignment
                     current_char = None
-            elif not should_have_shortcut and current_char:
-                # Strip unwanted shortcut immediately
-                trans_elem.text = clean_text
-                current_char = None
-
+            
             msg_states.append({
                 "elem": msg,
                 "source": source,
                 "clean_text": clean_text,
                 "current_char": current_char,
-                "should_have": should_have_shortcut
+                "preferred_char": get_shortcut_char(source)
             })
 
-        # 2. Main Scan: Assign shortcuts to messages that need them but don't have them
+        # 2. Assign shortcuts to those that need them
         for state in msg_states:
-            if not state["should_have"] or state["current_char"]:
+            if state["current_char"]:
                 continue
             
             clean_text = state["clean_text"]
-            # Identify forbidden indices
             forbidden_indices = set()
             for match in placeholder_pattern.finditer(clean_text):
                 for i in range(match.start(), match.end()):
                     forbidden_indices.add(i)
 
+            # Strategy: 1. Preferred from source, 2. First letters, 3. Consonants, 4. Vowels
             potential_chars = []
+            if state["preferred_char"]:
+                potential_chars.append(state["preferred_char"])
             
-            # Strategy 1: First letters
-            # Prioritize first letter of first word
-            if clean_text:
-                m = re.search(r"[\w\d]", clean_text)
-                if m:
-                    char = m.group(0).lower()
-                    potential_chars.append(char)
+            # First alphabetic char
+            m = re.search(r"[\w\d]", clean_text)
+            if m:
+                potential_chars.append(m.group(0).lower())
             
-            words = clean_text.split()
-            for w in words:
+            # First letters of words
+            for w in clean_text.split():
                 m = re.search(r"[\w\d]", w)
                 if m:
-                    char = m.group(0).lower()
-                    if char not in potential_chars: potential_chars.append(char)
+                    c = m.group(0).lower()
+                    if c not in potential_chars: potential_chars.append(c)
             
-            # Strategy 2: Consonants
-            consonants = "bcdfghjkmnpqrstvwxyzß" 
-            for c in clean_text:
-                c_low = c.lower()
-                if c_low in consonants and c_low not in ["l", "i"] and c_low not in potential_chars:
-                    potential_chars.append(c_low)
-            
-            # Strategy 3: Vowels
-            vowels = "aeiouäöü"
-            for c in clean_text:
-                c_low = c.lower()
-                if c_low in vowels and c_low != "i" and c_low not in potential_chars:
-                    potential_chars.append(c_low)
-
-            # Fallback
+            # Remaining
             for i, c in enumerate(clean_text):
-                if c.isalnum() and c.lower() not in potential_chars:
-                    potential_chars.append(c.lower())
+                if c.isalnum():
+                    cl = c.lower()
+                    if cl not in potential_chars: potential_chars.append(cl)
 
-            # Find first available that is NOT in a forbidden position
-            # AND not already in used_chars
             found_char = None
             found_idx = -1
             for char in potential_chars:
@@ -252,10 +250,11 @@ class L10nTool:
                 used_chars.add(found_char)
                 new_text = clean_text[:found_idx] + "&" + clean_text[found_idx:]
                 state["elem"].find("translation").text = new_text
-                state["current_char"] = found_char
             else:
-                # No shortcut found, strip any that might have been there
+                # Still no shortcut? Keep clean.
                 state["elem"].find("translation").text = clean_text
+
+        self._save_tree(tree)
 
         self._save_tree(tree)
 

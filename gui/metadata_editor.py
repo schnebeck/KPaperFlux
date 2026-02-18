@@ -361,6 +361,8 @@ class MetadataEditorWidget(QWidget):
 
         self.lbl_status_prefix = QLabel()
         self.status_combo = QComboBox()
+        self.status_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.status_combo.setMinimumWidth(150)
         general_layout.addRow(self.lbl_status_prefix, self.status_combo)
 
         self.lbl_export_filename_prefix = QLabel()
@@ -398,10 +400,14 @@ class MetadataEditorWidget(QWidget):
 
         self.lbl_direction_prefix = QLabel()
         self.direction_combo = QComboBox()
+        self.direction_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.direction_combo.setMinimumWidth(120)
         analysis_layout.addRow(self.lbl_direction_prefix, self.direction_combo)
 
         self.lbl_context_prefix = QLabel()
         self.context_combo = QComboBox()
+        self.context_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.context_combo.setMinimumWidth(120)
         analysis_layout.addRow(self.lbl_context_prefix, self.context_combo)
 
         self.lbl_extracted_data_header = QLabel()
