@@ -48,6 +48,7 @@ Documents follow a strict multi-stage lifecycle:
 
 *   **Dynamic Search:** Combination of full-text search and faceted filtering using the JSON-based `semantic_data`.
 *   **Metadata Editor:** Interactive editing of AI results with auto-completion based on normalized "Canonized" entities (Sellers, IBANs, etc.).
+*   **Workflow & Filter Management:** Dedicated managers for rules and smart lists featuring multi-selection, keyboard shortcuts (e.g., DEL to delete), and live language switching.
 *   **Export:** Smart filename generation (`YYYY-MM-DD__Sender__Type.pdf`) and optional PDF/A flattening with interactive stamp overlays.
 
 ## **4. Data Model (V2 Schema)**
