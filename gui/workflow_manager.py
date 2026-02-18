@@ -55,7 +55,7 @@ class WorkflowRuleFormEditor(QWidget):
         self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
         self.edit_desc.setMaximumHeight(60)
         self.edit_triggers = QLineEdit()
-        self.edit_triggers.setPlaceholderText("INVOICE, TELEKOM, ...")
+        self.edit_triggers.setPlaceholderText(self.tr("INVOICE, TELEKOM, ..."))
         
         self.edit_name.textChanged.connect(self._on_changed)
         self.edit_desc.textChanged.connect(self._on_changed)
@@ -81,25 +81,22 @@ class WorkflowRuleFormEditor(QWidget):
         states_layout = QVBoxLayout(self.states_tab)
         
         self.states_table = QTableWidget(0, 3)
-        self.states_table.setHorizontalHeaderLabels(["State ID", "Label", "Final?"])
         self.states_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.states_table.itemChanged.connect(self._on_changed)
         states_layout.addWidget(self.states_table)
         
         btn_s_layout = QHBoxLayout()
-        self.btn_add_state = QPushButton("+ Add State")
+        self.btn_add_state = QPushButton()
         self.btn_add_state.clicked.connect(self._add_state_row)
-        self.btn_del_state = QPushButton("- Remove State")
+        self.btn_del_state = QPushButton()
         self.btn_del_state.clicked.connect(self._remove_selected_state)
         
         self.btn_state_up = QToolButton()
         self.btn_state_up.setText("▲")
-        self.btn_state_up.setToolTip("Move State Up")
         self.btn_state_up.clicked.connect(lambda: self._move_row(self.states_table, -1))
         
         self.btn_state_down = QToolButton()
         self.btn_state_down.setText("▼")
-        self.btn_state_down.setToolTip("Move State Down")
         self.btn_state_down.clicked.connect(lambda: self._move_row(self.states_table, 1))
         
         btn_s_layout.addWidget(self.btn_add_state)
@@ -109,14 +106,11 @@ class WorkflowRuleFormEditor(QWidget):
         btn_s_layout.addWidget(self.btn_state_down)
         states_layout.addLayout(btn_s_layout)
         
-        self.tabs.addTab(self.states_tab, "States")
-        
         # 3. Transitions Tab
         self.trans_tab = QWidget()
         trans_layout = QVBoxLayout(self.trans_tab)
         
         self.trans_table = QTableWidget(0, 6)
-        self.trans_table.setHorizontalHeaderLabels(["From State", "Action", "Target State", "Required Fields", "UI?", "Conditions"])
         self.trans_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.trans_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Interactive) # Conditions can be long
         self.trans_table.setColumnWidth(5, 200)
@@ -124,9 +118,9 @@ class WorkflowRuleFormEditor(QWidget):
         trans_layout.addWidget(self.trans_table)
         
         btn_t_layout = QHBoxLayout()
-        self.btn_add_trans = QPushButton("+ Add Transition")
+        self.btn_add_trans = QPushButton()
         self.btn_add_trans.clicked.connect(self._add_trans_row)
-        self.btn_del_trans = QPushButton("- Remove Transition")
+        self.btn_del_trans = QPushButton()
         self.btn_del_trans.clicked.connect(self._remove_selected_trans)
         
         self.btn_trans_up = QToolButton()
@@ -164,32 +158,35 @@ class WorkflowRuleFormEditor(QWidget):
 
     def retranslate_ui(self):
         """Updates all UI strings for on-the-fly localization."""
-        self.lbl_name.setText(self.tr("Display Name:"))
+        self.lbl_name.setText(self.tr("Rule Name:"))
         self.lbl_desc.setText(self.tr("Description:"))
-        self.lbl_triggers.setText(self.tr("Auto-Trigger Tags:"))
-
+        self.lbl_triggers.setText(self.tr("Regex Triggers:"))
+        
         self.edit_name.setPlaceholderText(self.tr("Enter rule name..."))
         self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
         self.edit_triggers.setPlaceholderText(self.tr("INVOICE, TELEKOM, ..."))
 
-        self.tabs.setTabText(0, self.tr("States"))
-        self.tabs.setTabText(1, self.tr("Transitions"))
+        self.btn_add_state.setText("✚ " + self.tr("Add State"))
+        self.btn_del_state.setText("▬ " + self.tr("Remove State"))
+        self.btn_state_up.setToolTip(self.tr("Move State Up"))
+        self.btn_state_down.setToolTip(self.tr("Move State Down"))
         
         self.states_table.setHorizontalHeaderLabels([
             self.tr("State ID"), self.tr("Label"), self.tr("Final?")
         ])
+        
+        self.btn_add_trans.setText("✚ " + self.tr("Add Transition"))
+        self.btn_del_trans.setText("▬ " + self.tr("Remove Transition"))
+        self.btn_trans_up.setToolTip(self.tr("Move Transition Up"))
+        self.btn_trans_down.setToolTip(self.tr("Move Transition Down"))
+
         self.trans_table.setHorizontalHeaderLabels([
             self.tr("From State"), self.tr("Action"), self.tr("Target State"), 
             self.tr("Required Fields"), self.tr("UI?"), self.tr("Conditions")
         ])
         
-        self.btn_add_state.setText(self.tr("+ Add State"))
-        self.btn_del_state.setText(self.tr("- Remove State"))
-        self.btn_state_up.setToolTip(self.tr("Move State Up"))
-        self.btn_state_down.setToolTip(self.tr("Move State Down"))
-
-        self.btn_add_trans.setText(self.tr("+ Add Transition"))
-        self.btn_del_trans.setText(self.tr("- Remove Transition"))
+        self.tabs.setTabText(0, self.tr("States"))
+        self.tabs.setTabText(1, self.tr("Transitions"))
 
     def _on_changed(self):
         if not self._lock_signals:
@@ -329,7 +326,7 @@ class WorkflowRuleFormEditor(QWidget):
         row = self.states_table.rowCount()
         self.states_table.insertRow(row)
         self.states_table.setItem(row, 0, QTableWidgetItem(f"STATE_{row}"))
-        self.states_table.setItem(row, 1, QTableWidgetItem("New State"))
+        self.states_table.setItem(row, 1, QTableWidgetItem(self.tr("New State")))
         chk = QCheckBox()
         chk.stateChanged.connect(self._on_changed)
         self.states_table.setCellWidget(row, 2, chk)
@@ -705,6 +702,9 @@ class WorkflowManagerWidget(QWidget):
         self.btn_save.setToolTip(self.tr("Save and activate the current rule"))
         self.btn_manage.setText("⚙️ " + self.tr("Manage..."))
         self.btn_manage.setToolTip(self.tr("Manage rule files (delete, rename, import)"))
+        
+        if hasattr(self, 'status_lbl'):
+             self.status_lbl.setText(self.tr("Ready"))
 
     def _on_stack_changed(self, index):
         if index == 0:
@@ -823,7 +823,7 @@ class WorkflowManagerWidget(QWidget):
             self.workflows_changed.emit()
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save rule: {e}")
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save rule: %1").arg(str(e)))
 
     def _revert_changes(self):
         """Cancel changes and reload current rule."""
@@ -868,27 +868,52 @@ class WorkflowRuleManagerDialog(QDialog):
         layout = QVBoxLayout(self)
         
         self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         layout.addWidget(self.list_widget)
         
         btn_row = QHBoxLayout()
-        self.btn_new = QPushButton(self.tr("New..."))
+        btn_row.setSpacing(5)
+        self.btn_new = QPushButton()
         self.btn_new.clicked.connect(self._create_new)
         
-        self.btn_rename = QPushButton(self.tr("Rename..."))
-        self.btn_rename.setToolTip(self.tr("Change display name only (ID remains fixed)"))
+        self.btn_rename = QPushButton()
         self.btn_rename.clicked.connect(self._rename_display_name)
         
-        self.btn_delete = QPushButton(self.tr("Delete"))
+        self.btn_delete = QPushButton()
         self.btn_delete.clicked.connect(self._delete_selected)
         
         btn_row.addWidget(self.btn_new)
         btn_row.addWidget(self.btn_rename)
+        btn_row.addStretch()
         btn_row.addWidget(self.btn_delete)
         layout.addLayout(btn_row)
         
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        layout.addWidget(close_btn)
+        self.close_btn = QPushButton()
+        self.close_btn.clicked.connect(self.accept)
+        layout.addWidget(self.close_btn)
+
+        self.retranslate_ui()
+
+    def changeEvent(self, event):
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        self.setWindowTitle(self.tr("Manage Rules"))
+        self.btn_new.setText("✚ " + self.tr("New..."))
+        self.btn_new.setToolTip(self.tr("Create a new rule file"))
+        self.btn_rename.setText("✎ " + self.tr("Rename..."))
+        self.btn_rename.setToolTip(self.tr("Rename the selected rule's display name"))
+        self.btn_delete.setText("🗑 " + self.tr("Delete"))
+        self.btn_delete.setToolTip(self.tr("Delete selected rule files (DEL)"))
+        self.close_btn.setText(self.tr("Close"))
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Delete:
+            self._delete_selected()
+        else:
+            super().keyPressEvent(event)
 
     def _reload_list(self):
         self.list_widget.clear()
@@ -966,34 +991,45 @@ class WorkflowRuleManagerDialog(QDialog):
             QMessageBox.critical(self, self.tr("Error"), str(e))
 
     def _delete_selected(self):
-        item = self.list_widget.currentItem()
-        if not item: return
-        pb_id = item.data(Qt.ItemDataRole.UserRole)
-        name = item.text()
+        items = self.list_widget.selectedItems()
+        if not items: return
         
-        # Safety Check: Is this agent still used in any rules?
-        if self.filter_tree:
-            usages = self.filter_tree.find_workflow_usages(pb_id)
-            if usages:
-                rule_names = ", ".join([node.name for node in usages])
-                QMessageBox.critical(
-                    self, self.tr("Workflow in Use"),
-                    self.tr("The rule '%1' cannot be deleted because it is still used in the following rules:\n\n%2\n\nPlease remove the assignment from these rules first.").arg(name).arg(rule_names)
-                )
-                return
+        if len(items) == 1:
+            title = self.tr("Delete Rule")
+            msg = self.tr("Are you sure you want to delete the rule '%1'?").arg(items[0].text())
+        else:
+            title = self.tr("Delete Rules")
+            msg = self.tr("Are you sure you want to delete %n selected rule(s)?", "", len(items))
 
-        reply = QMessageBox.question(self, self.tr("Delete Workflow"), self.tr("Are you sure you want to delete the workflow '%1'?").arg(name), 
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        # Safety Check: Are any of these in use?
+        in_use = []
+        for item in items:
+            pb_id = item.data(Qt.ItemDataRole.UserRole)
+            if self.filter_tree:
+                usages = self.filter_tree.find_workflow_usages(pb_id)
+                if usages:
+                    in_use.append(item.text())
+
+        if in_use:
+            QMessageBox.critical(
+                self, self.tr("Rules in Use"),
+                self.tr("The following rules cannot be deleted because they are still in use:\n\n%1").arg(", ".join(in_use))
+            )
+            return
+
+        reply = QMessageBox.question(self, title, msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            file_path = os.path.join(self.workflow_dir, f"{pb_id}.json")
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                    # Also remove from registry if active
-                    reg = WorkflowRuleRegistry()
-                    if pb_id in reg.rules:
-                        del reg.rules[pb_id]
-                except Exception as e:
-                    QMessageBox.warning(self, self.tr("Error"), self.tr("Could not delete file: %1").arg(str(e)))
+            reg = WorkflowRuleRegistry()
+            for item in items:
+                pb_id = item.data(Qt.ItemDataRole.UserRole)
+                file_path = os.path.join(self.workflow_dir, f"{pb_id}.json")
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                        if pb_id in reg.rules:
+                            del reg.rules[pb_id]
+                    except Exception as e:
+                        logger.error(f"Failed to delete {file_path}: {e}")
+
             self._reload_list()
 

@@ -72,7 +72,22 @@ class L10nTool:
             if trans_elem is None:
                 trans_elem = ET.SubElement(message, "translation")
         
-        trans_elem.text = translation
+        if message.get("numerus") == "yes":
+            # For numerus messages, we need <numerusform> children
+            # Clear existing children/text
+            trans_elem.text = None
+            for child in list(trans_elem):
+                trans_elem.remove(child)
+            
+            # For simplicity, we fill both forms (singular and plural) with the same translation
+            # unless we want to support a list of translations.
+            nf1 = ET.SubElement(trans_elem, "numerusform")
+            nf1.text = translation
+            nf2 = ET.SubElement(trans_elem, "numerusform")
+            nf2.text = translation
+        else:
+            trans_elem.text = translation
+            
         # Remove type="unfinished" if it exists
         if "type" in trans_elem.attrib:
             del trans_elem.attrib["type"]

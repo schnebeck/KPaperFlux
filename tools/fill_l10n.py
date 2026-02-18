@@ -257,22 +257,121 @@ def fill():
 
     tool._save_tree(tree)
     
-    reserved_main = {
-        "&File": "&Datei",
-        "&Edit": "&Bearbeiten",
-        "&View": "&Ansicht",
-        "&Tools": "Werk&zeuge",
-        "&Maintenance": "&Wartung",
-        "&Debug": "Debu&g",
-        "&Config": "&Konfiguration",
-        "&Semantic Data": "&Semantische Daten",
-        "&Help": "&Hilfe",
-        "&Workflows": "&Abläufe",
+    de_library = {
+        "MainWindow": {
+            "&File": "&Datei",
+            "&Edit": "&Bearbeiten",
+            "&View": "&Ansicht",
+            "&Tools": "Werk&zeuge",
+            "&Maintenance": "&Wartung",
+            "&Debug": "Debu&g",
+            "&Config": "&Konfiguration",
+            "&Semantic Data": "&Semantische Daten",
+            "&Help": "&Hilfe",
+            "&Workflows": "&Abläufe",
+        },
+        "WorkflowDashboardWidget": {
+            "Active Rule Load:": "Aktive Regelauslastung:",
+            "Workflow Rule": "Ablaufregel",
+            "Active Documents": "Aktive Dokumente",
+            "Completion Rate": "Abschlussquote",
+            "Total in Pipeline": "Gesamt im Ablauf",
+            "Urgent Actions": "Dringende Aufgaben",
+            "New Tasks": "Neue Aufgaben",
+        },
+        "WorkflowManagerWidget": {
+            "Dashboard": "Dashboard",
+            "Rule Editor": "Regel-Editor",
+            "Select Rule:": "Regel wählen:",
+            "New Rule": "Neue Regel",
+            "Create a new workflow rule": "Neue Ablaufregel erstellen",
+            "Revert": "Verwerfen",
+            "Discard unsaved changes": "Änderungen verwerfen",
+            "Save Rule": "Regel speichern",
+            "Save and activate the current rule": "Regel speichern und aktivieren",
+            "Manage...": "Verwalten...",
+            "Manage rule files (delete, rename, import)": "Regeldatei verwalten",
+            "Ready": "Bereit",
+            "Error": "Fehler",
+            "Failed to save rule: %1": "Fehler beim Speichern der Regel: %1",
+        },
+        "WorkflowRuleFormEditor": {
+            "Rule Name:": "Name der Regel:",
+            "Description:": "Beschreibung:",
+            "Regex Triggers:": "Regex Trigger:",
+            "INVOICE, TELEKOM, ...": "RECHNUNG, TELEKOM, ...",
+            "Add State": "Status hinzufügen",
+            "Remove State": "Status entfernen",
+            "Move State Up": "Status nach oben",
+            "Move State Down": "Status nach unten",
+            "State ID": "Status-ID",
+            "Label": "Bezeichnung",
+            "Final?": "Final?",
+            "Add Transition": "Abfolge hinzu",
+            "Remove Transition": "Abfolge weg",
+            "Move Transition Up": "Abfolge nach oben",
+            "Move Transition Down": "Abfolge nach unten",
+            "From State": "Von Status",
+            "Action": "Aktion",
+            "Target State": "Ziel-Status",
+            "Required Fields": "Pflichtfelder",
+            "UI?": "UI?",
+            "Conditions": "Bedingungen",
+            "States": "Stati",
+            "Transitions": "Abfolgen",
+            "New State": "Neuer Status",
+        },
+        "WorkflowRuleManagerDialog": {
+            "Manage Rules": "Regeln verwalten",
+            "New...": "Neu...",
+            "Create a new rule file": "Neue Regeldatei erstellen",
+            "Rename...": "Umbenennen...",
+            "Rename the selected rule's display name": "Anzeigenamen ändern",
+            "Delete": "Löschen",
+            "Delete selected rule files (DEL)": "Gewählte Regeln löschen (ENTF)",
+            "Close": "Schließen",
+            "Delete Rule": "Regel löschen",
+            "Are you sure you want to delete the rule '%1'?": "Soll die Regel '%1' gelöscht werden?",
+            "Delete Rules": "Regeln löschen",
+            "Are you sure you want to delete %n selected rule(s)?": "Sollen %n gewählte Regeln gelöscht werden?",
+            "Rules in Use": "Regeln in Benutzung",
+            "The following rules cannot be deleted because they are still in use:\n\n%1": "Folgende Regeln sind noch in Benutzung und können nicht gelöscht werden:\n\n%1",
+        },
+        "ReportingWidget": {
+             "Select Report:": "Bericht wählen:",
+             "Add Comment": "Kommentar hinzufügen",
+             "New Report": "Neuer Bericht",
+             "Import from PDF": "Aus PDF importieren",
+             "Clear": "Leeren",
+             "Save Layout": "Layout speichern",
+             "Load Layout": "Layout laden",
+             "Export": "Exportieren",
+             "Export as CSV (Data)": "Als CSV exportieren (Daten)",
+             "Export as PDF (Report)": "Als PDF exportieren (Bericht)",
+             "Export as ZIP (Documents)": "Als ZIP exportieren (Dokumente)",
+             "Fit": "Einpassen",
+        }
     }
     
+    # Context-specific overrides if needed (optional)
+    library_overrides = {
+        "MatchingDialog": {
+            "<b>Hybrid Matching-Dialog</b><br>Finds pairs of scanned and native PDFs in a folder to merge them.": "<b>Hybrid Vergleich</b><br>Findet Scans und native PDFs in einem Ordner zum Zusammenführen.",
+             # ... more can go here
+        }
+    }
+
+    # 1. First, set translations for all contexts
+    for ctx_name, trans_dict in de_library.items():
+        for source, translation in trans_dict.items():
+            tool.update_translation(ctx_name, source, translation)
+
+    # 2. Then resolve shortcuts for all contexts found in TS
+    tree = tool._get_tree()
+    root = tree.getroot()
     for ctx_node in root.findall("context"):
         ctx_name = ctx_node.findtext("name")
-        res = reserved_main if ctx_name == "MainWindow" else None
+        res = de_library.get(ctx_name, {})
         tool.resolve_shortcuts_for_context(ctx_name, reserved=res)
 
     print("Success: Localization library synchronized.")
