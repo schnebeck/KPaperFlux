@@ -1220,24 +1220,249 @@
     <context>
         <name>FilterManagerDialog</name>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="449" />
+            <location filename="../../../gui/filter_manager.py" line="124" />
+            <source>Filter &amp; Rule Manager</source>
+            <translation>Filter &amp; Smart-Listen Verwaltung</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="125" />
+            <source>Search filters...</source>
+            <translation>Suche...</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="129" />
+            <source>&lt;b&gt;Select an item&lt;/b&gt; to view details</source>
+            <translation>&lt;b&gt;Wähle ein Element&lt;/b&gt; für Details</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="416" />
+            <location filename="../../../gui/filter_manager.py" line="137" />
+            <source>New Folder</source>
+            <translation>Neuer Ordner</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="475" />
+            <location filename="../../../gui/filter_manager.py" line="450" />
+            <location filename="../../../gui/filter_manager.py" line="138" />
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="139" />
+            <source>Close</source>
+            <translation>Schließen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="277" />
+            <source>Folder</source>
+            <translation>Ordner</translation>
+        </message>
+        <message numerus="yes">
+            <location filename="../../../gui/filter_manager.py" line="278" />
+            <source>Contains %n item(s).</source>
+            <translation>
+                <numerusform>Enthält %n Element(e).</numerusform>
+                <numerusform>Enthält %n Element(e).</numerusform>
+            </translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="284" />
+            <source>Deleted documents live here.</source>
+            <translation>Hier liegen gelöschte Dokumente.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="284" />
+            <source>Select this filter to restore or permanently delete files.</source>
+            <translation>Wähle diesen Filter, um Dateien wiederherzustellen oder endgültig zu löschen.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="289" />
+            <source>Your long-term document storage.</source>
+            <translation>Dein Langzeit-Archiv.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="289" />
+            <source>This filter shows all documents marked as Archive.</source>
+            <translation>Dieser Filter zeigt alle als Archiv markierten Dokumente.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="304" />
+            <source>Static List</source>
+            <translation>Statische Liste</translation>
+        </message>
+        <message numerus="yes">
+            <location filename="../../../gui/filter_manager.py" line="306" />
+            <source>Contains &lt;b&gt;%n&lt;/b&gt; documents.</source>
+            <translation>
+                <numerusform>Enthält &lt;b&gt;%n&lt;/b&gt; Dokument(e).</numerusform>
+                <numerusform>Enthält &lt;b&gt;%n&lt;/b&gt; Dokument(e).</numerusform>
+            </translation>
+        </message>
+        <message numerus="yes">
+            <location filename="../../../gui/filter_manager.py" line="334" />
+            <source>and %n more.</source>
+            <translation>
+                <numerusform>und %n weitere.</numerusform>
+                <numerusform>und %n weitere.</numerusform>
+            </translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="348" />
+            <source>AI Direction</source>
+            <translation>KI-Richtung</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="349" />
+            <source>AI Context</source>
+            <translation>KI-Kontext</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="350" />
+            <source>AI Confidence</source>
+            <translation>KI-Vertrauen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="351" />
+            <source>AI Reasoning</source>
+            <translation>KI-Begründung</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="352" />
+            <source>Type Tags</source>
+            <translation>Typ-Tags</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="353" />
+            <source>Visual Audit</source>
+            <translation>Visuelle Prüfung</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="355" />
+            <location filename="../../../gui/filter_manager.py" line="354" />
+            <source>Filename</source>
+            <translation>Dateiname</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="356" />
+            <source>Created At</source>
+            <translation>Erstellt am</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="357" />
+            <source>Last Processed</source>
+            <translation>Zuletzt verarbeitet</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="358" />
+            <source>Pages</source>
+            <translation>Seiten</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="359" />
+            <source>Text Content</source>
+            <translation>Textinhalt</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="362" />
+            <source>Filter Rule</source>
+            <translation>Filter-Regel</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="368" />
+            <source>Tagging Actions</source>
+            <translation>Tagging-Aktionen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="371" />
+            <source>Add</source>
+            <translation>Hinzufügen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="373" />
+            <source>Remove</source>
+            <translation>Entfernen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="376" />
+            <source>Active</source>
+            <translation>Aktiv</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="377" />
+            <source>Inactive</source>
+            <translation>Inaktiv</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="379" />
+            <source>Run on Import</source>
+            <translation>Bei Import ausführen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="381" />
+            <source>Settings</source>
+            <translation>Einstellungen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="387" />
+            <source>Filtering Logic</source>
+            <translation>Filter-Logik</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="401" />
+            <source>NOT</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="416" />
+            <source>Folder Name:</source>
+            <translation>Ordnername:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="446" />
+            <source>Delete '%1'?</source>
+            <translation>'%1' löschen?</translation>
+        </message>
+        <message numerus="yes">
+            <location filename="../../../gui/filter_manager.py" line="448" />
+            <source>Delete %n selected item(s)?</source>
+            <translation>
+                <numerusform>%n gewählte Elemente löschen?</numerusform>
+                <numerusform>%n gewählte Elemente löschen?</numerusform>
+            </translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="473" />
+            <source>Export to Exchange...</source>
+            <translation>Als Exchange exportieren...</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="487" />
             <source>Export Item</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="453" />
+            <location filename="../../../gui/filter_manager.py" line="491" />
             <source>Export Successful</source>
             <translation>Export erfolgreich</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="453" />
+            <location filename="../../../gui/filter_manager.py" line="491" />
             <source>Exported to %s</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="455" />
+            <location filename="../../../gui/filter_manager.py" line="493" />
             <source>Error</source>
             <translation>Fehler</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/filter_manager.py" line="528" />
+            <source>Move Failed</source>
+            <translation>Verschieben fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>NOT</source>
+            <translation>NICHT</translation>
         </message>
     </context>
     <context>

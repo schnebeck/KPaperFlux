@@ -38,9 +38,6 @@ class FilterManagerDialog(QDialog):
     
     def __init__(self, filter_tree: FilterTree, db_manager=None, parent=None, start_node: FilterNode = None):
         super().__init__(parent)
-        self.setWindowTitle("Filter & Rule Manager")
-        self.resize(1000, 600)
-        
         self.tree_model = filter_tree
         self.db_manager = db_manager
         self.start_node = start_node # Focused node/folder on open
@@ -51,7 +48,6 @@ class FilterManagerDialog(QDialog):
         # --- Top Bar (Search) ---
         top_bar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search filters...")
         self.search_input.textChanged.connect(self.on_search_changed)
         top_bar.addWidget(self.search_input)
         
@@ -71,6 +67,7 @@ class FilterManagerDialog(QDialog):
         self.tree_widget.setDragEnabled(True)
         self.tree_widget.setAcceptDrops(True)
         self.tree_widget.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
+        self.tree_widget.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         
         self.tree_widget.item_dropped.connect(self.on_item_dropped)
         
@@ -84,7 +81,7 @@ class FilterManagerDialog(QDialog):
         # Right: Details
         self.details_area = QWidget()
         self.details_layout = QVBoxLayout(self.details_area)
-        self.details_label = QLabel("<b>Select an item</b> to view details")
+        self.details_label = QLabel()
         self.details_label.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.details_text = QTextEdit()
         self.details_text.setReadOnly(True)
@@ -101,21 +98,51 @@ class FilterManagerDialog(QDialog):
         # --- Bottom Bar ---
         bottom_bar = QHBoxLayout()
         
-        self.btn_new_folder = QPushButton("New Folder")
+        self.btn_new_folder = QPushButton()
         self.btn_new_folder.clicked.connect(self.create_folder)
         bottom_bar.addWidget(self.btn_new_folder)
         
-        self.btn_delete = QPushButton("Delete")
+        self.btn_delete = QPushButton()
         self.btn_delete.clicked.connect(self.delete_item)
         bottom_bar.addWidget(self.btn_delete)
         
         bottom_bar.addStretch()
         
-        self.btn_close = QPushButton("Close")
+        self.btn_close = QPushButton()
         self.btn_close.clicked.connect(self.reject)
         bottom_bar.addWidget(self.btn_close)
         
         self.layout.addLayout(bottom_bar)
+        self.retranslate_ui()
+    
+    def changeEvent(self, event):
+        if event and event.type() == Qt.EventType.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        self.setWindowTitle(self.tr("Filter & Rule Manager"))
+        self.search_input.setPlaceholderText(self.tr("Search filters..."))
+        
+        # Reset details text if nothing selected
+        if not self.tree_widget.currentItem():
+            self.details_label.setText(self.tr("<b>Select an item</b> to view details"))
+            self.details_text.clear()
+        else:
+            # Refresh details for current
+            node = self.item_map.get(id(self.tree_widget.currentItem()))
+            if node:
+                self.update_details(node)
+
+        self.btn_new_folder.setText("✚ " + self.tr("New Folder"))
+        self.btn_delete.setText("🗑 " + self.tr("Delete"))
+        self.btn_close.setText(self.tr("Close"))
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Delete:
+            self.delete_item()
+        else:
+            super().keyPressEvent(event)
         
     def populate_tree(self):
         self.tree_widget.clear()
@@ -247,19 +274,19 @@ class FilterManagerDialog(QDialog):
     def update_details(self, node: FilterNode):
         """Update the details pane based on selected node."""
         if node.node_type == NodeType.FOLDER:
-            self.details_label.setText(f"<b>Folder:</b> {node.name}")
-            html = f"Contains {len(node.children)} items."
+            self.details_label.setText(f"<b>{self.tr('Folder')}:</b> {node.name}")
+            html = self.tr("Contains %n item(s).", "", len(node.children))
             self.details_text.setHtml(html)
             return
 
         if node.node_type == NodeType.TRASH:
             self.details_label.setText(f"<b>{node.name}</b>")
-            self.details_text.setHtml("<p>Deleted documents live here.</p><p>Select this filter to restore or permanently delete files.</p>")
+            self.details_text.setHtml(f"<p>{self.tr('Deleted documents live here.')}</p><p>{self.tr('Select this filter to restore or permanently delete files.')}</p>")
             return
 
         if node.node_type == NodeType.ARCHIVE:
             self.details_label.setText(f"<b>{node.name}</b>")
-            self.details_text.setHtml("<p>Your long-term document storage.</p><p>This filter shows all documents marked as 'Archived'.</p>")
+            self.details_text.setHtml(f"<p>{self.tr('Your long-term document storage.')}</p><p>{self.tr('This filter shows all documents marked as Archive.')}</p>")
             return
 
         # Regular Filter or Snapshot
@@ -274,9 +301,9 @@ class FilterManagerDialog(QDialog):
         
         if is_static_list:
             count = len(uuids)
-            self.details_label.setText(f"<b>Static List:</b> {node.name}")
+            self.details_label.setText(f"<b>{self.tr('Static List')}:</b> {node.name}")
             
-            html = f"<p>Contains <b>{count}</b> documents.</p><hr/>"
+            html = f"<p>{self.tr('Contains <b>%n</b> documents.', '', count)}</p><hr/>"
             
             # Fetch Filenames if DB available
             if self.db_manager and uuids:
@@ -304,7 +331,7 @@ class FilterManagerDialog(QDialog):
                 html += "</ul>"
                 
                 if count > 10:
-                    html += f"<p><i>...and {count - 10} more.</i></p>"
+                    html += f"<p><i>...{self.tr('and %n more.', '', count - 10)}</i></p>"
             else:
                 # Fallback to UUIDs
                 html += "<ul>"
@@ -318,46 +345,46 @@ class FilterManagerDialog(QDialog):
             # Regular Filter or Snapshot
             # Reverse map for human readable display
             field_map_rev = {
-                "direction": "AI Direction",
-                "tenant_context": "AI Context",
-                "confidence": "AI Confidence",
-                "reasoning": "AI Reasoning",
-                "type_tags": "Type Tags",
-                "visual_audit_mode": "Visual Audit",
-                "original_filename": "Filename",
-                "export_filename": "Filename",
-                "created_at": "Created At",
-                "last_processed_at": "Last Processed",
-                "page_count_virt": "Pages",
-                "cached_full_text": "Text Content"
+                "direction": self.tr("AI Direction"),
+                "tenant_context": self.tr("AI Context"),
+                "confidence": self.tr("AI Confidence"),
+                "reasoning": self.tr("AI Reasoning"),
+                "type_tags": self.tr("Type Tags"),
+                "visual_audit_mode": self.tr("Visual Audit"),
+                "original_filename": self.tr("Filename"),
+                "export_filename": self.tr("Filename"),
+                "created_at": self.tr("Created At"),
+                "last_processed_at": self.tr("Last Processed"),
+                "page_count_virt": self.tr("Pages"),
+                "cached_full_text": self.tr("Text Content")
             }
 
-            self.details_label.setText(f"<b>Filter Rule:</b> {node.name}")
+            self.details_label.setText(f"<b>{self.tr('Filter Rule')}:</b> {node.name}")
             
             lines = []
             
             # Phase 106: Display Rule specific fields
             if node.tags_to_add or node.tags_to_remove:
-                lines.append("<b>Tagging Actions:</b>")
+                lines.append(f"<b>{self.tr('Tagging Actions')}:</b>")
                 lines.append("<ul style='margin-bottom: 10px;'>")
                 if node.tags_to_add:
-                    lines.append(f"<li>➕ Add: <span style='color: green;'>{', '.join(node.tags_to_add)}</span></li>")
+                    lines.append(f"<li>➕ {self.tr('Add')}: <span style='color: green;'>{', '.join(node.tags_to_add)}</span></li>")
                 if node.tags_to_remove:
-                    lines.append(f"<li>➖ Remove: <span style='color: red;'>{', '.join(node.tags_to_remove)}</span></li>")
+                    lines.append(f"<li>➖ {self.tr('Remove')}: <span style='color: red;'>{', '.join(node.tags_to_remove)}</span></li>")
                 
                 status_bits = []
-                if node.is_enabled: status_bits.append("<span style='color: green;'>Active</span>")
-                else: status_bits.append("<span style='color: gray;'>Inactive</span>")
+                if node.is_enabled: status_bits.append(f"<span style='color: green;'>{self.tr('Active')}</span>")
+                else: status_bits.append(f"<span style='color: gray;'>{self.tr('Inactive')}</span>")
                 
-                if node.auto_apply: status_bits.append("<span style='color: blue;'>Run on Import</span>")
+                if node.auto_apply: status_bits.append(f"<span style='color: blue;'>{self.tr('Run on Import')}</span>")
                 
-                lines.append(f"<li>⚙️ Settings: {' | '.join(status_bits)}</li>")
+                lines.append(f"<li>⚙️ {self.tr('Settings')}: {' | '.join(status_bits)}</li>")
                 lines.append("</ul>")
                 lines.append("<hr/>")
 
             if node.data and 'conditions' in node.data:
                  op_main = node.data.get('operator', 'AND')
-                 lines.append(f"<b>Filtering Logic: {op_main}</b>")
+                 lines.append(f"<b>{self.tr('Filtering Logic')}: {op_main}</b>")
                  lines.append("<ul>")
                  for c in node.data['conditions']:
                      f_key = c.get('field', '')
@@ -371,7 +398,7 @@ class FilterManagerDialog(QDialog):
                      else:
                          v_display = str(v)
                          
-                     neg = "NOT " if c.get('negate') else ""
+                     neg = self.tr("NOT ") if c.get('negate') else ""
                      lines.append(f"<li>{neg}<b>{f_display}</b> <i>{o}</i> '{v_display}'</li>")
                  lines.append("</ul>")
             
@@ -386,7 +413,7 @@ class FilterManagerDialog(QDialog):
              self.on_select_clicked()
 
     def create_folder(self):
-        name, ok = QInputDialog.getText(self, "New Folder", "Folder Name:")
+        name, ok = QInputDialog.getText(self, self.tr("New Folder"), self.tr("Folder Name:"))
         if ok and name:
             # Default parent: selected folder or root
             parent_node = self.tree_model.root
@@ -402,19 +429,30 @@ class FilterManagerDialog(QDialog):
             self.populate_tree() # Refresh
             
     def delete_item(self):
-        current_item = self.tree_widget.currentItem()
-        if not current_item:
+        items = self.tree_widget.selectedItems()
+        if not items:
             return
             
-        node = self.item_map.get(id(current_item))
-        if not node or node.node_type in [NodeType.TRASH, NodeType.ARCHIVE]:
+        nodes = []
+        for it in items:
+            node = self.item_map.get(id(it))
+            if node and node.node_type not in [NodeType.TRASH, NodeType.ARCHIVE]:
+                nodes.append(node)
+        
+        if not nodes:
             return
-            
-        confirm = show_selectable_message_box(self, "Delete", f"Delete '{node.name}'?", icon=QMessageBox.Icon.Question, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        if len(nodes) == 1:
+            msg = self.tr("Delete '%1'?").arg(nodes[0].name)
+        else:
+            msg = self.tr("Delete %n selected item(s)?", "", len(nodes))
+
+        confirm = show_selectable_message_box(self, self.tr("Delete"), msg, icon=QMessageBox.Icon.Question, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if confirm == QMessageBox.StandardButton.Yes:
-            if node.parent:
-                node.parent.remove_child(node)
-                self.populate_tree()
+            for node in nodes:
+                if node.parent:
+                    node.parent.remove_child(node)
+            self.populate_tree()
 
     def on_select_clicked(self):
         current_item = self.tree_widget.currentItem()
@@ -432,9 +470,9 @@ class FilterManagerDialog(QDialog):
             return
 
         menu = QMenu(self)
-        menu.addAction("Export to Exchange...", lambda: self.export_item(item))
+        menu.addAction("📤 " + self.tr("Export to Exchange..."), lambda: self.export_item(item))
         menu.addSeparator()
-        menu.addAction("Delete", self.delete_item)
+        menu.addAction("🗑 " + self.tr("Delete"), self.delete_item)
         menu.exec(self.tree_widget.viewport().mapToGlobal(pos))
 
     def export_item(self, item):
@@ -487,4 +525,4 @@ class FilterManagerDialog(QDialog):
                 
             except ValueError as e:
                 # e.g. "Cannot move node into its own child"
-                show_selectable_message_box(self, "Move Failed", str(e), icon=QMessageBox.Icon.Warning)
+                show_selectable_message_box(self, self.tr("Move Failed"), str(e), icon=QMessageBox.Icon.Warning)
