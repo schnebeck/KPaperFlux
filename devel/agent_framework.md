@@ -51,7 +51,34 @@ When provided with code or a task, perform the following steps:
 *   **Workflow:** Commit after every successful verification.
 *   Maintain `.gitignore` (pycache, venv, temporary DBs).
 
-## **5. Project Structure**
+## **5. Localization (l10n) Management**
+
+### **5.1 Tooling & Single Source of Truth**
+*   **Primary Source:** `resources/l10n/de/gui_strings.ts` is the single source of truth for UI translations.
+*   **Management Tool:** Use `tools/l10n_tool.py` for programmatic updates. Do NOT edit the XML manually for bulk updates to avoid corruption.
+*   **Safety:** The `L10nTool` ensures valid XML structure, auto-indents for readability, and handles deduplication.
+
+### **5.2 Localization Workflow**
+To add or update translations, follow this strict sequence:
+
+1.  **Extraction:** Run `pylupdate6` to scan Python code for `self.tr()` calls.
+    ```bash
+    pylupdate6 . -ts resources/l10n/de/gui_strings.ts
+    ```
+2.  **Translation Update:** Use `L10nTool` to update strings within their specific Qt context.
+    ```python
+    from tools.l10n_tool import L10nTool
+    tool = L10nTool("resources/l10n/de/gui_strings.ts")
+    tool.update_translation("ContextName", "Source String", "Translated String")
+    ```
+3.  **Deduplication:** Periodically run `tool.deduplicate()` to keep the lookup efficient.
+4.  **Compilation:** Every modification to a `.ts` file MUST be followed by running `lrelease` to generate the `.qm` binary.
+    ```bash
+    lrelease resources/l10n/de/gui_strings.ts
+    ```
+5.  **Verification:** Run `pytest tests/gui/test_localization.py` to ensure coverage and validity.
+
+## **6. Project Structure**
 
 ```text
 KPaperFlux/

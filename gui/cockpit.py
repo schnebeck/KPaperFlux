@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
                              QHBoxLayout, QScrollArea, QSizePolicy, QMenu, QInputDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer, QRect, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer, QRect, QSize, QEvent
 from PyQt6.QtGui import QAction, QCursor, QPalette, QPainter, QColor, QFont, QPen, QBrush, QLinearGradient, QPainterPath
 
 from gui.dialogs.cockpit_entry_dialog import CockpitEntryDialog
@@ -544,3 +544,12 @@ class CockpitWidget(QWidget):
             self.cards_config[index]["title"] = new_title
             self.save_config()
             self.refresh_stats()
+
+    def changeEvent(self, event):
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        # The titles are resolved in refresh_stats based on preset_id
+        self.refresh_stats()

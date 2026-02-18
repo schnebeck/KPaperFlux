@@ -26,6 +26,7 @@ import tempfile
 import shutil
 import json
 from core.logger import get_logger
+from PyQt6.QtCore import QEvent
 
 logger = get_logger("gui.main_window")
 import fitz
@@ -99,9 +100,11 @@ class MainWindow(QMainWindow):
                  db_manager: Optional[DatabaseManager] = None,
                  app_config: Optional[AppConfig] = None) -> None:
         super().__init__()
+        self._translators: list[PyQt6.QtCore.QTranslator] = [] # Track active translators
         self.pipeline = pipeline
         self.db_manager = db_manager
         self.app_config = app_config or AppConfig()
+        self._switch_language(self.app_config.get_language())
 
         # If pipeline is provided but db_manager checks, try to extract db from pipeline
         if self.pipeline and not self.db_manager:
@@ -291,6 +294,7 @@ class MainWindow(QMainWindow):
         self.statusBar().addWidget(self.status_container, 1)
 
         self.create_tool_bar()
+        self.retranslate_ui()
         self.setup_shortcuts()
 
         self.read_settings()
@@ -425,161 +429,161 @@ class MainWindow(QMainWindow):
         menubar = self.menuBar()
 
         # -- File Menu --
-        file_menu = menubar.addMenu(self.tr("&File"))
+        self.file_menu = menubar.addMenu("")
 
-        action_import = QAction(self.tr("&Import Document"), self)
-        action_import.setShortcut("Ctrl+O")
-        action_import.triggered.connect(self.import_document_slot)
-        file_menu.addAction(action_import)
+        self.action_import = QAction("", self)
+        self.action_import.setShortcut("Ctrl+O")
+        self.action_import.triggered.connect(self.import_document_slot)
+        self.file_menu.addAction(self.action_import)
 
-        self.action_import_transfer = QAction(self.tr("Import from Transfer"), self)
+        self.action_import_transfer = QAction("", self)
         self.action_import_transfer.triggered.connect(self.import_from_transfer_slot)
-        file_menu.addAction(self.action_import_transfer)
+        self.file_menu.addAction(self.action_import_transfer)
         self._update_transfer_menu_visibility()
 
-        action_scan = QAction(self.tr("&Scan..."), self)
-        action_scan.setShortcut("Ctrl+S")
-        action_scan.triggered.connect(self.open_scanner_slot)
-        file_menu.addAction(action_scan)
+        self.action_scan = QAction("", self)
+        self.action_scan.setShortcut("Ctrl+S")
+        self.action_scan.triggered.connect(self.open_scanner_slot)
+        self.file_menu.addAction(self.action_scan)
 
-        action_print = QAction(self.tr("&Print"), self)
-        action_print.setShortcut("Ctrl+P")
-        action_print.setEnabled(False) # Placeholder
-        file_menu.addAction(action_print)
+        self.action_print = QAction("", self)
+        self.action_print.setShortcut("Ctrl+P")
+        self.action_print.setEnabled(False) # Placeholder
+        self.file_menu.addAction(self.action_print)
 
-        file_menu.addSeparator()
+        self.file_menu.addSeparator()
 
-        action_delete = QAction(self.tr("&Delete Selected"), self)
-        action_delete.setShortcut("Del")
-        action_delete.triggered.connect(self.delete_selected_slot)
-        file_menu.addAction(action_delete)
+        self.action_delete = QAction("", self)
+        self.action_delete.setShortcut("Del")
+        self.action_delete.triggered.connect(self.delete_selected_slot)
+        self.file_menu.addAction(self.action_delete)
 
-        file_menu.addSeparator()
+        self.file_menu.addSeparator()
 
-        action_export = QAction(self.tr("Export shown List..."), self)
-        action_export.triggered.connect(self.export_visible_documents_slot)
-        file_menu.addAction(action_export)
+        self.action_export = QAction("", self)
+        self.action_export.triggered.connect(self.export_visible_documents_slot)
+        self.file_menu.addAction(self.action_export)
 
-        file_menu.addSeparator()
+        self.file_menu.addSeparator()
 
-        action_exit = QAction(self.tr("E&xit"), self)
-        action_exit.setShortcut("Ctrl+Q")
-        action_exit.triggered.connect(self.close)
-        file_menu.addAction(action_exit)
+        self.action_exit = QAction("", self)
+        self.action_exit.setShortcut("Ctrl+Q")
+        self.action_exit.triggered.connect(self.close)
+        self.file_menu.addAction(self.action_exit)
 
 
-        view_menu = menubar.addMenu(self.tr("&View"))
+        self.view_menu = menubar.addMenu("")
 
-        action_refresh = QAction(self.tr("&Refresh List"), self)
-        action_refresh.setShortcut("F5")
-        action_refresh.triggered.connect(self.refresh_list_slot)
-        view_menu.addAction(action_refresh)
+        self.action_refresh = QAction("", self)
+        self.action_refresh.setShortcut("F5")
+        self.action_refresh.triggered.connect(self.refresh_list_slot)
+        self.view_menu.addAction(self.action_refresh)
 
-        action_extra = QAction(self.tr("Show Extra Data"), self)
-        action_extra.setShortcut("Ctrl+E")
-        action_extra.setCheckable(True)
-        action_extra.setChecked(True)
-        action_extra.triggered.connect(self.toggle_editor_visibility)
-        view_menu.addAction(action_extra)
+        self.action_extra = QAction("", self)
+        self.action_extra.setShortcut("Ctrl+E")
+        self.action_extra.setCheckable(True)
+        self.action_extra.setChecked(True)
+        self.action_extra.triggered.connect(self.toggle_editor_visibility)
+        self.view_menu.addAction(self.action_extra)
 
-        view_menu.addSeparator()
+        self.view_menu.addSeparator()
 
         # Action toggle_filter is created later in create_tool_bar, but we need it here
         # or we create it here and reuse it there. Let's move its creation here.
-        self.action_toggle_filter = QAction("🗂️ " + self.tr("Filter Panel"), self)
+        self.action_toggle_filter = QAction("", self)
         self.action_toggle_filter.setCheckable(True)
         self.action_toggle_filter.setChecked(True)
         self.action_toggle_filter.setShortcut(QKeySequence("Ctrl+Shift+F"))
         self.action_toggle_filter.triggered.connect(self._toggle_filter_view)
-        view_menu.addAction(self.action_toggle_filter)
+        self.view_menu.addAction(self.action_toggle_filter)
 
         # -- Maintenance Menu --
-        maintenance_menu = menubar.addMenu(self.tr("&Maintenance"))
+        self.maintenance_menu = menubar.addMenu("")
 
-        orphans_action = QAction(self.tr("Check Integrity (Orphans/Ghosts)"), self)
-        orphans_action.triggered.connect(self.open_maintenance_slot)
-        maintenance_menu.addAction(orphans_action)
+        self.action_maintenance = QAction("", self)
+        self.action_maintenance.triggered.connect(self.open_maintenance_slot)
+        self.maintenance_menu.addAction(self.action_maintenance)
 
-        duplicates_action = QAction(self.tr("Find Duplicates"), self)
-        duplicates_action.triggered.connect(self.find_duplicates_slot)
-        maintenance_menu.addAction(duplicates_action)
+        self.action_duplicates = QAction("", self)
+        self.action_duplicates.triggered.connect(self.find_duplicates_slot)
+        self.maintenance_menu.addAction(self.action_duplicates)
 
-        tags_action = QAction(self.tr("Manage Tags"), self)
-        tags_action.triggered.connect(self.open_tag_manager_slot)
-        maintenance_menu.addAction(tags_action)
+        self.action_tag_manager = QAction("", self)
+        self.action_tag_manager.triggered.connect(self.open_tag_manager_slot)
+        self.maintenance_menu.addAction(self.action_tag_manager)
 
         # -- Tools Menu --
-        tools_menu = menubar.addMenu(self.tr("&Tools"))
+        self.tools_menu = menubar.addMenu("")
 
-        purge_all_action = QAction(self.tr("Purge All Data (Reset)"), self)
-        purge_all_action.triggered.connect(self.purge_data_slot)
-        tools_menu.addAction(purge_all_action)
+        self.action_purge_data = QAction("", self)
+        self.action_purge_data.triggered.connect(self.purge_data_slot)
+        self.tools_menu.addAction(self.action_purge_data)
         
-        tools_menu.addSeparator()
-        self.plugin_submenu = tools_menu.addMenu(self.tr("External Plugins"))
+        self.tools_menu.addSeparator()
+        self.plugin_submenu = self.tools_menu.addMenu("")
         self._refresh_plugin_menu()
 
         # -- Debug Menu (Phase 102) --
-        debug_menu = menubar.addMenu(self.tr("&Debug"))
+        self.debug_menu = menubar.addMenu("")
 
-        debug_orphans = QAction(self.tr("Show Orphaned Vault Files"), self)
-        debug_orphans.triggered.connect(self._debug_show_orphans_slot)
-        debug_menu.addAction(debug_orphans)
+        self.action_debug_orphans = QAction("", self)
+        self.action_debug_orphans.triggered.connect(self._debug_show_orphans_slot)
+        self.debug_menu.addAction(self.action_debug_orphans)
 
-        prune_orphans = QAction(self.tr("Prune Orphaned Vault Files (Console)"), self)
-        prune_orphans.triggered.connect(self._debug_prune_orphans_slot)
-        debug_menu.addAction(prune_orphans)
+        self.action_prune_orphans = QAction("", self)
+        self.action_prune_orphans.triggered.connect(self._debug_prune_orphans_slot)
+        self.debug_menu.addAction(self.action_debug_orphans)
 
-        debug_menu.addSeparator()
+        self.debug_menu.addSeparator()
 
-        debug_broken = QAction(self.tr("Show Broken Entity References"), self)
-        debug_broken.triggered.connect(self._debug_show_broken_slot)
-        debug_menu.addAction(debug_broken)
+        self.action_debug_broken = QAction("", self)
+        self.action_debug_broken.triggered.connect(self._debug_show_broken_slot)
+        self.debug_menu.addAction(self.action_debug_broken)
 
-        prune_broken = QAction(self.tr("Prune Broken Entity References (Console)"), self)
-        prune_broken.triggered.connect(self._debug_prune_broken_slot)
-        debug_menu.addAction(prune_broken)
+        self.action_prune_broken = QAction("", self)
+        self.action_prune_broken.triggered.connect(self._debug_prune_broken_slot)
+        self.debug_menu.addAction(self.action_prune_broken)
 
-        debug_menu.addSeparator()
+        self.debug_menu.addSeparator()
 
-        debug_dedup = QAction(self.tr("Deduplicate Vault (Inhaltsbasiert)"), self)
-        debug_dedup.triggered.connect(self._debug_deduplicate_vault_slot)
-        debug_menu.addAction(debug_dedup)
+        self.action_debug_dedup = QAction("", self)
+        self.action_debug_dedup.triggered.connect(self._debug_deduplicate_vault_slot)
+        self.debug_menu.addAction(self.action_debug_dedup)
 
         # -- Config Menu --
-        config_menu = menubar.addMenu(self.tr("&Config"))
+        self.config_menu = menubar.addMenu("")
 
-        action_settings = QAction(self.tr("&Settings..."), self)
-        action_settings.triggered.connect(self.open_settings_slot)
-        config_menu.addAction(action_settings)
+        self.action_settings = QAction("", self)
+        self.action_settings.triggered.connect(self.open_settings_slot)
+        self.config_menu.addAction(self.action_settings)
 
         # -- Semantic Data Menu (Phase 107) --
-        self.semantic_menu = menubar.addMenu(self.tr("&Semantic Data"))
+        self.semantic_menu = menubar.addMenu("")
 
-        missing_semantic_action = QAction(self.tr("List Missing"), self)
-        missing_semantic_action.triggered.connect(self.list_missing_semantic_data_slot)
-        self.semantic_menu.addAction(missing_semantic_action)
+        self.action_missing_semantic = QAction("", self)
+        self.action_missing_semantic.triggered.connect(self.list_missing_semantic_data_slot)
+        self.semantic_menu.addAction(self.action_missing_semantic)
 
-        mismatched_semantic_action = QAction(self.tr("List Mismatched"), self)
-        mismatched_semantic_action.triggered.connect(self.list_mismatched_semantic_data_slot)
-        self.semantic_menu.addAction(mismatched_semantic_action)
+        self.action_mismatched_semantic = QAction("", self)
+        self.action_mismatched_semantic.triggered.connect(self.list_mismatched_semantic_data_slot)
+        self.semantic_menu.addAction(self.action_mismatched_semantic)
 
         self.semantic_menu.addSeparator()
 
-        run_stage2_selected = QAction(self.tr("Run Extraction (Selected)"), self)
-        run_stage2_selected.triggered.connect(self.run_stage_2_selected_slot)
-        self.semantic_menu.addAction(run_stage2_selected)
+        self.action_run_stage2_selected = QAction("", self)
+        self.action_run_stage2_selected.triggered.connect(self.run_stage_2_selected_slot)
+        self.semantic_menu.addAction(self.action_run_stage2_selected)
 
-        run_stage2_missing = QAction(self.tr("Process empty Documents"), self)
-        run_stage2_missing.triggered.connect(self.run_stage_2_all_missing_slot)
-        self.semantic_menu.addAction(run_stage2_missing)
+        self.action_run_stage2_missing = QAction("", self)
+        self.action_run_stage2_missing.triggered.connect(self.run_stage_2_all_missing_slot)
+        self.semantic_menu.addAction(self.action_run_stage2_missing)
 
         # -- Help Menu --
-        help_menu = menubar.addMenu(self.tr("&Help"))
+        self.help_menu = menubar.addMenu("")
 
-        action_about = QAction(self.tr("&About"), self)
-        action_about.triggered.connect(self.show_about_dialog)
-        help_menu.addAction(action_about)
+        self.action_about = QAction("", self)
+        self.action_about.triggered.connect(self.show_about_dialog)
+        self.help_menu.addAction(self.action_about)
 
     def _refresh_plugin_menu(self):
         """Populates the Plugins submenu with actions from loaded plugins."""
@@ -1137,6 +1141,41 @@ class MainWindow(QMainWindow):
                 # Also update visual auditor if present
                 if hasattr(self.main_loop_worker.canonizer, 'visual_auditor'):
                     self.main_loop_worker.canonizer.visual_auditor.ai = new_analyzer
+
+        # Phase 120: Live Language Switch
+        new_lang = self.app_config.get_language()
+        self._switch_language(new_lang)
+
+    def _switch_language(self, lang: str):
+        """Swaps the QTranslator at runtime."""
+        app = QCoreApplication.instance()
+        if not app:
+            return
+
+        # Remove old translators
+        for t in self._translators:
+            app.removeTranslator(t)
+        self._translators.clear()
+
+        # Load new translator if not English
+        if lang != "en":
+            from PyQt6.QtCore import QTranslator
+            translator = QTranslator()
+            base_dir = Path(__file__).resolve().parent.parent
+            qm_path = base_dir / "resources" / "l10n" / lang / "gui_strings.qm"
+
+            if qm_path.exists():
+                if translator.load(str(qm_path)):
+                    app.installTranslator(translator)
+                    self._translators.append(translator)
+                    logger.info(f"[L10n] Switched language to {lang} (hot-reload)")
+                else:
+                    logger.error(f"[L10n] Failed to load translation: {qm_path}")
+            else:
+                logger.warning(f"[L10n] Translation file missing: {qm_path}")
+        else:
+            logger.info("[L10n] Switched language to English (default)")
+            # No translator needed for English as it's the source language
 
     def _update_transfer_menu_visibility(self):
         """Show/Hide transfer action based on config."""
@@ -1707,10 +1746,16 @@ class MainWindow(QMainWindow):
         """Handle window close."""
         if hasattr(self, 'ai_worker') and self.ai_worker: self.ai_worker.stop()
         # Cancel background workers to kill subprocesses
-        if hasattr(self, 'main_loop_worker') and self.main_loop_worker: self.main_loop_worker.stop()
-        if hasattr(self, 'import_worker') and self.import_worker: self.import_worker.cancel()
+        if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
+            self.main_loop_worker.stop()
+            self.main_loop_worker.wait(2000)
+        if hasattr(self, 'import_worker') and self.import_worker:
+            self.import_worker.cancel()
+            self.import_worker.wait(2000)
         if hasattr(self, 'batch_worker') and self.batch_worker: self.batch_worker.cancel()
-        if hasattr(self, 'reprocess_worker') and self.reprocess_worker: self.reprocess_worker.cancel()
+        if hasattr(self, 'reprocess_worker') and self.reprocess_worker:
+            self.reprocess_worker.cancel()
+            self.reprocess_worker.wait(2000)
 
         self.write_settings()
         self.save_filter_tree()
@@ -1729,8 +1774,8 @@ class MainWindow(QMainWindow):
         if hasattr(self.list_widget, 'get_selected_uuids'):
              settings.setValue("selectedUUIDs", self.list_widget.get_selected_uuids())
 
-        if hasattr(self, 'main_loop_worker'):
-             settings.setValue("ai_paused", self.main_loop_worker.is_paused)
+        if hasattr(self, 'main_loop_worker') and hasattr(self.main_loop_worker, 'is_paused'):
+             settings.setValue("ai_paused", bool(self.main_loop_worker.is_paused))
 
     def read_settings(self):
         settings = QSettings()
@@ -2112,8 +2157,6 @@ class MainWindow(QMainWindow):
         self.btn_cockpit = QToolButton()
         self.btn_cockpit.setObjectName("mainTabBtn")
         self.btn_cockpit.setCheckable(True)
-        self.btn_cockpit.setText(self.tr("Cockpit"))
-        self.btn_cockpit.setToolTip(self.tr("Main overview and statistics"))
         self.btn_cockpit.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn_cockpit.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
         self.btn_cockpit.clicked.connect(self.go_home_slot)
@@ -2131,8 +2174,6 @@ class MainWindow(QMainWindow):
         self.btn_documents = QToolButton()
         self.btn_documents.setObjectName("mainTabBtn")
         self.btn_documents.setCheckable(True)
-        self.btn_documents.setText(self.tr("Documents"))
-        self.btn_documents.setToolTip(self.tr("Browse and manage document list"))
         self.btn_documents.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn_documents.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileIcon))
         self.btn_documents.clicked.connect(lambda: self.central_stack.setCurrentIndex(1))
@@ -2151,7 +2192,6 @@ class MainWindow(QMainWindow):
         self.btn_workflows = QToolButton()
         self.btn_workflows.setObjectName("mainTabBtn")
         self.btn_workflows.setCheckable(True)
-        self.btn_workflows.setText("🤖 " + self.tr("Workflows"))
         self.btn_workflows.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn_workflows.setIcon(QIcon()) # Remove the arrow icon
         self.btn_workflows.clicked.connect(lambda: self.central_stack.setCurrentIndex(2))
@@ -2169,7 +2209,6 @@ class MainWindow(QMainWindow):
         self.btn_reports = QToolButton()
         self.btn_reports.setObjectName("mainTabBtn")
         self.btn_reports.setCheckable(True)
-        self.btn_reports.setText(self.tr("Reports"))
         self.btn_reports.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn_reports.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView))
         self.btn_reports.clicked.connect(lambda: self.central_stack.setCurrentIndex(3))
@@ -2257,3 +2296,68 @@ class MainWindow(QMainWindow):
         """Called when a background worker hits a logic error."""
         show_selectable_message_box(self, title, message, icon=QMessageBox.Icon.Critical)
         self.main_status_label.setText(self.tr("Pipeline STOPPED due to fatal error."))
+
+    def changeEvent(self, event):
+        """Handle language change events."""
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        """Updates all UI strings for on-the-fly localization."""
+        self.setWindowTitle("KPaperFlux v2")
+        
+        # Menus
+        self.file_menu.setTitle(self.tr("&File"))
+        self.action_import.setText(self.tr("&Import Document"))
+        self.action_import_transfer.setText(self.tr("Import from Transfer"))
+        self.action_scan.setText(self.tr("&Scan..."))
+        self.action_print.setText(self.tr("&Print"))
+        self.action_delete.setText(self.tr("&Delete Selected"))
+        self.action_export.setText(self.tr("Export shown List..."))
+        self.action_exit.setText(self.tr("E&xit"))
+
+        self.view_menu.setTitle(self.tr("&View"))
+        self.action_refresh.setText(self.tr("&Refresh List"))
+        self.action_extra.setText(self.tr("Show Extra Data"))
+        self.action_toggle_filter.setText("🗂️ " + self.tr("Filter Panel"))
+
+        self.maintenance_menu.setTitle(self.tr("&Maintenance"))
+        self.action_maintenance.setText(self.tr("Check Integrity (Orphans/Ghosts)"))
+        self.action_duplicates.setText(self.tr("Find Duplicates"))
+        self.action_tag_manager.setText(self.tr("Manage Tags"))
+
+        self.tools_menu.setTitle(self.tr("&Tools"))
+        self.action_purge_data.setText(self.tr("Purge All Data (Reset)"))
+        self.plugin_submenu.setTitle(self.tr("External Plugins"))
+
+        self.debug_menu.setTitle(self.tr("&Debug"))
+        self.action_debug_orphans.setText(self.tr("Show Orphaned Vault Files"))
+        self.action_prune_orphans.setText(self.tr("Prune Orphaned Vault Files (Console)"))
+        self.action_debug_broken.setText(self.tr("Show Broken Entity References"))
+        self.action_prune_broken.setText(self.tr("Prune Broken Entity References (Console)"))
+        self.action_debug_dedup.setText(self.tr("Deduplicate Vault (Inhaltsbasiert)"))
+
+        self.config_menu.setTitle(self.tr("&Config"))
+        self.action_settings.setText(self.tr("&Settings..."))
+
+        self.semantic_menu.setTitle(self.tr("&Semantic Data"))
+        self.action_missing_semantic.setText(self.tr("List Missing"))
+        self.action_mismatched_semantic.setText(self.tr("List Mismatched"))
+        self.action_run_stage2_selected.setText(self.tr("Run Extraction (Selected)"))
+        self.action_run_stage2_missing.setText(self.tr("Process empty Documents"))
+
+        self.help_menu.setTitle(self.tr("&Help"))
+        self.action_about.setText(self.tr("&About"))
+
+        # Navbar Tabs
+        self.btn_cockpit.setText(self.tr("Cockpit"))
+        self.btn_cockpit.setToolTip(self.tr("Main overview and statistics"))
+        self.btn_documents.setText(self.tr("Documents"))
+        self.btn_documents.setToolTip(self.tr("Browse and manage document list"))
+        self.btn_workflows.setText("🤖 " + self.tr("Workflows"))
+        self.btn_reports.setText(self.tr("Reports"))
+
+        # Status Bar Items (Initial or static ones)
+        if hasattr(self, 'main_status_label') and self.main_status_label:
+             self._refresh_status_bar() # Refresh counts

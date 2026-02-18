@@ -41,6 +41,7 @@ def load_translations(app: QApplication, app_config: AppConfig) -> None:
     """
     # 1. Handle First Run / Auto-Detection
     if not app_config.settings.contains(app_config.KEY_LANGUAGE):
+        import os
         env_lang = os.environ.get("LANGUAGE") or os.environ.get("LANG")
         detected_lang = "en"
         if env_lang:
@@ -56,23 +57,10 @@ def load_translations(app: QApplication, app_config: AppConfig) -> None:
         app_config.set_language(detected_lang)
         get_logger("core").info(f"First run: Language auto-detected and saved as '{detected_lang}'")
 
-    # 2. Source of Truth: Config
-    lang = app_config.get_language()
-
-    if lang != "en":
-        translator = QTranslator()
-        base_dir = Path(__file__).resolve().parent
-        qm_path = base_dir / "resources" / "l10n" / lang / "gui_strings.qm"
-
-        if qm_path.exists():
-            if translator.load(str(qm_path)):
-                app.installTranslator(translator)
-                _translators.append(translator)  # Keep reference
-                get_logger("core").info(f"Loaded GUI translation: {qm_path}")
-            else:
-                get_logger("core").error(f"Failed to load GUI translation: {qm_path}")
-        else:
-            get_logger("core").warning(f"GUI Translation file not found: {qm_path}")
+    # Note: We no longer install the translator here globally.
+    # MainWindow handles the initial translation loading and subsequent 
+    # hot-reloads via its _switch_language method to ensure a single 
+    # source of truth for active translators.
 
 
 def main() -> None:

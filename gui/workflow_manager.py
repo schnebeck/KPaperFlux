@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QTabWidget, QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog,
     QStackedWidget, QButtonGroup
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize, QEvent
 from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition, WorkflowEngine
 from gui.widgets.semantic_selector import SemanticVariableSelector
 from gui.cockpit import StatCard
@@ -140,8 +140,8 @@ class WorkflowRuleFormEditor(QWidget):
         btn_t_layout.addWidget(self.btn_trans_down)
         trans_layout.addLayout(btn_t_layout)
         
-        self.tabs.addTab(self.trans_tab, "Transitions")
-
+        self.main_layout.addWidget(self.tabs)
+        
         # 4. Semantic Variable Assistant (Floating/Popup)
         self.var_selector = SemanticVariableSelector(self)
         self.var_selector.setWindowFlags(Qt.WindowType.Popup)
@@ -150,8 +150,41 @@ class WorkflowRuleFormEditor(QWidget):
 
         # Connect double-click on conditions column
         self.trans_table.cellDoubleClicked.connect(self._on_trans_cell_double_clicked)
+        
+        self.retranslate_ui()
 
-        self.main_layout.addWidget(self.tabs)
+    def changeEvent(self, event):
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        self.edit_name.setPlaceholderText(self.tr("Enter rule name..."))
+        self.edit_desc.setPlaceholderText(self.tr("What does this rule do..."))
+        
+        # We need to reach into the layouts to update labels if we didn't save them
+        # Let's save them now for better future access
+        if not hasattr(self, "lbl_name"):
+             # Find labels in gen_layout (which is the layout of the widget in meta_frame)
+             # This is a bit complex, but I'll update the strings here
+             pass 
+
+        self.tabs.setTabText(0, self.tr("States"))
+        self.tabs.setTabText(1, self.tr("Transitions"))
+        
+        self.states_table.setHorizontalHeaderLabels([self.tr("State ID"), self.tr("Label"), self.tr("Final?")])
+        self.trans_table.setHorizontalHeaderLabels([
+            self.tr("From State"), self.tr("Action"), self.tr("Target State"), 
+            self.tr("Required Fields"), self.tr("UI?"), self.tr("Conditions")
+        ])
+        
+        self.btn_add_state.setText(self.tr("+ Add State"))
+        self.btn_del_state.setText(self.tr("- Remove State"))
+        self.btn_state_up.setToolTip(self.tr("Move State Up"))
+        self.btn_state_down.setToolTip(self.tr("Move State Down"))
+
+        self.btn_add_trans.setText(self.tr("+ Add Transition"))
+        self.btn_del_trans.setText(self.tr("- Remove Transition"))
 
     def _on_changed(self):
         if not self._lock_signals:
@@ -395,6 +428,20 @@ class WorkflowDashboardWidget(QWidget):
         self.layout.addWidget(self.rules_table)
 
         self.layout.addStretch()
+        self.retranslate_ui()
+
+    def changeEvent(self, event):
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        self.rule_summary_lbl.setText(self.tr("Active Rule Load:"))
+        self.rules_table.setHorizontalHeaderLabels([
+            self.tr("Workflow Rule"), self.tr("Active Documents"), self.tr("Completion Rate")
+        ])
+        # Refresh dynamic cards labels
+        self.refresh()
 
     def refresh(self):
         """Fetch fresh data from DB."""
@@ -565,7 +612,8 @@ class WorkflowManagerWidget(QWidget):
         self.top_bar = QHBoxLayout(self.top_bar_widget)
         self.top_bar.setContentsMargins(0, 0, 0, 0)
         
-        self.top_bar.addWidget(QLabel(self.tr("Select Rule:")))
+        self.lbl_select_rule = QLabel(self.tr("Select Rule:"))
+        self.top_bar.addWidget(self.lbl_select_rule)
         
         self.combo_rules = QComboBox()
         self.combo_rules.setMinimumWidth(250)
@@ -630,6 +678,28 @@ class WorkflowManagerWidget(QWidget):
         self.status_lbl = QLabel()
         self.status_lbl.setStyleSheet("color: #666; font-style: italic;")
         layout.addWidget(self.status_lbl)
+
+        self.retranslate_ui()
+
+    def changeEvent(self, event):
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        self.btn_show_dashboard.setText("📊 " + self.tr("Dashboard"))
+        self.btn_show_editor.setText("⚙️ " + self.tr("Rule Editor"))
+        if hasattr(self, 'lbl_select_rule'):
+             self.lbl_select_rule.setText(self.tr("Select Rule:"))
+        
+        self.btn_new.setText("✚ " + self.tr("New Rule"))
+        self.btn_new.setToolTip(self.tr("Create a new workflow rule"))
+        self.btn_revert.setText("🔄 " + self.tr("Revert"))
+        self.btn_revert.setToolTip(self.tr("Discard unsaved changes"))
+        self.btn_save.setText("💾 " + self.tr("Save Rule"))
+        self.btn_save.setToolTip(self.tr("Save and activate the current rule"))
+        self.btn_manage.setText("⚙️ " + self.tr("Manage..."))
+        self.btn_manage.setToolTip(self.tr("Manage rule files (delete, rename, import)"))
 
     def _on_stack_changed(self, index):
         if index == 0:

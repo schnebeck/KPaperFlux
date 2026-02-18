@@ -3,9 +3,10 @@ from PyQt6.QtWidgets import (
     QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
     QSpinBox, QLayout, QCheckBox
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QTimer
 import json
+import sys
 from typing import Optional
+from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QEvent, QCoreApplication
 
 # Core Imports
 from core.config import AppConfig
@@ -48,6 +49,7 @@ class SettingsDialog(QDialog):
         self.config = AppConfig()
 
         self._setup_ui()
+        self.retranslate_ui()
         self._load_settings()
 
     def _setup_ui(self):
@@ -62,41 +64,46 @@ class SettingsDialog(QDialog):
         form = QFormLayout(general_tab)
 
         # Language
+        self.lbl_lang = QLabel("")
         self.combo_lang = QComboBox()
         self.combo_lang.addItems(["en", "de"])
-        form.addRow(self.tr("Language:"), self.combo_lang)
+        form.addRow(self.lbl_lang, self.combo_lang)
 
         # Vault Path
+        self.lbl_vault = QLabel("")
         self.edit_vault = QLineEdit()
-        self.btn_vault = QPushButton(self.tr("Browse..."))
+        self.btn_vault = QPushButton("")
         self.btn_vault.clicked.connect(self._browse_vault)
         h_vault = QHBoxLayout()
         h_vault.setContentsMargins(0, 0, 0, 0)
         h_vault.addWidget(self.edit_vault)
         h_vault.addWidget(self.btn_vault)
-        form.addRow(self.tr("Vault Path:"), h_vault)
+        form.addRow(self.lbl_vault, h_vault)
 
         # OCR Binary
+        self.lbl_ocr = QLabel("")
         self.edit_ocr = QLineEdit()
-        self.btn_ocr = QPushButton(self.tr("Browse..."))
+        self.btn_ocr = QPushButton("")
         self.btn_ocr.clicked.connect(self._browse_ocr)
         h_ocr = QHBoxLayout()
         h_ocr.setContentsMargins(0, 0, 0, 0)
         h_ocr.addWidget(self.edit_ocr)
         h_ocr.addWidget(self.btn_ocr)
-        form.addRow(self.tr("OCR Binary:"), h_ocr)
+        form.addRow(self.lbl_ocr, h_ocr)
 
         # Transfer Path (Phase 2.1)
+        self.lbl_transfer = QLabel("")
         self.edit_transfer = QLineEdit()
-        self.btn_transfer = QPushButton(self.tr("Browse..."))
+        self.btn_transfer = QPushButton("")
         self.btn_transfer.clicked.connect(self._browse_transfer)
         h_transfer = QHBoxLayout()
         h_transfer.setContentsMargins(0, 0, 0, 0)
         h_transfer.addWidget(self.edit_transfer)
         h_transfer.addWidget(self.btn_transfer)
-        form.addRow(self.tr("Transfer Folder:"), h_transfer)
+        form.addRow(self.lbl_transfer, h_transfer)
 
         # AI Backend Provider
+        self.lbl_provider = QLabel("")
         self.combo_provider = QComboBox()
         self.combo_provider.addItems([
             "Gemini (Cloud)", 
@@ -105,7 +112,7 @@ class SettingsDialog(QDialog):
             "Anthropic (Cloud)"
         ])
         self.combo_provider.currentIndexChanged.connect(self._toggle_ai_provider_ui)
-        form.addRow(self.tr("AI Backend:"), self.combo_provider)
+        form.addRow(self.lbl_provider, self.combo_provider)
 
         # Provider-specific fields for toggling visibility
         self.provider_fields = {
@@ -120,35 +127,39 @@ class SettingsDialog(QDialog):
             self.provider_fields[provider].append(widget_or_layout)
 
         # Gemini API Key
-        api_key_layout = QHBoxLayout()
-        api_key_layout.setContentsMargins(0, 0, 0, 0)
+        self.lbl_api_key = QLabel("")
+        self.api_key_layout = QHBoxLayout()
+        self.api_key_layout.setContentsMargins(0, 0, 0, 0)
         self.edit_api_key = QLineEdit()
         self.edit_api_key.setPlaceholderText("google_api_key_...")
         self.edit_api_key.textChanged.connect(self._on_api_key_changed)
-        self.btn_verify_key = QPushButton(self.tr("Verify"))
+        self.btn_verify_key = QPushButton("")
         self.btn_verify_key.clicked.connect(lambda: self._refresh_models(silent=False))
         self.lbl_key_status = QLabel()
         self.lbl_key_status.setFixedSize(24, 24)
-        api_key_layout.addWidget(self.edit_api_key, 1)
-        api_key_layout.addWidget(self.lbl_key_status)
-        api_key_layout.addWidget(self.btn_verify_key)
-        add_provider_row("gemini", self.tr("Gemini API Key:"), api_key_layout)
+        self.api_key_layout.addWidget(self.edit_api_key, 1)
+        self.api_key_layout.addWidget(self.lbl_key_status)
+        self.api_key_layout.addWidget(self.btn_verify_key)
+        add_provider_row("gemini", self.lbl_api_key, self.api_key_layout)
 
         # Gemini Model
+        self.lbl_model = QLabel("")
         self.combo_model = QComboBox()
         self.combo_model.setEditable(True) 
         self.combo_model.addItems(self.config._cached_models)
-        add_provider_row("gemini", self.tr("Gemini Model:"), self.combo_model)
+        add_provider_row("gemini", self.lbl_model, self.combo_model)
 
         # Ollama URL
+        self.lbl_ollama_url = QLabel("")
         self.edit_ollama_url = QLineEdit()
         self.edit_ollama_url.setPlaceholderText("http://localhost:11434")
-        add_provider_row("ollama", self.tr("Ollama URL:"), self.edit_ollama_url)
+        add_provider_row("ollama", self.lbl_ollama_url, self.edit_ollama_url)
 
         # Ollama Model
+        self.lbl_ollama_model = QLabel("")
         self.edit_ollama_model = QLineEdit()
         self.edit_ollama_model.setPlaceholderText("llama3")
-        add_provider_row("ollama", self.tr("Ollama Model:"), self.edit_ollama_model)
+        add_provider_row("ollama", self.lbl_ollama_model, self.edit_ollama_model)
 
         # Ollama Test Connection
         self.btn_refresh_ollama = QPushButton(self.tr("Test Connection"))
@@ -156,30 +167,34 @@ class SettingsDialog(QDialog):
         add_provider_row("ollama", "", self.btn_refresh_ollama)
 
         # OpenAI Key
+        self.lbl_openai_key = QLabel("")
         self.edit_openai_key = QLineEdit()
         self.edit_openai_key.setEchoMode(QLineEdit.EchoMode.Password)
-        add_provider_row("openai", self.tr("OpenAI API Key:"), self.edit_openai_key)
+        add_provider_row("openai", self.lbl_openai_key, self.edit_openai_key)
 
         # OpenAI Model
+        self.lbl_openai_model = QLabel("")
         self.edit_openai_model = QLineEdit()
         self.edit_openai_model.setPlaceholderText("gpt-4o")
-        add_provider_row("openai", self.tr("OpenAI Model:"), self.edit_openai_model)
+        add_provider_row("openai", self.lbl_openai_model, self.edit_openai_model)
 
         # Anthropic Key
+        self.lbl_anthropic_key = QLabel("")
         self.edit_anthropic_key = QLineEdit()
         self.edit_anthropic_key.setEchoMode(QLineEdit.EchoMode.Password)
-        add_provider_row("anthropic", self.tr("Anthropic API Key:"), self.edit_anthropic_key)
+        add_provider_row("anthropic", self.lbl_anthropic_key, self.edit_anthropic_key)
 
         # Anthropic Model
+        self.lbl_anthropic_model = QLabel("")
         self.edit_anthropic_model = QLineEdit()
         self.edit_anthropic_model.setPlaceholderText("claude-3-5-sonnet-20240620")
-        add_provider_row("anthropic", self.tr("Anthropic Model:"), self.edit_anthropic_model)
+        add_provider_row("anthropic", self.lbl_anthropic_model, self.edit_anthropic_model)
 
         # AI Retries
+        self.lbl_ai_retries = QLabel("")
         self.spin_ai_retries = QSpinBox()
         self.spin_ai_retries.setRange(0, 10)
-        self.spin_ai_retries.setSuffix(f" {self.tr('Retries')}")
-        form.addRow(self.tr("AI Validation Retries:"), self.spin_ai_retries)
+        form.addRow(self.lbl_ai_retries, self.spin_ai_retries)
 
         self.tabs.addTab(general_tab, self.tr("General"))
 
@@ -192,28 +207,29 @@ class SettingsDialog(QDialog):
         form_ident = QFormLayout(identity_tab)
 
         # Private
+        self.lbl_sig_private = QLabel("")
         self.edit_sig_private = QTextEdit()
-        self.edit_sig_private.setPlaceholderText("Max Mustermann\nMusterstraße 1...")
         self.edit_sig_private.setMaximumHeight(80)
 
-        btn_analyze_priv = QPushButton(self.tr("Analyze Private Signature with AI"))
-        btn_analyze_priv.setToolTip(self.tr("Extract structured data (Aliases, Address Parts) for better recognition."))
-        btn_analyze_priv.clicked.connect(lambda: self._analyze_signature("PRIVATE"))
+        self.btn_analyze_priv = QPushButton("")
+        self.btn_analyze_priv.clicked.connect(lambda: self._analyze_signature("PRIVATE"))
 
-        form_ident.addRow(self.tr("Private Signature:\n(For Output/Debitor detection)"), self.edit_sig_private)
-        form_ident.addRow("", btn_analyze_priv)
+        form_ident.addRow(self.lbl_sig_private, self.edit_sig_private)
+        form_ident.addRow("", self.btn_analyze_priv)
 
         # Business
+        self.lbl_sig_business = QLabel("")
         self.edit_sig_business = QTextEdit()
-        self.edit_sig_business.setPlaceholderText("My Company GmbH\nGeschäftsführer: ...")
         self.edit_sig_business.setMaximumHeight(80)
 
-        btn_analyze_bus = QPushButton(self.tr("Analyze Business Signature with AI"))
-        btn_analyze_bus.setToolTip(self.tr("Extract structured data (Aliases, Address Parts) for better recognition."))
-        btn_analyze_bus.clicked.connect(lambda: self._analyze_signature("BUSINESS"))
+        self.btn_analyze_bus = QPushButton("")
+        self.btn_analyze_bus.clicked.connect(lambda: self._analyze_signature("BUSINESS"))
 
-        form_ident.addRow(self.tr("Business Signature:\n(For Output/Debitor detection)"), self.edit_sig_business)
-        form_ident.addRow("", btn_analyze_bus)
+        form_ident.addRow(self.lbl_sig_business, self.edit_sig_business)
+        form_ident.addRow("", self.btn_analyze_bus)
+
+        self.lbl_sig_note = QLabel("")
+        form_ident.addRow(self.lbl_sig_note)
 
         form_ident.addRow(QLabel(self.tr("Note: If these signatures appear in 'Sender', the document is OUTGOING.")))
 
@@ -222,22 +238,23 @@ class SettingsDialog(QDialog):
         # --- Logging Tab ---
         logging_tab = QWidget()
         form_log = QFormLayout(logging_tab)
-
+ 
+        self.lbl_log_level = QLabel("")
         self.combo_log_level = QComboBox()
         self.combo_log_level.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
-        form_log.addRow(self.tr("Global Log Level:"), self.combo_log_level)
-
-        self.cb_debug_ai = QCheckBox(self.tr("Verbose AI Debugging (Raw Prompts/Responses)"))
+        form_log.addRow(self.lbl_log_level, self.combo_log_level)
+ 
+        self.cb_debug_ai = QCheckBox("")
         form_log.addRow("", self.cb_debug_ai)
-
-        self.cb_debug_db = QCheckBox(self.tr("Verbose Database Debugging (SQL Queries)"))
+ 
+        self.cb_debug_db = QCheckBox("")
         form_log.addRow("", self.cb_debug_db)
-
-        self.btn_open_log = QPushButton(self.tr("Open Log File"))
+ 
+        self.btn_open_log = QPushButton("")
         self.btn_open_log.clicked.connect(self._open_log_file)
         form_log.addRow("", self.btn_open_log)
-
-        self.tabs.addTab(logging_tab, self.tr("Logging"))
+ 
+        self.tabs.addTab(logging_tab, "")
 
         # Buttons
         btn_box = QHBoxLayout()
@@ -553,3 +570,63 @@ class SettingsDialog(QDialog):
                 subprocess.call(('xdg-open', str(log_path)))
         else:
             show_selectable_message_box(self, self.tr("Log File Missing"), self.tr("The log file has not been created yet."), icon=QMessageBox.Icon.Information)
+
+    def changeEvent(self, event):
+        """Handle language change events."""
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        """Updates all UI strings for on-the-fly localization."""
+        self.setWindowTitle(self.tr("Settings"))
+        
+        # Tabs
+        self.tabs.setTabText(0, self.tr("General"))
+        self.tabs.setTabText(1, self.tr("Vocabulary"))
+        self.tabs.setTabText(2, self.tr("Identity"))
+        self.tabs.setTabText(3, self.tr("Logging"))
+
+        # General Tab Labels
+        self.lbl_lang.setText(self.tr("Language:"))
+        self.lbl_vault.setText(self.tr("Vault Path:"))
+        self.btn_vault.setText(self.tr("Browse..."))
+        self.lbl_ocr.setText(self.tr("OCR Binary:"))
+        self.btn_ocr.setText(self.tr("Browse..."))
+        self.lbl_transfer.setText(self.tr("Transfer Folder:"))
+        self.btn_transfer.setText(self.tr("Browse..."))
+        self.lbl_provider.setText(self.tr("AI Backend:"))
+        
+        self.lbl_api_key.setText(self.tr("Gemini API Key:"))
+        self.btn_verify_key.setText(self.tr("Verify"))
+        self.lbl_model.setText(self.tr("Gemini Model:"))
+        self.lbl_ollama_url.setText(self.tr("Ollama URL:"))
+        self.lbl_ollama_model.setText(self.tr("Ollama Model:"))
+        self.btn_refresh_ollama.setText(self.tr("Test Connection"))
+        self.lbl_openai_key.setText(self.tr("OpenAI API Key:"))
+        self.lbl_openai_model.setText(self.tr("OpenAI Model:"))
+        self.lbl_anthropic_key.setText(self.tr("Anthropic API Key:"))
+        self.lbl_anthropic_model.setText(self.tr("Anthropic Model:"))
+        self.lbl_ai_retries.setText(self.tr("AI Validation Retries:"))
+        self.spin_ai_retries.setSuffix(f" {self.tr('Retries')}")
+
+        # Identity Tab
+        self.lbl_sig_private.setText(self.tr("Private Signature:\n(For Output/Debitor detection)"))
+        self.edit_sig_private.setPlaceholderText(self.tr("Max Mustermann\nMusterstraße 1..."))
+        self.btn_analyze_priv.setText(self.tr("Analyze Private Signature with AI"))
+        self.btn_analyze_priv.setToolTip(self.tr("Extract structured data (Aliases, Address Parts) for better recognition."))
+        self.lbl_sig_business.setText(self.tr("Business Signature:\n(For Output/Debitor detection)"))
+        self.edit_sig_business.setPlaceholderText(self.tr("My Company GmbH\nGeschäftsführer: ..."))
+        self.btn_analyze_bus.setText(self.tr("Analyze Business Signature with AI"))
+        self.btn_analyze_bus.setToolTip(self.tr("Extract structured data (Aliases, Address Parts) for better recognition."))
+        self.lbl_sig_note.setText(self.tr("Note: If these signatures appear in 'Sender', the document is OUTGOING."))
+
+        # Logging Tab
+        self.lbl_log_level.setText(self.tr("Global Log Level:"))
+        self.cb_debug_ai.setText(self.tr("Verbose AI Debugging (Raw Prompts/Responses)"))
+        self.cb_debug_db.setText(self.tr("Verbose Database Debugging (SQL Queries)"))
+        self.btn_open_log.setText(self.tr("Open Log File"))
+
+        # Buttons
+        self.btn_save.setText(self.tr("Save"))
+        self.btn_cancel.setText(self.tr("Cancel"))

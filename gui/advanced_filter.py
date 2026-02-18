@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox,
                              QSizePolicy, QProgressDialog, QStackedWidget, QTabWidget, QDialog,
                              QToolButton, QButtonGroup)
-from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint, QCoreApplication
+from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint, QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
 import json
 
@@ -94,6 +94,7 @@ class AdvancedFilterWidget(QWidget):
                 self.available_system_tags = self.db_manager.get_available_tags(system=True)
 
         self._init_ui()
+        self.retranslate_ui()
         self.refresh_dynamic_data()
         self.load_known_filters()
 
@@ -132,15 +133,15 @@ class AdvancedFilterWidget(QWidget):
             }}
         """
 
+        self.sub_mode_buttons = {}
         modes = [
-            (0, "🔍 " + self.tr("Search")),
-            (1, "🎯 " + self.tr("Filter")),
-            (2, "🤖 " + self.tr("Rules"))
+            (0, "🔍", "Search"),
+            (1, "🎯", "Filter"),
+            (2, "🤖", "Rules")
         ]
 
-        for idx, label in modes:
+        for idx, icon, key in modes:
             btn = QToolButton()
-            btn.setText(label)
             btn.setCheckable(True)
             btn.setFixedHeight(button_height)
             btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -148,6 +149,7 @@ class AdvancedFilterWidget(QWidget):
             btn.clicked.connect(lambda checked, i=idx: self._on_sub_mode_clicked(i))
             sub_nav_layout.addWidget(btn)
             self.sub_mode_group.addButton(btn, idx)
+            self.sub_mode_buttons[idx] = (btn, icon, key)
 
         sub_nav_layout.addStretch()
         layout.addWidget(sub_nav_container)
@@ -174,21 +176,20 @@ class AdvancedFilterWidget(QWidget):
         search_layout = QVBoxLayout(self.search_tab)
 
         s_row = QHBoxLayout()
-        s_row.addWidget(QLabel(self.tr("Search:")))
+        self.lbl_search_header = QLabel("")
+        s_row.addWidget(self.lbl_search_header)
         self.txt_smart_search = QLineEdit()
-        self.txt_smart_search.setPlaceholderText(self.tr("e.g. Amazon 2024 Invoice..."))
         self.txt_smart_search.returnPressed.connect(self._on_smart_search)
         s_row.addWidget(self.txt_smart_search)
 
-        btn_apply_search = QPushButton(self.tr("Go"))
-        btn_apply_search.clicked.connect(self._on_smart_search)
-        s_row.addWidget(btn_apply_search)
+        self.btn_apply_search = QPushButton("")
+        self.btn_apply_search.clicked.connect(self._on_smart_search)
+        s_row.addWidget(self.btn_apply_search)
         search_layout.addLayout(s_row)
 
         # Options & Status Row
         opt_layout = QHBoxLayout()
-        self.chk_search_scope = QCheckBox(self.tr("Search in current view only"))
-        self.chk_search_scope.setToolTip(self.tr("If checked, combines the search with the active filters from 'Filter View'."))
+        self.chk_search_scope = QCheckBox("")
         opt_layout.addWidget(self.chk_search_scope)
 
         opt_layout.addStretch()
@@ -208,19 +209,20 @@ class AdvancedFilterWidget(QWidget):
 
         # Top Bar (Management)
         top_bar = QHBoxLayout()
-        top_bar.addWidget(QLabel(self.tr("Select:")))
+        self.lbl_filter_select = QLabel("")
+        top_bar.addWidget(self.lbl_filter_select)
         self.combo_filters = QComboBox()
         self.combo_filters.currentIndexChanged.connect(self._on_saved_filter_selected)
         top_bar.addWidget(self.combo_filters, 1)
 
-        self.btn_revert = QPushButton(self.tr("Rev."))
+        self.btn_revert = QPushButton("")
         self.btn_revert.setToolTip(self.tr("Revert Changes"))
         self.btn_revert.setFixedWidth(45)
         self.btn_revert.setEnabled(False)
         self.btn_revert.clicked.connect(self.revert_changes)
         top_bar.addWidget(self.btn_revert)
 
-        self.btn_save = QPushButton(self.tr("Save"))
+        self.btn_save = QPushButton("")
         self.btn_save.setFixedWidth(55)
         self.btn_save.clicked.connect(self.save_current_filter)
         top_bar.addWidget(self.btn_save)
@@ -255,18 +257,18 @@ class AdvancedFilterWidget(QWidget):
 
         # Bottom Bar
         bottom_bar = QHBoxLayout()
-        self.btn_clear = QPushButton(self.tr("Clear All"))
+        self.btn_clear = QPushButton("")
         self.btn_clear.setEnabled(False) # Grey out if empty
         self.btn_clear.clicked.connect(lambda: self.clear_all(reset_combo=True))
         bottom_bar.addWidget(self.btn_clear)
         bottom_bar.addStretch()
 
-        self.btn_apply = QPushButton(self.tr("Apply Changes"))
+        self.btn_apply = QPushButton("")
         self.btn_apply.setEnabled(False)
         self.btn_apply.clicked.connect(self._emit_change)
         bottom_bar.addWidget(self.btn_apply)
 
-        self.chk_active = QCheckBox(self.tr("Filter Active"))
+        self.chk_active = QCheckBox("")
         self.chk_active.setChecked(True)
         self.chk_active.toggled.connect(self._on_active_toggled)
         bottom_bar.addWidget(self.chk_active)
@@ -284,44 +286,46 @@ class AdvancedFilterWidget(QWidget):
 
         # Top Bar (Management) - Harmonized with Filter View
         top_bar = QHBoxLayout()
-        top_bar.addWidget(QLabel(self.tr("Select:")))
+        self.lbl_rule_select = QLabel("")
+        top_bar.addWidget(self.lbl_rule_select)
         self.combo_rules = QComboBox()
         self.combo_rules.currentIndexChanged.connect(self._on_saved_rule_selected)
         top_bar.addWidget(self.combo_rules, 1)
 
-        self.btn_revert_rule = QPushButton(self.tr("Revert"))
+        self.btn_revert_rule = QPushButton("")
         self.btn_revert_rule.setEnabled(False)
         self.btn_revert_rule.clicked.connect(self.revert_rule_changes)
         top_bar.addWidget(self.btn_revert_rule)
 
-        self.btn_save_rule = QPushButton(self.tr("Save..."))
+        self.btn_save_rule = QPushButton("")
         self.btn_save_rule.clicked.connect(self._on_save_rule_clicked)
         top_bar.addWidget(self.btn_save_rule)
 
-        self.btn_manage_rules = QPushButton(self.tr("Manage"))
+        self.btn_manage_rules = QPushButton("")
         self.btn_manage_rules.clicked.connect(self.manage_rules)
         top_bar.addWidget(self.btn_manage_rules)
         rules_layout.addLayout(top_bar)
 
         # Metadata / Tagging Row
         meta_row = QHBoxLayout()
-        meta_row.addWidget(QLabel(self.tr("Add Tags:")))
+        self.lbl_tags_add = QLabel("")
+        meta_row.addWidget(self.lbl_tags_add)
 
         self.edit_tags_add = TagInputWidget()
-        self.edit_tags_add.setToolTip(self.tr("Enter tags to add. Press comma or Enter to confirm (e.g. INVOICE, TELEKOM)"))
         self.edit_tags_add.tagsChanged.connect(self._set_rule_dirty)
         meta_row.addWidget(self.edit_tags_add, 1)
 
-        meta_row.addWidget(QLabel(self.tr("Remove Tags:")))
+        self.lbl_tags_rem = QLabel("")
+        meta_row.addWidget(self.lbl_tags_rem)
         self.edit_tags_rem = TagInputWidget()
-        self.edit_tags_rem.setToolTip(self.tr("Enter tags to remove. Press comma or Enter to confirm (e.g. DRAFT, REVIEW)"))
         self.edit_tags_rem.tagsChanged.connect(self._set_rule_dirty)
         meta_row.addWidget(self.edit_tags_rem, 1)
         rules_layout.addLayout(meta_row)
 
         # Phase 126: Workflow Assignment Row
         wf_row = QHBoxLayout()
-        wf_row.addWidget(QLabel(self.tr("Assign Workflow:")))
+        self.lbl_assign_wf = QLabel("")
+        wf_row.addWidget(self.lbl_assign_wf)
         self.combo_assign_wf = QComboBox()
         self.combo_assign_wf.currentIndexChanged.connect(self._set_rule_dirty)
         wf_row.addWidget(self.combo_assign_wf, 1)
@@ -343,38 +347,36 @@ class AdvancedFilterWidget(QWidget):
 
         # Bottom Bar (Processing)
         bottom_bar = QHBoxLayout()
-        self.btn_clear_rule = QPushButton(self.tr("Clear All"))
+        self.btn_clear_rule = QPushButton("")
         self.btn_clear_rule.setEnabled(False)
         self.btn_clear_rule.clicked.connect(self.clear_rule)
         bottom_bar.addWidget(self.btn_clear_rule)
 
         bottom_bar.addStretch()
 
-        self.btn_create_view = QPushButton(self.tr("Create View-filter"))
+        self.btn_create_view = QPushButton("")
         self.btn_create_view.setEnabled(False)
-        self.btn_create_view.setToolTip(self.tr("Create a search-view that filters for the tags this rule adds"))
         self.btn_create_view.clicked.connect(self.create_view_filter_from_rule)
         bottom_bar.addWidget(self.btn_create_view)
 
-        self.btn_apply_view = QPushButton(self.tr("Apply to View"))
+        self.btn_apply_view = QPushButton("")
         self.btn_apply_view.setEnabled(False)
         self.btn_apply_view.clicked.connect(self._on_apply_rule_to_view)
         bottom_bar.addWidget(self.btn_apply_view)
 
-        self.btn_apply_all = QPushButton(self.tr("Apply to all"))
+        self.btn_apply_all = QPushButton("")
         self.btn_apply_all.setStyleSheet("font-weight: bold; background-color: #f1f8e9;")
         self.btn_apply_all.setEnabled(False)
         self.btn_apply_all.clicked.connect(self._on_batch_run_clicked)
         bottom_bar.addWidget(self.btn_apply_all)
 
-        self.chk_rule_enabled = QCheckBox(self.tr("Active"))
+        self.chk_rule_enabled = QCheckBox("")
         self.chk_rule_enabled.setChecked(True)
         self.chk_rule_enabled.toggled.connect(self._set_rule_dirty)
         bottom_bar.addWidget(self.chk_rule_enabled)
 
-        self.chk_rule_auto = QCheckBox(self.tr("Run on Import"))
+        self.chk_rule_auto = QCheckBox("")
         self.chk_rule_auto.setChecked(True)
-        self.chk_rule_auto.setToolTip(self.tr("Automatically apply this rule to new documents during import/analysis"))
         self.chk_rule_auto.toggled.connect(self._set_rule_dirty)
         bottom_bar.addWidget(self.chk_rule_auto)
 
@@ -1251,3 +1253,57 @@ class AdvancedFilterWidget(QWidget):
     def _persist(self):
         # Tree persistence managed by MainWindow for now
         pass
+
+    def changeEvent(self, event):
+        """Handle language change events."""
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        """Updates all UI strings for on-the-fly localization."""
+        # Modes
+        for idx, (btn, icon, key) in self.sub_mode_buttons.items():
+             btn.setText(f"{icon} {self.tr(key)}")
+        
+        # Search Tab
+        self.lbl_search_header.setText(self.tr("Search:"))
+        self.txt_smart_search.setPlaceholderText(self.tr("e.g. Amazon 2024 Invoice..."))
+        self.btn_apply_search.setText(self.tr("Go"))
+        self.chk_search_scope.setText(self.tr("Search in current view only"))
+        self.chk_search_scope.setToolTip(self.tr("If checked, combines the search with the active filters from 'Filter View'."))
+        
+        # Filter Tab
+        self.lbl_filter_select.setText(self.tr("Select:"))
+        self.btn_revert.setText(self.tr("Rev."))
+        self.btn_revert.setToolTip(self.tr("Revert Changes"))
+        self.btn_save.setText(self.tr("Save"))
+        self.btn_export.setToolTip(self.tr("Export filter"))
+        self.btn_manage.setToolTip(self.tr("Manage Filters"))
+        self.btn_clear.setText(self.tr("Clear All"))
+        self.btn_apply.setText(self.tr("Apply Changes"))
+        self.chk_active.setText(self.tr("Filter Active"))
+
+        # Rules Tab
+        self.lbl_rule_select.setText(self.tr("Select:"))
+        self.btn_revert_rule.setText(self.tr("Revert"))
+        self.btn_save_rule.setText(self.tr("Save..."))
+        self.btn_manage_rules.setText(self.tr("Manage"))
+        self.lbl_tags_add.setText(self.tr("Add Tags:"))
+        self.lbl_tags_rem.setText(self.tr("Remove Tags:"))
+        self.edit_tags_add.setToolTip(self.tr("Enter tags to add. Press comma or Enter to confirm (e.g. INVOICE, TELEKOM)"))
+        self.edit_tags_rem.setToolTip(self.tr("Enter tags to remove. Press comma or Enter to confirm (e.g. DRAFT, REVIEW)"))
+        self.lbl_assign_wf.setText(self.tr("Assign Workflow:"))
+        self.btn_clear_rule.setText(self.tr("Clear All"))
+        self.btn_create_view.setText(self.tr("Create View-filter"))
+        self.btn_create_view.setToolTip(self.tr("Create a search-view that filters for the tags this rule adds"))
+        self.btn_apply_view.setText(self.tr("Apply to View"))
+        self.btn_apply_all.setText(self.tr("Apply to all"))
+        self.chk_rule_enabled.setText(self.tr("Active"))
+        self.chk_rule_auto.setText(self.tr("Run on Import"))
+        self.chk_rule_auto.setToolTip(self.tr("Automatically apply this rule to new documents during import/analysis"))
+
+        # Re-populate combos that have static "Select" headers
+        self.load_known_filters()
+        self._load_rules_to_combo()
+        self._populate_wf_combo()

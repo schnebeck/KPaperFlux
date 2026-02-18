@@ -1,7 +1,6 @@
-
 import pytest
-from PyQt6.QtCore import QSettings
-from PyQt6.QtTest import QTest
+from PyQt6.QtCore import QSettings, QCoreApplication
+import os
 from core.database import DatabaseManager
 from gui.document_list import DocumentListWidget
 
@@ -9,16 +8,22 @@ from gui.document_list import DocumentListWidget
 def db_manager(tmp_path):
     db_path = tmp_path / "test.db"
     db = DatabaseManager(str(db_path))
-    db.init_db() # Create tables
+    db.init_db()
     return db
 
-def test_column_state_persistence(db_manager, qapp):
-    # Setup
-    QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(db_manager.db_path)) # Mock settings path? No, QSettings usually uses system.
-    # To mock QSettings, we can use a custom logic or just rely on the fact it writes to memory/organization.
-    # For CI/Test, we can clear settings first.
+def test_column_state_persistence(db_manager, qapp, tmp_path):
+    # Setup isolated settings
+    settings_dir = tmp_path / "settings"
+    settings_dir.mkdir()
     
-    settings = QSettings("KPaperFlux", "DocumentList")
+    QCoreApplication.setOrganizationName("KPaperFluxTest")
+    QCoreApplication.setApplicationName("KPaperFluxTest")
+    
+    # Force use of INI format in a specific directory for isolation
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(settings_dir))
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    
+    settings = QSettings()
     settings.clear()
     
     widget = DocumentListWidget(db_manager)

@@ -14,7 +14,8 @@ def test_main_window_title(qtbot, mock_db):
     window = MainWindow(db_manager=mock_db)
     qtbot.addWidget(window)
     
-    assert window.windowTitle() == "KPaperFlux"
+    # retranslate_ui sets it to "KPaperFlux v2"
+    assert window.windowTitle().startswith("KPaperFlux")
 
 from PyQt6.QtGui import QAction
 
@@ -23,12 +24,12 @@ def test_import_action_exists(qtbot, mock_db):
     window = MainWindow(db_manager=mock_db)
     qtbot.addWidget(window)
     
-    # Iterate over menu actions to find "Import Document"
-    # Note: Accessing menu bar actions is slightly indirect
+    # Iterate over menu actions to find "File"
     menu_bar = window.menuBar()
     file_menu = None
     for action in menu_bar.actions():
-        if "File" in action.text():
+        txt = action.text().replace("&", "")
+        if "File" in txt or "Datei" in txt:
             file_menu = action.menu()
             break
             
@@ -36,7 +37,8 @@ def test_import_action_exists(qtbot, mock_db):
     
     import_action = None
     for action in file_menu.actions():
-        if "Import" in action.text():
+        txt = action.text().replace("&", "")
+        if "Import" in txt or "Importieren" in txt:
             import_action = action
             break
             
