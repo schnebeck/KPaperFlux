@@ -23,12 +23,12 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="392" />
             <source>--- No Change ---</source>
-            <translation>--- &amp;Keine Änderung ---</translation>
+            <translation>--- Keine Änderung ---</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="402" />
             <source>--- Saved Rule ---</source>
-            <translation>--- &amp;Gespeicherte Regel ---</translation>
+            <translation>--- Gespeicherte Regel ---</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1298" />
@@ -40,13 +40,13 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="519" />
             <source>No 'Add Tags' defined. Cannot create a filter for nothing.</source>
-            <translation>Keine '&amp;Tags hinzufügen' definiert. Kann keinen Filter erstellen.</translation>
+            <translation>Keine 'Tags hinzufügen' definiert. Kann keinen Filter erstellen.</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1125" />
             <location filename="../../../gui/advanced_filter.py" line="527" />
             <source>Filter Name:</source>
-            <translation>Filte&amp;rname:</translation>
+            <translation>Filtername:</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="555" />
@@ -56,17 +56,17 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="556" />
             <source>A new view filter '%s' has been created in the 'Views' folder.</source>
-            <translation>Ei&amp;n neuer Ansichtsfilter '%s' wurde im Ordner 'Ansichten' erstellt.</translation>
+            <translation>Ein neuer Ansichtsfilter '%s' wurde im Ordner 'Ansichten' erstellt.</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="566" />
             <source>Save Rule</source>
-            <translation>Regel &amp;speichern</translation>
+            <translation>&amp;Regel speichern</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="566" />
             <source>Rule Name:</source>
-            <translation>Regelna&amp;me:</translation>
+            <translation>Regelname:</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="615" />
@@ -76,47 +76,47 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="616" />
             <source>Are you sure you want to delete this rule?</source>
-            <translation>Sin&amp;d Sie sicher, dass Sie diese Regel löschen möchten?</translation>
+            <translation>Sind Sie sicher, dass Sie diese Regel löschen möchten?</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="644" />
             <source>Apply to ALL documents</source>
-            <translation>Auf ALLE Dokumente an&amp;wenden</translation>
+            <translation>Auf ALLE &amp;Dokumente anwenden</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="648" />
             <source>Apply to current List View (Filtered)</source>
-            <translation>Auf aktuelle Listenansi&amp;cht anwenden</translation>
+            <translation>Auf aktuelle Listenansicht anwenden</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="652" />
             <source>Apply to SELECTED documents only</source>
-            <translation>Nur auf AUSGEWÄ&amp;HLTE Dokumente anwenden</translation>
+            <translation>Nur auf AUSGEWÄHLTE Dokumente anwenden</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="665" />
             <source>all documents</source>
-            <translation>alle D&amp;okumente</translation>
+            <translation>alle Do&amp;kumente</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="665" />
             <source>%d selected/filtered documents</source>
-            <translation>%d a&amp;usgewählte/gefilterte Dokumente</translation>
+            <translation>%d au&amp;sgewählte/gefilterte Dokumente</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="667" />
             <source>Apply Rule</source>
-            <translation>Regel anwenden</translation>
+            <translation>Re&amp;gel anwenden</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="668" />
             <source>Apply rule '%s' to %s? This cannot be undone automatically.</source>
-            <translation>Regel '%s' auf %s anwenden? Dies kann nicht automatisch r&amp;ückgängig gemacht werden.</translation>
+            <translation>Regel '%s' auf %s anwenden? Dies kann nicht automatisch rückgängig gemacht werden.</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="673" />
             <source>Applying rule...</source>
-            <translation>Regel w&amp;ird angewendet...</translation>
+            <translation>Regel wird angewendet...</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="673" />
@@ -126,7 +126,7 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="686" />
             <source>Complete</source>
-            <translation>Abgeschlossen</translation>
+            <translation>Abges&amp;chlossen</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="687" />
@@ -136,7 +136,7 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="736" />
             <source>Search string too short (min 3 chars)</source>
-            <translation>Suchbegriff &amp;zu kurz (min. 3 Zeichen)</translation>
+            <translation>Suchbegriff zu kurz (min. 3 Zeichen)</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="740" />
@@ -146,17 +146,17 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="773" />
             <source>in all documents</source>
-            <translation>in allen Dokumenten</translation>
+            <translation>&amp;in allen Dokumenten</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="783" />
             <source>in current view</source>
-            <translation>in aktueller Ansicht</translation>
+            <translation>i&amp;n aktueller Ansicht</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="962" />
             <source>--- Saved Filter ---</source>
-            <translation>--- Ges&amp;p. Filter ---</translation>
+            <translation>--- Gesp. Filter ---</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="989" />
@@ -167,7 +167,7 @@
             <location filename="../../../gui/advanced_filter.py" line="1125" />
             <location filename="../../../gui/advanced_filter.py" line="1118" />
             <source>Save Filter</source>
-            <translation>Filter speichern</translation>
+            <translation>Fil&amp;ter speichern</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1118" />
@@ -188,12 +188,12 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1184" />
             <source>Export Successful</source>
-            <translation>Export erfolgreich</translation>
+            <translation>Ex&amp;port erfolgreich</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1184" />
             <source>Filter exported to %s</source>
-            <translation>Filter exportiert nach %s</translation>
+            <translation>Filter exportiert nac&amp;h %s</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1186" />
@@ -203,7 +203,7 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1210" />
             <source>Filter Imported</source>
-            <translation>Filter importiert</translation>
+            <translation>Filter i&amp;mportiert</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1210" />
@@ -213,12 +213,12 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1213" />
             <source>Import Failed</source>
-            <translation>Import fehlgeschlagen</translation>
+            <translation>Imp&amp;ort fehlgeschlagen</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1213" />
             <source>File is of type '%s', expected 'smart_list'.</source>
-            <translation>Datei ist T&amp;yp '%s', erwartet 'smart_list'.</translation>
+            <translation>Datei ist Typ '%s', erwartet 'smart_list'.</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1241" />
@@ -238,7 +238,7 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1271" />
             <source>e.g. Amazon 2024 Invoice...</source>
-            <translation>z.B. Amazon &amp;2024 Rechnung...</translation>
+            <translation>z.B. Amazon 2024 Rechnung...</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1272" />
@@ -248,7 +248,7 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1273" />
             <source>Search in current view only</source>
-            <translation>Nur in aktueller Ansicht suchen</translation>
+            <translation>N&amp;ur in aktueller Ansicht suchen</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1274" />
@@ -280,7 +280,7 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1284" />
             <source>Apply Changes</source>
-            <translation>Änderungen anwenden</translation>
+            <translation>Änderungen an&amp;wenden</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1285" />
@@ -350,7 +350,7 @@
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1303" />
             <source>Run on Import</source>
-            <translation>Bei Import ausführen</translation>
+            <translation>Bei Import ausf&amp;ühren</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1304" />
@@ -364,7 +364,7 @@
             <location filename="../../../gui/audit_window.py" line="132" />
             <location filename="../../../gui/audit_window.py" line="34" />
             <source>KPaperFlux - Audit &amp; Verification</source>
-            <translation>&amp;KPaperFlux - Prüfung  Verifizierung</translation>
+            <translation>KPaperFlux - Prüfung  Verifizierung</translation>
         </message>
         <message>
             <location filename="../../../gui/audit_window.py" line="133" />
@@ -375,7 +375,7 @@
             <location filename="../../../gui/audit_window.py" line="147" />
             <location filename="../../../gui/audit_window.py" line="135" />
             <source>No document selected.</source>
-            <translation>Kein &amp;Dokument ausgewählt.</translation>
+            <translation>Kein Dokument ausgewählt.</translation>
         </message>
     </context>
     <context>
@@ -393,17 +393,17 @@
         <message>
             <location filename="../../../gui/batch_tag_dialog.py" line="29" />
             <source>&lt;b&gt;Checked Tags:&lt;/b&gt; Will be present on ALL selected documents (Merged).&lt;br&gt;&lt;b&gt;Unchecked Tags:&lt;/b&gt; Will be REMOVED from ALL selected documents (if they were common).&lt;br&gt;&lt;i&gt;Individual unique tags on specific documents are preserved unless forced removed.&lt;/i&gt;</source>
-            <translation>&lt;&amp;b&gt;Aktivierte Tags:&lt;/b&gt; Werden auf ALLEN gewählten Dokumenten gesetzt.&lt;br&gt;&lt;b&gt;Deaktivierte Tags:&lt;/b&gt; Werden von ALLEN gewählten Dokumenten ENTFERNT.&lt;br&gt;&lt;i&gt;Individuelle Tags bleiben erhalten, sofern nicht 'Gemischte entfernen' aktiv ist.&lt;/i&gt;</translation>
+            <translation>&lt;b&gt;Aktivierte Tags:&lt;/b&gt; Werden auf ALLEN gewählten Dokumenten gesetzt.&lt;br&gt;&lt;b&gt;Deaktivierte Tags:&lt;/b&gt; Werden von ALLEN gewählten Dokumenten ENTFERNT.&lt;br&gt;&lt;i&gt;Individuelle Tags bleiben erhalten, sofern nicht 'Gemischte entfernen' aktiv ist.&lt;/i&gt;</translation>
         </message>
         <message>
             <location filename="../../../gui/batch_tag_dialog.py" line="45" />
             <source>Common Tags:</source>
-            <translation>&amp;Gemeinsame Tags:</translation>
+            <translation>Gemeinsame Tags:</translation>
         </message>
         <message>
             <location filename="../../../gui/batch_tag_dialog.py" line="51" />
             <source>Force Remove Mixed:</source>
-            <translation>G&amp;emischte entfernen:</translation>
+            <translation>Gemischte entfernen:</translation>
         </message>
     </context>
     <context>
@@ -416,7 +416,7 @@
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="19" />
             <source>Display Title:</source>
-            <translation>&amp;Anzeigename:</translation>
+            <translation>Anzeigename:</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="21" />
@@ -426,12 +426,12 @@
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="25" />
             <source>Linked Filter Rule:</source>
-            <translation>&amp;Verknüpfte Filter-Regel:</translation>
+            <translation>Verknüpfte Filter-Regel:</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="34" />
             <source>--- Choose Filter ---</source>
-            <translation>--- &amp;Filter wählen ---</translation>
+            <translation>--- Filter wählen ---</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="35" />
@@ -446,12 +446,12 @@
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="37" />
             <source>Processed Documents</source>
-            <translation>Ve&amp;rarbeitete Dokumente</translation>
+            <translation>&amp;Verarbeitete Dokumente</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="38" />
             <source>Urgent Workflows</source>
-            <translation>Dri&amp;ngende Abläufe</translation>
+            <translation>Dringende &amp;Abläufe</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="39" />
@@ -461,17 +461,17 @@
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="55" />
             <source>Filter: %s</source>
-            <translation>Fil&amp;ter: %s</translation>
+            <translation>&amp;Filter: %s</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="63" />
             <source>Aggregation Mode:</source>
-            <translation>&amp;Berechnungs-Modus:</translation>
+            <translation>Berechnungs-Modus:</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="65" />
             <source>Count documents</source>
-            <translation>Anza&amp;hl Dokumente</translation>
+            <translation>A&amp;nzahl Dokumente</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="66" />
@@ -481,12 +481,12 @@
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="74" />
             <source>Color Theme:</source>
-            <translation>Farb-The&amp;ma:</translation>
+            <translation>Farb-Thema:</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="75" />
             <source>Choose Color...</source>
-            <translation>Farbe &amp;wählen...</translation>
+            <translation>Farbe wählen...</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="85" />
@@ -496,12 +496,12 @@
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="88" />
             <source>Cancel</source>
-            <translation>Abbre&amp;chen</translation>
+            <translation>A&amp;bbrechen</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="111" />
             <source>Filter:</source>
-            <translation>Fi&amp;lter:</translation>
+            <translation>Filter:</translation>
         </message>
     </context>
     <context>
@@ -543,17 +543,17 @@
         <message>
             <location filename="../../../gui/cockpit.py" line="501" />
             <source>Unlock Layout (Enable Dragging)</source>
-            <translation>&amp;Layout entsperren (Verschieben erlauben)</translation>
+            <translation>Layout entsperren (Verschieben erlauben)</translation>
         </message>
         <message>
             <location filename="../../../gui/cockpit.py" line="501" />
             <source>Lock Layout (Prevent Dragging)</source>
-            <translation>Layout &amp;sperren (Verschieben verhindern)</translation>
+            <translation>&amp;Layout sperren (Verschieben verhindern)</translation>
         </message>
         <message>
             <location filename="../../../gui/cockpit.py" line="507" />
             <source>Add New Filter View...</source>
-            <translation>&amp;Neue Filter-Ansicht hinzufügen...</translation>
+            <translation>Neue Filter-Ansicht hinzufügen...</translation>
         </message>
         <message>
             <location filename="../../../gui/cockpit.py" line="542" />
@@ -563,7 +563,7 @@
         <message>
             <location filename="../../../gui/cockpit.py" line="542" />
             <source>New Title:</source>
-            <translation>Neuer &amp;Titel:</translation>
+            <translation>Neuer Titel:</translation>
         </message>
     </context>
     <context>
@@ -959,7 +959,7 @@
         <message>
             <location filename="../../../gui/document_list.py" line="1284" />
             <source>Digital Original (ZUGFeRD/Factur-X)</source>
-            <translation>Digitales Original (ZUG&amp;FeRD)</translation>
+            <translation>Digitales Original (ZUGFeRD)</translation>
         </message>
         <message>
             <location filename="../../../gui/document_list.py" line="1285" />
@@ -1083,12 +1083,12 @@
         <message>
             <location filename="../../../gui/export_dialog.py" line="53" />
             <source>Include PDF files (in 'documents/' folder)</source>
-            <translation>&amp;PDF-Dateien einschließen</translation>
+            <translation>PDF-Dateien einschließen</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="57" />
             <source>Export as single MERGED PDF file</source>
-            <translation>&amp;Als zusammengeführte PDF exportieren</translation>
+            <translation>Als zusammengeführte PDF exportieren</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="154" />
@@ -1099,7 +1099,7 @@
         <message>
             <location filename="../../../gui/export_dialog.py" line="66" />
             <source>Browse...</source>
-            <translation>Du&amp;rchsuchen...</translation>
+            <translation>Durchsuchen...</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="82" />
@@ -1124,7 +1124,7 @@
         <message>
             <location filename="../../../gui/export_dialog.py" line="105" />
             <source>PDF Document (*.pdf)</source>
-            <translation>PD&amp;F Dokument (*.pdf)</translation>
+            <translation>&amp;PDF Dokument (*.pdf)</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="107" />
@@ -1134,22 +1134,22 @@
         <message>
             <location filename="../../../gui/export_dialog.py" line="109" />
             <source>ZIP Archive (*.zip)</source>
-            <translation>ZIP Ar&amp;chiv (*.zip)</translation>
+            <translation>ZIP &amp;Archiv (*.zip)</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="143" />
             <source>Success</source>
-            <translation>Erfol&amp;g</translation>
+            <translation>E&amp;rfolg</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="143" />
             <source>Export completed successfully.</source>
-            <translation>Expor&amp;t erfolgreich abgeschlossen.</translation>
+            <translation>Export erfolgreich abgeschlossen.</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="146" />
             <source>Error</source>
-            <translation>Fe&amp;hler</translation>
+            <translation>&amp;Fehler</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="167" />
@@ -1236,7 +1236,7 @@
         <message>
             <location filename="../../../gui/filter_widget.py" line="30" />
             <source>Search:</source>
-            <translation>&amp;Suche:</translation>
+            <translation>Suche:</translation>
         </message>
         <message>
             <location filename="../../../gui/filter_widget.py" line="33" />
@@ -1281,7 +1281,7 @@
         <message>
             <location filename="../../../gui/filter_widget.py" line="85" />
             <source>Tags:</source>
-            <translation>&amp;Tags:</translation>
+            <translation>Tags:</translation>
         </message>
         <message>
             <location filename="../../../gui/filter_widget.py" line="87" />
@@ -1304,12 +1304,12 @@
         <message>
             <location filename="../../../plugins/hybrid_assembler/plugin.py" line="25" />
             <source>Assembles hybrid PDFs from native and scanned versions.</source>
-            <translation>&amp;Erstellt Hybrid-PDFs aus Scans und nativen Versionen.</translation>
+            <translation>Erstellt Hybrid-PDFs aus Scans und nativen Versionen.</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/plugin.py" line="29" />
             <source>Assemble Hybrid PDFs...</source>
-            <translation>H&amp;ybrid-PDFs erstellen...</translation>
+            <translation>Hybrid-PDFs erstellen...</translation>
         </message>
     </context>
     <context>
@@ -1359,12 +1359,12 @@
         <message>
             <location filename="../../../gui/main_window.py" line="749" />
             <source>Docs: %s/%s</source>
-            <translation>Dok&amp;s: %s/%s</translation>
+            <translation>D&amp;oks: %s/%s</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="853" />
             <source>Info</source>
-            <translation>&amp;Info</translation>
+            <translation>In&amp;fo</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="853" />
@@ -1434,7 +1434,7 @@
             <location filename="../../../gui/main_window.py" line="1329" />
             <location filename="../../../gui/main_window.py" line="1203" />
             <source>Error</source>
-            <translation>&amp;Fehler</translation>
+            <translation>Fehler</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1207" />
@@ -1450,14 +1450,14 @@
             <location filename="../../../gui/main_window.py" line="2313" />
             <location filename="../../../gui/main_window.py" line="1211" />
             <source>Import from Transfer</source>
-            <translation>Aus Tra&amp;nsfer importieren</translation>
+            <translation>Aus Transfer i&amp;mportieren</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1282" />
             <location filename="../../../gui/main_window.py" line="1240" />
             <location filename="../../../gui/main_window.py" line="1225" />
             <source>Semantic Data</source>
-            <translation>Se&amp;mantische Daten</translation>
+            <translation>Semantische Daten</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1225" />
@@ -1488,7 +1488,7 @@
             <location filename="../../../gui/main_window.py" line="2348" />
             <location filename="../../../gui/main_window.py" line="1286" />
             <source>Process empty Documents</source>
-            <translation>&amp;Leere Dokumente verarbeiten</translation>
+            <translation>Leere Dokumente &amp;verarbeiten</translation>
         </message>
         <message numerus="yes">
             <location filename="../../../gui/main_window.py" line="1306" />
@@ -1577,7 +1577,7 @@
         <message>
             <location filename="../../../gui/main_window.py" line="1499" />
             <source>OK</source>
-            <translation>&amp;OK</translation>
+            <translation>OK</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1520" />
@@ -1645,7 +1645,7 @@
         <message>
             <location filename="../../../gui/main_window.py" line="1855" />
             <source>Restored</source>
-            <translation>&amp;Wiederhergestellt</translation>
+            <translation>Wiederhergestellt</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1861" />
@@ -1707,7 +1707,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2312" />
             <source>&amp;Import Document</source>
-            <translation>Dokument im&amp;portieren</translation>
+            <translation>Dokument &amp;importieren</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2314" />
@@ -1722,7 +1722,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2316" />
             <source>&amp;Delete Selected</source>
-            <translation>Auswahl l&amp;öschen</translation>
+            <translation>Auswahl &amp;löschen</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2317" />
@@ -1742,7 +1742,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2321" />
             <source>&amp;Refresh List</source>
-            <translation>Liste neu laden</translation>
+            <translation>Liste &amp;neu laden</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2322" />
@@ -1752,17 +1752,17 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2323" />
             <source>Filter Panel</source>
-            <translation>Filter-Panel</translation>
+            <translation>Filter-&amp;Panel</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2325" />
             <source>&amp;Maintenance</source>
-            <translation>Wartung</translation>
+            <translation>&amp;Wartung</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2326" />
             <source>Check Integrity (Orphans/Ghosts)</source>
-            <translation>Integrit&amp;ät prüfen (Waisen/Geister)</translation>
+            <translation>Integrität prüfen (Waisen/Geister)</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2327" />
@@ -1772,7 +1772,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2328" />
             <source>Manage Tags</source>
-            <translation>Tags &amp;verwalten</translation>
+            <translation>Tags verwalten</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2330" />
@@ -1782,7 +1782,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2331" />
             <source>Purge All Data (Reset)</source>
-            <translation>Alle Daten löschen (Reset)</translation>
+            <translation>Alle Daten l&amp;öschen (Reset)</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2332" />
@@ -1832,7 +1832,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2344" />
             <source>&amp;Semantic Data</source>
-            <translation>Semantische Daten</translation>
+            <translation>&amp;Semantische Daten</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2345" />
@@ -1882,7 +1882,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2358" />
             <source>Workflows</source>
-            <translation>Abläufe</translation>
+            <translation>Abl&amp;äufe</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2359" />
@@ -2007,22 +2007,22 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="232" />
             <source>&lt;b&gt;Hybrid Matching-Dialog&lt;/b&gt;&lt;br&gt;Finds pairs of scanned and native PDFs in a folder to merge them.</source>
-            <translation>&lt;&amp;b&gt;Hybrid Vergleich&lt;/b&gt;&lt;br&gt;Findet Scans und native PDFs in einem Ordner zum Zusammenführen.</translation>
+            <translation>&lt;b&gt;Hybrid Vergleich&lt;/b&gt;&lt;br&gt;Findet Scans und native PDFs in einem Ordner zum Zusammenführen.</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="238" />
             <source>No folder selected.</source>
-            <translation>&amp;Kein Ordner gewählt.</translation>
+            <translation>Kein Ordner gewählt.</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="239" />
             <source>Browse Folder...</source>
-            <translation>&amp;Ordner wählen...</translation>
+            <translation>Ordner wählen...</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="247" />
             <source>Delete original files after successful merge</source>
-            <translation>Origi&amp;naldateien nach Merge löschen</translation>
+            <translation>Originaldateien nach Merge löschen</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="262" />
@@ -2032,28 +2032,28 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="262" />
             <source>Best Native Match</source>
-            <translation>Bes&amp;ter nativer Treffer</translation>
+            <translation>&amp;Bester nativer Treffer</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="262" />
             <source>Status</source>
-            <translation type="unfinished">St&amp;atus</translation>
+            <translation type="unfinished">S&amp;tatus</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="262" />
             <source>Actions</source>
-            <translation>Aktion&amp;en</translation>
+            <translation>&amp;Aktionen</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="424" />
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="271" />
             <source>Start Analysis</source>
-            <translation>Anal&amp;yse starten</translation>
+            <translation>A&amp;nalyse starten</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="272" />
             <source>Start scanning folder or process results</source>
-            <translation>Ordner scannen oder Ergebnisse &amp;verarbeiten</translation>
+            <translation>Ordner scannen oder Ergebnisse verarbeiten</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="278" />
@@ -2074,7 +2074,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="327" />
             <source>Analysis complete. Found %1 potential scans.</source>
-            <translation>Analyse ferti&amp;g. %1 Scans gefunden.</translation>
+            <translation>Analyse fertig. %1 Scans gefunden.</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="342" />
@@ -2094,7 +2094,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="363" />
             <source>Mismatch</source>
-            <translation>Ke&amp;in Treffer</translation>
+            <translation>&amp;Kein Treffer</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="376" />
@@ -2109,7 +2109,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="385" />
             <source>Imported ✓</source>
-            <translation>I&amp;mportiert ✓</translation>
+            <translation>&amp;Importiert ✓</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="389" />
@@ -2119,27 +2119,27 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="391" />
             <source>Side-by-side comparison and verification</source>
-            <translation>Vergleich un&amp;d Verifizierung</translation>
+            <translation>Vergleich und Verifizierung</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="394" />
             <source>Merge</source>
-            <translation>Merge</translation>
+            <translation>&amp;Merge</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="408" />
             <source>Analyzing...</source>
-            <translation>Ana&amp;lysiere...</translation>
+            <translation>Analysiere...</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="416" />
             <source>Merge Matched</source>
-            <translation>Treffer zusammenf&amp;ühren</translation>
+            <translation>Tr&amp;effer zusammenführen</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="420" />
             <source>Import Merged</source>
-            <translation>Hybrid-PDFs importieren</translation>
+            <translation>H&amp;ybrid-PDFs importieren</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="487" />
@@ -2149,7 +2149,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="501" />
             <source>Batch Merge</source>
-            <translation>Sammel-Merge</translation>
+            <translation>Sammel-Mer&amp;ge</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="501" />
@@ -2159,7 +2159,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="506" />
             <source>Select Output Folder for Hybrid PDFs</source>
-            <translation>Zielordner für Hybrid-PDFs &amp;wählen</translation>
+            <translation>Zielordner für Hybrid-PDFs wählen</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="525" />
@@ -2169,7 +2169,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="540" />
             <source>Merge success: %1</source>
-            <translation>Merge erfolgreich: %1</translation>
+            <translation>Merge erf&amp;olgreich: %1</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="547" />
@@ -2179,7 +2179,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="554" />
             <source>Success</source>
-            <translation>Erfolg</translation>
+            <translation>Erfo&amp;lg</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="554" />
@@ -2251,32 +2251,32 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="203" />
             <source>UUID:</source>
-            <translation>&amp;UUID:</translation>
+            <translation>UUID:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="204" />
             <source>Created At:</source>
-            <translation>&amp;Erstellt am:</translation>
+            <translation>Erstellt am:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="205" />
             <source>Pages:</source>
-            <translation>&amp;Seiten:</translation>
+            <translation>Seiten:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="206" />
             <source>Status:</source>
-            <translation>S&amp;tatus:</translation>
+            <translation>Status:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="207" />
             <source>Export Name:</source>
-            <translation>E&amp;xportname:</translation>
+            <translation>Exportname:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="208" />
             <source>Tags:</source>
-            <translation>T&amp;ags:</translation>
+            <translation>Tags:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="209" />
@@ -2286,17 +2286,17 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="210" />
             <source>Archived</source>
-            <translation>A&amp;rchiviert</translation>
+            <translation>&amp;Archiviert</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="211" />
             <source>Storage Location:</source>
-            <translation>&amp;Lagerort:</translation>
+            <translation>Lagerort:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="224" />
             <source>Document Types:</source>
-            <translation>&amp;Dokumenttypen:</translation>
+            <translation>Dokumenttypen:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="225" />
@@ -2306,7 +2306,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="226" />
             <source>Tenant Context:</source>
-            <translation>&amp;Mandantenkontext:</translation>
+            <translation>Mandantenkontext:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="227" />
@@ -2316,7 +2316,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="228" />
             <source>Sender:</source>
-            <translation>A&amp;bsender:</translation>
+            <translation>Absender:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="229" />
@@ -2326,7 +2326,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="251" />
             <source>Recipient:</source>
-            <translation>Emp&amp;fänger:</translation>
+            <translation>Empfänger:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="252" />
@@ -2346,47 +2346,47 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="255" />
             <source>Purpose:</source>
-            <translation>&amp;Verwendungszweck:</translation>
+            <translation>Verwendungszweck:</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="256" />
             <source>GiroCode (EPC)</source>
-            <translation>Giro&amp;Code (EPC)</translation>
+            <translation>GiroCod&amp;e (EPC)</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="257" />
             <source>Standardized QR code for SEPA transfers (EPC-QR).</source>
-            <translation>Standardiesierter &amp;QR-Code für SEPA-Überweisungen.</translation>
+            <translation>Standardiesierter QR-Code für SEPA-Überweisungen.</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="258" />
             <source>Copy Payload</source>
-            <translation>Date&amp;n kopieren</translation>
+            <translation>&amp;Daten kopieren</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="259" />
             <source>Copy the raw GiroCode data for banking apps</source>
-            <translation>Ra&amp;w-GiroCode-Daten kopieren</translation>
+            <translation>Raw-GiroCode-Daten kopieren</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="263" />
             <source>Type</source>
-            <translation>T&amp;yp</translation>
+            <translation>&amp;Typ</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="263" />
             <source>Text</source>
-            <translation>Text</translation>
+            <translation>Te&amp;xt</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="263" />
             <source>Page</source>
-            <translation>Se&amp;ite</translation>
+            <translation>&amp;Seite</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="263" />
             <source>Confidence</source>
-            <translation>Konfiden&amp;z</translation>
+            <translation>Ko&amp;nfidenz</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="265" />
@@ -2397,17 +2397,17 @@ Are you completely sure you want to reset the system?</source>
             <location filename="../../../gui/metadata_editor.py" line="273" />
             <location filename="../../../gui/metadata_editor.py" line="266" />
             <source>Remove Selected</source>
-            <translation>Auswa&amp;hl entfernen</translation>
+            <translation>Aus&amp;wahl entfernen</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="270" />
             <source>Section</source>
-            <translation>Kateg&amp;orie</translation>
+            <translation>Katego&amp;rie</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="270" />
             <source>Field</source>
-            <translation>Feld</translation>
+            <translation>&amp;Feld</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="270" />
@@ -2417,42 +2417,42 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="272" />
             <source>Add Entry</source>
-            <translation>Eintrag hinzuf&amp;ügen</translation>
+            <translation>Eintrag &amp;hinzufügen</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="277" />
             <source>Time</source>
-            <translation>Zeit</translation>
+            <translation>&amp;Zeit</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="277" />
             <source>Action</source>
-            <translation>Aktion</translation>
+            <translation>Akti&amp;on</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="277" />
             <source>User</source>
-            <translation>Benutzer</translation>
+            <translation>&amp;Benutzer</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="277" />
             <source>Comment</source>
-            <translation>Kommentar</translation>
+            <translation>Ko&amp;mmentar</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="281" />
             <source>General</source>
-            <translation>Allgemein</translation>
+            <translation>A&amp;llgemein</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="282" />
             <source>Analysis</source>
-            <translation>Analyse</translation>
+            <translation>Anal&amp;yse</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="283" />
             <source>Payment</source>
-            <translation>Zahlung</translation>
+            <translation>Zahl&amp;ung</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="284" />
@@ -2462,12 +2462,12 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="285" />
             <source>Semantic Data</source>
-            <translation>Semantische Daten</translation>
+            <translation>Semantis&amp;che Daten</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="286" />
             <source>Source Mapping</source>
-            <translation>Quellen</translation>
+            <translation>&amp;Quellen</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="287" />
@@ -2477,7 +2477,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="288" />
             <source>History</source>
-            <translation>Historie</translation>
+            <translation>H&amp;istorie</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="290" />
@@ -2639,7 +2639,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../plugins/order_collection_linker/linker.py" line="94" />
             <source>Order Collection Discovery Complete:</source>
-            <translation>S&amp;ammlungs-Erkennung abgeschlossen:</translation>
+            <translation>Sammlungs-Erkennung abgeschlossen:</translation>
         </message>
         <message>
             <location filename="../../../plugins/order_collection_linker/linker.py" line="95" />
@@ -2649,12 +2649,12 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../plugins/order_collection_linker/linker.py" line="96" />
             <source>Established %1 new organic process IDs</source>
-            <translation>%1 &amp;neue Prozess-IDs erstellt</translation>
+            <translation>%1 neue Prozess-IDs erstellt</translation>
         </message>
         <message>
             <location filename="../../../plugins/order_collection_linker/linker.py" line="97" />
             <source>Linked %1 documents semantically</source>
-            <translation>%1 &amp;Dokumente verknüpft</translation>
+            <translation>%1 Dokumente verknüpft</translation>
         </message>
     </context>
     <context>
@@ -2725,7 +2725,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/reporting.py" line="414" />
             <source>Select Report:</source>
-            <translation>&amp;Bericht wählen:</translation>
+            <translation>Bericht wählen:</translation>
         </message>
         <message>
             <location filename="../../../gui/reporting.py" line="481" />
@@ -2875,7 +2875,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/reporting.py" line="785" />
             <source>Bar Chart</source>
-            <translation>Balkendia&amp;gramm</translation>
+            <translation>&amp;Balkendiagramm</translation>
         </message>
         <message>
             <location filename="../../../gui/reporting.py" line="793" />
@@ -2900,7 +2900,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/reporting.py" line="830" />
             <source>Enter your comments or summary here...</source>
-            <translation>&amp;Hier Kommentare oder Zusammenfassung eingeben...</translation>
+            <translation>Hier Kommentare oder Zusammenfassung eingeben...</translation>
         </message>
         <message>
             <location filename="../../../gui/reporting.py" line="841" />
@@ -3109,7 +3109,7 @@ Please install 'qrcode' package.</source>
             <location filename="../../../gui/scanner_dialog.py" line="422" />
             <location filename="../../../gui/scanner_dialog.py" line="125" />
             <source>Suche nach Scannern...</source>
-            <translation>Suche &amp;nach Scannern...</translation>
+            <translation>Suche nach Scannern...</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="155" />
@@ -3119,32 +3119,32 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="163" />
             <source>Gerät:</source>
-            <translation>&amp;Gerät:</translation>
+            <translation>Gerät:</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="169" />
             <source>Quelle:</source>
-            <translation>&amp;Quelle:</translation>
+            <translation>Quelle:</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="173" />
             <source>Auflösung:</source>
-            <translation>Au&amp;flösung:</translation>
+            <translation>Auflösung:</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="176" />
             <source>Farbe</source>
-            <translation>Fa&amp;rbe</translation>
+            <translation>&amp;Farbe</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="177" />
             <source>Graustufen</source>
-            <translation>Graus&amp;tufen</translation>
+            <translation>&amp;Graustufen</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="179" />
             <source>Modus:</source>
-            <translation>&amp;Modus:</translation>
+            <translation>Modus:</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="182" />
@@ -3169,7 +3169,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="187" />
             <source>Papierformat:</source>
-            <translation>&amp;Papierformat:</translation>
+            <translation>Papierformat:</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="196" />
@@ -3184,7 +3184,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="198" />
             <source>Zirkulär:</source>
-            <translation>&amp;Zirkulär:</translation>
+            <translation>Zirkulär:</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="213" />
@@ -3412,7 +3412,7 @@ Please install 'qrcode' package.</source>
             <location filename="../../../gui/settings_dialog.py" line="622" />
             <location filename="../../../gui/settings_dialog.py" line="234" />
             <source>Note: If these signatures appear in 'Sender', the document is OUTGOING.</source>
-            <translation>&amp;Hinweis: Wenn diese Signaturen im 'Absender' erscheinen, gilt das Dokument als AUSGANG.</translation>
+            <translation>Hinweis: Wenn diese Signaturen im 'Absender' erscheinen, gilt das Dokument als AUSGANG.</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="587" />
@@ -3465,7 +3465,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="410" />
             <source>Please enter an API Key first.</source>
-            <translation>Bitte &amp;geben Sie zuerst einen API-Schlüssel ein.</translation>
+            <translation>Bitte geben Sie zuerst einen API-Schlüssel ein.</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="439" />
@@ -3480,12 +3480,12 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="447" />
             <source>Invalid API Key or Permission Denied.</source>
-            <translation>Ungültiger API-Schlüssel oder &amp;Zugriff verweigert.</translation>
+            <translation>Ungültiger API-Schlüssel oder Zugriff verweigert.</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="449" />
             <source>Rate limit exceeded.</source>
-            <translation>&amp;Rate-Limit überschritten.</translation>
+            <translation>Rate-Limit überschritten.</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="451" />
@@ -3497,7 +3497,7 @@ Please install 'qrcode' package.</source>
             <location filename="../../../gui/settings_dialog.py" line="480" />
             <location filename="../../../gui/settings_dialog.py" line="456" />
             <source>Error</source>
-            <translation>Feh&amp;ler</translation>
+            <translation>Fe&amp;hler</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="474" />
@@ -3532,7 +3532,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="545" />
             <source>Success</source>
-            <translation>Erfolg</translation>
+            <translation>E&amp;rfolg</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="546" />
@@ -3542,13 +3542,13 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="546" />
             <source>Available models</source>
-            <translation>Verfügbare Mo&amp;delle</translation>
+            <translation>Verfü&amp;gbare Modelle</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="558" />
             <location filename="../../../gui/settings_dialog.py" line="552" />
             <source>Connection Failed</source>
-            <translation>Verbindung fehlges&amp;chlagen</translation>
+            <translation>Verbin&amp;dung fehlgeschlagen</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="553" />
@@ -3573,7 +3573,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="588" />
             <source>Logging</source>
-            <translation>Logging</translation>
+            <translation>&amp;Logging</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="591" />
@@ -3610,12 +3610,12 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="600" />
             <source>Gemini API Key:</source>
-            <translation>Gemini API-Schl&amp;üssel:</translation>
+            <translation>Gemini API-Schlüssel:</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="601" />
             <source>Verify</source>
-            <translation>Prüfen</translation>
+            <translation>Pr&amp;üfen</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="602" />
@@ -3660,7 +3660,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="611" />
             <source>Retries</source>
-            <translation>Versuche</translation>
+            <translation>Versu&amp;che</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="614" />
@@ -3674,24 +3674,24 @@ Please install 'qrcode' package.</source>
             <source>Max Mustermann
 Musterstraße 1...</source>
             <translation>Max Mustermann
-Musterstraße &amp;1...</translation>
+Musterstraße 1...</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="616" />
             <source>Analyze Private Signature with AI</source>
-            <translation>Private Signatur mit KI anal&amp;ysieren</translation>
+            <translation>Private Signatur mit KI analysieren</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="621" />
             <location filename="../../../gui/settings_dialog.py" line="617" />
             <source>Extract structured data (Aliases, Address Parts) for better recognition.</source>
-            <translation>Strukturierte Daten (Aliasse, Adressteile) für bessere Erkennung e&amp;xtrahieren.</translation>
+            <translation>Strukturierte Daten (Aliasse, Adressteile) für bessere Erkennung extrahieren.</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="618" />
             <source>Business Signature:
 (For Output/Debitor detection)</source>
-            <translation>Gesch&amp;äftliche Signatur:
+            <translation>Geschäftliche Signatur:
 (Für Ausgangs/Debitor-Erkennung)</translation>
         </message>
         <message>
@@ -3719,7 +3719,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="627" />
             <source>Verbose Database Debugging (SQL Queries)</source>
-            <translation>Ausführliches Datenbank-Debugging (S&amp;QL-Abfragen)</translation>
+            <translation>Ausführliches Datenbank-Debugging (SQL-Abfragen)</translation>
         </message>
         <message>
             <location filename="../../../gui/settings_dialog.py" line="628" />
@@ -3880,32 +3880,32 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/stamper_dialog.py" line="42" />
             <source>Enter text (multi-line supported)...</source>
-            <translation>&amp;Text eingeben (mehrzeilig möglich)...</translation>
+            <translation>Text eingeben (mehrzeilig möglich)...</translation>
         </message>
         <message>
             <location filename="../../../gui/stamper_dialog.py" line="44" />
             <source>Text:</source>
-            <translation>Te&amp;xt:</translation>
+            <translation>Text:</translation>
         </message>
         <message>
             <location filename="../../../gui/stamper_dialog.py" line="52" />
             <source>Position:</source>
-            <translation>&amp;Position:</translation>
+            <translation>Position:</translation>
         </message>
         <message>
             <location filename="../../../gui/stamper_dialog.py" line="58" />
             <source>Rotation:</source>
-            <translation>&amp;Rotation:</translation>
+            <translation>Rotation:</translation>
         </message>
         <message>
             <location filename="../../../gui/stamper_dialog.py" line="66" />
             <source>Select Color...</source>
-            <translation>&amp;Farbe wählen...</translation>
+            <translation>Farbe wählen...</translation>
         </message>
         <message>
             <location filename="../../../gui/stamper_dialog.py" line="71" />
             <source>Color:</source>
-            <translation>Far&amp;be:</translation>
+            <translation>Farbe:</translation>
         </message>
         <message>
             <location filename="../../../gui/stamper_dialog.py" line="79" />
@@ -3941,7 +3941,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/tag_manager.py" line="43" />
             <source>Filter:</source>
-            <translation>&amp;Filter:</translation>
+            <translation>Filter:</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="45" />
@@ -3987,7 +3987,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/tag_manager.py" line="136" />
             <source>Please select exactly one tag to rename.</source>
-            <translation>&amp;Bitte genau ein Tag zum Umbenennen wählen.</translation>
+            <translation>Bitte genau ein Tag zum Umbenennen wählen.</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="141" />
@@ -3997,7 +3997,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/tag_manager.py" line="141" />
             <source>New Name:</source>
-            <translation>&amp;Neuer Name:</translation>
+            <translation>Neuer Name:</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="188" />
@@ -4014,12 +4014,12 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/tag_manager.py" line="150" />
             <source>Please select at least two tags to merge.</source>
-            <translation>Bitte &amp;mindestens zwei Tags zum Zusammenführen wählen.</translation>
+            <translation>Bitte mindestens zwei Tags zum Zusammenführen wählen.</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="158" />
             <source>Merge Tags</source>
-            <translation>Tags zusammenfü&amp;hren</translation>
+            <translation>Tags zusa&amp;mmenführen</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="178" />
@@ -4047,12 +4047,12 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/view_manager.py" line="37" />
             <source>Save Current View...</source>
-            <translation>Aktuelle An&amp;sicht speichern...</translation>
+            <translation>Aktuelle Ansicht speichern...</translation>
         </message>
         <message>
             <location filename="../../../gui/view_manager.py" line="41" />
             <source>Delete</source>
-            <translation>Lös&amp;chen</translation>
+            <translation>Lö&amp;schen</translation>
         </message>
         <message>
             <location filename="../../../gui/view_manager.py" line="78" />
@@ -4062,7 +4062,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/view_manager.py" line="78" />
             <source>View Name:</source>
-            <translation>Ansic&amp;htsname:</translation>
+            <translation>Ansichtsname:</translation>
         </message>
         <message>
             <location filename="../../../gui/view_manager.py" line="114" />
@@ -4131,7 +4131,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="141" />
             <source>Document Type:</source>
-            <translation>Do&amp;kumenttyp:</translation>
+            <translation>Dokumenttyp:</translation>
         </message>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="191" />
@@ -4142,7 +4142,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="157" />
             <source>Define types first.</source>
-            <translation>Zue&amp;rst Typen definieren.</translation>
+            <translation>Zuerst Typen definieren.</translation>
         </message>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="194" />
@@ -4153,7 +4153,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="160" />
             <source>Alias (e.g. Rechnung):</source>
-            <translation>Alias (z.&amp;B. Rechnung):</translation>
+            <translation>Alias (z.B. Rechnung):</translation>
         </message>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="197" />
@@ -4164,7 +4164,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="163" />
             <source>Map to Type:</source>
-            <translation>Zuweisen zu T&amp;yp:</translation>
+            <translation>Zuweisen zu Typ:</translation>
         </message>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="177" />
@@ -4179,12 +4179,12 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="191" />
             <source>Define tags first.</source>
-            <translation>Zuerst Tags def&amp;inieren.</translation>
+            <translation>Zuerst Tags definieren.</translation>
         </message>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="194" />
             <source>Alias (e.g. Wichtig):</source>
-            <translation>Alias (z.B. Wi&amp;chtig):</translation>
+            <translation>Alias (z.B. Wichtig):</translation>
         </message>
         <message>
             <location filename="../../../gui/vocabulary_settings.py" line="197" />
@@ -4226,7 +4226,7 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="444" />
             <location filename="../../../gui/workflow_manager.py" line="425" />
             <source>Active Rule Load:</source>
-            <translation>&amp;Aktive Auslastung:</translation>
+            <translation>Aktive Auslastung:</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="446" />
@@ -4238,7 +4238,7 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="446" />
             <location filename="../../../gui/workflow_manager.py" line="430" />
             <source>Active Documents</source>
-            <translation>Aktive &amp;Dokumente</translation>
+            <translation>&amp;Aktive Dokumente</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="446" />
@@ -4254,7 +4254,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="476" />
             <source>Urgent Actions</source>
-            <translation>D&amp;ringende Aktionen</translation>
+            <translation>&amp;Dringende Aktionen</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="477" />
@@ -4280,7 +4280,7 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="698" />
             <location filename="../../../gui/workflow_manager.py" line="620" />
             <source>Select Rule:</source>
-            <translation>Regel &amp;wählen:</translation>
+            <translation>Regel wählen:</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="700" />
@@ -4292,7 +4292,7 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="701" />
             <location filename="../../../gui/workflow_manager.py" line="629" />
             <source>Create a new workflow rule</source>
-            <translation>N&amp;eue Workflow-Regel erstellen</translation>
+            <translation>Neue &amp;Workflow-Regel erstellen</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="702" />
@@ -4316,44 +4316,44 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="705" />
             <location filename="../../../gui/workflow_manager.py" line="641" />
             <source>Save and activate the current rule</source>
-            <translation>&amp;Aktive Regel speichern</translation>
+            <translation>Aktive Regel speichern</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="706" />
             <location filename="../../../gui/workflow_manager.py" line="645" />
             <source>Manage...</source>
-            <translation>Verwal&amp;ten...</translation>
+            <translation>Verwalten...</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="707" />
             <location filename="../../../gui/workflow_manager.py" line="646" />
             <source>Manage rule files (delete, rename, import)</source>
-            <translation>Re&amp;gel-Dateien verwalten</translation>
+            <translation>Regel-Dateien verwalten</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="733" />
             <source>--- Select Rule ---</source>
-            <translation>--- Regel wä&amp;hlen ---</translation>
+            <translation>--- Regel wählen ---</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="754" />
             <source>Rule deleted.</source>
-            <translation>Regel gelös&amp;cht.</translation>
+            <translation>Regel gelöscht.</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="760" />
             <source>Unsaved Changes</source>
-            <translation>Nicht ges&amp;peicherte Änderungen</translation>
+            <translation>Nicht &amp;gespeicherte Änderungen</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="761" />
             <source>You have unsaved changes. Discard them?</source>
-            <translation>Sie ha&amp;ben nicht gespeicherte Änderungen. Verwerfen?</translation>
+            <translation>Sie haben nicht gespeicherte Änderungen. Verwerfen?</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="778" />
             <source>Editing: %1</source>
-            <translation>Bearbe&amp;ite: %1</translation>
+            <translation>&amp;Bearbeite: %1</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="804" />
@@ -4363,17 +4363,17 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="805" />
             <source>A rule with the name '%1' already exists.</source>
-            <translation>Eine Regel mit dem Namen '%1' e&amp;xistiert bereits.</translation>
+            <translation>Eine Regel mit dem Namen '%1' existiert bereits.</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="812" />
             <source>Success</source>
-            <translation>Er&amp;folg</translation>
+            <translation>&amp;Erfolg</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="812" />
             <source>Rule '%1' saved and activated.</source>
-            <translation>Regel '%1' gespeichert &amp;und aktiviert.</translation>
+            <translation>Regel '%1' gespeichert und aktiviert.</translation>
         </message>
     </context>
     <context>
@@ -4382,7 +4382,7 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="171" />
             <location filename="../../../gui/workflow_manager.py" line="53" />
             <source>Enter rule name...</source>
-            <translation>&amp;Regelname eingeben...</translation>
+            <translation>Regelname eingeben...</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="172" />
@@ -4393,17 +4393,17 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="167" />
             <source>Display Name:</source>
-            <translation>&amp;Anzeigename:</translation>
+            <translation>Anzeigename:</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="168" />
             <source>Description:</source>
-            <translation>&amp;Beschreibung:</translation>
+            <translation>Beschreibung:</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="169" />
             <source>Auto-Trigger Tags:</source>
-            <translation>Au&amp;to-Trigger Tags:</translation>
+            <translation>Auto-Trigger Tags:</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="173" />
@@ -4428,7 +4428,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="179" />
             <source>Label</source>
-            <translation>Bezei&amp;chnung</translation>
+            <translation>&amp;Bezeichnung</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="179" />
@@ -4443,12 +4443,12 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="182" />
             <source>Action</source>
-            <translation>A&amp;ktion</translation>
+            <translation>&amp;Aktion</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="182" />
             <source>Target State</source>
-            <translation>Zielzusta&amp;nd</translation>
+            <translation>Zielzus&amp;tand</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="183" />
@@ -4488,12 +4488,12 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="191" />
             <source>+ Add Transition</source>
-            <translation>+ Über&amp;gang hinzufügen</translation>
+            <translation>+ Übe&amp;rgang hinzufügen</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="192" />
             <source>- Remove Transition</source>
-            <translation>- Üb&amp;ergang löschen</translation>
+            <translation>- Über&amp;gang löschen</translation>
         </message>
     </context>
     <context>
@@ -4506,12 +4506,12 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="874" />
             <source>New...</source>
-            <translation>&amp;Neu...</translation>
+            <translation>Neu...</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="877" />
             <source>Rename...</source>
-            <translation>&amp;Umbenennen...</translation>
+            <translation>Umbenennen...</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="878" />

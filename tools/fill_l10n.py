@@ -472,12 +472,16 @@ def fill():
         "&Edit": "&Bearbeiten",
         "&View": "&Ansicht",
         "&Tools": "Werk&zeuge",
+        "&Maintenance": "&Wartung",
+        "&Debug": "Debu&g",
         "&Config": "&Konfiguration",
+        "&Semantic Data": "&Semantische Daten",
+        "&Help": "&Hilfe",
         "&Settings...": "&Einstellungen...",
         "&About": "&Über",
-        "&Help": "&Hilfe",
-        "&Debug": "Debu&g",
         "&Print": "Dr&ucken",
+        "&Refresh List": "Liste &neu laden",
+        "Filter Panel": "Filter-&Panel",
     }
     
     # Process all contexts found in TS
