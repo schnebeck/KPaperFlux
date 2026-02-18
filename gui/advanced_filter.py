@@ -217,29 +217,30 @@ class AdvancedFilterWidget(QWidget):
         self.combo_filters.currentIndexChanged.connect(self._on_saved_filter_selected)
         top_bar.addWidget(self.combo_filters, 1) # Still stretch 1 to fill available space
 
-        self.btn_revert = QPushButton("")
+        self.btn_revert = QPushButton()
+        self.btn_revert.setFixedHeight(30)
         self.btn_revert.setToolTip(self.tr("Revert Changes"))
-        # Removed fixedWidth to allow translated text to fit
         self.btn_revert.setEnabled(False)
         self.btn_revert.clicked.connect(self.revert_changes)
         top_bar.addWidget(self.btn_revert)
 
-        self.btn_save = QPushButton("")
-        # Remove fixedWidth
+        self.btn_save = QPushButton()
+        self.btn_save.setFixedHeight(30)
         self.btn_save.clicked.connect(self.save_current_filter)
         top_bar.addWidget(self.btn_save)
 
-        self.btn_export = QPushButton("📤")
-        self.btn_export.setMinimumWidth(30) # Use minimum instead of fixed
-        self.btn_export.setToolTip(self.tr("Export filter"))
-        self.btn_export.clicked.connect(self.export_current_filter)
-        top_bar.addWidget(self.btn_export)
-
-        self.btn_manage = QPushButton("⚙️")
-        self.btn_manage.setMinimumWidth(30)
+        self.btn_manage = QPushButton()
+        self.btn_manage.setFixedHeight(30)
         self.btn_manage.setToolTip(self.tr("Manage Filters"))
         self.btn_manage.clicked.connect(self.manage_filters)
         top_bar.addWidget(self.btn_manage)
+
+        self.btn_export = QPushButton()
+        self.btn_export.setFixedHeight(30)
+        self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; font-weight: bold; padding: 4px 16px;")
+        self.btn_export.setToolTip(self.tr("Export filter"))
+        self.btn_export.clicked.connect(self.export_current_filter)
+        top_bar.addWidget(self.btn_export)
         filter_layout.addLayout(top_bar)
         
         # Add Drag & Drop support
@@ -297,15 +298,18 @@ class AdvancedFilterWidget(QWidget):
         top_bar.addWidget(self.combo_rules, 1)
 
         self.btn_revert_rule = QPushButton("")
+        self.btn_revert_rule.setFixedHeight(30)
         self.btn_revert_rule.setEnabled(False)
         self.btn_revert_rule.clicked.connect(self.revert_rule_changes)
         top_bar.addWidget(self.btn_revert_rule)
 
-        self.btn_save_rule = QPushButton("")
+        self.btn_save_rule = QPushButton()
+        self.btn_save_rule.setFixedHeight(30)
         self.btn_save_rule.clicked.connect(self._on_save_rule_clicked)
         top_bar.addWidget(self.btn_save_rule)
 
         self.btn_manage_rules = QPushButton("")
+        self.btn_manage_rules.setFixedHeight(30)
         self.btn_manage_rules.clicked.connect(self.manage_rules)
         top_bar.addWidget(self.btn_manage_rules)
         rules_layout.addLayout(top_bar)
@@ -1282,7 +1286,9 @@ class AdvancedFilterWidget(QWidget):
         self.btn_revert.setText(self.tr("Discard"))
         self.btn_revert.setToolTip(self.tr("Revert Changes"))
         self.btn_save.setText(self.tr("Save"))
+        self.btn_export.setText("📤 " + self.tr("Export"))
         self.btn_export.setToolTip(self.tr("Export filter"))
+        self.btn_manage.setText("⚙️ " + self.tr("Manage"))
         self.btn_manage.setToolTip(self.tr("Manage Filters"))
         self.btn_clear.setText(self.tr("Clear All"))
         self.btn_apply.setText(self.tr("Apply Changes"))

@@ -3,363 +3,369 @@
     <context>
         <name>AdvancedFilterWidget</name>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1283" />
-            <location filename="../../../gui/advanced_filter.py" line="221" />
+            <location filename="../../../gui/advanced_filter.py" line="1287" />
+            <location filename="../../../gui/advanced_filter.py" line="222" />
             <source>Revert Changes</source>
             <translation>Änderungen verwerfen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1285" />
+            <location filename="../../../gui/advanced_filter.py" line="1292" />
             <location filename="../../../gui/advanced_filter.py" line="234" />
-            <source>Export filter</source>
-            <translation>Filter exportieren</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/advanced_filter.py" line="1286" />
-            <location filename="../../../gui/advanced_filter.py" line="240" />
             <source>Manage Filters</source>
             <translation>Filter verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="396" />
+            <location filename="../../../gui/advanced_filter.py" line="1290" />
+            <location filename="../../../gui/advanced_filter.py" line="241" />
+            <source>Export filter</source>
+            <translation>Filter exportieren</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/advanced_filter.py" line="400" />
             <source>--- No Change ---</source>
             <translation>--- Keine Änderung ---</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="406" />
+            <location filename="../../../gui/advanced_filter.py" line="410" />
             <source>--- Saved Rule ---</source>
             <translation>--- Regeln laden ---</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1302" />
-            <location filename="../../../gui/advanced_filter.py" line="530" />
-            <location filename="../../../gui/advanced_filter.py" line="523" />
+            <location filename="../../../gui/advanced_filter.py" line="1308" />
+            <location filename="../../../gui/advanced_filter.py" line="534" />
+            <location filename="../../../gui/advanced_filter.py" line="527" />
             <source>Create View-filter</source>
             <translation>Ansichtsfilter erstellen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="523" />
+            <location filename="../../../gui/advanced_filter.py" line="527" />
             <source>No 'Add Tags' defined. Cannot create a filter for nothing.</source>
             <translation>Keine 'Tags hinzufügen' definiert. Kann keinen Filter erstellen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1129" />
-            <location filename="../../../gui/advanced_filter.py" line="531" />
+            <location filename="../../../gui/advanced_filter.py" line="1133" />
+            <location filename="../../../gui/advanced_filter.py" line="535" />
             <source>Filter Name:</source>
             <translation>Filtername:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="559" />
+            <location filename="../../../gui/advanced_filter.py" line="563" />
             <source>Filter Created</source>
             <translation>Filter erstellt</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="560" />
+            <location filename="../../../gui/advanced_filter.py" line="564" />
             <source>A new view filter '%s' has been created in the 'Views' folder.</source>
             <translation>Ein neuer Ansichtsfilter '%s' wurde im Ordner 'Ansichten' erstellt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="570" />
+            <location filename="../../../gui/advanced_filter.py" line="574" />
             <source>Save Rule</source>
             <translation>Regel speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="570" />
+            <location filename="../../../gui/advanced_filter.py" line="574" />
             <source>Rule Name:</source>
             <translation>Regelname:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="619" />
+            <location filename="../../../gui/advanced_filter.py" line="623" />
             <source>Delete Rule</source>
             <translation>Regel löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="620" />
+            <location filename="../../../gui/advanced_filter.py" line="624" />
             <source>Are you sure you want to delete this rule?</source>
             <translation>Sind Sie sicher, dass Sie diese Regel löschen möchten?</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="648" />
+            <location filename="../../../gui/advanced_filter.py" line="652" />
             <source>Apply to ALL documents</source>
             <translation>Auf ALLE Dokumente anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="652" />
+            <location filename="../../../gui/advanced_filter.py" line="656" />
             <source>Apply to current List View (Filtered)</source>
             <translation>Auf aktuelle Listenansicht anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="656" />
+            <location filename="../../../gui/advanced_filter.py" line="660" />
             <source>Apply to SELECTED documents only</source>
             <translation>Nur auf AUSGEWÄHLTE Dokumente anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="669" />
+            <location filename="../../../gui/advanced_filter.py" line="673" />
             <source>all documents</source>
             <translation>alle Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="669" />
+            <location filename="../../../gui/advanced_filter.py" line="673" />
             <source>%d selected/filtered documents</source>
             <translation>%d ausgewählte/gefilterte Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="671" />
+            <location filename="../../../gui/advanced_filter.py" line="675" />
             <source>Apply Rule</source>
             <translation>Regel anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="672" />
+            <location filename="../../../gui/advanced_filter.py" line="676" />
             <source>Apply rule '%s' to %s? This cannot be undone automatically.</source>
             <translation>Regel '%s' auf %s anwenden? Dies kann nicht automatisch rückgängig gemacht werden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="677" />
+            <location filename="../../../gui/advanced_filter.py" line="681" />
             <source>Applying rule...</source>
             <translation>Regel wird angewendet...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="677" />
+            <location filename="../../../gui/advanced_filter.py" line="681" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="690" />
+            <location filename="../../../gui/advanced_filter.py" line="694" />
             <source>Complete</source>
             <translation>Abgeschlossen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="691" />
+            <location filename="../../../gui/advanced_filter.py" line="695" />
             <source>Rule applied. %d documents modified.</source>
             <translation>Regel angewendet. %d Dokumente geändert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="740" />
+            <location filename="../../../gui/advanced_filter.py" line="744" />
             <source>Search string too short (min 3 chars)</source>
             <translation>Suchbegriff zu kurz (min. 3 Zeichen)</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="744" />
+            <location filename="../../../gui/advanced_filter.py" line="748" />
             <source>Searching...</source>
             <translation>Suche...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="777" />
+            <location filename="../../../gui/advanced_filter.py" line="781" />
             <source>in all documents</source>
             <translation>in allen Dokumenten</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="787" />
+            <location filename="../../../gui/advanced_filter.py" line="791" />
             <source>in current view</source>
             <translation>in aktueller Ansicht</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="966" />
+            <location filename="../../../gui/advanced_filter.py" line="970" />
             <source>--- Saved Filter ---</source>
             <translation>--- Filter läden ---</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="993" />
+            <location filename="../../../gui/advanced_filter.py" line="997" />
             <source>Browse All...</source>
             <translation>Alle durchsuchen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1129" />
-            <location filename="../../../gui/advanced_filter.py" line="1122" />
+            <location filename="../../../gui/advanced_filter.py" line="1133" />
+            <location filename="../../../gui/advanced_filter.py" line="1126" />
             <source>Save Filter</source>
             <translation>Filter speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1122" />
+            <location filename="../../../gui/advanced_filter.py" line="1126" />
             <source>No conditions to save.</source>
             <translation>Keine Bedingungen zum Speichern.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1183" />
-            <location filename="../../../gui/advanced_filter.py" line="1177" />
+            <location filename="../../../gui/advanced_filter.py" line="1187" />
+            <location filename="../../../gui/advanced_filter.py" line="1181" />
             <source>Export Filter</source>
             <translation>Filter exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1177" />
+            <location filename="../../../gui/advanced_filter.py" line="1181" />
             <source>No conditions to export.</source>
             <translation>Keine Bedingungen zum Exportieren.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1188" />
+            <location filename="../../../gui/advanced_filter.py" line="1192" />
             <source>Export Successful</source>
             <translation>Export erfolgreich</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1188" />
+            <location filename="../../../gui/advanced_filter.py" line="1192" />
             <source>Filter exported to %s</source>
             <translation>Filter exportiert nach %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1190" />
+            <location filename="../../../gui/advanced_filter.py" line="1194" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1214" />
+            <location filename="../../../gui/advanced_filter.py" line="1218" />
             <source>Filter Imported</source>
             <translation>Filter importiert</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1214" />
+            <location filename="../../../gui/advanced_filter.py" line="1218" />
             <source>Loaded filter: %s</source>
             <translation>Filter geladen: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1217" />
+            <location filename="../../../gui/advanced_filter.py" line="1221" />
             <source>Import Failed</source>
             <translation>Import fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1217" />
+            <location filename="../../../gui/advanced_filter.py" line="1221" />
             <source>File is of type '%s', expected 'smart_list'.</source>
             <translation>Datei ist Typ '%s', erwartet 'smart_list'.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1245" />
+            <location filename="../../../gui/advanced_filter.py" line="1249" />
             <source>Delete Filter</source>
             <translation>Filter löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1246" />
+            <location filename="../../../gui/advanced_filter.py" line="1250" />
             <source>Are you sure you want to delete '%s'?</source>
             <translation>Sicher, dass '%s' gelöscht werden soll?</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1274" />
+            <location filename="../../../gui/advanced_filter.py" line="1278" />
             <source>Search:</source>
             <translation>Suche:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1275" />
+            <location filename="../../../gui/advanced_filter.py" line="1279" />
             <source>e.g. Amazon 2024 Invoice...</source>
             <translation>z.B. Amazon 2024 Rechnung...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1276" />
+            <location filename="../../../gui/advanced_filter.py" line="1280" />
             <source>Go</source>
             <translation>Los</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1277" />
+            <location filename="../../../gui/advanced_filter.py" line="1281" />
             <source>Search in current view only</source>
             <translation>Nur in aktueller Ansicht suchen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1278" />
+            <location filename="../../../gui/advanced_filter.py" line="1282" />
             <source>If checked, combines the search with the active filters from 'Filter View'.</source>
             <translation>Kombiniert die Suche mit den aktiven Filtern der Ansicht.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1292" />
-            <location filename="../../../gui/advanced_filter.py" line="1281" />
+            <location filename="../../../gui/advanced_filter.py" line="1298" />
+            <location filename="../../../gui/advanced_filter.py" line="1285" />
             <source>Select:</source>
             <translation>Auswahl:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1282" />
+            <location filename="../../../gui/advanced_filter.py" line="1286" />
             <source>Discard</source>
             <translation>Verwerfen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1284" />
+            <location filename="../../../gui/advanced_filter.py" line="1288" />
             <source>Save</source>
             <translation>Speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1301" />
-            <location filename="../../../gui/advanced_filter.py" line="1287" />
-            <source>Clear All</source>
-            <translation>Alles leeren</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/advanced_filter.py" line="1288" />
-            <source>Apply Changes</source>
-            <translation>Anwenden</translation>
-        </message>
-        <message>
             <location filename="../../../gui/advanced_filter.py" line="1289" />
-            <source>Filter Active</source>
-            <translation>Filter aktiv</translation>
+            <source>Export</source>
+            <translation>Exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1293" />
-            <source>Revert</source>
-            <translation>Zurücksetzen</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/advanced_filter.py" line="1294" />
-            <source>Save...</source>
-            <translation>Speichern...</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/advanced_filter.py" line="1295" />
+            <location filename="../../../gui/advanced_filter.py" line="1301" />
+            <location filename="../../../gui/advanced_filter.py" line="1291" />
             <source>Manage</source>
             <translation>Verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1296" />
+            <location filename="../../../gui/advanced_filter.py" line="1307" />
+            <location filename="../../../gui/advanced_filter.py" line="1293" />
+            <source>Clear All</source>
+            <translation>Alles leeren</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/advanced_filter.py" line="1294" />
+            <source>Apply Changes</source>
+            <translation>Anwenden</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/advanced_filter.py" line="1295" />
+            <source>Filter Active</source>
+            <translation>Filter aktiv</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/advanced_filter.py" line="1299" />
+            <source>Revert</source>
+            <translation>Zurücksetzen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/advanced_filter.py" line="1300" />
+            <source>Save...</source>
+            <translation>Speichern...</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/advanced_filter.py" line="1302" />
             <source>Add Tags:</source>
             <translation>Tags hinzufügen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1297" />
+            <location filename="../../../gui/advanced_filter.py" line="1303" />
             <source>Remove Tags:</source>
             <translation>Tags entfernen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1298" />
+            <location filename="../../../gui/advanced_filter.py" line="1304" />
             <source>Enter tags to add. Press comma or Enter to confirm (e.g. INVOICE, TELEKOM)</source>
             <translation>Tags zum Hinzufügen. Komma oder Enter zum Bestätigen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1299" />
+            <location filename="../../../gui/advanced_filter.py" line="1305" />
             <source>Enter tags to remove. Press comma or Enter to confirm (e.g. DRAFT, REVIEW)</source>
             <translation>Tags zum Entfernen. Komma oder Enter zum Bestätigen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1300" />
+            <location filename="../../../gui/advanced_filter.py" line="1306" />
             <source>Assign Workflow:</source>
             <translation>Ablauf zuweisen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1303" />
+            <location filename="../../../gui/advanced_filter.py" line="1309" />
             <source>Create a search-view that filters for the tags this rule adds</source>
             <translation>Erstellt eine Ansicht, die nach den Tags dieser Regel filtert</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1304" />
+            <location filename="../../../gui/advanced_filter.py" line="1310" />
             <source>Apply to View</source>
             <translation>Auf Ansicht anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1305" />
+            <location filename="../../../gui/advanced_filter.py" line="1311" />
             <source>Apply to all</source>
             <translation>Auf alle anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1306" />
+            <location filename="../../../gui/advanced_filter.py" line="1312" />
             <source>Active</source>
             <translation>Aktiv</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1307" />
+            <location filename="../../../gui/advanced_filter.py" line="1313" />
             <source>Run on Import</source>
             <translation>Bei Import ausführen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1308" />
+            <location filename="../../../gui/advanced_filter.py" line="1314" />
             <source>Automatically apply this rule to new documents during import/analysis</source>
             <translation>Diese Regel automatisch bei Import/Analyse auf neue Dokumente anwenden</translation>
         </message>
         <message>
             <source>Rev.</source>
-            <translation>Verwerfen</translation>
+            <translation type="vanished">Verwerfen</translation>
         </message>
     </context>
     <context>
@@ -1459,6 +1465,10 @@
             <location filename="../../../gui/filter_manager.py" line="528" />
             <source>Move Failed</source>
             <translation>Verschieben fehlgeschlagen</translation>
+        </message>
+        <message>
+            <source>NOT</source>
+            <translation type="vanished">NICHT</translation>
         </message>
         <message>
             <source>NOT</source>
