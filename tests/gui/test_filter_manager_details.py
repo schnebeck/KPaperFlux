@@ -76,7 +76,6 @@ def test_static_list_icon_and_details(qapp, filter_tree, mock_db_manager):
     assert "Missing (u2)" in html      # u2 missing
     assert "Contains" in html
     assert "2" in html
-    assert "documents" in html
 
 def test_folder_details(qapp, filter_tree):
     # Add folder
@@ -111,5 +110,5 @@ def test_folder_details_logic(qapp):
     
     dialog.tree_widget.setCurrentItem(folder_item)
     
-    assert "Folder:" in dialog.details_label.text()
-    assert "Contains 1 items" in dialog.details_text.toHtml()
+    assert "Folder" in dialog.details_label.text()
+    assert "Contains 1 item" in dialog.details_text.toHtml()

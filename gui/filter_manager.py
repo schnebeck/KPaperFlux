@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,                              QWidget, QLineEdit, QPushButton, QSplitter, QLabel, QMessageBox, QMenu,
                              QInputDialog, QTextEdit, QStyle)
 from gui.utils import show_selectable_message_box
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from PyQt6.QtGui import QAction, QIcon
 from core.filter_tree import FilterTree, NodeType, FilterNode
 import json
@@ -116,7 +116,7 @@ class FilterManagerDialog(QDialog):
         self.retranslate_ui()
     
     def changeEvent(self, event):
-        if event and event.type() == Qt.EventType.LanguageChange:
+        if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
