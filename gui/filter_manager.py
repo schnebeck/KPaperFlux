@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,                              QWidget, QLineEdit, QPushButton, QSplitter, QLabel, QMessageBox, QMenu,
                              QInputDialog, QTextEdit, QStyle)
 from gui.utils import show_selectable_message_box
-from PyQt6.QtCore import Qt, pyqtSignal, QEvent
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings
+from PyQt6.QtGui import QAction, QIcon, QCloseEvent
 from core.filter_tree import FilterTree, NodeType, FilterNode
 import json
 
@@ -41,6 +41,8 @@ class FilterManagerDialog(QDialog):
         self.tree_model = filter_tree
         self.db_manager = db_manager
         self.start_node = start_node # Focused node/folder on open
+        
+        self.settings = QSettings("KPaperFlux", "FilterManager")
         
         # UI Setup
         self.layout = QVBoxLayout(self)
@@ -114,6 +116,26 @@ class FilterManagerDialog(QDialog):
         
         self.layout.addLayout(bottom_bar)
         self.retranslate_ui()
+        self.restore_geometry()
+    
+    def restore_geometry(self):
+        geom = self.settings.value("geometry")
+        if geom:
+            self.restoreGeometry(geom)
+        else:
+            self.resize(1000, 600)
+
+    def save_settings(self):
+        self.settings.setValue("geometry", self.saveGeometry())
+        self.settings.sync()
+
+    def closeEvent(self, event: QCloseEvent):
+        self.save_settings()
+        super().closeEvent(event)
+
+    def done(self, r):
+        self.save_settings()
+        super().done(r)
     
     def changeEvent(self, event):
         if event and event.type() == QEvent.Type.LanguageChange:

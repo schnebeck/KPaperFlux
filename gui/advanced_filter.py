@@ -149,7 +149,11 @@ class AdvancedFilterWidget(QWidget):
             btn.clicked.connect(lambda checked, i=idx: self._on_sub_mode_clicked(i))
             sub_nav_layout.addWidget(btn)
             self.sub_mode_group.addButton(btn, idx)
-            self.sub_mode_buttons[idx] = (btn, icon, key)
+            
+            # Store buttons explicitly for easier access and reliable l10n
+            if idx == 0: self.btn_mode_search = btn
+            elif idx == 1: self.btn_mode_filter = btn
+            elif idx == 2: self.btn_mode_rules = btn
 
         sub_nav_layout.addStretch()
         layout.addWidget(sub_nav_container)
@@ -1270,9 +1274,10 @@ class AdvancedFilterWidget(QWidget):
 
     def retranslate_ui(self):
         """Updates all UI strings for on-the-fly localization."""
-        # Modes
-        for idx, (btn, icon, key) in self.sub_mode_buttons.items():
-             btn.setText(f"{icon} {self.tr(key)}")
+        # Modes - Use literals so pylupdate6 finds them
+        self.btn_mode_search.setText("🔍 " + self.tr("Search"))
+        self.btn_mode_filter.setText("🎯 " + self.tr("Filter"))
+        self.btn_mode_rules.setText("🤖 " + self.tr("Rules"))
         
         # Search Tab
         self.lbl_search_header.setText(self.tr("Search:"))
