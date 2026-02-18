@@ -34,33 +34,28 @@ def load_translations(app: QApplication, app_config: AppConfig) -> None:
     Loads and installs system translations based on configuration.
     On first run, detects system language and persists it to config.
     Afterwards, strictly follows the configuration.
-
-    Args:
-        app: The current QApplication instance.
-        app_config: The application configuration manager.
     """
+    logger = get_logger("core")
+    
     # 1. Handle First Run / Auto-Detection
     if not app_config.settings.contains(app_config.KEY_LANGUAGE):
-        import os
-        env_lang = os.environ.get("LANGUAGE") or os.environ.get("LANG")
-        detected_lang = "en"
-        if env_lang:
-            detected_lang = env_lang.split(".")[0].split("_")[0]
+        from PyQt6.QtCore import QLocale
+        sys_locale = QLocale.system().name() # e.g. "de_DE"
+        detected_lang = sys_locale.split("_")[0]
         
         # Verify if we actually have a translation for this
         base_dir = Path(__file__).resolve().parent
         test_path = base_dir / "resources" / "l10n" / detected_lang / "gui_strings.qm"
         
         if not test_path.exists():
+            logger.info(f"No translation found for detected locale '{detected_lang}', defaulting to 'en'")
             detected_lang = "en"
             
         app_config.set_language(detected_lang)
-        get_logger("core").info(f"First run: Language auto-detected and saved as '{detected_lang}'")
-
-    # Note: We no longer install the translator here globally.
-    # MainWindow handles the initial translation loading and subsequent 
-    # hot-reloads via its _switch_language method to ensure a single 
-    # source of truth for active translators.
+        logger.info(f"First run: Language auto-detected and saved as '{detected_lang}' from locale '{sys_locale}'")
+    
+    current_lang = app_config.get_language()
+    logger.info(f"Application language set to: {current_lang} (Config: {app_config.settings.fileName()})")
 
 
 def main() -> None:
@@ -79,6 +74,7 @@ def main() -> None:
     if args.profile:
         app_id = f"kpaperflux-{args.profile}"
         
+    QCoreApplication.setOrganizationName("kpaperflux")
     QCoreApplication.setApplicationName(app_id)
     app.setWindowIcon(QIcon("resources/icon.png"))
     

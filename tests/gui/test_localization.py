@@ -5,6 +5,8 @@ from pathlib import Path
 from PyQt6.QtCore import QTranslator, QLocale, QCoreApplication
 from PyQt6.QtWidgets import QApplication
 
+pytestmark = pytest.mark.localized
+
 # Ensure core modules can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 

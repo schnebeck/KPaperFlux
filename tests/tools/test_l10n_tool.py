@@ -60,3 +60,29 @@ def test_deduplicate(tmp_path):
     assert len(msgs) == 1
     # Should keep the last or first? Let's say last (latest update)
     assert msgs[0].find("translation").text == "C"
+def test_shortcut_collision_detection(tmp_path):
+    ts_path = tmp_path / "shortcuts.ts"
+    content = """<?xml version="1.0" encoding="utf-8"?>
+<TS version="2.1" language="de">
+<context>
+    <name>CollCtx</name>
+    <message><source>S1</source><translation>&amp;Datei</translation></message>
+    <message><source>S2</source><translation>&amp;Dokument</translation></message>
+    <message><source>S3</source><translation>Werk&amp;zeuge</translation></message>
+    <message><source>S4</source><translation>Me&amp;nü</translation></message>
+    <message><source>S5</source><translation>G&amp;amp;&amp;amp;H</translation></message> <!-- Escaped, no collision with &H if we had one -->
+</context>
+</TS>"""
+    ts_path.write_text(content, encoding="utf-8")
+    
+    tool = L10nTool(ts_path)
+    collisions = tool.check_shortcut_collisions()
+    
+    assert "CollCtx" in collisions
+    # Collision on 'd' (Datei and Dokument)
+    assert 'd' in collisions["CollCtx"]
+    assert len(collisions["CollCtx"]['d']) == 2
+    # No collision on 'z' (Werkzeuge)
+    assert 'z' not in collisions["CollCtx"]
+    # No collision on escaped 'G&&H'
+    assert 'g' not in collisions["CollCtx"]

@@ -27,11 +27,15 @@ def test_translation_formatting():
                 if source.text != source.text.strip():
                     errors.append(f"Context '{context_name}': Source '{source.text}' has surrounding whitespace.")
             
-            if translation is not None and translation.text:
-                if translation.text != translation.text.strip():
-                    # Check for intentional leading/trailing spaces if necessary, 
-                    # but usually for UI labels we don't want them unless escaped.
-                    # For this task, we assume strict stripping as requested.
-                    errors.append(f"Context '{context_name}': Translation '{translation.text}' has surrounding whitespace.")
+            if translation is not None:
+                # If there are children (plurals), check the children instead of container text
+                children = list(translation)
+                if children:
+                    for child in children:
+                        if child.text and child.text != child.text.strip():
+                            errors.append(f"Context '{context_name}': {child.tag} '{child.text}' has surrounding whitespace.")
+                elif translation.text:
+                    if translation.text != translation.text.strip():
+                        errors.append(f"Context '{context_name}': Translation '{translation.text}' has surrounding whitespace.")
 
     assert not errors, "\n".join(errors[:10]) + (f"\n... and {len(errors) - 10} more errors" if len(errors) > 10 else "")

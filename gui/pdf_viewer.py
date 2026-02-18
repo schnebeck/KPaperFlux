@@ -306,7 +306,7 @@ class PdfCanvas(QScrollArea):
     def show_copy_feedback(self, widget_pos: QPoint) -> None:
         """Displays toast notification for successful copy action."""
         canvas_pos = self.mapFromGlobal(self.display_label.mapToGlobal(widget_pos))
-        self.toast.show_message("Copied!", canvas_pos)
+        self.toast.show_message(self.tr("Copied!"), canvas_pos)
 
     def set_document(self, fitz_doc: Optional[fitz.Document]) -> None:
         """
@@ -613,7 +613,7 @@ class DualPdfViewerWidget(QWidget):
         self.layout_main.addWidget(self.splitter)
 
         # Add symmetry: "Close" button on right, invisible spacer on left
-        self.btn_close = QPushButton(self.tr("Close"))
+        self.btn_close = QPushButton()
         self.btn_close.setFixedWidth(80)
         self.btn_close.setFixedHeight(30)
         self.btn_close.clicked.connect(self.close_requested.emit)
@@ -628,7 +628,21 @@ class DualPdfViewerWidget(QWidget):
         self._setup_sync_connections()
         self.btn_diff.toggled.connect(self._on_diff_toggled)
         self.splitter.handle(1).installEventFilter(self)
+        self.retranslate_ui()
         QTimer.singleShot(200, self._reposition_link_button)
+
+    def changeEvent(self, event: QEvent) -> None:
+        """Handle language change events."""
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self) -> None:
+        """Updates all UI strings for on-the-fly localization."""
+        self.btn_close.setText(self.tr("Close"))
+        self.btn_link.setToolTip(self.tr("Link scroll and zoom"))
+        self.btn_diff.setToolTip(self.tr("Show visual differences"))
+
 
     def eventFilter(self, source: QObject, event: QEvent) -> bool:
         """Positions the floating link button when the splitter handle moves."""
@@ -959,6 +973,7 @@ class PdfViewerWidget(QWidget):
         self.canvas.page_changed.connect(self.on_page_changed)
         self.canvas.zoom_changed.connect(self.update_zoom_label)
         self.canvas.resized.connect(self._on_viewport_resized)
+        self.retranslate_ui()
 
     def sizeHint(self) -> QSize:
         """Small hint to avoid pushing parent layouts."""
@@ -1096,6 +1111,21 @@ class PdfViewerWidget(QWidget):
             block = self.is_slave and self.sync_active
             self.canvas.set_zoom(f, block_signals=block)
             self.update_zoom_label(f)
+
+    def changeEvent(self, event: QEvent) -> None:
+        """Handle language change events."""
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self) -> None:
+        """Updates all UI strings for on-the-fly localization."""
+        self.btn_fit.setText(self.tr("Fit"))
+        self.btn_split.setToolTip(self.tr("Split Document"))
+        self.btn_save.setToolTip(self.tr("Save Changes"))
+        # Update page count label with current total
+        total = self.canvas.get_page_count()
+        self.lbl_page_count.setText(f"/ {total}")
 
     def set_sync_active(self, active: bool) -> None:
         """Updates synchronization state and UI responsiveness."""

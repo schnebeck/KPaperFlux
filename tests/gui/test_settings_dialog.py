@@ -3,6 +3,7 @@ from PyQt6.QtCore import Qt
 from gui.settings_dialog import SettingsDialog
 from core.config import AppConfig
 
+@pytest.mark.localized
 def test_settings_dialog_load_save(qtbot):
     """Test that dialog loads config and saves changes."""
     # Setup initial config

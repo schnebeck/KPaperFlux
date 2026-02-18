@@ -65,13 +65,12 @@ To add or update translations, follow this strict sequence:
     ```bash
     pylupdate6 . -ts resources/l10n/de/gui_strings.ts
     ```
-2.  **Translation Update:** Use `L10nTool` to update strings within their specific Qt context.
-    ```python
-    from tools.l10n_tool import L10nTool
-    tool = L10nTool("resources/l10n/de/gui_strings.ts")
-    tool.update_translation("ContextName", "Source String", "Translated String")
+2.  **Batch Translation:** Use `tools/fill_l10n.py` to manage bulk translations. This script uses the `L10nTool` to populate the `.ts` file with common and context-specific translations while maintaining XML integrity.
+    ```bash
+    python3 tools/fill_l10n.py
     ```
-3.  **Deduplication:** Periodically run `tool.deduplicate()` to keep the lookup efficient.
+3.  **Individual Updates:** For single string updates, you can still use `L10nTool` programmatically or via specific scripts.
+4.  **Deduplication:** Periodically run `tool.deduplicate()` via `L10nTool` to keep the lookup efficient.
 4.  **Compilation:** Every modification to a `.ts` file MUST be followed by running `lrelease` to generate the `.qm` binary.
     ```bash
     lrelease resources/l10n/de/gui_strings.ts

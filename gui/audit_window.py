@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QLabel, QFrame, QScrollArea, QPushButton, QMainWindow, QStackedWidget
 )
 from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import Qt, pyqtSignal, QMarginsF
+from PyQt6.QtCore import Qt, pyqtSignal, QMarginsF, QEvent
 from PyQt6.QtGui import QFont, QTextDocument, QPageLayout
 try:
     from PyQt6.QtPrintSupport import QPrinter
@@ -105,7 +105,7 @@ class AuditWindow(QMainWindow):
         self.workflow_controls.transition_triggered.connect(self.workflow_triggered.emit)
         controls_layout.addWidget(self.workflow_controls)
 
-        self.btn_close = QPushButton(self.tr("Close"))
+        self.btn_close = QPushButton()
         self.btn_close.setFixedWidth(120)
         self.btn_close.clicked.connect(self.close)
         self.btn_close.hide() # Hidden by default
@@ -115,9 +115,24 @@ class AuditWindow(QMainWindow):
         
         layout.addWidget(self.controls_frame)
         
+        self.retranslate_ui()
+        
         # Default to Fit Zoom for Audit
         self.pdf_viewer.set_fit_mode(True)
         self.rendered_pdf_viewer.set_fit_mode(True)
+
+    def changeEvent(self, event: QEvent) -> None:
+        """Handle language change events."""
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self) -> None:
+        """Updates all UI strings for on-the-fly localization."""
+        self.setWindowTitle(self.tr("KPaperFlux - Audit & Verification"))
+        self.btn_close.setText(self.tr("Close"))
+        if not self.current_doc:
+             self.render_view.setPlainText(self.tr("No document selected."))
 
     def set_debug_mode(self, enabled: bool):
         """Hides workflow controls and shows only a close button."""

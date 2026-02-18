@@ -104,7 +104,9 @@ class MainWindow(QMainWindow):
         self.pipeline = pipeline
         self.db_manager = db_manager
         self.app_config = app_config or AppConfig()
-        self._switch_language(self.app_config.get_language())
+        lang = self.app_config.get_language()
+        logger.debug(f"[MainWindow] Initial language from config: '{lang}' (File: {self.app_config.settings.fileName()})")
+        self._switch_language(lang, refresh_ui=False)
 
         # If pipeline is provided but db_manager checks, try to extract db from pipeline
         if self.pipeline and not self.db_manager:
@@ -1144,10 +1146,11 @@ class MainWindow(QMainWindow):
 
         # Phase 120: Live Language Switch
         new_lang = self.app_config.get_language()
-        self._switch_language(new_lang)
+        self._switch_language(new_lang, refresh_ui=True)
 
-    def _switch_language(self, lang: str):
+    def _switch_language(self, lang: str, refresh_ui: bool = True):
         """Swaps the QTranslator at runtime."""
+        logger.debug(f"[L10n] _switch_language called with lang='{lang}', refresh_ui={refresh_ui}")
         app = QCoreApplication.instance()
         if not app:
             return
@@ -1169,13 +1172,19 @@ class MainWindow(QMainWindow):
                     app.installTranslator(translator)
                     self._translators.append(translator)
                     logger.info(f"[L10n] Switched language to {lang} (hot-reload)")
+                    logger.debug(f"[L10n] Loaded QM from: {qm_path}")
+                    # Force immediate retranslation if requested and UI is ready
+                    if refresh_ui:
+                        self.retranslate_ui()
                 else:
                     logger.error(f"[L10n] Failed to load translation: {qm_path}")
             else:
                 logger.warning(f"[L10n] Translation file missing: {qm_path}")
         else:
             logger.info("[L10n] Switched language to English (default)")
-            # No translator needed for English as it's the source language
+            # Force immediate retranslation if requested and UI is ready
+            if refresh_ui:
+                self.retranslate_ui()
 
     def _update_transfer_menu_visibility(self):
         """Show/Hide transfer action based on config."""
@@ -2305,6 +2314,9 @@ class MainWindow(QMainWindow):
 
     def retranslate_ui(self):
         """Updates all UI strings for on-the-fly localization."""
+        if not hasattr(self, "file_menu"):
+            return # UI not fully constructed yet
+            
         self.setWindowTitle("KPaperFlux v2")
         
         # Menus

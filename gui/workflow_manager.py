@@ -61,9 +61,13 @@ class WorkflowRuleFormEditor(QWidget):
         self.edit_desc.textChanged.connect(self._on_changed)
         self.edit_triggers.textChanged.connect(self._on_changed)
         
-        gen_layout.addRow(self.tr("Display Name:"), self.edit_name)
-        gen_layout.addRow(self.tr("Description:"), self.edit_desc)
-        gen_layout.addRow(self.tr("Auto-Trigger Tags:"), self.edit_triggers)
+        self.lbl_name = QLabel()
+        self.lbl_desc = QLabel()
+        self.lbl_triggers = QLabel()
+
+        gen_layout.addRow(self.lbl_name, self.edit_name)
+        gen_layout.addRow(self.lbl_desc, self.edit_desc)
+        gen_layout.addRow(self.lbl_triggers, self.edit_triggers)
         
         meta_inner_layout.addLayout(gen_layout)
         self.main_layout.addWidget(self.meta_frame)
@@ -159,20 +163,21 @@ class WorkflowRuleFormEditor(QWidget):
         super().changeEvent(event)
 
     def retranslate_ui(self):
+        """Updates all UI strings for on-the-fly localization."""
+        self.lbl_name.setText(self.tr("Display Name:"))
+        self.lbl_desc.setText(self.tr("Description:"))
+        self.lbl_triggers.setText(self.tr("Auto-Trigger Tags:"))
+
         self.edit_name.setPlaceholderText(self.tr("Enter rule name..."))
-        self.edit_desc.setPlaceholderText(self.tr("What does this rule do..."))
-        
-        # We need to reach into the layouts to update labels if we didn't save them
-        # Let's save them now for better future access
-        if not hasattr(self, "lbl_name"):
-             # Find labels in gen_layout (which is the layout of the widget in meta_frame)
-             # This is a bit complex, but I'll update the strings here
-             pass 
+        self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
+        self.edit_triggers.setPlaceholderText(self.tr("INVOICE, TELEKOM, ..."))
 
         self.tabs.setTabText(0, self.tr("States"))
         self.tabs.setTabText(1, self.tr("Transitions"))
         
-        self.states_table.setHorizontalHeaderLabels([self.tr("State ID"), self.tr("Label"), self.tr("Final?")])
+        self.states_table.setHorizontalHeaderLabels([
+            self.tr("State ID"), self.tr("Label"), self.tr("Final?")
+        ])
         self.trans_table.setHorizontalHeaderLabels([
             self.tr("From State"), self.tr("Action"), self.tr("Target State"), 
             self.tr("Required Fields"), self.tr("UI?"), self.tr("Conditions")
@@ -770,7 +775,7 @@ class WorkflowManagerWidget(QWidget):
         if rule:
             self.form_editor.load_rule(rule)
             self._clear_dirty()
-            self.status_lbl.setText(self.tr(f"Editing: {rule.name or rule_id}"))
+            self.status_lbl.setText(self.tr("Editing: %1").arg(rule.name or rule_id))
 
     def _create_new_rule(self):
         rule = WorkflowRule(
@@ -797,14 +802,14 @@ class WorkflowManagerWidget(QWidget):
             for existing in reg.list_rules():
                 if existing.name == rule.name and existing.id != rule.id:
                     QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                        self.tr(f"A rule with the name '{rule.name}' already exists."))
+                                        self.tr("A rule with the name '%1' already exists.").arg(rule.name))
                     return
 
             file_path = os.path.join(self.workflow_dir, f"{rule.id}.json")
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(rule.model_dump(), f, indent=2)
                 
-            QMessageBox.information(self, self.tr("Success"), self.tr(f"Rule '{rule.name}' saved and activated."))
+            QMessageBox.information(self, self.tr("Success"), self.tr("Rule '%1' saved and activated.").arg(rule.name))
             
             self._clear_dirty()
             
@@ -911,7 +916,7 @@ class WorkflowRuleManagerDialog(QDialog):
             reg = WorkflowRuleRegistry()
             if any(p.name == name for p in reg.list_rules()):
                 QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                    self.tr(f"A workflow with the name '{name}' already exists."))
+                                    self.tr("A workflow with the name '%1' already exists.").arg(name))
                 return
 
             # Generate stable ID from name + timestamp
@@ -949,7 +954,7 @@ class WorkflowRuleManagerDialog(QDialog):
                 reg = WorkflowRuleRegistry()
                 if any(p.name == new_name for p in reg.list_rules()):
                     QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                        self.tr(f"A rule with the name '{new_name}' already exists."))
+                                        self.tr("A rule with the name '%1' already exists.").arg(new_name))
                     return
 
                 data["name"] = new_name
@@ -973,11 +978,11 @@ class WorkflowRuleManagerDialog(QDialog):
                 rule_names = ", ".join([node.name for node in usages])
                 QMessageBox.critical(
                     self, self.tr("Workflow in Use"),
-                    self.tr(f"The rule '{name}' cannot be deleted because it is still used in the following rules:\n\n{rule_names}\n\nPlease remove the assignment from these rules first.")
+                    self.tr("The rule '%1' cannot be deleted because it is still used in the following rules:\n\n%2\n\nPlease remove the assignment from these rules first.").arg(name).arg(rule_names)
                 )
                 return
 
-        reply = QMessageBox.question(self, self.tr("Delete Workflow"), self.tr(f"Are you sure you want to delete the workflow '{name}'?"), 
+        reply = QMessageBox.question(self, self.tr("Delete Workflow"), self.tr("Are you sure you want to delete the workflow '%1'?").arg(name), 
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             file_path = os.path.join(self.workflow_dir, f"{pb_id}.json")
@@ -989,6 +994,6 @@ class WorkflowRuleManagerDialog(QDialog):
                     if pb_id in reg.rules:
                         del reg.rules[pb_id]
                 except Exception as e:
-                    QMessageBox.warning(self, self.tr("Error"), f"Could not delete file: {e}")
+                    QMessageBox.warning(self, self.tr("Error"), self.tr("Could not delete file: %1").arg(str(e)))
             self._reload_list()
 

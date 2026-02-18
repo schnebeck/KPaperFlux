@@ -19,7 +19,7 @@ from PyQt6.QtGui import QPixmap, QImage
 import json
 import io
 from datetime import datetime
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale, QSize, QEvent
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 from core.models.types import DocType
@@ -186,13 +186,119 @@ class MetadataEditorWidget(QWidget):
     def minimumSizeHint(self) -> QSize:
         return QSize(100, 100)
 
+    def changeEvent(self, event: QEvent) -> None:
+        """Handle language change events."""
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self) -> None:
+        """Updates all UI strings for on-the-fly localization."""
+        self.chk_locked.setText(self.tr("Locked (Immutable)"))
+        self.btn_audit.setText(self.tr("🔍 Audit"))
+        self.btn_audit.setToolTip(self.tr("Open side-by-side verification window"))
+        
+        # Labels in General Tab
+        self.chk_pkv.setText(self.tr("Eligible for PKV Reimbursement"))
+        self.lbl_uuid_prefix.setText(self.tr("UUID:"))
+        self.lbl_created_at_prefix.setText(self.tr("Created At:"))
+        self.lbl_page_count_prefix.setText(self.tr("Pages:"))
+        self.lbl_status_prefix.setText(self.tr("Status:"))
+        self.lbl_export_filename_prefix.setText(self.tr("Export Name:"))
+        self.lbl_tags_prefix.setText(self.tr("Tags:"))
+        self.tags_edit.setToolTip(self.tr("Custom Tags: Enter keywords, separated by commas or Enter."))
+        self.archived_chk.setText(self.tr("Archived"))
+        self.lbl_storage_location_prefix.setText(self.tr("Storage Location:"))
+        
+        # Status Combo
+        current_data = self.status_combo.currentData()
+        self.status_combo.blockSignals(True)
+        self.status_combo.clear()
+        for tech_val, display_name in self.STATUS_MAP.items():
+            self.status_combo.addItem(self.tr(display_name), tech_val)
+        idx = self.status_combo.findData(current_data)
+        if idx >= 0: self.status_combo.setCurrentIndex(idx)
+        self.status_combo.blockSignals(False)
+
+        # Labels in Analysis Tab
+        self.lbl_doc_types_prefix.setText(self.tr("Document Types:"))
+        self.lbl_direction_prefix.setText(self.tr("Direction:"))
+        self.lbl_context_prefix.setText(self.tr("Tenant Context:"))
+        self.lbl_extracted_data_header.setText("--- " + self.tr("Extracted Data") + " ---")
+        self.lbl_sender_prefix.setText(self.tr("Sender:"))
+        self.lbl_date_prefix.setText(self.tr("Document Date:"))
+
+        # Combos in Analysis Tab
+        self.direction_combo.blockSignals(True)
+        cur_dir = self.direction_combo.currentData()
+        self.direction_combo.clear()
+        for d in ["Inbound", "Outbound", "Internal", "Unknown"]:
+            self.direction_combo.addItem(self.tr(d), d)
+        idx = self.direction_combo.findData(cur_dir)
+        if idx >= 0: self.direction_combo.setCurrentIndex(idx)
+        self.direction_combo.blockSignals(False)
+
+        self.context_combo.blockSignals(True)
+        cur_ctx = self.context_combo.currentData()
+        self.context_combo.clear()
+        for c in ["Private", "Business", "Unknown"]:
+            self.context_combo.addItem(self.tr(c), c)
+        idx = self.context_combo.findData(cur_ctx)
+        if idx >= 0: self.context_combo.setCurrentIndex(idx)
+        self.context_combo.blockSignals(False)
+
+        # Payment Tab
+        self.lbl_pay_recipient_prefix.setText(self.tr("Recipient:"))
+        self.lbl_pay_iban_prefix.setText(self.tr("IBAN:"))
+        self.lbl_pay_bic_prefix.setText(self.tr("BIC:"))
+        self.lbl_pay_amount_prefix.setText(self.tr("Amount:"))
+        self.lbl_pay_purpose_prefix.setText(self.tr("Purpose:"))
+        self.lbl_giro_header.setText(self.tr("GiroCode (EPC)"))
+        self.lbl_giro_header.setToolTip(self.tr("Standardized QR code for SEPA transfers (EPC-QR)."))
+        self.btn_copy_pay_payload.setText(self.tr("Copy Payload"))
+        self.btn_copy_pay_payload.setToolTip(self.tr("Copy the raw GiroCode data for banking apps"))
+
+        # Stamps Table
+        self.stamps_table.setHorizontalHeaderLabels([
+            self.tr("Type"), self.tr("Text"), self.tr("Page"), self.tr("Confidence")
+        ])
+        self.btn_add_stamp.setText(self.tr("Add Stamp"))
+        self.btn_remove_stamp.setText(self.tr("Remove Selected"))
+
+        # Semantic Data Table
+        self.semantic_table.setHorizontalHeaderLabels([
+            self.tr("Section"), self.tr("Field"), self.tr("Value")
+        ])
+        self.btn_add_semantic.setText(self.tr("Add Entry"))
+        self.btn_remove_semantic.setText(self.tr("Remove Selected"))
+
+        # History Table
+        self.history_table.setHorizontalHeaderLabels([
+            self.tr("Time"), self.tr("Action"), self.tr("User"), self.tr("Comment")
+        ])
+
+        # Tab Titles
+        self.tab_widget.setTabText(0, self.tr("General"))
+        self.tab_widget.setTabText(1, self.tr("Analysis"))
+        self.tab_widget.setTabText(2, self.tr("Payment"))
+        self.tab_widget.setTabText(3, self.tr("Stamps"))
+        self.tab_widget.setTabText(4, self.tr("Semantic Data"))
+        self.tab_widget.setTabText(5, self.tr("Source Mapping"))
+        self.tab_widget.setTabText(6, self.tr("Debug Data"))
+        self.tab_widget.setTabText(7, self.tr("History"))
+
+        self.lbl_source_mapping_header.setText(self.tr("Physical Source Components:"))
+        self.lbl_raw_virtual_header.setText(self.tr("Raw Virtual Document Storage:"))
+        self.lbl_cached_full_text_header.setText(self.tr("Cached Full Text:"))
+        self.btn_save.setText(self.tr("Save Changes"))
+
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         # Lock Checkbox
         lock_layout = QHBoxLayout()
-        self.chk_locked = QCheckBox(self.tr("Locked (Immutable)"))
+        self.chk_locked = QCheckBox()
         self.chk_locked.clicked.connect(self.on_lock_clicked)
         lock_layout.addWidget(self.chk_locked)
         
@@ -204,8 +310,7 @@ class MetadataEditorWidget(QWidget):
         self.workflow_controls.rule_changed.connect(self.on_rule_changed)
         lock_layout.addWidget(self.workflow_controls)
         
-        self.btn_audit = QPushButton(self.tr("🔍 Audit"))
-        self.btn_audit.setToolTip(self.tr("Open side-by-side verification window"))
+        self.btn_audit = QPushButton()
         self.btn_audit.setFixedHeight(28)
         self.btn_audit.setStyleSheet("""
             QPushButton {
@@ -238,38 +343,42 @@ class MetadataEditorWidget(QWidget):
         general_layout = QFormLayout(self.general_content)
         
         # PKV Toggle
-        self.chk_pkv = QCheckBox(self.tr("Eligible for PKV Reimbursement"))
+        self.chk_pkv = QCheckBox()
         general_layout.addRow("", self.chk_pkv)
 
+        self.lbl_uuid_prefix = QLabel()
         self.uuid_lbl = QLabel()
         self.uuid_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        general_layout.addRow(self.tr("UUID:"), self.uuid_lbl)
+        general_layout.addRow(self.lbl_uuid_prefix, self.uuid_lbl)
 
+        self.lbl_created_at_prefix = QLabel()
         self.created_at_lbl = QLabel()
-        general_layout.addRow(self.tr("Created At:"), self.created_at_lbl)
+        general_layout.addRow(self.lbl_created_at_prefix, self.created_at_lbl)
 
+        self.lbl_page_count_prefix = QLabel()
         self.page_count_lbl = QLabel()
-        general_layout.addRow(self.tr("Pages:"), self.page_count_lbl)
+        general_layout.addRow(self.lbl_page_count_prefix, self.page_count_lbl)
 
+        self.lbl_status_prefix = QLabel()
         self.status_combo = QComboBox()
-        for tech_val, display_name in self.STATUS_MAP.items():
-            self.status_combo.addItem(self.tr(display_name), tech_val)
-        general_layout.addRow(self.tr("Status:"), self.status_combo)
+        general_layout.addRow(self.lbl_status_prefix, self.status_combo)
 
+        self.lbl_export_filename_prefix = QLabel()
         self.export_filename_edit = QLineEdit()
-        general_layout.addRow(self.tr("Export Name:"), self.export_filename_edit)
+        general_layout.addRow(self.lbl_export_filename_prefix, self.export_filename_edit)
 
+        self.lbl_tags_prefix = QLabel()
         self.tags_edit = TagInputWidget()
-        self.tags_edit.setToolTip(self.tr("Custom Tags: Enter keywords, separated by commas or Enter."))
-        general_layout.addRow(self.tr("Tags:"), self.tags_edit)
+        general_layout.addRow(self.lbl_tags_prefix, self.tags_edit)
 
-        self.archived_chk = QCheckBox(self.tr("Archived"))
+        self.archived_chk = QCheckBox()
         general_layout.addRow("", self.archived_chk)
         
+        self.lbl_storage_location_prefix = QLabel()
         self.storage_location_edit = QLineEdit()
-        general_layout.addRow(self.tr("Storage Location:"), self.storage_location_edit)
+        general_layout.addRow(self.lbl_storage_location_prefix, self.storage_location_edit)
 
-        self.tab_widget.addTab(self.general_scroll, self.tr("General"))
+        self.tab_widget.addTab(self.general_scroll, "")
 
         # --- Tab 2: Analysis & AI Core ---
         self.analysis_scroll = QScrollArea()
@@ -279,37 +388,39 @@ class MetadataEditorWidget(QWidget):
         analysis_layout = QFormLayout(self.analysis_content)
 
         # Core Selectors
+        self.lbl_doc_types_prefix = QLabel()
         self.doc_types_combo = MultiSelectComboBox()
         # Sort and clean DocType labels
         for t in sorted([t.value for t in DocType]):
             label = t.replace("_", " ").title()
             self.doc_types_combo.addItem(self.tr(label), data=t)
-        analysis_layout.addRow(self.tr("Document Types:"), self.doc_types_combo)
+        analysis_layout.addRow(self.lbl_doc_types_prefix, self.doc_types_combo)
 
+        self.lbl_direction_prefix = QLabel()
         self.direction_combo = QComboBox()
-        for d in ["Inbound", "Outbound", "Internal", "Unknown"]:
-            self.direction_combo.addItem(self.tr(d), d)
-        analysis_layout.addRow(self.tr("Direction:"), self.direction_combo)
+        analysis_layout.addRow(self.lbl_direction_prefix, self.direction_combo)
 
+        self.lbl_context_prefix = QLabel()
         self.context_combo = QComboBox()
-        for c in ["Private", "Business", "Unknown"]:
-            self.context_combo.addItem(self.tr(c), c)
-        analysis_layout.addRow(self.tr("Tenant Context:"), self.context_combo)
+        analysis_layout.addRow(self.lbl_context_prefix, self.context_combo)
 
-        analysis_layout.addRow(QLabel("--- " + self.tr("Extracted Data") + " ---"))
+        self.lbl_extracted_data_header = QLabel()
+        analysis_layout.addRow(self.lbl_extracted_data_header)
 
+        self.lbl_sender_prefix = QLabel()
         self.sender_edit = QLineEdit()
-        analysis_layout.addRow(self.tr("Sender:"), self.sender_edit)
+        analysis_layout.addRow(self.lbl_sender_prefix, self.sender_edit)
 
+        self.lbl_date_prefix = QLabel()
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setSpecialValueText(" ") # Allow 'empty' look
         self.date_edit.setDisplayFormat(QLocale.system().dateFormat(QLocale.FormatType.ShortFormat))
-        analysis_layout.addRow(self.tr("Document Date:"), self.date_edit)
+        analysis_layout.addRow(self.lbl_date_prefix, self.date_edit)
 
         # Reasoning field removed to save space/tokens in AI output
 
-        self.tab_widget.addTab(self.analysis_scroll, self.tr("Analysis"))
+        self.tab_widget.addTab(self.analysis_scroll, "")
         
         # Move Payment Tab initialization up to prevent AttributeError (Crash Fix)
         self.payment_scroll = QScrollArea()
@@ -325,17 +436,22 @@ class MetadataEditorWidget(QWidget):
         fields_layout = QVBoxLayout(self.fields_container)
         payment_form = QFormLayout()
         
+        self.lbl_pay_recipient_prefix = QLabel()
         self.pay_recipient_edit = QLineEdit()
+        self.lbl_pay_iban_prefix = QLabel()
         self.pay_iban_edit = QLineEdit()
+        self.lbl_pay_bic_prefix = QLabel()
         self.pay_bic_edit = QLineEdit()
+        self.lbl_pay_amount_prefix = QLabel()
         self.pay_amount_edit = QLineEdit()
+        self.lbl_pay_purpose_prefix = QLabel()
         self.pay_purpose_edit = QLineEdit()
 
-        payment_form.addRow(self.tr("Recipient:"), self.pay_recipient_edit)
-        payment_form.addRow(self.tr("IBAN:"), self.pay_iban_edit)
-        payment_form.addRow(self.tr("BIC:"), self.pay_bic_edit)
-        payment_form.addRow(self.tr("Amount:"), self.pay_amount_edit)
-        payment_form.addRow(self.tr("Purpose:"), self.pay_purpose_edit)
+        payment_form.addRow(self.lbl_pay_recipient_prefix, self.pay_recipient_edit)
+        payment_form.addRow(self.lbl_pay_iban_prefix, self.pay_iban_edit)
+        payment_form.addRow(self.lbl_pay_bic_prefix, self.pay_bic_edit)
+        payment_form.addRow(self.lbl_pay_amount_prefix, self.pay_amount_edit)
+        payment_form.addRow(self.lbl_pay_purpose_prefix, self.pay_purpose_edit)
         
         fields_layout.addStretch()
         fields_layout.addLayout(payment_form)
@@ -348,16 +464,15 @@ class MetadataEditorWidget(QWidget):
         qr_sub_layout = QVBoxLayout(self.qr_container)
         qr_sub_layout.addStretch()
         
-        giro_header = QLabel(self.tr("GiroCode (EPC)"))
-        giro_header.setStyleSheet("font-weight: bold; color: #1565c0; font-size: 14px;")
-        giro_header.setToolTip(self.tr("Standardized QR code for SEPA transfers (EPC-QR)."))
+        self.lbl_giro_header = QLabel()
+        self.lbl_giro_header.setStyleSheet("font-weight: bold; color: #1565c0; font-size: 14px;")
         
         qr_btn_row = QHBoxLayout()
         qr_btn_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         qr_image_col = QVBoxLayout()
         qr_image_col.setAlignment(Qt.AlignmentFlag.AlignTop)
-        qr_image_col.addWidget(giro_header, 0, Qt.AlignmentFlag.AlignCenter)
+        qr_image_col.addWidget(self.lbl_giro_header, 0, Qt.AlignmentFlag.AlignCenter)
         
         self.qr_label = QLabel()
         self.qr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -372,8 +487,7 @@ class MetadataEditorWidget(QWidget):
         btn_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         btn_col.addSpacing(20) 
         
-        self.btn_copy_pay_payload = QPushButton(self.tr("Copy Payload"))
-        self.btn_copy_pay_payload.setToolTip(self.tr("Copy the raw GiroCode data for banking apps"))
+        self.btn_copy_pay_payload = QPushButton()
         self.btn_copy_pay_payload.clicked.connect(self.copy_girocode_payload)
         btn_col.addWidget(self.btn_copy_pay_payload)
         
@@ -382,7 +496,7 @@ class MetadataEditorWidget(QWidget):
         qr_sub_layout.addStretch()
         payment_master_layout.addWidget(self.qr_container)
 
-        self.tab_widget.addTab(self.payment_scroll, self.tr("Payment"))
+        self.tab_widget.addTab(self.payment_scroll, "")
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.payment_scroll), False)
 
         # --- Tab: Stamps (Stage 1.5) - Phase 105 ---
@@ -391,18 +505,15 @@ class MetadataEditorWidget(QWidget):
 
         self.stamps_table = QTableWidget()
         self.stamps_table.setColumnCount(4)
-        self.stamps_table.setHorizontalHeaderLabels([
-            self.tr("Type"), self.tr("Text"), self.tr("Page"), self.tr("Confidence")
-        ])
         self.stamps_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.stamps_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.stamps_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         stamps_layout.addWidget(self.stamps_table)
 
         stamps_btn_layout = QHBoxLayout()
-        self.btn_add_stamp = QPushButton(self.tr("Add Stamp"))
+        self.btn_add_stamp = QPushButton()
         self.btn_add_stamp.clicked.connect(self._add_stamp_row)
-        self.btn_remove_stamp = QPushButton(self.tr("Remove Selected"))
+        self.btn_remove_stamp = QPushButton()
         self.btn_remove_stamp.clicked.connect(self._remove_selected_stamps)
         stamps_btn_layout.addWidget(self.btn_add_stamp)
         stamps_btn_layout.addWidget(self.btn_remove_stamp)
@@ -410,7 +521,7 @@ class MetadataEditorWidget(QWidget):
         stamps_layout.addLayout(stamps_btn_layout)
 
         # Hide by default, shown in display_document
-        self.tab_widget.addTab(self.stamps_tab, self.tr("Stamps"))
+        self.tab_widget.addTab(self.stamps_tab, "")
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.stamps_tab), False)
 
         # --- Tab: Semantic Data (Phase 110) ---
@@ -419,25 +530,22 @@ class MetadataEditorWidget(QWidget):
 
         self.semantic_table = QTableWidget()
         self.semantic_table.setColumnCount(3)
-        self.semantic_table.setHorizontalHeaderLabels([
-            self.tr("Section"), self.tr("Field"), self.tr("Value")
-        ])
         self.semantic_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.semantic_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.semantic_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         semantic_data_layout.addWidget(self.semantic_table)
 
         semantic_btn_layout = QHBoxLayout()
-        self.btn_add_semantic = QPushButton(self.tr("Add Entry"))
+        self.btn_add_semantic = QPushButton()
         self.btn_add_semantic.clicked.connect(self._add_semantic_row)
-        self.btn_remove_semantic = QPushButton(self.tr("Remove Selected"))
+        self.btn_remove_semantic = QPushButton()
         self.btn_remove_semantic.clicked.connect(self._remove_selected_semantic)
         semantic_btn_layout.addWidget(self.btn_add_semantic)
         semantic_btn_layout.addWidget(self.btn_remove_semantic)
         semantic_btn_layout.addStretch()
         semantic_data_layout.addLayout(semantic_btn_layout)
 
-        self.tab_widget.addTab(self.semantic_data_tab, self.tr("Semantic Data"))
+        self.tab_widget.addTab(self.semantic_data_tab, "")
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.semantic_data_tab), False)
 
         # --- Tab 2: Source Mapping (Component List) ---
@@ -450,12 +558,11 @@ class MetadataEditorWidget(QWidget):
         font = self.source_viewer.font()
         font.setFamily("Monospace")
         font.setStyleHint(font.StyleHint.Monospace)
-        self.source_viewer.setFont(font)
-
-        source_layout.addWidget(QLabel(self.tr("Physical Source Components:")))
+        self.lbl_source_mapping_header = QLabel()
+        source_layout.addWidget(self.lbl_source_mapping_header)
         source_layout.addWidget(self.source_viewer)
 
-        self.tab_widget.addTab(self.source_tab, self.tr("Source Mapping"))
+        self.tab_widget.addTab(self.source_tab, "")
 
 
 
@@ -467,15 +574,17 @@ class MetadataEditorWidget(QWidget):
         self.semantic_viewer.setReadOnly(True)
         self.semantic_viewer.setFont(font)
 
-        semantic_layout.addWidget(QLabel(self.tr("Raw Virtual Document Storage:")))
+        self.lbl_raw_virtual_header = QLabel()
+        semantic_layout.addWidget(self.lbl_raw_virtual_header)
         semantic_layout.addWidget(self.semantic_viewer)
 
-        semantic_layout.addWidget(QLabel(self.tr("Cached Full Text:")))
+        self.lbl_cached_full_text_header = QLabel()
+        semantic_layout.addWidget(self.lbl_cached_full_text_header)
         self.full_text_viewer = QTextEdit()
         self.full_text_viewer.setReadOnly(True)
         self.full_text_viewer.setFont(font)
         semantic_layout.addWidget(self.full_text_viewer)
-        self.tab_widget.addTab(self.semantic_tab, self.tr("Debug Data"))
+        self.tab_widget.addTab(self.semantic_tab, "")
 
         # --- Tab: Workflow History (Phase 112) ---
         self.history_tab = QWidget()
@@ -483,21 +592,20 @@ class MetadataEditorWidget(QWidget):
         
         self.history_table = QTableWidget()
         self.history_table.setColumnCount(4)
-        self.history_table.setHorizontalHeaderLabels([
-            self.tr("Time"), self.tr("Action"), self.tr("User"), self.tr("Comment")
-        ])
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.history_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         history_layout.addWidget(self.history_table)
         
-        self.tab_widget.addTab(self.history_tab, self.tr("History"))
+        self.tab_widget.addTab(self.history_tab, "")
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.history_tab), False)
 
         # Buttons
-        self.btn_save = QPushButton(self.tr("Save Changes"))
+        self.btn_save = QPushButton()
         self.btn_save.clicked.connect(self.save_changes)
         self.btn_save.setEnabled(False) # Only enabled if dirty
         layout.addWidget(self.btn_save)
+
+        self.retranslate_ui()
 
         # Connect Change Signals for Dirty Tracking
         self.status_combo.currentIndexChanged.connect(self._mark_dirty)

@@ -73,6 +73,8 @@ class AppConfig:
             self.active_id = f"{self.APP_ID}-{profile}"
             
         self.settings = QSettings(self.active_id, self.active_id)
+        from core.logger import get_logger
+        get_logger("core").debug(f"[Config] Initialized settings from: {self.settings.fileName()} (Profile: {self.profile or 'default'})")
 
     def get_config_dir(self) -> Path:
         """
@@ -105,40 +107,27 @@ class AppConfig:
 
     def _get_setting(self, group: str, key: str, default: Any = None) -> Any:
         """
-        Helper to retrieve a setting value from a specific group.
-
-        Args:
-            group: The configuration group name.
-            key: The setting key.
-            default: The default value if not found.
-
-        Returns:
-            The retrieved value or default.
+        Helper to retrieve a setting value using a full path key.
+        This is thread-safe as it doesn't use beginGroup/endGroup state.
         """
-        if group:
-            self.settings.beginGroup(group)
-        val = self.settings.value(key, default)
-        if group:
-            self.settings.endGroup()
+        full_key = f"{group}/{key}" if group else key
+        val = self.settings.value(full_key, default)
+        
+        # Fallback for root keys being in [General] (common in INI files)
+        if val is None and not group:
+            val = self.settings.value(f"General/{key}", default)
+            
         return val
 
     def _set_setting(self, group: str, key: str, value: Any) -> None:
         """
-        Helper to save a setting value into a specific group.
-
-        Args:
-            group: The configuration group name.
-            key: The setting key.
-            value: The value to save.
+        Helper to save a setting value using a full path key.
         """
         if isinstance(value, str):
             value = value.strip()
 
-        if group:
-            self.settings.beginGroup(group)
-        self.settings.setValue(key, value)
-        if group:
-            self.settings.endGroup()
+        full_key = f"{group}/{key}" if group else key
+        self.settings.setValue(full_key, value)
 
     def get_vault_path(self) -> str:
         """
@@ -221,10 +210,7 @@ class AppConfig:
             The API key string.
         """
         env_key = os.environ.get("GEMINI_API_KEY", "")
-
-        self.settings.beginGroup("AI")
-        val = self.settings.value(self.KEY_API_KEY)
-        self.settings.endGroup()
+        val = self._get_setting("AI", self.KEY_API_KEY)
 
         if val is None or str(val).strip() == "":
             return env_key

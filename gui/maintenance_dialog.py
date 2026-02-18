@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QListWidget,
     QPushButton, QHBoxLayout, QMessageBox, QLabel, QListWidgetItem
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QEvent
 import os
 from pathlib import Path
 
@@ -48,43 +48,74 @@ class MaintenanceDialog(QDialog):
         self.tabs.addTab(self.ghost_widget, self.tr("Unknown Files (Ghosts)"))
 
         # Refresh Button
-        btn_refresh = QPushButton(self.tr("Rescan"))
-        btn_refresh.clicked.connect(self.scan)
-        layout.addWidget(btn_refresh)
+        self.btn_refresh = QPushButton()
+        self.btn_refresh.clicked.connect(self.scan)
+        layout.addWidget(self.btn_refresh)
+
+        self.retranslate_ui()
 
         # Initial Scan
         self.scan()
 
+    def changeEvent(self, event: QEvent) -> None:
+        """Handle language change events."""
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self) -> None:
+        """Updates all UI strings for on-the-fly localization."""
+        self.setWindowTitle(self.tr("Database Maintenance"))
+        self.btn_refresh.setText(self.tr("Rescan"))
+        
+        self.lbl_orphans_desc.setText(self.tr("Entries in Database but file missing in Vault:"))
+        self.btn_delete_orphans.setText(self.tr("Delete Selected Entries"))
+        
+        self.lbl_ghosts_desc.setText(self.tr("Files in Vault but missing in Database:"))
+        self.btn_import_ghosts.setText(self.tr("Import Selected Files"))
+        self.btn_delete_ghosts.setText(self.tr("Delete Selected Files"))
+
+        # Update Tab Texts
+        if self.report:
+            self.tabs.setTabText(0, self.tr("Missing Files (%s)") % len(self.report.orphans))
+            self.tabs.setTabText(1, self.tr("Unknown Files (%s)") % len(self.report.ghosts))
+        else:
+            self.tabs.setTabText(0, self.tr("Missing Files (Orphans)"))
+            self.tabs.setTabText(1, self.tr("Unknown Files (Ghosts)"))
+
+
     def setup_orphan_tab(self):
         layout = QVBoxLayout(self.orphan_widget)
-        layout.addWidget(QLabel(self.tr("Entries in Database but file missing in Vault:")))
+        self.lbl_orphans_desc = QLabel()
+        layout.addWidget(self.lbl_orphans_desc)
 
         self.list_orphans = QListWidget()
         self.list_orphans.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         layout.addWidget(self.list_orphans)
 
         btn_layout = QHBoxLayout()
-        btn_delete = QPushButton(self.tr("Delete Selected Entries"))
-        btn_delete.clicked.connect(self.delete_selected_orphans)
-        btn_layout.addWidget(btn_delete)
+        self.btn_delete_orphans = QPushButton()
+        self.btn_delete_orphans.clicked.connect(self.delete_selected_orphans)
+        btn_layout.addWidget(self.btn_delete_orphans)
         layout.addLayout(btn_layout)
 
     def setup_ghost_tab(self):
         layout = QVBoxLayout(self.ghost_widget)
-        layout.addWidget(QLabel(self.tr("Files in Vault but missing in Database:")))
+        self.lbl_ghosts_desc = QLabel()
+        layout.addWidget(self.lbl_ghosts_desc)
 
         self.list_ghosts = QListWidget()
         self.list_ghosts.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         layout.addWidget(self.list_ghosts)
 
         btn_layout = QHBoxLayout()
-        btn_import = QPushButton(self.tr("Import Selected Files"))
-        btn_import.clicked.connect(self.import_selected_ghosts)
-        btn_layout.addWidget(btn_import)
+        self.btn_import_ghosts = QPushButton()
+        self.btn_import_ghosts.clicked.connect(self.import_selected_ghosts)
+        btn_layout.addWidget(self.btn_import_ghosts)
 
-        btn_delete = QPushButton(self.tr("Delete Selected Files"))
-        btn_delete.clicked.connect(self.delete_selected_ghosts)
-        btn_layout.addWidget(btn_delete)
+        self.btn_delete_ghosts = QPushButton()
+        self.btn_delete_ghosts.clicked.connect(self.delete_selected_ghosts)
+        btn_layout.addWidget(self.btn_delete_ghosts)
 
         layout.addLayout(btn_layout)
 

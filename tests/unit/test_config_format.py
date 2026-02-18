@@ -5,6 +5,8 @@ from pathlib import Path
 
 from core.config import AppConfig
 
+pytestmark = pytest.mark.localized
+
 @pytest.fixture
 def temp_config_file(tmp_path):
     return str(tmp_path / "test_clean.conf")

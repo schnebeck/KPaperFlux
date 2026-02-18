@@ -44,9 +44,8 @@ class SettingsDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.config = parent.app_config if parent and hasattr(parent, 'app_config') else AppConfig()
         self.setWindowTitle(self.tr("Settings"))
-        self.resize(600, 500)
-        self.config = AppConfig()
 
         self._setup_ui()
         self.retranslate_ui()
