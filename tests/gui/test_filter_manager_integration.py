@@ -37,8 +37,8 @@ def test_save_zugferd_filter_to_tree(advanced_widget, filter_tree):
     row._set_field(zugferd_path, "Grand Total")
     row.input_text.setText("100.50")
     
-    # 2. Mock QInputDialog to return "Invoice High Value"
-    with patch('PyQt6.QtWidgets.QInputDialog.getText', return_value=("Invoice High Value", True)):
+    # 2. Mock _request_save_info to return "Invoice High Value"
+    with patch.object(advanced_widget, '_request_save_info', return_value=("Invoice High Value", "High balance invoices", True)):
         advanced_widget.save_current_filter()
         
     # 3. Verify added to Tree with exact structure

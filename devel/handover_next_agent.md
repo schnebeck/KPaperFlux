@@ -52,6 +52,7 @@ The application has undergone a significant stability and localization phase. Al
 > **DYNAMIC UI:** Never use `setFixedWidth()` on labels/buttons. Use `padding` and `setMinimumWidth()`.
 > **SHORTCUTS:** A `&` in the source string REQUIRES a shortcut in the translation. No `&` in source means ALL `&` in translation must be `&&`.
 > **TDD FIRST:** All new features or bugfixes MUST be accompanied by/verified by a test in `tests/`.
+> **NO USER INTERACTION:** Tests must NEVER show blocking dialogs or require human interaction. Mock all dialogs!
 
 ---
 

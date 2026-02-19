@@ -50,3 +50,11 @@ Tests must never attempt to access real hardware.
 Tests must not incur costs or require a network connection.
 *   Mock the response of `GenerativeModel.generate_content`.
 *   Return static JSON responses structured according to the current Stage 1/Stage 2 schemas.
+
+## **6. No User Interaction**
+**All tests must run 100% autonomously.**
+*   Tests must **never** show modal dialogs that require a human to click.
+*   Use `qtbot` for simulated mouse/keyboard events.
+*   Mock high-level UI components (e.g. `QFileDialog`, `QInputDialog`, `QMessageBox`) using `unittest.mock.patch`.
+*   If complex custom dialogs are used, refactor the code so the data-gathering part (the dialog) is isolated and can be mocked easily or use side-effects to simulate user input.
+*   Failing to do so will cause the test suite to hang in automated environments.

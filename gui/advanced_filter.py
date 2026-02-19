@@ -1137,37 +1137,12 @@ class AdvancedFilterWidget(QWidget):
         if not self.filter_tree:
             return
 
-        # Simple Save Dialog with Description
-        dialog = QDialog(self)
-        dialog.setWindowTitle(self.tr("Save Filter"))
-        d_layout = QVBoxLayout(dialog)
+        # Request info (isolated for easier testing)
+        default_name = self.loaded_filter_node.name if self.loaded_filter_node else ""
+        default_desc = self.loaded_filter_node.description if self.loaded_filter_node else ""
+        name, description, ok = self._request_save_info(default_name, default_desc)
         
-        d_layout.addWidget(QLabel(self.tr("Filter Name:")))
-        name_edit = QLineEdit()
-        name_edit.setText(self.loaded_filter_node.name if self.loaded_filter_node else "")
-        d_layout.addWidget(name_edit)
-        
-        d_layout.addWidget(QLabel(self.tr("Description:")))
-        desc_edit = QLineEdit()
-        desc_edit.setText(self.loaded_filter_node.description if self.loaded_filter_node else "")
-        d_layout.addWidget(desc_edit)
-        
-        btns = QHBoxLayout()
-        btn_ok = QPushButton(self.tr("Save"))
-        btn_ok.clicked.connect(dialog.accept)
-        btn_ok.setDefault(True)
-        btn_cancel = QPushButton(self.tr("Cancel"))
-        btn_cancel.clicked.connect(dialog.reject)
-        btns.addWidget(btn_cancel)
-        btns.addWidget(btn_ok)
-        d_layout.addLayout(btns)
-        
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            name = name_edit.text().strip()
-            description = desc_edit.text().strip()
-            if not name:
-                return
-                
+        if ok and name:
             query = self.get_query_object()
 
             # Check if we should update existing node (either by reference or name)
@@ -1260,6 +1235,36 @@ class AdvancedFilterWidget(QWidget):
 
     def manage_filters(self):
         self.open_filter_manager()
+
+    def _request_save_info(self, default_name="", default_desc=""):
+        """Displays the save dialog and returns (name, description, ok)."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Save Filter"))
+        d_layout = QVBoxLayout(dialog)
+        
+        d_layout.addWidget(QLabel(self.tr("Filter Name:")))
+        name_edit = QLineEdit()
+        name_edit.setText(default_name)
+        d_layout.addWidget(name_edit)
+        
+        d_layout.addWidget(QLabel(self.tr("Description:")))
+        desc_edit = QLineEdit()
+        desc_edit.setText(default_desc)
+        d_layout.addWidget(desc_edit)
+        
+        btns = QHBoxLayout()
+        btn_ok = QPushButton(self.tr("Save"))
+        btn_ok.clicked.connect(dialog.accept)
+        btn_ok.setDefault(True)
+        btn_cancel = QPushButton(self.tr("Cancel"))
+        btn_cancel.clicked.connect(dialog.reject)
+        btns.addWidget(btn_cancel)
+        btns.addWidget(btn_ok)
+        d_layout.addLayout(btns)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            return name_edit.text().strip(), desc_edit.text().strip(), True
+        return None, None, False
 
     def _show_combo_context(self, pos):
         # MVP: Right click on the collapsed box deletes the currently selected item.
