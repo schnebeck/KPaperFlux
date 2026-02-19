@@ -1052,13 +1052,14 @@ class PdfViewerWidget(QWidget):
         self.btn_zoom_in.setStyleSheet(btn_style)
         self.btn_zoom_in.clicked.connect(self.zoom_in)
         
-        self.btn_fit = QPushButton(self.tr("Fit"))
+        self.btn_fit = QPushButton()
         self.btn_fit.setCheckable(True)
         self.btn_fit.setChecked(True)
-        self.btn_fit.setFixedSize(50, 30)
-        self.btn_fit.setStyleSheet("font-weight: bold;")
+        self.btn_fit.setFixedHeight(30)
+        self.btn_fit.setMinimumWidth(50)
+        self.btn_fit.setStyleSheet("font-weight: bold; padding: 0 5px;")
         self.btn_fit.clicked.connect(self.toggle_fit)
-        
+
         self.btn_rotate = QPushButton("↻")
         self.btn_rotate.setFixedSize(30, 30)
         self.btn_rotate.setStyleSheet(btn_style)
@@ -1090,7 +1091,8 @@ class PdfViewerWidget(QWidget):
             self.btn_split, self.btn_save
         ]
         for ctrl in controls:
-            ctrl.setMinimumWidth(0)
+            if ctrl != self.btn_fit:
+                ctrl.setMinimumWidth(0)
             t_layout.addWidget(ctrl)
             
         t_layout.addStretch()
