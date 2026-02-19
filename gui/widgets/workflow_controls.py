@@ -87,7 +87,7 @@ class WorkflowControlsWidget(QWidget):
         state_def = rule.states.get(self.current_step)
         
         label = state_def.label if state_def else self.current_step
-        self.status_lbl.setText(f"{label}")
+        self.status_lbl.setText(self.tr(label))
         
         # Apply Status Color
         color = self._get_status_color(self.current_step, state_def)
@@ -107,11 +107,14 @@ class WorkflowControlsWidget(QWidget):
             for trans in state_def.transitions:
                 if trans.auto: continue # Skip auto-transitions in UI
                 
+                # Try translation of raw action OR capitalized version
                 text = trans.action.capitalize().replace("_", " ")
+                translated_text = self.tr(text)
+
                 if trans.icon:
-                    btn = QPushButton(f"{trans.icon} {text}")
+                    btn = QPushButton(f"{trans.icon} {translated_text}")
                 else:
-                    btn = QPushButton(text)
+                    btn = QPushButton(translated_text)
                 
                 # Check prerequisites
                 can_run = engine.can_transition(self.current_step, trans.action, self.document_data)

@@ -1220,22 +1220,17 @@
     <context>
         <name>FilterConditionWidget</name>
         <message>
-            <location filename="../../../gui/widgets/filter_condition.py" line="155" />
-            <source>Dummy</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
-            <location filename="../../../gui/widgets/filter_condition.py" line="161" />
+            <location filename="../../../gui/widgets/filter_condition.py" line="160" />
             <source>Select Field...</source>
             <translation>Feld wählen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/filter_condition.py" line="168" />
+            <location filename="../../../gui/widgets/filter_condition.py" line="167" />
             <source>Not</source>
             <translation>Nicht</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/filter_condition.py" line="220" />
+            <location filename="../../../gui/widgets/filter_condition.py" line="219" />
             <source>Field: %s</source>
             <translation type="unfinished" />
         </message>
@@ -1374,11 +1369,6 @@
     </context>
     <context>
         <name>FilterGroupWidget</name>
-        <message>
-            <location filename="../../../gui/widgets/filter_group.py" line="88" />
-            <source>Dummy</source>
-            <translation type="unfinished" />
-        </message>
         <message>
             <location filename="../../../gui/widgets/filter_group.py" line="93" />
             <location filename="../../../gui/widgets/filter_group.py" line="50" />
@@ -1720,6 +1710,10 @@
         <message>
             <source>Filter &amp; Rule Manager</source>
             <translation type="vanished">Filter &amp;&amp; Smart-Listen Verwaltung</translation>
+        </message>
+        <message>
+            <source>NOT</source>
+            <translation type="vanished">NICHT</translation>
         </message>
         <message>
             <source>NOT</source>
@@ -3218,22 +3212,21 @@ Please install 'qrcode' package.</source>
     <context>
         <name>PdfViewerWidget</name>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1123" />
-            <location filename="../../../gui/pdf_viewer.py" line="1055" />
-            <source>Fit</source>
-            <translation>Einpassen</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1124" />
-            <location filename="../../../gui/pdf_viewer.py" line="1078" />
+            <location filename="../../../gui/pdf_viewer.py" line="1126" />
+            <location filename="../../../gui/pdf_viewer.py" line="1079" />
             <source>Split Document</source>
             <translation>Dokument teilen</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1125" />
-            <location filename="../../../gui/pdf_viewer.py" line="1084" />
+            <location filename="../../../gui/pdf_viewer.py" line="1127" />
+            <location filename="../../../gui/pdf_viewer.py" line="1085" />
             <source>Save Changes</source>
             <translation>Änderungen speichern</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/pdf_viewer.py" line="1125" />
+            <source>Fit</source>
+            <translation>Einpassen</translation>
         </message>
     </context>
     <context>
@@ -4856,14 +4849,46 @@ Geschäftsführer: ...</translation>
             <translation>Regel '%s' fehlt</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_controls.py" line="153" />
+            <location filename="../../../gui/widgets/workflow_controls.py" line="156" />
             <source>Missing fields: %s</source>
             <translation>Fehlende Felder: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_controls.py" line="184" />
+            <location filename="../../../gui/widgets/workflow_controls.py" line="187" />
             <source>None</source>
             <translation>Keine</translation>
+        </message>
+        <message>
+            <source>Incoming Invoice</source>
+            <translation>Eingangsrechnung</translation>
+        </message>
+        <message>
+            <source>Verify</source>
+            <translation>Prüfen</translation>
+        </message>
+        <message>
+            <source>Reject</source>
+            <translation>Ablehnen</translation>
+        </message>
+        <message>
+            <source>Ready for Payment</source>
+            <translation>Zahlungsbereit</translation>
+        </message>
+        <message>
+            <source>Mark as paid</source>
+            <translation>Als bezahlt markieren</translation>
+        </message>
+        <message>
+            <source>Reset</source>
+            <translation>Zurücksetzen</translation>
+        </message>
+        <message>
+            <source>Paid &amp; Archived</source>
+            <translation>Bezahlt &amp; Archiviert</translation>
+        </message>
+        <message>
+            <source>Rejected / Spam</source>
+            <translation>Abgelehnt / Spam</translation>
         </message>
     </context>
     <context>

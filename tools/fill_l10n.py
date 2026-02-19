@@ -118,6 +118,16 @@ def fill():
             "Standardized QR code for SEPA transfers (EPC-QR).": "Standardiesierter QR-Code für SEPA-Überweisungen.",
             "Copy Payload": "Daten kopieren",
             "Copy the raw GiroCode data for banking apps": "Raw-GiroCode-Daten kopieren",
+            "New": "Neu",
+            "Ready for Pipeline": "Bereit für Pipeline",
+            "Processing": "Verarbeitung",
+            "Processing (Stage 1)": "Verarbeitung (Stufe 1)",
+            "Processing (Stamps)": "Verarbeitung (Stempel)",
+            "Processing (Semantic)": "Verarbeitung (Semantik)",
+            "On Hold (Stage 1)": "Angehalten (Stufe 1)",
+            "On Hold (Stamps)": "Angehalten (Stempel)",
+            "On Hold (Semantic)": "Angehalten (Semantik)",
+            "Processed": "Verarbeitet",
         },
         "AdvancedFilterWidget": {
             "Search": "Suche",
@@ -475,6 +485,17 @@ def fill():
             "Stamp Text (Total)": "Stempel-Text (Gesamt)",
             "Stamp Type": "Stempel-Typ",
             "In Trash": "Im Papierkorb",
+        },
+        "WorkflowControlsWidget": {
+            "No Workflow": "Kein Ablauf",
+            "Incoming Invoice": "Eingangsrechnung",
+            "Verify": "Prüfen",
+            "Reject": "Ablehnen",
+            "Ready for Payment": "Zahlungsbereit",
+            "Mark as paid": "Als bezahlt markieren",
+            "Reset": "Zurücksetzen",
+            "Paid & Archived": "Bezahlt & Archiviert",
+            "Rejected / Spam": "Abgelehnt / Spam",
         }
     }
     
