@@ -13,7 +13,8 @@ from typing import Dict, List, Optional, Any
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QMessageBox, QTabWidget, QCheckBox, QComboBox, QDateEdit,
-    QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QFrame
+    QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QFrame, QAbstractItemView,
+    QPlainTextEdit, QScrollBar
 )
 from PyQt6.QtGui import QPixmap, QImage
 import json
@@ -34,11 +35,12 @@ from gui.audit_window import AuditWindow
 
 class NestedTableDialog(QDialog):
     """Dialog for editing lists of objects (tables in tables)."""
-    def __init__(self, data: List[Any], title: str, parent=None):
+    def __init__(self, data: List[Any], title: str, parent=None, read_only: bool = False):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(900, 500)
         self.data = data
+        self.read_only = read_only
         self.__init_ui()
 
     def __init_ui(self):
@@ -94,6 +96,14 @@ class NestedTableDialog(QDialog):
         btn_layout.addWidget(save_btn)
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
+
+        if self.read_only:
+            add_btn.setEnabled(False)
+            remove_btn.setEnabled(False)
+            save_btn.setText(self.tr("Close"))
+            save_btn.setStyleSheet("")
+            cancel_btn.hide()
+            self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
     def _add_row(self):
         row = self.table.rowCount()
@@ -667,7 +677,7 @@ class MetadataEditorWidget(QWidget):
         # 3. Refresh UI
         self.display_documents([self.doc]) 
         self.metadata_saved.emit()
-        show_notification(self, "Workflow Updated", f"State transitioned to {target_state}")
+        show_notification(self, self.tr("Workflow Updated"), self.tr("State transitioned to %1").arg(target_state))
 
     def on_rule_changed(self, new_rule_id: str):
         """Handler for manual rule reassignment."""
@@ -700,7 +710,7 @@ class MetadataEditorWidget(QWidget):
             
         self.display_documents([self.doc])
         self.metadata_saved.emit()
-        show_notification(self, "Workflow Updated", f"Rule assigned: {new_rule_id or 'None'}")
+        show_notification(self, self.tr("Workflow Updated"), self.tr("Rule assigned: %1").arg(new_rule_id or self.tr("None")))
         
         # Live Update Audit Window
         if self.audit_window and self.audit_window.isVisible():
@@ -709,7 +719,7 @@ class MetadataEditorWidget(QWidget):
     def open_audit_window(self):
         """Launches the non-modal audit/verification interface."""
         if not self.doc:
-            show_notification(self, "Audit", "Please select a document first.")
+            show_notification(self, self.tr("Audit"), self.tr("Please select a document first."))
             return
 
         if not self.audit_window:
@@ -758,7 +768,53 @@ class MetadataEditorWidget(QWidget):
         self.metadata_saved.emit()
 
     def toggle_lock(self, checked):
-        self.tab_widget.setEnabled(not checked)
+        """
+        Switches between Edit and Read-Only mode. 
+        Instead of disabling the whole tab widget (which stops navigation),
+        we selectively make input fields read-only or disabled.
+        """
+        # 1. Main Workflow Controls
+        self.workflow_controls.setEnabled(not checked)
+        
+        # 2. Main Save Button
+        if checked:
+            self._reset_dirty() # This disables btn_save
+        
+        # 3. Tab Navigation stays active (self.tab_widget is NOT disabled)
+        # We walk through all children of the tab widget
+        for widget in self.tab_widget.findChildren(QWidget):
+            # Skip container widgets to avoid disabling the whole layout
+            if widget in [self.general_content, self.analysis_content, self.payment_tab, 
+                         self.stamps_tab, self.semantic_data_tab, self.source_tab, self.semantic_tab]:
+                continue
+                
+            # Scrollbars and headers should not be disabled
+            if isinstance(widget, (QScrollBar, QHeaderView)):
+                continue
+
+            # Read-only for text inputs
+            if isinstance(widget, (QLineEdit, QTextEdit, QPlainTextEdit, QDateEdit)):
+                widget.setReadOnly(checked)
+                
+            # Disabled for purely interactive selection boxes / buttons
+            elif isinstance(widget, (QComboBox, QCheckBox, QPushButton)):
+                # Note: self.chk_locked is outside tab_widget, so it stays enabled
+                widget.setEnabled(not checked)
+                
+            # Table-specific locking
+            elif isinstance(widget, QTableWidget):
+                trigger = QAbstractItemView.EditTrigger.NoEditTriggers if checked else \
+                          (QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed | QAbstractItemView.EditTrigger.AnyKeyPressed)
+                widget.setEditTriggers(trigger)
+            
+            # Special case for MultiSelectComboBox and TagInput (if they are children)
+            elif hasattr(widget, "setReadOnly") and not isinstance(widget, QPushButton):
+                try:
+                    widget.setReadOnly(checked)
+                except AttributeError:
+                    widget.setEnabled(not checked)
+            elif widget.__class__.__name__ in ["TagInputWidget", "MultiSelectComboBox"]:
+                widget.setEnabled(not checked)
 
     def display_documents(self, docs: list[Document]):
         self._locked_for_load = True
@@ -1148,7 +1204,8 @@ class MetadataEditorWidget(QWidget):
                 current_json = it.text() if it else initial_json
 
                 data = json.loads(current_json)
-                dlg = NestedTableDialog(data, f"Edit List: {key_path}", self)
+                is_read_only = self.chk_locked.isChecked()
+                dlg = NestedTableDialog(data, f"Edit List: {key_path}", self, read_only=is_read_only)
                 if dlg.exec():
                     new_data = dlg.get_data()
                     new_json = json.dumps(new_data, ensure_ascii=False, default=str)
