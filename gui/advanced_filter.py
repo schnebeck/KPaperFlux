@@ -1357,6 +1357,12 @@ class AdvancedFilterWidget(QWidget):
         self.chk_rule_auto.setText(self.tr("Run on Import"))
         self.chk_rule_auto.setToolTip(self.tr("Automatically apply this rule to new documents during import/analysis"))
 
+        # Recursively retranslate dynamic groups
+        if hasattr(self, "root_group"):
+            self.root_group.retranslate_ui()
+        if hasattr(self, "rules_root_group"):
+            self.rules_root_group.retranslate_ui()
+
         # Re-populate combos that have static "Select" headers
         self.load_known_filters()
         self._load_rules_to_combo()

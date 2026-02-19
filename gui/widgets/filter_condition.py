@@ -112,14 +112,14 @@ class FilterConditionWidget(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         # 1. Instantiate all Widgets
-        self.btn_field_selector = QPushButton(self.tr("Select Field..."))
+        self.btn_field_selector = QPushButton()
         self.btn_field_selector.setMinimumWidth(150)
         self.field_key = None
         self.field_name = None
 
         self.combo_op = QComboBox()
         self.combo_op.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.chk_negate = QCheckBox(self.tr("Not"))
+        self.chk_negate = QCheckBox()
         self.input_stack = QStackedWidget()
         self.btn_remove = QPushButton("X")
         self.btn_remove.setFixedWidth(24)
@@ -132,18 +132,14 @@ class FilterConditionWidget(QWidget):
         self.input_date = DateRangePicker()
         self.input_stack.addWidget(self.input_date)
 
-        # 3. Populate Operators
-        for name, key in self.OPERATORS:
-            self.combo_op.addItem(self.tr(name), key)
-
-        # 4. Add to Layout
+        # 3. Add to Layout
         self.layout.addWidget(self.btn_field_selector, 1)
         self.layout.addWidget(self.chk_negate)
-        self.layout.addWidget(self.combo_op) # Remove fixed-ish stretch/ratio if necessary, but op is usually short
+        self.layout.addWidget(self.combo_op)
         self.layout.addWidget(self.input_stack, 2)
         self.layout.addWidget(self.btn_remove)
 
-        # 5. Connect Signals (AFTER creating widgets!)
+        # 4. Connect Signals
         self.btn_field_selector.clicked.connect(self._show_field_menu)
         self.combo_op.currentIndexChanged.connect(self.changed)
         self.chk_negate.toggled.connect(self.changed)
@@ -151,6 +147,37 @@ class FilterConditionWidget(QWidget):
         self.input_multi.selectionChanged.connect(lambda: self.changed.emit())
         self.input_date.rangeChanged.connect(lambda: self.changed.emit())
         self.btn_remove.clicked.connect(self.remove_requested)
+        
+        self.retranslate_ui()
+
+    def changeEvent(self, event):
+        from PyQt6.QtCore import QCoreApplication
+        if event.type() == QCoreApplication.translate("FilterConditionWidget", "Dummy").__class__ or event.type() == 95: # QEvent.LanguageChange
+             self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        if not self.field_name:
+            self.btn_field_selector.setText(self.tr("Select Field..."))
+        else:
+            # We need to re-translate the field name if it's a standard one
+            # Look up internal key in FIELDS to get the translatable label
+            label = self.FIELDS.get(self.field_key, self.field_name)
+            self.btn_field_selector.setText(self.tr(label))
+
+        self.chk_negate.setText(self.tr("Not"))
+        
+        # Populate Operators (Refresh)
+        self.combo_op.blockSignals(True)
+        old_op = self.combo_op.currentData()
+        self.combo_op.clear()
+        for name, key in self.OPERATORS:
+            self.combo_op.addItem(self.tr(name), key)
+        
+        idx = self.combo_op.findData(old_op)
+        if idx >= 0:
+            self.combo_op.setCurrentIndex(idx)
+        self.combo_op.blockSignals(False)
 
     def update_metadata(self, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None):
         """Update available keys/tags and refresh UI without losing state."""

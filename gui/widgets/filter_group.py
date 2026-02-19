@@ -47,24 +47,25 @@ class FilterGroupWidget(QWidget):
         # Logic Operator
         self.combo_logic = QComboBox()
         self.combo_logic.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.combo_logic.addItem(self.tr("AND (All)"), "AND")
-        self.combo_logic.addItem(self.tr("OR (Any)"), "OR")
+        self.combo_logic.addItem(self.tr("AND"), "AND")
+        self.combo_logic.addItem(self.tr("OR"), "OR")
         self.combo_logic.currentIndexChanged.connect(self.changed)
         header_layout.addWidget(self.combo_logic)
 
         header_layout.addStretch()
 
         # Buttons
-        self.btn_add_condition = QPushButton(self.tr("+ Condition"))
+        self.btn_add_condition = QPushButton()
         self.btn_add_condition.clicked.connect(self.add_condition)
         header_layout.addWidget(self.btn_add_condition)
 
-        self.btn_add_group = QPushButton(self.tr("+ Group"))
+        self.btn_add_group = QPushButton()
         self.btn_add_group.clicked.connect(self.add_group)
         header_layout.addWidget(self.btn_add_group)
 
+        self.btn_remove = None
         if not self.is_root:
-            self.btn_remove = QPushButton(self.tr("Remove Group"))
+            self.btn_remove = QPushButton()
             self.btn_remove.setStyleSheet("color: red;")
             self.btn_remove.clicked.connect(self.remove_requested)
             header_layout.addWidget(self.btn_remove)
@@ -81,6 +82,24 @@ class FilterGroupWidget(QWidget):
         self.main_layout.addWidget(self.frame)
 
         self.children_widgets = []
+        self.retranslate_ui()
+
+    def changeEvent(self, event):
+        if event.type() == QCoreApplication.translate("FilterGroupWidget", "Dummy").__class__ or event.type() == 95: # QEvent.LanguageChange
+             self.retranslate_ui()
+        super().changeEvent(event)
+
+    def retranslate_ui(self):
+        self.combo_logic.setItemText(0, self.tr("AND"))
+        self.combo_logic.setItemText(1, self.tr("OR"))
+        self.btn_add_condition.setText(self.tr("+ Condition"))
+        self.btn_add_group.setText(self.tr("+ Group"))
+        if self.btn_remove:
+            self.btn_remove.setText(self.tr("Remove Group"))
+        
+        for child in self.children_widgets:
+            if hasattr(child, "retranslate_ui"):
+                child.retranslate_ui()
 
     def add_condition(self, data=None):
         if not FilterConditionWidget:
