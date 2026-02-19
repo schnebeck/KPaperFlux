@@ -45,6 +45,7 @@ class FilterNode:
         """
         self.id: str = str(uuid.uuid4())
         self.name: str = name
+        self.description: str = "" # New field
         self.node_type: NodeType = node_type
         self.data: Dict[str, Any] = data or {}
         self.children: List['FilterNode'] = []
@@ -67,6 +68,7 @@ class FilterNode:
         return {
             "id": self.id,
             "name": self.name,
+            "description": self.description,
             "type": self.node_type.value,
             "data": self.data,
             "tags_to_add": self.tags_to_add,
@@ -273,6 +275,7 @@ class FilterTree:
         node_data = data.get("data", {})
 
         node = FilterNode(name, node_type, data=node_data, parent=parent)
+        node.description = data.get("description", "")
         if "id" in data:
             node.id = data["id"]
 

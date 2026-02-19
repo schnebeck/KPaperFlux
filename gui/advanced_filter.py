@@ -986,9 +986,13 @@ class AdvancedFilterWidget(QWidget):
                      if child.node_type == NodeType.FILTER:
                          display = f"{path_prefix}{child.name}" if path_prefix else child.name
                          self.combo_filters.addItem(display, child)
+                         if child.description:
+                             self.combo_filters.setItemData(self.combo_filters.count()-1, child.description, Qt.ItemDataRole.ToolTipRole)
                      elif child.node_type == NodeType.TRASH:
-                         # Always show Trash at top level or appropriate usage
-                         display = f"[ {child.name} ]"
+                         display = f"[ {self.tr('Trash')} ]"
+                         self.combo_filters.addItem(display, child)
+                     elif child.node_type == NodeType.ARCHIVE:
+                         display = f"[ {self.tr('Archive')} ]"
                          self.combo_filters.addItem(display, child)
                      elif child.node_type == NodeType.FOLDER:
                          new_prefix = f"{path_prefix}{child.name} / " if path_prefix else f"{child.name} / "
@@ -1133,10 +1137,37 @@ class AdvancedFilterWidget(QWidget):
         if not self.filter_tree:
             return
 
-        default_name = self.loaded_filter_node.name if self.loaded_filter_node else ""
-        name, ok = QInputDialog.getText(self, self.tr("Save Filter"), self.tr("Filter Name:"), QLineEdit.EchoMode.Normal, default_name)
-
-        if ok and name:
+        # Simple Save Dialog with Description
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Save Filter"))
+        d_layout = QVBoxLayout(dialog)
+        
+        d_layout.addWidget(QLabel(self.tr("Filter Name:")))
+        name_edit = QLineEdit()
+        name_edit.setText(self.loaded_filter_node.name if self.loaded_filter_node else "")
+        d_layout.addWidget(name_edit)
+        
+        d_layout.addWidget(QLabel(self.tr("Description:")))
+        desc_edit = QLineEdit()
+        desc_edit.setText(self.loaded_filter_node.description if self.loaded_filter_node else "")
+        d_layout.addWidget(desc_edit)
+        
+        btns = QHBoxLayout()
+        btn_ok = QPushButton(self.tr("Save"))
+        btn_ok.clicked.connect(dialog.accept)
+        btn_ok.setDefault(True)
+        btn_cancel = QPushButton(self.tr("Cancel"))
+        btn_cancel.clicked.connect(dialog.reject)
+        btns.addWidget(btn_cancel)
+        btns.addWidget(btn_ok)
+        d_layout.addLayout(btns)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            name = name_edit.text().strip()
+            description = desc_edit.text().strip()
+            if not name:
+                return
+                
             query = self.get_query_object()
 
             # Check if we should update existing node (either by reference or name)
@@ -1154,6 +1185,8 @@ class AdvancedFilterWidget(QWidget):
             target_node = None
             if existing_node:
                 # Update existing
+                existing_node.name = name
+                existing_node.description = description
                 existing_node.data = query
                 self._reset_dirty_indicator()
                 target_node = existing_node
@@ -1165,6 +1198,7 @@ class AdvancedFilterWidget(QWidget):
                         parent = child
                         break
                 target_node = self.filter_tree.add_filter(parent, name, query)
+                target_node.description = description
 
             if self.save_callback:
                 self.save_callback()

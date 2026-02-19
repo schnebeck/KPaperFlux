@@ -143,7 +143,7 @@ class FilterManagerDialog(QDialog):
         super().changeEvent(event)
 
     def retranslate_ui(self):
-        self.setWindowTitle(self.tr("Filter & Rule Manager"))
+        self.setWindowTitle(self.tr("Management for Filters and Rules"))
         self.search_input.setPlaceholderText(self.tr("Search filters..."))
         
         # Reset details text if nothing selected
@@ -173,14 +173,21 @@ class FilterManagerDialog(QDialog):
         
     def _add_node_recursive(self, node: FilterNode, parent_item):
         if node.name == "Root" and not node.parent:
-            # Don't show root, show its children? Or show Root folder?
-            # Usually root is hidden.
+            # Don't show root, show its children
             for child in node.children:
                 self._add_node_recursive(child, parent_item)
             return
 
         item = QTreeWidgetItem(parent_item)
-        item.setText(0, node.name)
+        
+        # Translate system node names
+        display_name = node.name
+        if node.node_type == NodeType.TRASH:
+            display_name = self.tr("Trash")
+        elif node.node_type == NodeType.ARCHIVE:
+            display_name = self.tr("Archive")
+        
+        item.setText(0, display_name)
         
         # Icons
         if node.node_type == NodeType.FOLDER:
@@ -220,18 +227,7 @@ class FilterManagerDialog(QDialog):
             self.populate_tree()
             return
             
-        results = self.tree_model.search(text)
-        # For simplicity, just rebuild tree showing only matches + parents?
-        # Or hide non-matches?
-        # Hiding QTreeWidgetItems is easier.
-        # But QTreeWidget structure mirrors model. 
-        # If I want to verify Search Logic from UI, I should use the result list to highlight or filter.
-        # Let's simple re-populate with matches? No, that loses hierarchy context.
         # Standard approach: Iterate all items, hide those not in results AND not parent of result.
-        
-        # Implementation:
-        # 1. Reset all hidden
-        # 2. Iterate and match text (or use search results)
         self._filter_items(self.tree_widget.invisibleRootItem(), text.lower())
 
     def _filter_items(self, item, query):
@@ -272,17 +268,11 @@ class FilterManagerDialog(QDialog):
 
     def focus_node(self, node: FilterNode):
         """Finds and selects the item for a given node."""
-        for item_id, n in self.item_map.items():
-            if n == node:
-                # Need to find the actual QTreeWidgetItem by its ID
-                # Since id(item) is not persistent across populate, we need a better lookup or store the reverse.
-                # For now, let's just iterate items in tree.
-                it = self._find_item_by_node(self.tree_widget.invisibleRootItem(), node)
-                if it:
-                    self.tree_widget.setCurrentItem(it)
-                    it.setSelected(True)
-                    it.setExpanded(True)
-                break
+        it = self._find_item_by_node(self.tree_widget.invisibleRootItem(), node)
+        if it:
+            self.tree_widget.setCurrentItem(it)
+            it.setSelected(True)
+            it.setExpanded(True)
 
     def _find_item_by_node(self, parent_it, node):
         for i in range(parent_it.childCount()):
@@ -297,17 +287,19 @@ class FilterManagerDialog(QDialog):
         """Update the details pane based on selected node."""
         if node.node_type == NodeType.FOLDER:
             self.details_label.setText(f"<b>{self.tr('Folder')}:</b> {node.name}")
-            html = self.tr("Contains %n item(s).", "", len(node.children))
+            html = f"<p>{self.tr('Contains %n item(s).', '', len(node.children))}</p>"
+            if node.description:
+                html += f"<hr/><p><i>{node.description}</i></p>"
             self.details_text.setHtml(html)
             return
 
         if node.node_type == NodeType.TRASH:
-            self.details_label.setText(f"<b>{node.name}</b>")
+            self.details_label.setText(f"<b>{self.tr('Trash')}</b>")
             self.details_text.setHtml(f"<p>{self.tr('Deleted documents live here.')}</p><p>{self.tr('Select this filter to restore or permanently delete files.')}</p>")
             return
 
         if node.node_type == NodeType.ARCHIVE:
-            self.details_label.setText(f"<b>{node.name}</b>")
+            self.details_label.setText(f"<b>{self.tr('Archive')}</b>")
             self.details_text.setHtml(f"<p>{self.tr('Your long-term document storage.')}</p><p>{self.tr('This filter shows all documents marked as Archive.')}</p>")
             return
 
@@ -325,19 +317,15 @@ class FilterManagerDialog(QDialog):
             count = len(uuids)
             self.details_label.setText(f"<b>{self.tr('Static List')}:</b> {node.name}")
             
-            html = f"<p>{self.tr('Contains <b>%n</b> documents.', '', count)}</p><hr/>"
+            html = f"<p>{self.tr('Contains <b>%n</b> documents.', '', count)}</p>"
+            if node.description:
+                html += f"<p><i>{node.description}</i></p>"
+            html += "<hr/>"
             
             # Fetch Filenames if DB available
             if self.db_manager and uuids:
                 # Limit to 10 for preview
                 preview_ids = uuids[:10]
-                
-                # Fetch only export_filename for these IDs
-                # Manual SQL or get_document_by_uuid loop? Loop is slow if not cached.
-                # db.get_document_by_uuid is single fetch.
-                # Better: db_manager.execute_query lookup? Or just loop for 10 items.
-                
-                # Let's try to get filenames.
                 filenames = []
                 for uid in preview_ids:
                     doc = self.db_manager.get_document_by_uuid(uid)
@@ -365,7 +353,6 @@ class FilterManagerDialog(QDialog):
             
         else:
             # Regular Filter or Snapshot
-            # Reverse map for human readable display
             field_map_rev = {
                 "direction": self.tr("AI Direction"),
                 "tenant_context": self.tr("AI Context"),
@@ -380,12 +367,29 @@ class FilterManagerDialog(QDialog):
                 "page_count_virt": self.tr("Pages"),
                 "cached_full_text": self.tr("Text Content")
             }
+            
+            # Operator translation map
+            op_map = {
+                "equals": self.tr("equals"),
+                "contains": self.tr("contains"),
+                "starts_with": self.tr("starts with"),
+                "ends_with": self.tr("ends with"),
+                "greater_than": self.tr("greater than"),
+                "less_than": self.tr("less than"),
+                "in": self.tr("in list"),
+                "between": self.tr("between"),
+                "matches": self.tr("matches"),
+            }
 
             self.details_label.setText(f"<b>{self.tr('Filter Rule')}:</b> {node.name}")
             
             lines = []
             
-            # Phase 106: Display Rule specific fields
+            if node.description:
+                lines.append(f"<p><i>{node.description}</i></p>")
+                lines.append("<hr/>")
+
+            # Tagging Actions
             if node.tags_to_add or node.tags_to_remove:
                 lines.append(f"<b>{self.tr('Tagging Actions')}:</b>")
                 lines.append("<ul style='margin-bottom: 10px;'>")
@@ -405,13 +409,15 @@ class FilterManagerDialog(QDialog):
                 lines.append("<hr/>")
 
             if node.data and 'conditions' in node.data:
-                 op_main = node.data.get('operator', 'AND')
+                 op_main_raw = node.data.get('operator', 'AND')
+                 op_main = self.tr("AND") if op_main_raw == "AND" else self.tr("OR")
                  lines.append(f"<b>{self.tr('Filtering Logic')}: {op_main}</b>")
                  lines.append("<ul>")
                  for c in node.data['conditions']:
                      f_key = c.get('field', '')
                      f_display = field_map_rev.get(f_key, f_key)
-                     o = c.get('op')
+                     o_raw = c.get('op')
+                     o = op_map.get(o_raw, o_raw)
                      v = c.get('value')
                      
                      # Format value for display
