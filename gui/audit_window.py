@@ -2,6 +2,7 @@ import logging
 import tempfile
 import os
 from datetime import datetime
+from typing import Any, Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, 
     QLabel, QFrame, QScrollArea, QPushButton, QMainWindow, QStackedWidget
@@ -19,6 +20,7 @@ from core.semantic_renderer import SemanticRenderer
 from core.pdf_renderer import ProfessionalPdfRenderer
 from gui.widgets.workflow_controls import WorkflowControlsWidget
 from gui.pdf_viewer import PdfViewerWidget
+from gui.workers import SemanticRenderingWorker
 
 logger = logging.getLogger("KPaperFlux.Audit")
 
@@ -38,6 +40,7 @@ class AuditWindow(QMainWindow):
         self.renderer = SemanticRenderer(locale="de") # Force DE for these specific requirements
         self.current_doc = None
         self.temp_files = []
+        self._render_worker = None
         
         self._init_ui()
 
@@ -82,8 +85,25 @@ class AuditWindow(QMainWindow):
         self.rendered_pdf_viewer.btn_split.hide()
         self.rendered_pdf_viewer.btn_save.hide()
         
-        self.right_stack.addWidget(self.rendered_pdf_viewer)
-        self.right_stack.addWidget(self.render_view)
+        # Loading / Progress View
+        self.loading_view = QWidget()
+        loading_layout = QVBoxLayout(self.loading_view)
+        self.lbl_loading = QLabel()
+        self.lbl_loading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_loading.setStyleSheet("""
+            font-size: 18px; 
+            font-weight: 500; 
+            color: #1565c0; 
+            background: white;
+            padding: 40px;
+        """)
+        loading_layout.addStretch()
+        loading_layout.addWidget(self.lbl_loading)
+        loading_layout.addStretch()
+
+        self.right_stack.addWidget(self.rendered_pdf_viewer) # 0
+        self.right_stack.addWidget(self.render_view)         # 1
+        self.right_stack.addWidget(self.loading_view)        # 2
         right_layout.addWidget(self.right_stack)
 
         self.splitter.addWidget(self.pdf_viewer)
@@ -131,6 +151,7 @@ class AuditWindow(QMainWindow):
         """Updates all UI strings for on-the-fly localization."""
         self.setWindowTitle(self.tr("KPaperFlux - Audit & Verification"))
         self.btn_close.setText(self.tr("Close"))
+        self.lbl_loading.setText(self.tr("Generating comparison document..."))
         if not self.current_doc:
              self.render_view.setPlainText(self.tr("No document selected."))
 
@@ -153,39 +174,50 @@ class AuditWindow(QMainWindow):
 
         # Render Semantic Data
         if doc.semantic_data:
-            # 1. Try Professional PDF Rendering (ReportLab)
-            pdf_path = None
-            try:
-                # Create a temp file for the PDF
-                fd, pdf_path = tempfile.mkstemp(suffix=".pdf", prefix="audit_render_")
-                os.close(fd)
-                self.temp_files.append(pdf_path)
-                
-                renderer = ProfessionalPdfRenderer(pdf_path, locale=self.renderer.locale)
-                renderer.render_document(doc.semantic_data)
-            except Exception as e:
-                logger.error(f"Professional PDF rendering failed: {e}")
-                pdf_path = None
+            self.right_stack.setCurrentWidget(self.loading_view)
+            
+            # Create a temp file for the PDF
+            fd, pdf_path = tempfile.mkstemp(suffix=".pdf", prefix="audit_render_")
+            os.close(fd)
+            self.temp_files.append(pdf_path)
 
-            if pdf_path:
-                # CRITICAL: Don't pass a UUID here, otherwise the viewer tries to load from DB/Vault
-                # instead of the raw path.
-                self.rendered_pdf_viewer.load_document(pdf_path)
-                self.right_stack.setCurrentWidget(self.rendered_pdf_viewer)
-            else:
-                # Fallback to Modern HTML or Markdown if ReportLab fails
-                try:
-                    html_content = self.renderer.render_as_html(doc.semantic_data)
-                    self.render_view.setHtml(html_content)
-                except Exception as e:
-                    logger.warning(f"HTML rendering fallback failed: {e}")
-                    md_content = self.renderer.render_as_markdown(doc.semantic_data)
-                    self.render_view.setMarkdown(md_content)
-                self.right_stack.setCurrentWidget(self.render_view)
+            # Cleanup previous worker if any
+            if self._render_worker and self._render_worker.isRunning():
+                self._render_worker.terminate()
+                self._render_worker.wait()
+
+            self._render_worker = SemanticRenderingWorker(
+                doc.semantic_data, 
+                pdf_path, 
+                locale=self.renderer.locale,
+                parent=self
+            )
+            self._render_worker.finished.connect(lambda p: self._on_rendering_finished(p))
+            self._render_worker.error.connect(lambda e: self._on_rendering_failed(e, doc.semantic_data))
+            self._render_worker.start()
         else:
             self.render_view.setHtml("<div style='text-align: center; padding-top: 100px; color: #666; font-style: italic;'>"
                                      "Keine semantischen Daten vorhanden.</div>")
             self.right_stack.setCurrentWidget(self.render_view)
+
+    def _on_rendering_finished(self, pdf_path: str):
+        """Called when background PDF generation is done."""
+        # CRITICAL: Don't pass a UUID here, otherwise the viewer tries to load from DB/Vault
+        # instead of the raw path.
+        self.rendered_pdf_viewer.load_document(pdf_path)
+        self.right_stack.setCurrentWidget(self.rendered_pdf_viewer)
+
+    def _on_rendering_failed(self, error_msg: str, semantic_data: Any):
+        """Fallback if PDF generation fails."""
+        logger.error(f"Professional PDF rendering failed: {error_msg}")
+        try:
+            html_content = self.renderer.render_as_html(semantic_data)
+            self.render_view.setHtml(html_content)
+        except Exception as e:
+            logger.warning(f"HTML rendering fallback failed: {e}")
+            md_content = self.renderer.render_as_markdown(semantic_data)
+            self.render_view.setMarkdown(md_content)
+        self.right_stack.setCurrentWidget(self.render_view)
 
         # Prepare flat data for requirement check (Sync with MetadataEditor)
         wf_data = getattr(doc.semantic_data, "workflow", None)
@@ -225,6 +257,11 @@ class AuditWindow(QMainWindow):
 
 
     def closeEvent(self, event):
+        # Cleanup worker
+        if self._render_worker and self._render_worker.isRunning():
+            self._render_worker.terminate()
+            self._render_worker.wait()
+            
         # Cleanup temp files
         for f in self.temp_files:
             try:
