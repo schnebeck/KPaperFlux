@@ -33,7 +33,7 @@ class AuditWindow(QMainWindow):
 
     def __init__(self, pipeline=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(self.tr("KPaperFlux - Audit & Verification"))
+        self.setWindowTitle(self.tr("KPaperFlux - Audit and Verification"))
         self.resize(1300, 900)
         
         self.pipeline = pipeline
@@ -150,7 +150,7 @@ class AuditWindow(QMainWindow):
 
     def retranslate_ui(self) -> None:
         """Updates all UI strings for on-the-fly localization."""
-        self.setWindowTitle(self.tr("KPaperFlux - Audit & Verification"))
+        self.setWindowTitle(self.tr("KPaperFlux - Audit and Verification"))
         self.btn_close.setText(self.tr("Close"))
         self.lbl_loading.setText(self.tr("Generating comparison document..."))
         if not self.current_doc:
@@ -194,6 +194,7 @@ class AuditWindow(QMainWindow):
             return
 
         # Load PDF
+        self.current_doc = doc
         self.pdf_viewer.load_document(doc)
 
         # Render Semantic Data
@@ -224,24 +225,15 @@ class AuditWindow(QMainWindow):
                                      "Keine semantischen Daten vorhanden.</div>")
             self.right_stack.setCurrentWidget(self.render_view)
 
-    def _on_rendering_finished(self, pdf_path: str):
-        """Called when background PDF generation is done."""
-        # CRITICAL: Don't pass a UUID here, otherwise the viewer tries to load from DB/Vault
-        # instead of the raw path.
-        self.rendered_pdf_viewer.load_document(pdf_path)
-        self.right_stack.setCurrentWidget(self.rendered_pdf_viewer)
+        # Update Workflow & Title Immediately
+        self._refresh_workflow_controls()
+        self.setWindowTitle(f"Audit: {doc.original_filename or doc.uuid}")
 
-    def _on_rendering_failed(self, error_msg: str, semantic_data: Any):
-        """Fallback if PDF generation fails."""
-        logger.error(f"Professional PDF rendering failed: {error_msg}")
-        try:
-            html_content = self.renderer.render_as_html(semantic_data)
-            self.render_view.setHtml(html_content)
-        except Exception as e:
-            logger.warning(f"HTML rendering fallback failed: {e}")
-            md_content = self.renderer.render_as_markdown(semantic_data)
-            self.render_view.setMarkdown(md_content)
-        self.right_stack.setCurrentWidget(self.render_view)
+    def _refresh_workflow_controls(self):
+        """Updates the workflow control widget based on current_doc."""
+        doc = self.current_doc
+        if not doc:
+            return
 
         # Prepare flat data for requirement check (Sync with MetadataEditor)
         wf_data = getattr(doc.semantic_data, "workflow", None)
@@ -276,8 +268,25 @@ class AuditWindow(QMainWindow):
             logger.debug(f"Time calculation failed: {e}")
 
         self.workflow_controls.update_workflow(rule_id, current_step, doc_data_for_wf)
-        
-        self.setWindowTitle(f"Audit: {doc.original_filename or doc.uuid}")
+
+    def _on_rendering_finished(self, pdf_path: str):
+        """Called when background PDF generation is done."""
+        # CRITICAL: Don't pass a UUID here, otherwise the viewer tries to load from DB/Vault
+        # instead of the raw path.
+        self.rendered_pdf_viewer.load_document(pdf_path)
+        self.right_stack.setCurrentWidget(self.rendered_pdf_viewer)
+
+    def _on_rendering_failed(self, error_msg: str, semantic_data: Any):
+        """Fallback if PDF generation fails."""
+        logger.error(f"Professional PDF rendering failed: {error_msg}")
+        try:
+            html_content = self.renderer.render_as_html(semantic_data)
+            self.render_view.setHtml(html_content)
+        except Exception as e:
+            logger.warning(f"HTML rendering fallback failed: {e}")
+            md_content = self.renderer.render_as_markdown(semantic_data)
+            self.render_view.setMarkdown(md_content)
+        self.right_stack.setCurrentWidget(self.render_view)
 
 
     def closeEvent(self, event):

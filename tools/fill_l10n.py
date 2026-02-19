@@ -159,6 +159,12 @@ def fill():
             "Run on Import": "Bei Import ausführen",
             "Active": "Aktiv",
         },
+        "AuditWindow": {
+            "KPaperFlux - Audit and Verification": "KPaperFlux - Prüfung & Verifikation",
+            "Close": "Schließen",
+            "No document selected.": "Kein Dokument ausgewählt.",
+            "Generating comparison document...": "Vergleichsdokument wird generiert...",
+        },
         "BatchTagDialog": {
             "<b>Checked Tags:</b> Will be present on ALL selected documents (Merged).<br><b>Unchecked Tags:</b> Will be REMOVED from ALL selected documents (if they were common).<br><i>Individual unique tags on specific documents are preserved unless forced removed.</i>": "<b>Aktivierte Tags:</b> Werden auf ALLEN gewählten Dokumenten gesetzt.<br><b>Deaktivierte Tags:</b> Werden von ALLEN gewählten Dokumenten ENTFERNT.<br><i>Individuelle Tags bleiben erhalten, sofern nicht 'Gemischte entfernen' aktiv ist.</i>",
         },
