@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QLabel, QFrame, QScrollArea, QPushButton, QMainWindow, QStackedWidget
 )
 from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import Qt, pyqtSignal, QMarginsF, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, QMarginsF, QEvent, QSettings
 from PyQt6.QtGui import QFont, QTextDocument, QPageLayout
 try:
     from PyQt6.QtPrintSupport import QPrinter
@@ -43,6 +43,7 @@ class AuditWindow(QMainWindow):
         self._render_worker = None
         
         self._init_ui()
+        self.read_settings()
 
     def _init_ui(self):
         central = QWidget()
@@ -162,6 +163,29 @@ class AuditWindow(QMainWindow):
         if enabled:
             self.setWindowTitle(f"DEBUG: {self.windowTitle()}")
 
+    def write_settings(self):
+        """Saves current window layout to persistent storage."""
+        settings = QSettings()
+        settings.beginGroup("AuditWindow")
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("splitter", self.splitter.saveState())
+        settings.endGroup()
+
+    def read_settings(self):
+        """Restores window layout from persistent storage."""
+        settings = QSettings()
+        settings.beginGroup("AuditWindow")
+        
+        geometry = settings.value("geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+            
+        splitter_state = settings.value("splitter")
+        if splitter_state:
+            self.splitter.restoreState(splitter_state)
+            
+        settings.endGroup()
+
     def display_document(self, doc: Document):
         """Updates the audit view with a new document's data."""
         if not doc:
@@ -257,6 +281,8 @@ class AuditWindow(QMainWindow):
 
 
     def closeEvent(self, event):
+        self.write_settings()
+        
         # Cleanup worker
         if self._render_worker and self._render_worker.isRunning():
             self._render_worker.terminate()
