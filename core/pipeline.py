@@ -747,14 +747,15 @@ class PipelineProcessor:
         with tempfile.TemporaryDirectory() as temp_dir:
             output_pdf = Path(temp_dir) / f"ocr_{path.name}"
 
-            # Run ocrmypdf with speed optimizations
+            # Run ocrmypdf with speed and quality optimizations
             cmd = [
                 ocr_binary,
-                "--skip-text",  # Only OCR what needs it
-                "--jobs",
-                "4",  # Parallel processing
-                "-l",
-                "deu+eng",
+                "--skip-text",      # Only OCR what needs it
+                "--rotate-pages",   # Fix landscape/inverted scans
+                "--deskew",         # Straighten crooked scans
+                "--jobs", "4",      # Parallel processing
+                "--optimize", "1",   # Basic optimization without heavy compression
+                "-l", "deu+eng",
                 str(path),
                 str(output_pdf),
             ]

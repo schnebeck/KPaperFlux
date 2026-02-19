@@ -18,12 +18,38 @@ Analyze the following document start and determine its nature.
 {content}
 
 ### TASK
-Return a JSON object:
-{{
-  "primary_type": "MANUAL | DATASHEET | BOOK | CATALOG | INVOICE | LETTER | OTHER",
-  "is_hybrid_suspicion": true | false, // True if first page suggests multiple roles (e.g. 'Invoice & Delivery Note')
-  "looks_like_stack": true | false, // True if multiple different documents seem stuck together
   "confidence": 0.0-1.0
+}}
+
+### GROUNDING RULES:
+1. Base your determination ONLY on the provided text start.
+2. If the nature of the document is completely ambiguous, use "OTHER" and set confidence to < 0.5.
+3. Never guess or invent a document type not supported by the evidence.
+"""
+
+# --- STAGE 1.1: PLAUSIBILITY ARBITER ---
+PROMPT_PLAUSIBILITY_ARBITER = """
+You are a Document Context Arbiter. 
+The primary AI classified a document segment as '{context}'.
+The user's identity profile is: {profile_info}
+
+### TASK
+Verify if this classification is plausible. 
+Even if the exact address doesn't match (due to OCR noise or layout), determine if the segment likely belongs to this user/context.
+Look for:
+- Mentions of the person's name or company parts.
+- Typical business markers (Tax IDs, formal headers) if Context is BUSINESS.
+- Personal markers or lack of business headers if Context is PRIVATE.
+
+### INPUT TEXT (Excerpt)
+{page_text}
+
+### OUTPUT
+Return ONLY this JSON:
+{{
+  "is_plausible": true | false,
+  "reasoning": "Short explanation",
+  "suggested_context": "PRIVATE | BUSINESS | UNKNOWN"
 }}
 """
 
@@ -67,11 +93,11 @@ Current Scan Mode: {mode}
    - **OUTBOUND:** User Identity is in the **SENDER/HEADER** area.
    - **INTERNAL:** User Identity is both Sender and Recipient.
 
-6. **Document Continuity (Annexes, Reports & 'OTHER' Sink):**
-   - Pages following a main document (like an INVOICE) that contain supplementary info ("Usage Report", "Einzelverbindungsnachweis", "Annex", "Appendix", "Anhang", "Detailed breakdown") and do NOT start a new document with a new header/sender MUST be grouped into the SAME logical entity as the preceding page. 
-   - **The 'OTHER' Sink:** If content on subsequent pages cannot be confidently classified as a new, distinct document type (falling back to "OTHER"), these pages MUST belong to the main preceding document rather than being split into a separate entity.
-   - **Confidence Requirement for Splitting:** Only split into a new entity if there is high-confidence evidence for a distinct new document (e.g., a new Header, new Logo, or a complete change in Sender/Recipient).
-   - Avoid splitting a document just because the visual layout changes on subsequent pages (e.g. from tabular data to a text report).
+    - Avoid splitting a document just because the visual layout changes on subsequent pages (e.g. from tabular data to a text report).
+
+7. **GROUNDEDNESS & UNCERTAINTY:**
+   - If you cannot determine the context or type with at least 70% confidence, use "UNKNOWN" for the field.
+   - Do NOT guess identities. If no user markers are found, set `tenant_context` to "UNKNOWN".
 
 ### 4. ALLOWED DOCTYPES
 [
@@ -146,9 +172,13 @@ Analyze the text structure to identify distinct documents.
 1. Identify the boundaries (start/end pages) of each logical document.
 2. Assign one of the ALLOWED TYPES to each document.
 
-### ALLOWED TYPES
 {allowed_types_str}
 (If uncertain, use OFFICIAL_CORRESPONDENCE or OTHER only as last resort)
+
+### DATA INTEGRITY RULES:
+1. **Evidence-Based Splitting:** Only create a new entity if there is clear evidence (new header, logo, or explicit title).
+2. **Missing Info:** If you cannot confidently determine a type, use "OTHER".
+3. **No Hallucination:** Do not invent pages or documents that aren't clearly marked in the text.
 
 ### OUTPUT
 Return a JSON LIST of objects:
@@ -195,8 +225,12 @@ These data points have ALREADY been processed and mapped to the system.
 >>> SIGNATURES: {signature_json} <<<
 *Instruction:* STICKLY IGNORE these in your analysis. DO NOT re-extract them, DO NOT mention them in your summary or analysis. They are provided as context ONLY to avoid misinterpreting stamp noise as document content.
 {zugferd_hint}
-### 4. EXTRACTION TARGET: {entity_type}
 - **Identity Context:** {user_identity}
+- **GROUNDING & DATA INTEGRITY:**
+  1. **Source Evidence:** Base your answer ONLY on the provided OCR text and image. Do not invent data.
+  2. **Non-Guessing:** If a specific piece of information (e.g. VAT ID, IBAN, Order Number) is NOT found in the text, return `null` or a blank string. **NEVER** guess or hallucinate values.
+  3. **Verification:** For every significant financial value, double-check its consistency with the OCR stream.
+  4. **Uncertainty Flagging:** If a value is partially illegible or ambiguous, use your best logical interpretation but set the `ai_confidence` for that section to `0.5` or lower to mark it as [Unverified].
 - **Rules:**
   1. **Page Independence:** Scan ALL pages. Do not stop after Page 1.
   2. **Ignore Stamp Noise:** These anchors are already handled. Strictly ignore their text content and do NOT include or reference them in your JSON response.
@@ -258,11 +292,11 @@ Extract data into this exact JSON structure:
 }}
 
 ### RULES
-- Use ISO Dates (YYYY-MM-DD). Format: "2023-12-31".
 - Use Floats for money (e.g. 10.50), NOT strings.
-- Null handling: Use null for missing fields, do NOT use "n/a" or "unknown".
+- **GROUNDING:** Use `null` for missing fields. **NEVER** guess or hallucinate values (e.g. don't invent VAT IDs).
+- **UNCERTAINTY:** If a value is unreadable, leave it `null` or use [Unverified] in the reasoning.
 - Extract ALL line items if possible.
-- Strict JSON: Do not include comments or "..." placeholders in the final output.
+- Strict JSON: Do not include comments or "..." placeholders.
 
 ### TEXT CONTENT
 {text_content}
@@ -314,7 +348,8 @@ Extract user identity data from the provided signature/imprint text.
 - **Company:** If a company is mentioned (e.g. 'GmbH', 'Inc'), extract it specifically into `company_name`.
 - **Aliases:** Generate plausible variations if not explicitly stated (e.g. if Name is "Thomas Müller", Alias could be "T. Müller").
 - **Address Keywords:** Do NOT return the full address string. Return the unique parts (Streetname, Zip, City) as a list for fuzzy matching later.
-- **VAT/IBAN:** Extract strictly.
+- **VAT/IBAN:** Extract strictly. If not present, return `null`. **DO NOT GUESS.**
+- **GROUNDING:** Only extract what is explicitly written in the signature/imprint.
 
 ### INPUT TEXT
 {text}

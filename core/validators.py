@@ -124,16 +124,58 @@ def validate_ai_structure_response(
 
         # Select profile to validate against
         target_profile = None
-        if ctx == "BUSINESS":
+        is_business = (ctx == "BUSINESS")
+        is_private = (ctx == "PRIVATE")
+        
+        if is_business:
             target_profile = business_id
-        elif ctx == "PRIVATE":
+        elif is_private:
             target_profile = private_id
 
+        # 1. Profile Match Check (Gold Standard)
+        match_found = False
         if target_profile:
-            if not check_identity_fuzzy(first_page_text, target_profile):
+            match_found = check_identity_fuzzy(first_page_text, target_profile)
+
+        # 2. Heuristic Level 2: If no profile match, verify if the content at least looks like the context
+        if not match_found:
+            # Check for generic business markers if AI says BUSINESS
+            if is_business:
+                business_keywords = ["gmbh", "ag", "gbr", "kg", "inc", "ltd", "corp", "ust-idnr", "vat id", "rechnung", "invoice"]
+                text_low = first_page_text.lower()
+                if any(kw in text_low for kw in business_keywords):
+                    match_found = True
+                    # Optional: log that we matched based on generic markers
+            
+            # Check for name/person markers if AI says PRIVATE
+            elif is_private:
+                # Private is harder to verify generically, but we can check if it looks NOT like a business
+                business_suffixes = ["gmbh", "ag", "gbr", "kg"]
+                text_low = first_page_text.lower()
+                if not any(kw in text_low for kw in business_suffixes):
+                    # We are more lenient for PRIVATE if it doesn't look like a formal business doc
+                    match_found = True
+
+        # 3. Confidence Override: If AI is extremely sure and we have at least SOME text, trust it
+        conf = ent.get("confidence", 0.0)
+        if not match_found and conf >= 0.98 and len(first_page_text.strip()) > 50:
+            match_found = True
+
+        if not match_found and target_profile:
+            errors.append(
+                f"CONTEXT_ERROR: AI detected {ctx}, but no ZIP code or fuzzy address "
+                f"match was found on Page {pages[0]}. Verification of Billing Address failed."
+            )
+
+        # 4. Direction Validation (Analytical)
+        direction = ent.get("direction")
+        if direction in ["INBOUND", "OUTBOUND"] and target_profile:
+            # Simple check: If direction is set, but we couldn't find the identity in the text,
+            # we should flag it so the Arbiter can double-check the visual role.
+            if not match_found:
                 errors.append(
-                    f"CONTEXT_ERROR: AI detected {ctx}, but no ZIP code or fuzzy address "
-                    f"match was found on Page {pages[0]}. Verification of Billing Address failed."
+                    f"DIRECTION_ERROR: AI detected {direction}, but user identity "
+                    f"role could not be analytically verified on Page {pages[0]}."
                 )
 
     return errors

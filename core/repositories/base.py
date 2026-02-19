@@ -29,4 +29,8 @@ class BaseRepository:
             db_manager: The central database management instance.
         """
         self.db: DatabaseManager = db_manager
-        self.conn: sqlite3.Connection = db_manager.connection
+
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """Dynamically retrieves the current connection handle from the DB manager."""
+        return self.db.connection

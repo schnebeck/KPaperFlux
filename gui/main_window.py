@@ -335,19 +335,7 @@ class MainWindow(QMainWindow):
         self.shortcut_home.activated.connect(self.go_home_slot)
 
         if self.pipeline:
-             self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
-             self.main_loop_worker.documents_processed.connect(self._on_pipeline_documents_processed)
-             self.main_loop_worker.status_changed.connect(self._on_ai_status_changed)
-             self.main_loop_worker.fatal_error.connect(self._on_fatal_pipeline_error)
-
-             # Activity Panel Connections
-             self.main_loop_worker.progress.connect(self.activity_panel.update_progress)
-             self.main_loop_worker.status_changed.connect(self.activity_panel.update_status)
-             self.main_loop_worker.pause_state_changed.connect(self.activity_panel.on_pause_state_changed)
-             self.activity_panel.pause_requested.connect(self.main_loop_worker.set_paused)
-             self.activity_panel.stop_requested.connect(self.main_loop_worker.stop)
-
-             self.main_loop_worker.start()
+             self._init_main_loop_worker()
 
     def _on_rule_apply_requested(self, rule, scope):
         """Resolves target UUIDs based on scope and passes them to the filter widget to run."""
@@ -1875,12 +1863,18 @@ class MainWindow(QMainWindow):
                                      buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
+            # Phase 1: Shutdown background processing to avoid DB contention
+            if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
+                self.main_loop_worker.stop()
+                self.main_loop_worker.wait(5000)
+
             config = AppConfig()
             vault_path = config.get_vault_path()
 
             success = self.db_manager.purge_all_data(vault_path)
 
             if success:
+                # Clear all caches and views
                 self.list_widget.refresh_list()
                 if hasattr(self, 'editor_widget'): self.editor_widget.clear()
                 if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
@@ -1894,9 +1888,35 @@ class MainWindow(QMainWindow):
                 if hasattr(self, "filter_input"):
                     self.filter_input.clear()
 
+                # Phase 2: Restart Worker
+                if self.pipeline:
+                    self._init_main_loop_worker()
+
                 show_notification(self, self.tr("Success"), self.tr("System has been reset."))
             else:
+                # Try to recovery worker even on fail
+                if self.pipeline:
+                    self._init_main_loop_worker()
                 show_selectable_message_box(self, self.tr("Error"), self.tr("Failed to purge data. Check logs."), icon=QMessageBox.Icon.Warning)
+
+    def _init_main_loop_worker(self):
+        """Initializes and connects the background pipeline worker."""
+        if not self.pipeline:
+            return
+            
+        self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
+        self.main_loop_worker.documents_processed.connect(self._on_pipeline_documents_processed)
+        self.main_loop_worker.status_changed.connect(self._on_ai_status_changed)
+        self.main_loop_worker.fatal_error.connect(self._on_fatal_pipeline_error)
+
+        # Activity Panel Connections
+        self.main_loop_worker.progress.connect(self.activity_panel.update_progress)
+        self.main_loop_worker.status_changed.connect(self.activity_panel.update_status)
+        self.main_loop_worker.pause_state_changed.connect(self.activity_panel.on_pause_state_changed)
+        self.activity_panel.pause_requested.connect(self.main_loop_worker.set_paused)
+        self.activity_panel.stop_requested.connect(self.main_loop_worker.stop)
+
+        self.main_loop_worker.start()
 
     def purge_documents_slot(self, uuids: list[str]):
         count = 0

@@ -163,7 +163,8 @@ class Stage1Processor:
 
     def validate_classification(self, result: Dict[str, Any], ocr_pages: List[str], priv_id: Optional[IdentityProfile] = None, bus_id: Optional[IdentityProfile] = None) -> List[str]:
         """
-        Validates AI response for logical errors.
+        Validates AI response for logical errors and performs AI-backed plausibility checks
+        if analytical matching fails.
         """
         from core.validators import validate_ai_structure_response
 
@@ -180,11 +181,78 @@ class Stage1Processor:
              missing = set(range(1, total_pages + 1)) - claimed_pages
              errors.append(f"SEGMENTATION_ERROR: Missing pages {sorted(list(missing))}. Every page must be assigned to an entity.")
 
-        # 2. Context Sanity Check (Fuzzy)
-        fuzzy_errors = validate_ai_structure_response(result, ocr_pages, priv_id, bus_id)
-        errors.extend(fuzzy_errors)
+        # 2. Context Sanity Check (Analytical Level)
+        analytical_errors = validate_ai_structure_response(result, ocr_pages, priv_id, bus_id)
+        
+        # 3. Plausibility Arbiter (AI-Agentic Level)
+        # If we have analytical errors, check if they are "plausible" anyway before reporting failure.
+        if analytical_errors:
+            logger.info(f"[AI] Analytical validation found {len(analytical_errors)} issues. Invoking AI Arbiter for second opinion...")
+            real_errors = []
+            
+            for err in analytical_errors:
+                # Identify if this is a classification error (Context or Direction)
+                is_evaluable = "CONTEXT_ERROR" in err or "DIRECTION_ERROR" in err
+                
+                if is_evaluable:
+                    match_found = False
+                    for ent in entities:
+                        ctx = ent.get("tenant_context")
+                        direction = ent.get("direction")
+                        pages = ent.get("page_indices", [])
+                        if not pages: continue
+                        
+                        # Only check if this is likely the entity the error refers to
+                        if f"Page {pages[0]}" in err:
+                            # The Arbiter now checks BOTH context and direction in one go
+                            is_plausible = self.run_plausibility_arbiter(ctx, direction, pages[0], ocr_pages, priv_id, bus_id)
+                            if is_plausible:
+                                logger.info(f"[AI] Arbiter OVERRIDE: {ctx}/{direction} for Page {pages[0]} is PLAUSIBLE. Ignoring analytical error.")
+                                match_found = True
+                                break
+                    
+                    if not match_found:
+                        real_errors.append(err)
+                else:
+                    real_errors.append(err)
+            errors.extend(real_errors)
+        else:
+            errors.extend(analytical_errors)
 
         return errors
+
+    def run_plausibility_arbiter(self, context: str, direction: str, page_num: int, ocr_pages: List[str], priv_id: Optional[IdentityProfile], bus_id: Optional[IdentityProfile]) -> bool:
+        """
+        Invokes a small AI sub-task to check if a context/direction classification makes sense
+        even if the exact address strings don't match.
+        """
+        try:
+            page_idx = page_num - 1
+            if page_idx < 0 or page_idx >= len(ocr_pages):
+                return False
+            
+            page_text = ocr_pages[page_idx]
+            # Limit text for arbiter
+            page_text = page_text[:2000] # Usually first 2k chars are enough for header analysis
+            
+            target_profile = bus_id if context == "BUSINESS" else priv_id
+            profile_info = "None"
+            if target_profile:
+                profile_info = f"Name: {target_profile.name}, Company: {target_profile.company_name}, Keywords: {', '.join(target_profile.address_keywords)}"
+            
+            prompt = prompts.PROMPT_PLAUSIBILITY_ARBITER.format(
+                context=f"{context} ({direction})",
+                profile_info=profile_info,
+                page_text=page_text
+            )
+            
+            res = self.client.generate_json(prompt, stage_label=f"Arbiter Check (P{page_num})")
+            if res and res.get("is_plausible") is True:
+                return True
+        except Exception as e:
+            logger.warning(f"[AI] Arbiter failed: {e}")
+            
+        return False
 
     def identify_entities(self, text: str, semantic_data: Optional[Dict[str, Any]] = None, detected_entities: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """
