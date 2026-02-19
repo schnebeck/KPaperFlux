@@ -14,14 +14,58 @@ class L10nTool:
         self.ts_path.write_text(content, encoding="utf-8")
 
     def _get_tree(self):
-        # We use a custom parser to handle possible whitespace issues if they occur
+        """
+        Parses the TS file with an integrity check and retry logic to handle 
+        cases where external tools (like pylupdate6) might have left the file 
+        in a partially-written state.
+        """
+        import time
+        max_retries = 5
+        retry_delay = 0.2 # seconds
+
+        for attempt in range(max_retries):
+            try:
+                if not self.ts_path.exists():
+                    self._create_empty()
+                
+                # Integrity check: The file must end with </TS> (ignoring trailing whitespace)
+                content = self.ts_path.read_text(encoding="utf-8").strip()
+                if not content.endswith("</TS>"):
+                    raise ValueError("TS file is incomplete (missing </TS> tag).")
+                
+                return ET.parse(self.ts_path)
+            except (ET.ParseError, ValueError, IOError) as e:
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                raise
+
+        # Should not be reached due to raise in loop
         return ET.parse(self.ts_path)
 
     def _save_tree(self, tree):
+        import tempfile
         root = tree.getroot()
         self._strip_whitespace(root)
         ET.indent(root, space="    ", level=0)
-        tree.write(self.ts_path, encoding="utf-8", xml_declaration=True)
+        
+        # Atomic Write: Write to temp file first, then rename
+        fd, temp_path = tempfile.mkstemp(dir=self.ts_path.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, 'wb') as tmp:
+                tree.write(tmp, encoding="utf-8", xml_declaration=True)
+            
+            # Verify the temp file also ends with </TS> before moving
+            with open(temp_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if not content.endswith("</TS>"):
+                    raise IOError("Failed to write complete TS file to temp storage.")
+            
+            os.replace(temp_path, self.ts_path)
+        except Exception as e:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise IOError(f"Atomic write failed for {self.ts_path}: {e}")
 
     def _strip_whitespace(self, elem):
         """Recursively strip whitespace from tag text and tail."""

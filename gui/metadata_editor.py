@@ -677,7 +677,7 @@ class MetadataEditorWidget(QWidget):
         # 3. Refresh UI
         self.display_documents([self.doc]) 
         self.metadata_saved.emit()
-        show_notification(self, self.tr("Workflow Updated"), self.tr("State transitioned to %1").arg(target_state))
+        show_notification(self, self.tr("Workflow Updated"), self.tr("State transitioned to %1").replace("%1", target_state))
 
     def on_rule_changed(self, new_rule_id: str):
         """Handler for manual rule reassignment."""

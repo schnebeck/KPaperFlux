@@ -4352,4 +4352,6 @@ Geschäftsführer: ...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py"
+        </message>
+    </context>
+</TS>

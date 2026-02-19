@@ -1,0 +1,10 @@
+{
+  "id": "test",
+  "name": "Mock Report",
+  "description": null,
+  "filter_query": {},
+  "group_by": null,
+  "aggregations": [],
+  "visualizations": [],
+  "components": []
+}

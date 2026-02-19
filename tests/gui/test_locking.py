@@ -50,7 +50,10 @@ def test_locking_ui_and_persistence(main_window, mock_db, qtbot):
     
     # Verify State
     assert editor.chk_locked.isChecked() == True
-    assert editor.tab_widget.isEnabled() == False # Should be disabled immediately
+    # Tab widget stays enabled for navigation, but input fields are read-only
+    assert editor.tab_widget.isEnabled() == True
+    assert editor.sender_edit.isReadOnly() == True
+    assert editor.workflow_controls.isEnabled() == False
     
     # 4. Verify DB Update (Immediate)
     # Check if 'locked': True was passed in updates
@@ -69,7 +72,8 @@ def test_locking_ui_and_persistence(main_window, mock_db, qtbot):
     )
     editor.display_document(doc_locked)
     assert editor.chk_locked.isChecked() == True
-    assert editor.tab_widget.isEnabled() == False
+    assert editor.tab_widget.isEnabled() == True
+    assert editor.sender_edit.isReadOnly() == True
 
 def test_delete_protection(main_window, mock_db, qtbot):
     """Verify locked documents cannot be deleted."""

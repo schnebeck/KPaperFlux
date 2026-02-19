@@ -72,7 +72,8 @@ Current Scan Mode: {mode}
 ### 3. CRITICAL ANALYSIS RULES
 1. **Segmentation (Full Coverage):**
    - Identify the exact `page_indices` for each logical document based on the `--- PAGE X ---` markers.
-   - **Do NOT orphan pages:** If a document says "Page 1 of 3", you MUST include pages 1, 2, and 3.
+   - **Do NOT orphan pages:** If a document says "Page 1 of 10", you MUST include all pages 1 through 10 in a single entity.
+   - **Reference Match Rule:** If subsequent pages show the SAME invoice number, account number, or order ID in the header as the first page, they MUST be kept in the same entity.
 
 2. **Identity Disambiguation (BILLING vs. DELIVERY):**
    - **HIERARCHY RULE:** The **BILLING ADDRESS** (usually top-left or under "Invoice to") is the SOLE decider for the `tenant_context`.

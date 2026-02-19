@@ -708,17 +708,14 @@ class SplitterStripWidget(QWidget):
         for i, pg_info in enumerate(flat_pages):
             is_prot = pg_info.get("is_protected", False)
 
-            # 1. Automatic Split before boundary files OR protected files
+            # 1. Automatic Split before boundary files
             # Phase 105: Only split BETWEEN pages (i > 0)
-            if i > 0 and (pg_info.get("is_boundary") or is_prot):
+            if i > 0 and pg_info.get("is_boundary"):
                 div = SplitDividerWidget(page_index_before=i-1)
                 
-                # If either this page or the previous page is protected, lock the divider
-                was_prev_prot = flat_pages[i-1].get("is_protected", False) if i > 0 else False
-                
-                if pg_info.get("is_boundary") or is_prot or was_prev_prot:
-                    div.is_boundary = True # Locked
-                    div.set_active(True) # Force split
+                # If this is a boundary, we lock the divider to prevent accidental merging of files
+                div.is_boundary = True # Locked
+                div.set_active(True) # Force split
                     
                 div.split_requested.connect(lambda idx=i-1, d=div: self.on_split_clicked(idx, d))
                 self.content_layout.addWidget(div)
