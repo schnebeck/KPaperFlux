@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QComboBox, QFrame)
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, QEvent
 
 # Core Import: Jetzt sauber möglich, da ausgelagert!
 try:
@@ -85,7 +85,7 @@ class FilterGroupWidget(QWidget):
         self.retranslate_ui()
 
     def changeEvent(self, event):
-        if event.type() == QCoreApplication.translate("FilterGroupWidget", "Dummy").__class__ or event.type() == 95: # QEvent.LanguageChange
+        if event and event.type() == QEvent.Type.LanguageChange:
              self.retranslate_ui()
         super().changeEvent(event)
 

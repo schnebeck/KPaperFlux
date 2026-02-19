@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QComboBox, QLineEdit, QStackedWidget,
                              QMenu, QCheckBox, QSizePolicy)
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, QEvent
 
 # Mocks / Core Imports (angepasst für Standalone-Fähigkeit)
 try:
@@ -151,8 +151,7 @@ class FilterConditionWidget(QWidget):
         self.retranslate_ui()
 
     def changeEvent(self, event):
-        from PyQt6.QtCore import QCoreApplication
-        if event.type() == QCoreApplication.translate("FilterConditionWidget", "Dummy").__class__ or event.type() == 95: # QEvent.LanguageChange
+        if event and event.type() == QEvent.Type.LanguageChange:
              self.retranslate_ui()
         super().changeEvent(event)
 

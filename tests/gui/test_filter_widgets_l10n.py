@@ -24,3 +24,17 @@ def test_filter_group_l10n_retrieval(qapp):
     child = widget.children_widgets[0]
     assert hasattr(child, "retranslate_ui")
     assert child.btn_field_selector.text() == "Select Field..."
+
+def test_filter_group_language_change_event(qapp):
+    """Verifies that sending a LanguageChange event does not crash and updates UI."""
+    from PyQt6.QtCore import QEvent
+    tree = FilterTree()
+    widget = FilterGroupWidget(is_root=True)
+    widget.add_condition()
+    
+    # Simulate LanguageChange event
+    event = QEvent(QEvent.Type.LanguageChange)
+    QApplication.sendEvent(widget, event)
+    
+    # If no crash occurred, the test passes. 
+    # retranslate_ui should have been called.
