@@ -459,3 +459,27 @@ class MatchAnalysisWorker(QThread):
     def cancel(self) -> None:
         """Requests the worker to stop immediately."""
         self.is_cancelled = True
+
+class SemanticRenderingWorker(QThread):
+    """
+    Background worker to generate a high-quality PDF report from semantic data.
+    Prevents UI freeze during ProfessionalPdfRenderer usage.
+    """
+    finished = pyqtSignal(str) # temp_pdf_path
+    error = pyqtSignal(str)
+
+    def __init__(self, semantic_data: Any, out_path: str, locale: str = "de", parent: Optional[QObject] = None):
+        super().__init__(parent)
+        self.semantic_data = semantic_data
+        self.out_path = out_path
+        self.locale = locale
+
+    def run(self):
+        try:
+            from core.pdf_renderer import ProfessionalPdfRenderer
+            renderer = ProfessionalPdfRenderer(self.out_path, locale=self.locale)
+            renderer.render_document(self.semantic_data)
+            self.finished.emit(self.out_path)
+        except Exception as e:
+            logger.error(f"[SemanticRenderingWorker] Failed: {e}")
+            self.error.emit(str(e))

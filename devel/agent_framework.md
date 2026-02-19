@@ -48,7 +48,7 @@ When provided with code or a task, perform the following steps:
 ### **Version Control (Git)**
 *   **Convention:** [Conventional Commits](https://www.conventionalcommits.org/):
     *   `feat: ...`, `fix: ...`, `test: ...`, `refactor: ...`
-*   **Workflow:** Commit after every successful verification.
+*   **Workflow:** wait for commit and push events. Do not commit or push on your own.
 *   Maintain `.gitignore` (pycache, venv, temporary DBs).
 
 ## **5. Localization (l10n) Management**
