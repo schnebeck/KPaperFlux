@@ -93,7 +93,9 @@ class PdfDisplayLabel(QLabel):
         self.is_selecting = False
         self.is_double_click_drag = False
         self.double_click_pos: Optional[QPoint] = None
-        self.highlight_pdf_rects: List[fitz.Rect] = []  # Stored in PDF points
+        self.highlight_pdf_rects: List[fitz.Rect] = []  # Selection/Persistent highlights (PDF points)
+        self.search_hit_rects: List[fitz.Rect] = []    # Search hits (PDF points)
+        self.active_search_hit_rect: Optional[fitz.Rect] = None # Currently active hit (orange border)
         self.coord_converter: Optional[Callable[[float, float], QPoint]] = None
         
         self.setMouseTracking(True)
@@ -105,7 +107,7 @@ class PdfDisplayLabel(QLabel):
 
     def set_pdf_highlights(self, fitz_rects: List[fitz.Rect]) -> None:
         """
-        Updates the list of word rectangles to highlight.
+        Updates the list of word rectangles to highlight (Selection).
         
         Args:
             fitz_rects: List of fitz.Rect objects in PDF coordinate space.
@@ -113,9 +115,21 @@ class PdfDisplayLabel(QLabel):
         self.highlight_pdf_rects = fitz_rects
         self.update()
 
+    def set_search_hits(self, fitz_rects: List[fitz.Rect]) -> None:
+        """
+        Updates the list of rectangles to highlight as search hits.
+        
+        Args:
+            fitz_rects: List of fitz.Rect objects in PDF coordinate space.
+        """
+        self.search_hit_rects = fitz_rects
+        self.update()
+
     def clear_selection(self) -> None:
         """Clears all visual selection markers and states."""
         self.highlight_pdf_rects = []
+        self.search_hit_rects = []
+        self.active_search_hit_rect = None
         self.selection_start = None
         self.selection_end = None
         self.is_double_click_drag = False
@@ -211,7 +225,31 @@ class PdfDisplayLabel(QLabel):
         
         highlight_color = self.palette().color(QPalette.ColorRole.Highlight)
         
-        # 1. Persistent word highlights (projected from PDF points)
+        # 1. Search Hits (Yellow background as requested by user)
+        if self.search_hit_rects and self.coord_converter:
+            # Semi-transparent yellow
+            brush_color = QColor(255, 255, 0, 100) 
+            pen_color = QColor(255, 200, 0, 150)
+            painter.setBrush(brush_color)
+            painter.setPen(pen_color)
+            for pr in self.search_hit_rects:
+                active = (pr == self.active_search_hit_rect)
+                tl = self.coord_converter(pr.x0, pr.y0)
+                br = self.coord_converter(pr.x1, pr.y1)
+                rect = QRect(tl, br)
+                
+                if active:
+                    # Special emphasis for the current hit: Thicker orange border
+                    painter.setBrush(QColor(255, 255, 0, 150)) # Brighter yellow
+                    painter.setPen(QPen(QColor(255, 120, 0, 255), 2)) # Solid Orange
+                    painter.drawRoundedRect(rect.adjusted(-2, -2, 2, 2), 3, 3)
+                    # Reset for remaining hits
+                    painter.setBrush(brush_color)
+                    painter.setPen(pen_color)
+                else:
+                    painter.drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 2, 2)
+
+        # 2. Persistent word highlights (projected from PDF points - usually selection)
         if self.highlight_pdf_rects and self.coord_converter:
             brush_color = QColor(
                 highlight_color.red(), 
@@ -258,6 +296,8 @@ class PdfCanvas(QScrollArea):
     page_changed = pyqtSignal(int)
     zoom_changed = pyqtSignal(float)
     resized = pyqtSignal()
+    hits_updated = pyqtSignal(int, int) # 0-indexed current, total
+    hit_overflow = pyqtSignal(bool) # True for forward/next, False for backward/prev
 
     FIT_FIXED_FRAME = 15.0    
     FIT_COMFORT_SCALE = 1.0
@@ -296,6 +336,9 @@ class PdfCanvas(QScrollArea):
         self.current_page_idx = 0
         self.zoom_factor = 1.0
         self.rotation = 0
+        self.search_text = ""
+        self.all_hits: List[Tuple[int, fitz.Rect]] = [] # (page_idx, rect)
+        self.current_hit_idx: int = -1
 
     def sizeHint(self) -> QSize:
         return QSize(10, 10)
@@ -338,6 +381,114 @@ class PdfCanvas(QScrollArea):
             if not block_signals:
                 self.page_changed.emit(index)
             self.render_current_page()
+
+    def perform_text_search(self, text: str, jump_to_first: bool = False, jump_to_last: bool = False) -> None:
+        """Searches for text in the entire document and tracks all hits."""
+        if not self.doc or not text or len(text.strip()) < 2:
+            self.search_text = ""
+            self.all_hits = []
+            self.current_hit_idx = -1
+            self.display_label.set_search_hits([])
+            self.hits_updated.emit(-1, 0)
+            return
+            
+        # If text changed, perform global search
+        if text != self.search_text:
+            self.search_text = text
+            self.all_hits = []
+            for i in range(len(self.doc)):
+                page = self.doc[i]
+                rects = page.search_for(text)
+                for r in rects:
+                    self.all_hits.append((i, r))
+            
+            self.current_hit_idx = -1
+            if jump_to_first and self.all_hits:
+                self.current_hit_idx = 0
+            elif jump_to_last and self.all_hits:
+                self.current_hit_idx = len(self.all_hits) - 1
+            elif self.all_hits:
+                # Find the first hit on or after the current page
+                for idx, (p_idx, _) in enumerate(self.all_hits):
+                    if p_idx >= self.current_page_idx:
+                        self.current_hit_idx = idx
+                        break
+                if self.current_hit_idx == -1:
+                    self.current_hit_idx = 0
+
+        # Update display for the current page
+        hits_on_page = [r for p_idx, r in self.all_hits if p_idx == self.current_page_idx]
+        self.display_label.set_search_hits(hits_on_page)
+        
+        # Track active hit on this page
+        if self.current_hit_idx >= 0 and self.current_hit_idx < len(self.all_hits):
+            p_idx, rect = self.all_hits[self.current_hit_idx]
+            if p_idx == self.current_page_idx:
+                self.display_label.active_search_hit_rect = rect
+            else:
+                self.display_label.active_search_hit_rect = None
+        else:
+            self.display_label.active_search_hit_rect = None
+            
+        self.hits_updated.emit(self.current_hit_idx, len(self.all_hits))
+
+        if jump_to_first and self.current_hit_idx >= 0:
+            self.jump_to_hit(0)
+        elif jump_to_last and self.current_hit_idx >= 0:
+            self.jump_to_hit(len(self.all_hits) - 1)
+
+    def jump_to_hit(self, hit_idx: int) -> None:
+        """Navigates to the specified hit index."""
+        if not self.all_hits or not (0 <= hit_idx < len(self.all_hits)):
+            return
+            
+        self.current_hit_idx = hit_idx
+        p_idx, rect = self.all_hits[hit_idx]
+        
+        # Navigate to page if needed
+        if p_idx != self.current_page_idx:
+            self.jump_to_page(p_idx)
+            
+        # Update active marker
+        self.display_label.active_search_hit_rect = rect
+        self.display_label.update()
+
+        # Scroll to hit
+        self.scroll_to_pdf_rect(rect)
+        self.hits_updated.emit(self.current_hit_idx, len(self.all_hits))
+
+    def scroll_to_pdf_rect(self, rect: fitz.Rect) -> None:
+        """Center the view on the specified PDF rectangle."""
+        # Convert PDF coords to widget coords
+        tl = self._get_widget_coords(rect.x0, rect.y0)
+        br = self._get_widget_coords(rect.x1, rect.y1)
+        
+        center = (tl + br) / 2
+        
+        # Adjust scrollbars to center the point
+        vs = self.verticalScrollBar()
+        hs = self.horizontalScrollBar()
+        
+        vs.setValue(int(center.y() - self.viewport().height() / 2))
+        hs.setValue(int(center.x() - self.viewport().width() / 2))
+
+    def next_hit(self) -> None:
+        """Navigates to the next search hit."""
+        if self.all_hits:
+            if self.current_hit_idx == len(self.all_hits) - 1:
+                self.hit_overflow.emit(True)
+                return
+            next_idx = self.current_hit_idx + 1
+            self.jump_to_hit(next_idx)
+
+    def prev_hit(self) -> None:
+        """Navigates to the previous search hit."""
+        if self.all_hits:
+            if self.current_hit_idx == 0:
+                self.hit_overflow.emit(False)
+                return
+            prev_idx = self.current_hit_idx - 1
+            self.jump_to_hit(prev_idx)
 
     def set_rotation(self, rotation: int) -> None:
         """Sets the visual rotation for the current page."""
@@ -957,6 +1108,7 @@ class PdfViewerWidget(QWidget):
         self.current_uuid: Optional[str] = None
         self.current_pages_data: List[dict] = []
         self.temp_pdf_path: Optional[Path] = None
+        self.search_text = ""
         
         # Prevent viewer from pushing main window boundaries
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
@@ -973,6 +1125,7 @@ class PdfViewerWidget(QWidget):
         self.canvas.page_changed.connect(self.on_page_changed)
         self.canvas.zoom_changed.connect(self.update_zoom_label)
         self.canvas.resized.connect(self._on_viewport_resized)
+        self.canvas.hits_updated.connect(self._update_hit_status)
         self.retranslate_ui()
 
     def sizeHint(self) -> QSize:
@@ -1036,6 +1189,10 @@ class PdfViewerWidget(QWidget):
             lambda: self.canvas.jump_to_page(self.canvas.current_page_idx + 1)
         )
         
+        self.btn_next.clicked.connect(
+            lambda: self.canvas.jump_to_page(self.canvas.current_page_idx + 1)
+        )
+        
         self.btn_zoom_out = QPushButton("-")
         self.btn_zoom_out.setFixedSize(30, 30)
         self.btn_zoom_out.setStyleSheet(btn_style)
@@ -1085,17 +1242,20 @@ class PdfViewerWidget(QWidget):
         self.btn_save.setToolTip(self.tr("Save Changes"))
         
         controls = [
-            self.btn_prev, self.edit_page, self.lbl_page_count, self.btn_next, 
+            self.btn_prev, self.edit_page, self.lbl_page_count, self.btn_next,
+            None, # Erste Feder: Nav -> Zoom
             self.btn_zoom_out, self.edit_zoom, self.btn_zoom_in, 
-            self.btn_fit, self.btn_rotate, self.btn_del,
+            self.btn_fit,
+            None, # Zweite Feder: Zoom -> Aktionen
+            self.btn_rotate, self.btn_del,
             self.btn_split, self.btn_save
         ]
         for ctrl in controls:
-            if ctrl != self.btn_fit:
-                ctrl.setMinimumWidth(0)
-            t_layout.addWidget(ctrl)
+            if ctrl is None:
+                t_layout.addStretch()
+                continue
             
-        t_layout.addStretch()
+            t_layout.addWidget(ctrl)
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
 
@@ -1147,6 +1307,9 @@ class PdfViewerWidget(QWidget):
     def on_page_changed(self, page: int) -> None:
         """Syncs UI state when page changes in canvas."""
         self.update_ui_state(page)
+        # Re-apply search hits for the new page
+        if self.search_text:
+            self.canvas.perform_text_search(self.search_text)
 
     def on_page_edited(self) -> None:
         """Handles manual page entry."""
@@ -1161,6 +1324,9 @@ class PdfViewerWidget(QWidget):
         self.update_ui_state(self.canvas.current_page_idx)
         if self.is_fit_mode:
             self.set_fit_mode(True)
+        # Apply search highlights if text is set
+        if self.search_text:
+            self.canvas.perform_text_search(self.search_text)
 
     def load_document(
         self, 
@@ -1226,6 +1392,10 @@ class PdfViewerWidget(QWidget):
         idx = jump_to_index if jump_to_index >= 0 else (initial_page - 1 if initial_page > 1 else -1)
         if idx >= 0:
             QTimer.singleShot(250, lambda: self.canvas.jump_to_page(idx))
+            
+        # Ensure search highlights are applied on document load
+        if self.search_text:
+            QTimer.singleShot(300, lambda: self.canvas.perform_text_search(self.search_text))
 
     def _refresh_preview(self) -> None:
         """Reconstructs the multi-page preview from source fragments."""
@@ -1414,7 +1584,12 @@ class PdfViewerWidget(QWidget):
 
     def set_highlight_text(self, text: str) -> None:
         """Triggers text search and highlighting on the current page."""
-        # TODO: Implement text search highlighting in PdfCanvas
+        self.search_text = text
+        self.canvas.perform_text_search(text, jump_to_first=True)
+
+    def _update_hit_status(self, current: int, total: int) -> None:
+        """Updates the search hit counter and button visibility."""
+        # No longer used internally, signals are connected via MainWindow
         pass
 
     def update_zoom_label(self, factor: float) -> None:

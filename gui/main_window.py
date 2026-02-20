@@ -216,6 +216,11 @@ class MainWindow(QMainWindow):
             # BEFORE the list refreshes and triggers selection logic.
             self.advanced_filter.filter_changed.connect(self._on_filter_changed)
             self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
+            self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
+            
+            # Phase 106: Hit Navigation from Sidebar
+            self.advanced_filter.prev_hit_requested.connect(lambda: self.pdf_viewer.canvas.prev_hit())
+            self.advanced_filter.next_hit_requested.connect(lambda: self.pdf_viewer.canvas.next_hit())
 
             self.advanced_filter.trash_mode_changed.connect(self.set_trash_mode)
 
@@ -266,6 +271,8 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'list_widget'):
             self.pdf_viewer.document_changed.connect(self.list_widget.refresh_list)
         self.pdf_viewer.split_requested.connect(self.open_splitter_dialog_slot)
+        self.pdf_viewer.canvas.hit_overflow.connect(self._on_pdf_hit_overflow)
+        self.pdf_viewer.canvas.hits_updated.connect(self.advanced_filter.update_hit_status)
         self.main_splitter.addWidget(self.pdf_viewer)
 
         # Set Initial Sizes
@@ -359,6 +366,54 @@ class MainWindow(QMainWindow):
         self.current_search_text = search_text
         if hasattr(self, 'pdf_viewer'):
             self.pdf_viewer.set_highlight_text(search_text)
+        if hasattr(self, 'list_widget'):
+            # This triggers refresh_list which now includes hit counting
+            self.list_widget.current_filter_text = search_text
+            self.list_widget.refresh_list()
+
+    def _on_pdf_hit_overflow(self, forward: bool):
+        """Logic to switch to next/prev document containing search hits."""
+        if not self.current_search_text or not self.list_widget:
+            return
+            
+        current_uuid = self.pdf_viewer.current_uuid
+        if not current_uuid:
+            return
+            
+        uuids = self.list_widget.get_all_uuids_in_view()
+        if not uuids:
+            return
+            
+        try:
+            current_idx = uuids.index(current_uuid)
+        except ValueError:
+            return
+            
+        # Search range (excluding current)
+        if forward:
+            indices = range(current_idx + 1, len(uuids))
+        else:
+            indices = range(current_idx - 1, -1, -1)
+            
+        target_uuid = None
+        for i in indices:
+            uid = uuids[i]
+            # Check hit map from list widget
+            if self.list_widget.current_hit_map.get(uid, 0) > 0:
+                target_uuid = uid
+                break
+                
+        if target_uuid:
+            logger.info(f"[Search] Navigating to next doc with hits: {target_uuid}")
+            self.list_widget.select_rows_by_uuids([target_uuid])
+            # Give UI time to load document, then trigger search jump
+            jump_first = True if forward else False
+            jump_last = not forward
+            QTimer.singleShot(400, lambda: self.pdf_viewer.canvas.perform_text_search(
+                self.current_search_text, 
+                jump_to_first=jump_first,
+                jump_to_last=jump_last
+            ))
 
     def load_filter_tree(self):
         """Load Filter Tree using ExchangeService, with fallback to starter kit."""
@@ -651,6 +706,11 @@ class MainWindow(QMainWindow):
              text = criteria.get('fulltext', '')
 
         self.current_search_text = text
+        
+        # Phase 106: Push search text to viewer for dynamic highlighting
+        if hasattr(self, 'pdf_viewer'):
+            self.pdf_viewer.set_highlight_text(text)
+            
         logger.info(f"[DEBUG] MainWindow updated current_search_text to: '{self.current_search_text}'")
 
     def _resolve_pdf_path(self, doc_uuid: str) -> Optional[str]:

@@ -1412,6 +1412,70 @@ class DatabaseManager:
             return str(mapping[0].get("file_uuid"))
         return None
 
+    def count_total_text_occurrences_advanced(self, query: Dict[str, Any], text: str) -> int:
+        """
+        Sums up all occurrences of 'text' in the 'cached_full_text' of documents
+        matching the query.
+        """
+        if not text:
+            return 0
+        
+        where_clause, params = self._build_where_clause(query)
+        if "deleted" not in where_clause.lower():
+            where_clause = f"({where_clause}) AND deleted = 0"
+            
+        # SQL trick to count occurrences: (length(haystack) - length(replace(haystack, needle, ''))) / length(needle)
+        # We use LOWER() for case-insensitive matching.
+        sql = f"""
+            SELECT SUM(
+                (LENGTH(cached_full_text) - LENGTH(REPLACE(LOWER(cached_full_text), ?, ''))) / ?
+            )
+            FROM virtual_documents
+            WHERE {where_clause} AND cached_full_text IS NOT NULL
+        """
+        try:
+            cursor = self.connection.cursor()
+            needle = text.lower()
+            needle_len = max(1, len(text))
+            cursor.execute(sql, [needle, needle_len] + params)
+            res = cursor.fetchone()
+            return int(res[0]) if res and res[0] is not None else 0
+        except Exception as e:
+            logger.error(f"[DB] count_total_text_occurrences_advanced failed: {e}")
+            return 0
+
+    def get_hit_counts_for_documents(self, uuids: List[str], text: str) -> Dict[str, int]:
+        """
+        Returns a map of {uuid: hit_count} for the given documents and search text.
+        """
+        if not text or not uuids:
+            return {}
+            
+        needle = text.lower()
+        needle_len = max(1, len(text))
+        
+        # Batch processing if many UUIDs
+        results = {}
+        batch_size = 500
+        for i in range(0, len(uuids), batch_size):
+            batch = uuids[i:i+batch_size]
+            placeholders = ", ".join(["?" for _ in batch])
+            sql = f"""
+                SELECT uuid, 
+                       (LENGTH(cached_full_text) - LENGTH(REPLACE(LOWER(cached_full_text), ?, ''))) / ? as cnt
+                FROM virtual_documents
+                WHERE uuid IN ({placeholders}) AND cached_full_text IS NOT NULL
+            """
+            try:
+                cursor = self.connection.cursor()
+                cursor.execute(sql, [needle, needle_len] + batch)
+                for row in cursor.fetchall():
+                    results[row[0]] = int(row[1])
+            except Exception as e:
+                logger.error(f"[DB] get_hit_counts_for_documents failed: {e}")
+                
+        return results
+
     def execute(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
         """
         Executes a custom SQL query with optional parameters and professional logging.

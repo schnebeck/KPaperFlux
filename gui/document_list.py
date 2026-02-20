@@ -165,6 +165,7 @@ class DocumentListWidget(QWidget):
         self.current_cockpit_query = None # Phase 105: Cockpit Precedence
         self.advanced_filter_active = True   # Phase 105: Active Rule Toggle
         self.target_uuid_to_restore = None   # Phase 105: Programmatic override
+        self.current_hit_map: Dict[str, int] = {} # Phase 106: hit counts
         self.dynamic_columns = []
         self.is_trash_mode = False
         self.view_context = self.tr("All Documents") # For Breadcrumb
@@ -741,6 +742,10 @@ class DocumentListWidget(QWidget):
 
         # Phase 105: Tiered Query Selection
         active_query = None
+        search_text = getattr(self, "current_filter_text", "")
+        if not search_text:
+             # Check for active query meta as fallback
+             pass 
         if self.is_trash_mode:
             docs = self.db_manager.get_deleted_entities_view()
         else:
@@ -765,12 +770,22 @@ class DocumentListWidget(QWidget):
                     docs = self.db_manager.get_all_entities_view()
                 logger.info(f"[DEBUG] Standard View returned {len(docs)} documents.")
 
+            # Phase 106: Calculate hit counts if search is active
+            if not search_text and active_query:
+                search_text = active_query.get('_meta_fulltext')
+            
+            self.current_hit_map = {}
+            if search_text and len(search_text.strip()) >= 2:
+                uuids = [d.uuid for d in docs]
+                if uuids:
+                    self.current_hit_map = self.db_manager.get_hit_counts_for_documents(uuids, search_text)
+
         # v28.2: Change Detection / Redraw Prevention
         # We include all timestamps to ensure triggers from the DB are reflected immediately
         current_sig = tuple(
             (d.uuid, d.status, str(d.last_processed_at), str(d.last_used), str(d.deleted_at), str(d.locked_at))
             for d in docs
-        ) + tuple(self.dynamic_columns)
+        ) + tuple(self.dynamic_columns) + (search_text,)
 
         if not force_select_first and hasattr(self, '_last_refresh_sig') and self._last_refresh_sig == current_sig:
              # [SILENT] Data is identical to what is currently shown.
@@ -1218,14 +1233,20 @@ class DocumentListWidget(QWidget):
         
         sd = doc.semantic_data
         
-        filename_display = filename
+        hit_count = self.current_hit_map.get(doc.uuid, 0)
+        
+        icon = ""
         p_class = getattr(doc, "pdf_class", "C")
         if p_class in ["A", "AB"]:
-            filename_display = f"🛡️ {filename}"
+            icon = "🛡️ "
         elif p_class == "B":
-            filename_display = f"⚙️ {filename}"
+            icon = "⚙️ "
         elif p_class == "H":
-            filename_display = f"📦 {filename}"
+            icon = "📦 "
+            
+        filename_display = f"{icon}{filename}"
+        if hit_count > 0:
+            filename_display = f"({hit_count}) {filename_display}"
 
         col_data = [
             "",                 # 0: #

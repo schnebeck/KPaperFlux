@@ -73,6 +73,8 @@ class AdvancedFilterWidget(QWidget):
     trash_mode_changed = pyqtSignal(bool) # New signal for Trash Mode
     request_apply_rule = pyqtSignal(object, str) # rule, scope ("ALL", "FILTERED", "SELECTED")
     search_triggered = pyqtSignal(str) # Emits the raw search text for highlighting
+    next_hit_requested = pyqtSignal()
+    prev_hit_requested = pyqtSignal()
 
     def __init__(self, parent=None, db_manager=None, filter_tree=None, save_callback=None):
         super().__init__(parent)
@@ -178,6 +180,8 @@ class AdvancedFilterWidget(QWidget):
         # --- TAB 1: Suche ---
         self.search_tab = QWidget()
         search_layout = QVBoxLayout(self.search_tab)
+        search_layout.setContentsMargins(0, 5, 0, 5)
+        search_layout.setSpacing(8)
 
         s_row = QHBoxLayout()
         self.lbl_search_header = QLabel("")
@@ -198,12 +202,34 @@ class AdvancedFilterWidget(QWidget):
 
         opt_layout.addStretch()
 
+        # Phase 106: Search Hit Navigation (moved from PDF Viewer)
+        self.btn_hit_prev = QPushButton("▲")
+        self.btn_hit_prev.setFixedSize(24, 24)
+        self.btn_hit_prev.setVisible(False)
+        self.btn_hit_prev.clicked.connect(self.prev_hit_requested.emit)
+        opt_layout.addWidget(self.btn_hit_prev)
+
+        self.lbl_hits = QLabel("")
+        self.lbl_hits.setStyleSheet("font-weight: bold; margin: 0 4px;")
+        self.lbl_hits.setVisible(False)
+        opt_layout.addWidget(self.lbl_hits)
+
+        self.btn_hit_next = QPushButton("▼")
+        self.btn_hit_next.setFixedSize(24, 24)
+        self.btn_hit_next.setVisible(False)
+        self.btn_hit_next.clicked.connect(self.next_hit_requested.emit)
+        opt_layout.addWidget(self.btn_hit_next)
+
+        opt_spacer = QWidget()
+        opt_spacer.setFixedWidth(10)
+        opt_layout.addWidget(opt_spacer)
+
         self.lbl_search_status = QLabel("")
         self.lbl_search_status.setStyleSheet("color: #666; font-style: italic;")
         opt_layout.addWidget(self.lbl_search_status)
 
         search_layout.addLayout(opt_layout)
-        search_layout.addStretch()
+        # Removed search_layout.addStretch() to avoid red box area
 
         self.stack.addWidget(self.search_tab)
 
@@ -730,23 +756,37 @@ class AdvancedFilterWidget(QWidget):
         
         if not has_selection:
             # Fixed height to avoid any redistribution of space in Splitter
-            # 10 (top) + 30 (button) + 5 (internal layout bottom) + 3 (new bottom margin) = 48
-            self.setFixedHeight(48) 
+            # 10 (top) + 30 (button) + 5 (internal layout bottom) + 5 (new bottom margin) = 50
+            self.setMaximumHeight(50)
+            self.setFixedHeight(50) 
+        elif self.stack.currentIndex() == 0:
+            # SEARCH MODE: Keep it compact but avoid clipping (Tipp 106)
+            # 135px is enough after reducing internal search_layout margins
+            self.setMaximumHeight(135)
+            self.setMinimumHeight(125)
+            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+            self.updateGeometry()
         else:
-            self.setMinimumHeight(0)
+            # FILTER/RULES MODE: Allow growth
+            self.setMinimumHeight(150)
             self.setMaximumHeight(16777215)
-            self.setFixedHeight(16777215) 
-            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
             self.updateGeometry() # Force parent splitter to reconsider
 
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
         print(f"[Search-Debug] Raw Input: '{text}'")
 
-        # 1. Validation
-        if len(text) < 3:
+        # 1. Validation (Allow empty to clear)
+        if text and len(text) < 3:
             self.lbl_search_status.setText(self.tr("Search string too short (min 3 chars)"))
             self.lbl_search_status.setStyleSheet("color: red;")
+            return
+        
+        if not text:
+            self.lbl_search_status.setText("")
+            self.filter_changed.emit({"_meta_fulltext": ""})
+            self.search_triggered.emit("")
             return
 
         self.lbl_search_status.setText(self.tr("Searching..."))
@@ -754,18 +794,9 @@ class AdvancedFilterWidget(QWidget):
         # Process UI updates immediately
         QCoreApplication.processEvents()
 
-        criteria = self.parser.parse(text)
-        print(f"[Search-Debug] Parser Output criteria: {criteria}")
-
-        # Fix: Normalize Parser Keys to Internal filter keys
-        if "text_search" in criteria:
-            criteria["fulltext"] = criteria.pop("text_search")
-
-        if "type" in criteria:
-             # Convert single type to list "types"
-             criteria["types"] = [criteria.pop("type")]
-
-        print(f"[Search-Debug] Normalized criteria: {criteria}")
+        # Phase 106: Force Literal Text Search (No semantic interpretation as requested)
+        criteria = {"fulltext": text}
+        print(f"[Search-Debug] Literal Search Criteria: {criteria}")
 
         # Phase 106: Deep Search for fulltext using Raw Data if available
         if criteria.get("fulltext") and self.db_manager:
@@ -805,11 +836,22 @@ class AdvancedFilterWidget(QWidget):
                 print(f"[Search] Count failed: {e}")
 
         print(f"[Search-Debug] Count Result: {count}")
-        self.lbl_search_status.setText(self.tr(f"{count} Documents found ({scope_msg})"))
+        
+        status_msg = self.tr(f"{count} Documents found ({scope_msg})")
+        if count > 0 and self.db_manager and text:
+            # Phase 106: Count total occurrences
+            total_hits = self.db_manager.count_total_text_occurrences_advanced(final_query, text)
+            if total_hits > 0:
+                status_msg = self.tr(f"{total_hits} matches in {count} documents")
+
+        self.lbl_search_status.setText(status_msg)
         self.lbl_search_status.setStyleSheet("color: green;" if count > 0 else "color: red;")
 
         # Inject debug meta info for MainWindow
         final_query["_meta_fulltext"] = text
+        
+        # Hide hits initially on new search
+        self.update_hit_status(-1, 0)
 
         self.filter_changed.emit(final_query)
         self.search_triggered.emit(text)
@@ -1310,6 +1352,18 @@ class AdvancedFilterWidget(QWidget):
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
+
+    def update_hit_status(self, current: int, total: int):
+        """Updates the hit navigation UI in the search tab."""
+        if total > 0:
+            self.lbl_hits.setText(f"{current + 1} / {total}")
+            self.lbl_hits.setVisible(True)
+            self.btn_hit_prev.setVisible(True)
+            self.btn_hit_next.setVisible(True)
+        else:
+            self.lbl_hits.setVisible(False)
+            self.btn_hit_prev.setVisible(False)
+            self.btn_hit_next.setVisible(False)
 
     def retranslate_ui(self):
         """Updates all UI strings for on-the-fly localization."""
