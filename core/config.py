@@ -45,7 +45,7 @@ class AppConfig:
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
-    DEFAULT_MODEL: str = "gemini-2.0-flash"
+    DEFAULT_MODEL: str = "gemini-2.5-flash"
     DEFAULT_AI_RETRIES: int = 3
 
     APP_ID: str = "kpaperflux"
@@ -75,6 +75,9 @@ class AppConfig:
         self.settings = QSettings(self.active_id, self.active_id)
         from core.logger import get_logger
         get_logger("core").debug(f"[Config] Initialized settings from: {self.settings.fileName()} (Profile: {self.profile or 'default'})")
+        
+        # Run migrations
+        self.migrate_config()
 
     def get_config_dir(self) -> Path:
         """
@@ -178,11 +181,30 @@ class AppConfig:
     def set_gemini_model(self, model: str) -> None:
         """
         Saves the Gemini AI model name.
+        Also handles basic validation to prevent empty strings.
 
         Args:
             model: The model name string.
         """
+        if not model or str(model).strip() == "":
+             model = self.DEFAULT_MODEL
         self._set_setting("AI", self.KEY_GEMINI_MODEL, model)
+
+    def migrate_config(self) -> None:
+        """
+        Handles automatic migration of configuration values across versions.
+        For example, upgrades legacy AI models to current defaults.
+        """
+        from core.logger import get_logger
+        logger = get_logger("core.config")
+        
+        # 1. AI Model Migration (Upgrade < 2.5 to 2.5-flash)
+        current_model = self.get_gemini_model()
+        legacy_models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash", "gemini-exp-1206"]
+        
+        if any(legacy in current_model.lower() for legacy in legacy_models):
+            logger.info(f"Migrating legacy AI model '{current_model}' to current default '{self.DEFAULT_MODEL}'")
+            self.set_gemini_model(self.DEFAULT_MODEL)
 
     def get_language(self) -> str:
         """

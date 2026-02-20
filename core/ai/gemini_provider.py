@@ -20,7 +20,7 @@ class GeminiProvider(AIProvider):
     _cooldown_until: Optional[datetime.datetime] = None
     _adaptive_delay: float = 0.0
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash") -> None:
+    def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash") -> None:
         self.api_key: str = api_key
         self.model_name: str = model_name
         self.client: Optional[genai.Client] = None
@@ -31,6 +31,7 @@ class GeminiProvider(AIProvider):
         else:
             try:
                 self.client = genai.Client(api_key=self.api_key)
+                logger.info(f"Initialized Gemini Provider with model: {self.model_name}")
                 self._fetch_model_limits()
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini Client: {e}")

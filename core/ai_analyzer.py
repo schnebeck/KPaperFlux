@@ -33,7 +33,7 @@ class AIAnalyzer:
     and adaptive scan strategies.
     """
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash") -> None:
+    def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash") -> None:
         """
         Initializes the AIAnalyzer.
         """

@@ -57,11 +57,23 @@ class HybridAssemblerPlugin(KPaperFluxPlugin):
             doc_native = fitz.open(native_pdf)
             doc_scan = fitz.open(scan_pdf)
             
-            # Log a warning if scan has fewer pages (potential missing signatures)
-            if doc_scan.page_count < doc_native.page_count:
-                print(f"[HybridAssembler] Warning: Scan has only {doc_scan.page_count} pages, but native has {doc_native.page_count}. Remaining native pages will have no signature overlay.")
-            elif doc_scan.page_count > doc_native.page_count:
-                print(f"[HybridAssembler] Note: Scan has {doc_scan.page_count} pages, native has {doc_native.page_count}. Ignoring extra scan pages.")
+            # --- VALIDATION: Page Count and Duplex Tolerance ---
+            n_native = doc_native.page_count
+            n_scan = doc_scan.page_count
+            
+            is_valid = False
+            if n_native == n_scan:
+                is_valid = True
+            elif n_native % 2 != 0 and n_scan == n_native + 1:
+                # Duplex scanner added a blank last page for an odd-paged document
+                print(f"[HybridAssembler] Normalizing duplex scan: Native has {n_native} (odd) pages, Scan has {n_scan}. Ignoring last scanned page.")
+                is_valid = True
+            
+            if not is_valid:
+                msg = self.tr("Page count mismatch: Native PDF has %1 pages, but Scan PDF has %2 pages. Please ensure the scan is complete.") \
+                      .replace("%1", str(n_native)) \
+                      .replace("%2", str(n_scan))
+                raise ValueError(msg)
 
             engine = HybridEngine()
 

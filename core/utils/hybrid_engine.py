@@ -192,16 +192,22 @@ class HybridEngine:
         src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
-        M, _ = cv2.estimateAffine2D(dst_pts, src_pts, method=cv2.RANSAC, ransacReprojThreshold=4.0)
-        if M is None: return img_scan, 0.0
+        # Use Homography instead of Affine to handle aspect ratio differences (A4 vs Letter)
+        # and perspective distortions (8 degrees of freedom).
+        H, _ = cv2.findHomography(dst_pts, src_pts, method=cv2.RANSAC, ransacReprojThreshold=4.0)
+        if H is None: return img_scan, 0.0
 
         h_n, w_n = gray_native.shape
-        img_scan_aligned = cv2.warpAffine(img_scan, M, (w_n, h_n))
+        # apply WarpPerspective for full "Entzerrung"
+        img_scan_aligned = cv2.warpPerspective(img_scan, H, (w_n, h_n))
 
         # Precision Similarity Check (Resolution scales with DPI)
         cmp_res = 512 if gray_native.shape[0] > 1500 else 256
         s_native = cv2.resize(gray_native, (cmp_res, cmp_res))
-        s_scan = cv2.resize(cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY), (cmp_res, cmp_res))
+        
+        # Ensure s_scan is also grayscale for comparison
+        raw_aligned_gray = cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY) if len(img_scan_aligned.shape) == 3 else img_scan_aligned
+        s_scan = cv2.resize(raw_aligned_gray, (cmp_res, cmp_res))
         
         diff = cv2.absdiff(s_native, s_scan)
         # Use lower threshold for higher resolution to catch text differences
@@ -216,34 +222,46 @@ class HybridEngine:
     def align_and_compare(img_native: np.ndarray, img_scan: np.ndarray, 
                           kp_native=None, des_native=None,
                           kp_scan=None, des_scan=None) -> Tuple[np.ndarray, float]:
-        """Align_and_compare with aggressive early exit and cached features for both sides."""
+        """
+        Aligns a scan with a native image.
+        1. Normalizes aspect ratio (Portrait vs Landscape).
+        2. Tries 0° and 180° rotations based on similarity scores.
+        """
+        # --- 1. Orientation Pre-check (Landscape vs Portrait) ---
+        h_n, w_n = img_native.shape[:2]
+        h_s, w_s = img_scan.shape[:2]
         
-        # Use provided scan features or compute ONCE
-        if kp_scan is None or des_scan is None:
-            kp_s, des_s = HybridEngine.get_orb_features(img_scan)
+        native_is_landscape = w_n > h_n
+        scan_is_landscape = w_s > h_s
+        
+        current_scan = img_scan
+        if native_is_landscape != scan_is_landscape:
+            # Rotate 90 degrees to match orientation
+            current_scan = cv2.rotate(img_scan, cv2.ROTATE_90_CLOCKWISE)
+            # Update scan features if they were cached for the original orientation
+            kp_s, des_s = None, None 
         else:
             kp_s, des_s = kp_scan, des_scan
-        
+
+        # --- 2. Try Alignment at 0° ---
         best_img, best_sim = HybridEngine.align_and_compare_base(
-            img_native, img_scan, 
+            img_native, current_scan, 
             kp_native=kp_native, des_native=des_native,
             kp_scan=kp_s, des_scan=des_s
         )
         
-        if best_sim > 0.90:
+        if best_sim > 0.92:
             return best_img, best_sim
             
-        # Only check rotations if 0-deg is poor
-        for rot in [cv2.ROTATE_180, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
-            img_rot = cv2.rotate(img_scan, rot)
-            # Features MUST be recomputed for rotations as they are not invariant to large rotations
-            aligned, sim = HybridEngine.align_and_compare_base(
-                img_native, img_rot, 
-                kp_native=kp_native, des_native=des_native
-            )
-            if sim > best_sim:
-                best_img, best_sim = aligned, sim
-                if best_sim > 0.90: break
+        # --- 3. Try 180° Rotation (Optimization for Upside Down scans) ---
+        img_180 = cv2.rotate(current_scan, cv2.ROTATE_180)
+        aligned_180, sim_180 = HybridEngine.align_and_compare_base(
+            img_native, img_180, 
+            kp_native=kp_native, des_native=des_native
+        )
+        
+        if sim_180 > best_sim:
+            best_img, best_sim = aligned_180, sim_180
                 
         return best_img, best_sim
 

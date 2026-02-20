@@ -20,18 +20,26 @@ class AIClient:
         if provider_type == "ollama":
             url = self.config.get_ollama_url()
             model = model_name or self.config.get_ollama_model()
+            from core.logger import get_logger
+            get_logger("ai").info(f"Using AI Provider: Ollama ({model} @ {url})")
             self.provider: AIProvider = OllamaProvider(url, model)
         elif provider_type == "openai":
             key = api_key or self.config.get_openai_key()
             model = model_name or self.config.get_openai_model()
+            from core.logger import get_logger
+            get_logger("ai").info(f"Using AI Provider: OpenAI ({model})")
             self.provider: AIProvider = OpenAIProvider(key, model)
         elif provider_type == "anthropic":
             key = api_key or self.config.get_anthropic_key()
             model = model_name or self.config.get_anthropic_model()
+            from core.logger import get_logger
+            get_logger("ai").info(f"Using AI Provider: Anthropic ({model})")
             self.provider: AIProvider = AnthropicProvider(key, model)
         else: # Default Gemini
             key = api_key or self.config.get_api_key()
             model = model_name or self.config.get_gemini_model()
+            from core.logger import get_logger
+            get_logger("ai").info(f"Using AI Provider: Gemini ({model})")
             self.provider: AIProvider = GeminiProvider(key, model)
 
     def list_models(self) -> List[str]:
