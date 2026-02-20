@@ -9,18 +9,18 @@ def test_settings_dialog_load_save(qtbot):
     # Setup initial config
     config = AppConfig()
     config.set_language("en")
-    config.set_gemini_model("gemini-2.0-flash")
+    config.set_gemini_model("gemini-2.5-flash")
     
     dialog = SettingsDialog()
     qtbot.addWidget(dialog)
     
     # Check loaded values
     assert dialog.combo_lang.currentText() == "en"
-    assert dialog.combo_model.currentText() == "gemini-2.0-flash"
+    assert dialog.combo_model.currentText() == "gemini-2.5-flash"
     
     # Modify values
     dialog.combo_lang.setCurrentText("de")
-    dialog.combo_model.setCurrentText("gemini-1.5-pro")
+    dialog.combo_model.setCurrentText("gemini-2.0-pro-experimental")
     
     # Save
     with qtbot.waitSignal(dialog.settings_changed):
@@ -28,4 +28,4 @@ def test_settings_dialog_load_save(qtbot):
         
     # Verify persistence
     assert config.get_language() == "de"
-    assert config.get_gemini_model() == "gemini-1.5-pro"
+    assert config.get_gemini_model() == "gemini-2.0-pro-experimental"
