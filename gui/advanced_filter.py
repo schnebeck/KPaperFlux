@@ -447,7 +447,8 @@ class AdvancedFilterWidget(QWidget):
         rules = self.filter_tree.get_active_rules(only_auto=False)
 
         for rule in rules:
-            self.combo_rules.addItem(rule.name, rule)
+            display_name = self.tr(rule.name or rule.id)
+            self.combo_rules.addItem(display_name, rule)
         self.combo_rules.blockSignals(False)
 
     def _on_saved_rule_selected(self, index):
@@ -761,18 +762,23 @@ class AdvancedFilterWidget(QWidget):
             self.setMaximumHeight(50)
             self.setFixedHeight(50) 
         elif self.stack.currentIndex() == 0:
-            # SEARCH MODE: Keep it compact but avoid clipping (Tipp 106)
-            # 135px is enough after reducing internal search_layout margins
+            # SEARCH MODE: Keep it compact but avoid clipping
             self.setMaximumHeight(135)
             self.setMinimumHeight(125)
             self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
             self.updateGeometry()
-        else:
-            # FILTER/RULES MODE: Allow growth
-            self.setMinimumHeight(150)
+        elif self.stack.currentIndex() == 1:
+            # FILTER MODE: Needs space for conditions
+            self.setMinimumHeight(300)
             self.setMaximumHeight(16777215)
             self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
-            self.updateGeometry() # Force parent splitter to reconsider
+            self.updateGeometry()
+        else:
+            # RULES MODE: Needs even more space for the rule form
+            self.setMinimumHeight(350)
+            self.setMaximumHeight(16777215)
+            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
+            self.updateGeometry()
 
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
@@ -1027,7 +1033,8 @@ class AdvancedFilterWidget(QWidget):
             def add_nodes(node, path_prefix=""):
                 for child in node.children:
                      if child.node_type == NodeType.FILTER:
-                         display = f"{path_prefix}{child.name}" if path_prefix else child.name
+                         localized_name = self.tr(child.name)
+                         display = f"{path_prefix}{localized_name}" if path_prefix else localized_name
                          self.combo_filters.addItem(display, child)
                          if child.description:
                              self.combo_filters.setItemData(self.combo_filters.count()-1, child.description, Qt.ItemDataRole.ToolTipRole)
@@ -1320,8 +1327,9 @@ class AdvancedFilterWidget(QWidget):
         node_name = self.combo_filters.currentText()
 
         menu = QMenu(self)
-        del_action = QAction(f"Delete '{node_name}'", self)
-        del_action.triggered.connect(lambda: self._delete_node(data)) # data is the Node or dict
+        del_label = self.tr("Delete '%1'").replace("%1", node_name)
+        del_action = QAction(del_label, self)
+        del_action.triggered.connect(lambda: self._delete_node(data))
         menu.addAction(del_action)
         menu.exec(self.combo_filters.mapToGlobal(pos))
 

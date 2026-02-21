@@ -190,7 +190,7 @@ class WorkflowControlsWidget(QWidget):
         
         for rule in rules:
             # Use Name if available, otherwise ID. Don't show both.
-            label = rule.name or rule.id
+            label = self.tr(rule.name or rule.id)
             action = menu.addAction(label)
             action.triggered.connect(lambda checked, rid=rule.id: self.rule_changed.emit(rid))
             

@@ -123,10 +123,15 @@ class StatCard(QFrame):
         layout.setContentsMargins(15, 15, 15, 12)
         layout.setSpacing(4)
         
-        # Icon mapping
+        # Icon mapping (support both source and translated titles)
         icons = {
-            "Inbox": "📥", "Total Documents": "📄", "Total Invoiced": "💰", 
-            "Processed": "✅", "Trash": "🗑️", "Taxes": "🏛️"
+            "Inbox": "📥", "Eingang": "📥",
+            "Total Documents": "📄", "Belege Gesamt": "📄", "Documents": "📄",
+            "Total Invoiced": "💰", "Volumen": "💰", "Revenue": "💰",
+            "Processed": "✅", "Verarbeitet": "✅",
+            "Trash": "🗑️", "Papierkorb": "🗑️",
+            "Taxes": "🏛️", "Steuern": "🏛️",
+            "Urgent": "🔥", "Dringend": "🔥", "Review": "🔍"
         }
         icon = icons.get(title, "📊")
         
@@ -136,11 +141,16 @@ class StatCard(QFrame):
         icon_lbl.setStyleSheet(f"font-size: 16pt; background: {color_hex}15; padding: 5px; border-radius: 8px;")
         title_row.addWidget(icon_lbl)
         
-        lbl_title = QLabel(title)
+        # We always try to translate the title if it matches a known system string
+        title_display = self.tr(title)
+        lbl_title = QLabel(title_display)
         lbl_title.setStyleSheet("color: #64748b; font-weight: 600; font-size: 10pt;")
         title_row.addWidget(lbl_title, 1)
         
-        self.lbl_agg = QLabel(aggregation.upper())
+        agg_name = aggregation.capitalize()
+        # Ensure we have the translation for the aggregation type
+        localized_agg = self.tr(agg_name)
+        self.lbl_agg = QLabel(localized_agg)
         self.lbl_agg.setStyleSheet(f"color: {color_hex}; background-color: {color_hex}15; padding: 2px 6px; border-radius: 6px; font-size: 7pt; font-weight: bold;")
         title_row.addWidget(self.lbl_agg, 0, Qt.AlignmentFlag.AlignTop)
         

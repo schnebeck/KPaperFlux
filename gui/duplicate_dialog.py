@@ -158,10 +158,10 @@ class DuplicateFinderDialog(QDialog):
         if not items: return
         
         menu = QMenu()
-        keep_younger = menu.addAction(self.tr(f"Jüngere Dubletten behalten ({len(items)})"))
-        keep_older = menu.addAction(self.tr(f"Ältere Dubletten behalten ({len(items)})"))
+        keep_younger = menu.addAction(self.tr("Keep younger duplicates (%s)").replace("%s", str(len(items))))
+        keep_older = menu.addAction(self.tr("Keep older duplicates (%s)").replace("%s", str(len(items))))
         menu.addSeparator()
-        ignore = menu.addAction(self.tr("Aus Liste entfernen (Ignorieren)"))
+        ignore = menu.addAction(self.tr("Remove from list (Ignore)"))
         
         action = menu.exec(self.pair_list.mapToGlobal(pos))
         
@@ -194,8 +194,8 @@ class DuplicateFinderDialog(QDialog):
         
         if not items: return
         
-        msg = self.tr(f"Wirklich {len(items)} Dubletten löschen?")
-        if show_selectable_message_box(self, self.tr("Bestätigen"), msg, icon=QMessageBox.Icon.Question, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+        msg = self.tr("Really delete %s duplicates?").replace("%s", str(len(items)))
+        if show_selectable_message_box(self, self.tr("Confirm"), msg, icon=QMessageBox.Icon.Question, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return
             
         success_count = 0
@@ -214,7 +214,7 @@ class DuplicateFinderDialog(QDialog):
                 error_count += 1
                 
         if error_count > 0:
-            show_selectable_message_box(self, self.tr("Fehler"), self.tr(f"{error_count} Dokumente konnten nicht gelöscht werden."), icon=QMessageBox.Icon.Warning)
+            show_selectable_message_box(self, self.tr("Error"), self.tr("%s documents could not be deleted.").replace("%s", str(error_count)), icon=QMessageBox.Icon.Warning)
         
         if self.pair_list.count() == 0:
             self.close()
