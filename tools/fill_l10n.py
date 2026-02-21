@@ -107,7 +107,7 @@ def fill():
         "Urgent": "Dringend",
         "Review": "Prüfung",
         "Total Documents": "Belege Gesamt",
-        "Total Invoiced": "Volumen",
+        "Total Invoiced": "Gesamtsumme",
         "Processed": "Verarbeitet",
 
         # Standard Workflow States & Rule Names
@@ -286,7 +286,7 @@ def fill():
             "Inbox": "Eingang",
             "Urgent": "Dringend",
             "Total Documents": "Belege Gesamt",
-            "Total Invoiced": "Volumen",
+            "Total Invoiced": "Gesamtsumme",
             "Review": "Prüfung",
             "Processed": "Verarbeitet"
         },
@@ -301,7 +301,7 @@ def fill():
             "Inbox": "Eingang",
             "Urgent": "Dringend",
             "Total Documents": "Belege Gesamt",
-            "Total Invoiced": "Volumen",
+            "Total Invoiced": "Gesamtsumme",
             "Review": "Prüfung",
             "Processed": "Verarbeitet"
         },

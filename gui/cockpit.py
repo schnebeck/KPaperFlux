@@ -127,7 +127,7 @@ class StatCard(QFrame):
         icons = {
             "Inbox": "📥", "Eingang": "📥",
             "Total Documents": "📄", "Belege Gesamt": "📄", "Documents": "📄",
-            "Total Invoiced": "💰", "Volumen": "💰", "Revenue": "💰",
+            "Total Invoiced": "💰", "Volumen": "💰", "Gesamtsumme": "💰", "Revenue": "💰",
             "Processed": "✅", "Verarbeitet": "✅",
             "Trash": "🗑️", "Papierkorb": "🗑️",
             "Taxes": "🏛️", "Steuern": "🏛️",

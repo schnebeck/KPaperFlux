@@ -587,7 +587,7 @@
             <location filename="../../../gui/cockpit.py" line="325" />
             <location filename="../../../gui/cockpit.py" line="270" />
             <source>Total Invoiced</source>
-            <translation>Volumen</translation>
+            <translation>Gesamtsumme</translation>
         </message>
         <message>
             <location filename="../../../gui/cockpit.py" line="321" />
@@ -1977,7 +1977,7 @@
         <message>
             <location filename="../../../gui/l10n_registry.py" line="39" />
             <source>Total Invoiced</source>
-            <translation>Volumen</translation>
+            <translation>Gesamtsumme</translation>
         </message>
         <message>
             <location filename="../../../gui/l10n_registry.py" line="40" />
@@ -4920,7 +4920,7 @@ Geschäftsführer: ...</source>
         </message>
         <message>
             <source>Total Invoiced</source>
-            <translation>Volumen</translation>
+            <translation>Gesamtsumme</translation>
         </message>
         <message>
             <source>Review</source>
