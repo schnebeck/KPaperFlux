@@ -46,10 +46,16 @@ The application has reached a high level of linguistic and structural maturity. 
 **GUI STABILITY: High.**
 - Dashboard (Cockpit) is resilient to long localized labels.
 - Toolbar and Menus are fully localized and shortcut-safe.
+- **Test Isolation:** All configuration-related tests now use `profile="test"`, ensuring production settings (`~/.config/kpaperflux/`) are protected during test runs.
 
 **LOCALIZATION: Complete for Core Features.**
 - The "Perfect Terminology" phase is complete.
-- Management tools are robust and tested.
+- Management tools (`l10n_tool.py`) are robust and tested.
+
+**AI BACKEND: Modernized.**
+- **Baseline:** Default model updated to `gemini-2.5-flash`.
+- **Lifecycle:** 1.5 and 2.0 series models are classified as "legacy" and will trigger automatic migration to the latest stable default.
+- **Provider:** Running on a Gemini 3-flash based infrastructure.
 
 **NEXT STEP: Implementation of retranslate_ui in the remaining viewer widgets (PDF Viewer, Splitter Strip).**
 
