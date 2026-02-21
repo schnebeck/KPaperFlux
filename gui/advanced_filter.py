@@ -187,6 +187,7 @@ class AdvancedFilterWidget(QWidget):
         self.lbl_search_header = QLabel("")
         s_row.addWidget(self.lbl_search_header)
         self.txt_smart_search = QLineEdit()
+        self.txt_smart_search.setClearButtonEnabled(True)
         self.txt_smart_search.returnPressed.connect(self._on_smart_search)
         s_row.addWidget(self.txt_smart_search)
 
@@ -1373,9 +1374,9 @@ class AdvancedFilterWidget(QWidget):
         self.btn_mode_rules.setText("🤖 " + self.tr("Rules"))
         
         # Search Tab
-        self.lbl_search_header.setText(self.tr("Search:"))
+        self.lbl_search_header.setText(self.tr("Query:"))
         self.txt_smart_search.setPlaceholderText(self.tr("e.g. Amazon 2024 Invoice..."))
-        self.btn_apply_search.setText(self.tr("Go"))
+        self.btn_apply_search.setText("🔍")
         self.chk_search_scope.setText(self.tr("Search in current view only"))
         self.chk_search_scope.setToolTip(self.tr("If checked, combines the search with the active filters from 'Filter View'."))
         

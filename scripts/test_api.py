@@ -17,7 +17,7 @@ def main():
         sys.exit(1)
 
     client = genai.Client(api_key=api_key)
-    model_name = 'gemini-2.0-flash-lite-preview-02-05'
+    model_name = 'gemini-2.5-flash'
 
     print(f"Testing Model: {model_name}")
 

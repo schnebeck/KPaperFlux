@@ -46,6 +46,19 @@ class L10nTool:
     def _save_tree(self, tree):
         import tempfile
         root = tree.getroot()
+        
+        # --- STRENGTHENED SANITIZATION (Prune broken entries) ---
+        removed_broken = 0
+        for context in root.findall("context"):
+            for message in list(context.findall("message")):
+                source_node = message.find("source")
+                if source_node is None or not source_node.text or not source_node.text.strip():
+                    context.remove(message)
+                    removed_broken += 1
+        
+        if removed_broken > 0:
+            print(f"[L10nTool] Pruned {removed_broken} invalid messages (missing/empty source).")
+
         self._strip_whitespace(root)
         ET.indent(root, space="    ", level=0)
         
@@ -55,11 +68,18 @@ class L10nTool:
             with os.fdopen(fd, 'wb') as tmp:
                 tree.write(tmp, encoding="utf-8", xml_declaration=True)
             
-            # Verify the temp file also ends with </TS> before moving
+            # --- INTEGRITY VERIFICATION ---
+            # 1. Check if the temp file is valid XML
+            try:
+                ET.parse(temp_path)
+            except Exception as e:
+                raise IOError(f"Generated TS file is syntactically invalid: {e}")
+
+            # 2. Verify completeness (missing </TS> check)
             with open(temp_path, 'r', encoding='utf-8') as f:
                 content = f.read().strip()
                 if not content.endswith("</TS>"):
-                    raise IOError("Failed to write complete TS file to temp storage.")
+                    raise IOError("Failed to write complete TS file (missing </TS> tag).")
             
             os.replace(temp_path, self.ts_path)
         except Exception as e:
