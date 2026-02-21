@@ -6,43 +6,29 @@
 > 2. **Update** this file regularly (at least after every significant milestone) to prevent information loss due to session timeouts or crashes.
 > 3. **Document** achievements, current blockers, and the immediate next steps.
 
-## **Status Overview (as of 2026-02-18)**
-The application has undergone a significant stability and localization phase. All GUI integration tests are passing, and the localization system (German) has been repaired and synchronized. A dedicated `L10nTool` has been introduced to manage `.ts` files safely. Recent focus was on **Dynamic UI Layouts** and **Robust Shortcut Handling**.
+## **Status Overview (as of 2026-02-21)**
+The application has reached a high level of linguistic and structural maturity. Our localization system is now strictly tool-driven, preventing manual syntax errors. We have completed a major refinement of the German UI terminology, shifting from technical/verbose labels to professional, concise German. The UI has been made more resilient to varying label lengths (multi-line support in Dashboard).
 
 ---
 
 ### **Achievements (Phase 116-200+)**
 1. **Dynamic UI Refactoring (L10n Readiness):**
-    *   **Principle:** Abolished fixed widths (`setFixedWidth`) in favor of dynamic sizing (`setMinimumWidth`, `AdjustToContents`).
-    *   **Core Widgets:** Refactored `AdvancedFilterWidget`, `WorkflowControlsWidget`, `MetadataEditorWidget`, and `MaintenanceDialog`.
-    *   **Plugins:** Updated `HybridAssembler` (MatchingDialog) to handle long German action strings dynamically.
-3. **Workflow & Filter Management UX & L10n:**
-    *   **Live Translation:** Implemented `changeEvent` and `retranslate_ui` pattern in `WorkflowManagerWidget` and `FilterManagerDialog`, enabling full on-the-fly localization.
-    *   **Efficiency:** Added **Multi-Select** capabilities to both the Workflow rule list and the Filter tree.
-    *   **Shortcuts:** Implemented the **`DEL`** key shortcut for quick removal of rules and filters.
-    *   **Visual Consistency:** Added icons (✚, ✎, 🗑) and grouped buttons for a more professional and intuitive management experience.
-4. **L10n Tooling & Plural support:**
-    *   **Robust Plurals:** Enhanced `tools/l10n_tool.py` to correctly handle `numerus="yes"` (plural forms) without corrupting the `.ts` XML structure.
-    *   **Context Safety:** Refactored `tools/fill_l10n.py` to use a context-separated dictionary, preventing attribute errors during shortcut resolution.
-5. **DMS Stability & Cleanup:**
-    *   **Bugfix:** Resolved `AttributeError` regarding `QEvent.Type` in `filter_manager.py`.
-    *   **Pruning:** Removed `tests/integration/test_window_expansion_fix.py` to eliminate dependencies on external volatile files.
-6. **Test Suite Health:**
-    *   Full suite passes. Updated `tests/gui/test_filter_manager_details.py` to align with new internationalized string formats.
-
----
-
-## **Strategic Roadmap (Next Steps)**
-
-### 1. **Localization Completion**
-*   **Target Files:**
-    - `gui/pdf_viewer.py`
-    - `gui/widgets/date_range_picker.py`
-    - `gui/widgets/splitter_strip.py`
-
-### 2. **DMS Integration (Phase 2)**
-*   Implement physical tracking and lifecycle management features.
-*   Focus on `storage_location` and `archived` flags in the UI and extraction pipeline.
+    *   **Principle:** Abolished fixed widths (`setFixedWidth`) in favor of dynamic sizing.
+    *   **Dashboard Resilience:** Refactored `StatCard` (Cockpit) to support **Multi-Line Titles** (`setWordWrap(True)`) and top-aligned iconography.
+2. **Advanced L10n Tooling & Governance:**
+    *   **Strict Governance:** Updated `agent_framework.md` to strictly forbid manual editing of `tools/fill_l10n.py`.
+    *   **Programmatic Mapping:** Integrated `MasterMappingTool` into `l10n_tool.py` to allow safe, regex-based updates to the mapping dictionaries.
+    *   **CLI 'change' command:** Added a CLI interface to `l10n_tool.py` for automated updates: `python3 l10n_tool.py change --src "Source" --trans "Target" --sync`.
+3. **German Terminology Refinement:**
+    *   **No Parentheses:** Removed all technical/tautological parentheses (e.g., "(Reset)", "(Console)").
+    *   **Grammar Alignment:** Moved away from English-style Title Case to correct German capitalization (Satzanfang groß, Adjektive klein).
+    *   **Key Results:** 
+        - "Inbox" -> "Unbearbeitete Dokumente"
+        - "Total Documents" -> "Belege gesamt"
+        - "Purge All Data" -> "alle Daten zurücksetzen"
+4. **Shortcut Integrity:**
+    *   Resolved all shortcut collisions (`&`) in the main menu caused by longer German translations (e.g., A&bläufe vs &Ansicht).
+    *   Fixed ampersand escaping in labels (e.g., "Bezahlt && Archiv").
 
 ---
 
@@ -51,19 +37,19 @@ The application has undergone a significant stability and localization phase. Al
 > **NO LEGACY SUPPORT:** Legacy code path support is strictly forbidden.
 > **DYNAMIC UI:** Never use `setFixedWidth()` on labels/buttons. Use `padding` and `setMinimumWidth()`.
 > **SHORTCUTS:** A `&` in the source string REQUIRES a shortcut in the translation. No `&` in source means ALL `&` in translation must be `&&`.
+> **L10N GOVERNANCE:** Never edit `tools/fill_l10n.py` manually. Always use `tools/l10n_tool.py change`.
 > **TDD FIRST:** All new features or bugfixes MUST be accompanied by/verified by a test in `tests/`.
-> **NO USER INTERACTION:** Tests must NEVER show blocking dialogs or require human interaction. Mock all dialogs!
 
 ---
 
 ## **Current Task State**
 **GUI STABILITY: High.**
-- All Managers (Filter & Workflow) are fully localized and feature-complete regarding UX.
-- Key event handling (Shortcuts) is consistent across management dialogs.
+- Dashboard (Cockpit) is resilient to long localized labels.
+- Toolbar and Menus are fully localized and shortcut-safe.
 
-**LOCALIZATION: Complete for Core Managers.**
-- Plural forms are handled correctly.
-- `fill_l10n.py` is now organized by UI context.
+**LOCALIZATION: Complete for Core Features.**
+- The "Perfect Terminology" phase is complete.
+- Management tools are robust and tested.
 
 **NEXT STEP: Implementation of retranslate_ui in the remaining viewer widgets (PDF Viewer, Splitter Strip).**
 
@@ -71,7 +57,7 @@ The application has undergone a significant stability and localization phase. Al
 
 ## **Environment Details**
 *   **Core:** Python 3.12+, PyQt6.
-*   **l10n Tooling:** `tools/l10n_tool.py`, `pylupdate6`, `lrelease`.
+*   **l10n Tooling:** `tools/l10n_tool.py` (with MasterMappingTool), `pylupdate6`, `lrelease`.
 *   **Testing:** `pytest` with `pytest-qt`.
 
 ---

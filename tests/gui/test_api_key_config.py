@@ -15,8 +15,8 @@ def clean_config(tmp_path):
     settings_path = str(tmp_path / "test_config.ini")
     settings = QSettings(settings_path, QSettings.Format.IniFormat)
     
-    # Patch AppConfig to use this settings object
-    config = AppConfig()
+    # Patch AppConfig to use this settings object (use test profile)
+    config = AppConfig(profile="test")
     config.settings = settings
     return config
 

@@ -6,12 +6,13 @@ from core.config import AppConfig
 @pytest.mark.localized
 def test_settings_dialog_load_save(qtbot):
     """Test that dialog loads config and saves changes."""
-    # Setup initial config
-    config = AppConfig()
+    # Setup initial config (use test profile to avoid overwriting real config)
+    config = AppConfig(profile="test")
     config.set_language("en")
     config.set_gemini_model("gemini-2.5-flash")
     
     dialog = SettingsDialog()
+    dialog.config = config # Inject test config
     qtbot.addWidget(dialog)
     
     # Check loaded values

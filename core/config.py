@@ -200,7 +200,11 @@ class AppConfig:
         
         # 1. AI Model Migration (Upgrade < 2.5 to 2.5-flash)
         current_model = self.get_gemini_model()
-        legacy_models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash", "gemini-exp-1206"]
+        legacy_models = [
+            "gemini-1.5-flash", "gemini-1.5-pro", 
+            "gemini-2.0-flash", "gemini-2.0-pro-experimental",
+            "gemini-exp-1206", "gemini-exp-1114"
+        ]
         
         if any(legacy in current_model.lower() for legacy in legacy_models):
             logger.info(f"Migrating legacy AI model '{current_model}' to current default '{self.DEFAULT_MODEL}'")

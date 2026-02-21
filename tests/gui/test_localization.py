@@ -15,9 +15,8 @@ from core.config import AppConfig
 @pytest.fixture
 def app_config(tmp_path):
     """Fixture to provide a temporary AppConfig."""
-    # We mock the HOME directory to avoid messing with real user config
-    os.environ["HOME"] = str(tmp_path)
-    return AppConfig()
+    # We use a test profile to ensure isolation
+    return AppConfig(profile="test")
 
 def test_german_translation_loading(app_config, qtbot):
     """

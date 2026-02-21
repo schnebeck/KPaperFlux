@@ -21,7 +21,7 @@ def test_clean_ini_section_headers(temp_config_file):
     # Manually use the logic that AppConfig uses (or will use)
     # Ideally we test AppConfig directly, but we need to see the file output.
     
-    config = AppConfig()
+    config = AppConfig(profile="test")
     config.settings = settings
     
     # 1. Set values
@@ -58,7 +58,7 @@ def test_persistence_read_back(temp_config_file):
         f.write("[General]\nlanguage=de\n\n[AI]\napi_key=abc\n")
         
     settings = QSettings(temp_config_file, QSettings.Format.IniFormat)
-    config = AppConfig()
+    config = AppConfig(profile="test")
     config.settings = settings
     
     assert config.get_language() == "de"
@@ -69,7 +69,7 @@ def test_whitespace_stripping(temp_config_file):
     Verify that setters strip whitespace/newlines to prevent \n in INI files.
     """
     settings = QSettings(temp_config_file, QSettings.Format.IniFormat)
-    config = AppConfig()
+    config = AppConfig(profile="test")
     config.settings = settings
     
     # Set value with newline

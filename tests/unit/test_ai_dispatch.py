@@ -5,7 +5,7 @@ from core.config import AppConfig
 
 class TestAIClientDispatch(unittest.TestCase):
     def test_provider_selection(self):
-        config = AppConfig()
+        config = AppConfig(profile="test")
         original_provider = config.get_ai_provider()
         
         try:
