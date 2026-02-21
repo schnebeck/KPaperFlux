@@ -137,15 +137,18 @@ class StatCard(QFrame):
         
         # Title row
         title_row = QHBoxLayout()
+        title_row.setSpacing(10)
+        
         icon_lbl = QLabel(icon)
         icon_lbl.setStyleSheet(f"font-size: 16pt; background: {color_hex}15; padding: 5px; border-radius: 8px;")
-        title_row.addWidget(icon_lbl)
+        title_row.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignTop)
         
         # We always try to translate the title if it matches a known system string
         title_display = self.tr(title)
         lbl_title = QLabel(title_display)
-        lbl_title.setStyleSheet("color: #64748b; font-weight: 600; font-size: 10pt;")
-        title_row.addWidget(lbl_title, 1)
+        lbl_title.setWordWrap(True)
+        lbl_title.setStyleSheet("color: #64748b; font-weight: 600; font-size: 10pt; line-height: 1.2;")
+        title_row.addWidget(lbl_title, 1, Qt.AlignmentFlag.AlignTop)
         
         agg_name = aggregation.capitalize()
         # Ensure we have the translation for the aggregation type

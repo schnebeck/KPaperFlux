@@ -1,7 +1,7 @@
 import pytest
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from tools.l10n_tool import L10nTool
+from tools.l10n_tool import L10nTool, MasterMappingTool
 
 @pytest.fixture
 def empty_ts(tmp_path):
@@ -144,3 +144,90 @@ def test_shortcut_collision_detection_helper(empty_ts):
     assert "CollCtx" in collisions
     assert 'd' in collisions["CollCtx"]
     assert len(collisions["CollCtx"]['d']) == 2
+
+@pytest.fixture
+def mock_mapping_file(tmp_path):
+    mapping_file = tmp_path / "fill_l10n_mock.py"
+    content = """
+common = {
+    # Menus & Actions
+    "&File": "&Datei",
+}
+
+contexts = {
+    "MainWindow": {
+        "Filter Panel": "Filter-Panel",
+    },
+}
+"""
+    mapping_file.write_text(content, encoding="utf-8")
+    return mapping_file
+
+def test_mapping_tool_common_update(mock_mapping_file):
+    mapper = MasterMappingTool(str(mock_mapping_file))
+    
+    # 1. Update existing
+    mapper.update_common("&File", "&Akte")
+    content = mock_mapping_file.read_text()
+    assert '"&File": "&Akte",' in content
+    
+    # 2. Add new
+    mapper.update_common("&Edit", "&Bearbeiten")
+    content = mock_mapping_file.read_text()
+    assert '"&Edit": "&Bearbeiten",' in content
+    assert '"&File": "&Akte",' in content
+
+def test_mapping_tool_context_update(mock_mapping_file):
+    mapper = MasterMappingTool(str(mock_mapping_file))
+    
+    # 1. Update existing in context
+    mapper.update_context_override("MainWindow", "Filter Panel", "Filter-&Bereich")
+    content = mock_mapping_file.read_text()
+    assert '"Filter Panel": "Filter-&Bereich",' in content
+    
+    # 2. Add new to existing context
+    mapper.update_context_override("MainWindow", "Docs", "Doks")
+    content = mock_mapping_file.read_text()
+    assert '"Docs": "Doks",' in content
+
+def test_mapping_tool_new_context_creation(mock_mapping_file):
+    mapper = MasterMappingTool(str(mock_mapping_file))
+    
+    # Create entirely new context
+    mapper.update_context_override("NewWidget", "Hello", "Hallo")
+    content = mock_mapping_file.read_text()
+    assert '"NewWidget": {' in content
+    assert '"Hello": "Hallo",' in content
+
+@pytest.fixture
+def complex_mock_mapping(tmp_path):
+    mapping_file = tmp_path / "fill_l10n_complex.py"
+    content = """
+common = { "A": "B" }
+
+contexts = {
+    "Existing": {
+        "Src": "Trans",
+    }
+}
+
+def some_logic():
+    res = contexts.get("foo", {})
+    return res
+"""
+    mapping_file.write_text(content, encoding="utf-8")
+    return mapping_file
+
+def test_mapping_tool_complex_integrity(complex_mock_mapping):
+    mapper = MasterMappingTool(str(complex_mock_mapping))
+    
+    # Add new context
+    mapper.update_context_override("NewCtx", "Hello", "Hallo")
+    
+    content = complex_mock_mapping.read_text()
+    
+    # Verify it's inside the contexts dict, not at the end of some_logic
+    assert '"NewCtx": {' in content
+    # The logic after should still be intact and not corrupted
+    assert "def some_logic():" in content
+    assert 'res = contexts.get("foo", {})' in content

@@ -55,7 +55,9 @@ When provided with code or a task, perform the following steps:
 
 ### **5.1 Tooling & Single Source of Truth**
 *   **Primary Source:** `resources/l10n/de/gui_strings.ts` is the single source of truth for UI translations.
-*   **Management Tool:** Use `tools/l10n_tool.py` for programmatic updates. Do NOT edit the XML manually for bulk updates to avoid corruption.
+*   **Master Mapping:** `tools/fill_l10n.py` orchestrates the synchronization of translations. 
+*   **Strict Policy:** Manual manipulation of `tools/fill_l10n.py` is **strictly forbidden**. This file may only be modified programmatically via the `L10nTool` or specialized maintenance scripts to ensure syntax integrity and prevent corruption of the mapping dictionaries.
+*   **Management Tool:** Use `tools/l10n_tool.py` for programmatic updates to the `.ts` files and for managing the master mapping.
 *   **Safety:** The `L10nTool` ensures valid XML structure, auto-indents for readability, and handles deduplication.
 
 #### **5.1.1 Keyboard Shortcut (&) Rules**

@@ -378,3 +378,117 @@ class L10nTool:
                 collisions[ctx_name] = ctx_collisions
 
         return collisions
+
+class MasterMappingTool:
+    """
+    Programmatic editor for tools/fill_l10n.py to avoid manual syntax errors.
+    """
+    def __init__(self, mapping_path: str = None):
+        if mapping_path is None:
+            # Default to fellow tool directory
+            mapping_path = Path(__file__).parent / "fill_l10n.py"
+        self.path = Path(mapping_path)
+
+    def update_common(self, source: str, translation: str):
+        content = self.path.read_text(encoding="utf-8")
+        
+        # Simple regex to find the common dict entries. 
+        # Note: This assumes a specific formatting style (key: value,)
+        pattern = re.compile(rf'"{re.escape(source)}":\s*".*?",')
+        replacement = f'"{source}": "{translation}",'
+        
+        if pattern.search(content):
+            new_content = pattern.sub(replacement, content)
+        else:
+            # Add to the beginning of the common dict (after the comment)
+            insertion_point = content.find("# Menus & Actions")
+            if insertion_point == -1: insertion_point = content.find("common = {") + 10
+            else: insertion_point = content.find("\n", insertion_point) + 1
+            
+            new_content = content[:insertion_point] + f'        "{source}": "{translation}",\n' + content[insertion_point:]
+            
+        self.path.write_text(new_content, encoding="utf-8")
+
+    def update_context_override(self, context: str, source: str, translation: str):
+        content = self.path.read_text(encoding="utf-8")
+        
+        # 1. Identify the 'contexts = {' block
+        # We look for the block starting with 4 spaces '    contexts = {' 
+        # and ending with 4 spaces '    }'
+        ctx_dict_match = re.search(r"    contexts = \{(.*?)\n    \}", content, re.DOTALL)
+        if not ctx_dict_match:
+            # Fallback if it's not indented (top level)
+            ctx_dict_match = re.search(r"contexts = \{(.*?)\n\}", content, re.DOTALL)
+            
+        if not ctx_dict_match:
+            raise ValueError("Could not find contexts dictionary in fill_l10n.py")
+            
+        ctx_dict_content = ctx_dict_match.group(1)
+        
+        # 2. Check if context already exists
+        # We need to be careful with nested dictionaries. 
+        # We look for the context name followed by optional whitespace and a brace
+        ctx_pattern = re.compile(rf'"{re.escape(context)}":\s*\{{(.*?)\n\s*\}}\s*,', re.DOTALL)
+        match = ctx_pattern.search(ctx_dict_content)
+        
+        if match:
+            inner_content = match.group(1)
+            line_pattern = re.compile(rf'"{re.escape(source)}":\s*".*?",')
+            line_replacement = f'"{source}": "{translation}",'
+            
+            if line_pattern.search(inner_content):
+                new_inner = line_pattern.sub(line_replacement, inner_content)
+                new_content = content.replace(inner_content, new_inner)
+            else:
+                # Add to end of context block
+                new_inner = inner_content + f'            "{source}": "{translation}",\n'
+                new_content = content.replace(inner_content, new_inner)
+        else:
+            # Create new context block INSIDE the contexts dict
+            new_ctx_block = f'        "{context}": {{\n            "{source}": "{translation}",\n        }},\n    '
+            # Insert before the closing brace of the contexts dict
+            # Use the end of the match group 1 (the content area)
+            insertion_point = ctx_dict_match.start(1) + len(ctx_dict_content)
+            
+            new_content = content[:insertion_point] + new_ctx_block + content[insertion_point:]
+                
+        self.path.write_text(new_content, encoding="utf-8")
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="KPaperFlux L10n Management Tool")
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # Change command
+    change_parser = subparsers.add_parser("change", help="Update a translation mapping in fill_l10n.py")
+    change_parser.add_argument("--src", required=True, help="Source string (English)")
+    change_parser.add_argument("--trans", required=True, help="Target translation (German)")
+    change_parser.add_argument("--ctx", help="Optional context name (if omitted, updates 'common')")
+    change_parser.add_argument("--sync", action="store_true", help="Automatically run full synchronization after update")
+
+    args = parser.parse_args()
+
+    if args.command == "change":
+        mapper = MasterMappingTool()
+        if args.ctx:
+            print(f"Updating context '{args.ctx}': '{args.src}' -> '{args.trans}'")
+            mapper.update_context_override(args.ctx, args.src, args.trans)
+        else:
+            print(f"Updating common: '{args.src}' -> '{args.trans}'")
+            mapper.update_common(args.src, args.trans)
+        
+        if args.sync:
+            print("Running full synchronization...")
+            import subprocess
+            # 1. pylupdate (to catch any new tr calls)
+            # Find files (simplified)
+            root = Path(__file__).parent.parent
+            subprocess.run(["pylupdate6", "gui", "core", "plugins", "-ts", "resources/l10n/de/gui_strings.ts"], cwd=root)
+            # 2. fill_l10n
+            subprocess.run(["python3", "tools/fill_l10n.py"], cwd=root)
+            # 3. lrelease
+            subprocess.run(["lrelease", "resources/l10n/de/gui_strings.ts"], cwd=root)
+            print("Sync complete.")
+
+if __name__ == "__main__":
+    main()

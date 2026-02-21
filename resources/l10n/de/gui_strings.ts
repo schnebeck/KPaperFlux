@@ -495,27 +495,27 @@
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="35" />
             <source>Inbox (NEW)</source>
-            <translation type="unfinished" />
+            <translation>Unbearbeitete Dokumente</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="36" />
             <source>Total Documents</source>
-            <translation>Belege Gesamt</translation>
+            <translation>Belege gesamt</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="37" />
             <source>Processed Documents</source>
-            <translation type="unfinished" />
+            <translation>Verarbeitete Belege</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="38" />
             <source>Urgent Workflows</source>
-            <translation type="unfinished" />
+            <translation>Dringende Abläufe</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="39" />
             <source>Review Workflows</source>
-            <translation type="unfinished" />
+            <translation>Abläufe in Prüfung</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="55" />
@@ -530,12 +530,12 @@
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="65" />
             <source>Count documents</source>
-            <translation type="unfinished" />
+            <translation>Belege zählen</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="66" />
             <source>Sum amounts (€)</source>
-            <translation type="unfinished" />
+            <translation>Beträge summieren</translation>
         </message>
         <message>
             <location filename="../../../gui/dialogs/cockpit_entry_dialog.py" line="74" />
@@ -566,61 +566,61 @@
     <context>
         <name>CockpitWidget</name>
         <message>
-            <location filename="../../../gui/cockpit.py" line="319" />
-            <location filename="../../../gui/cockpit.py" line="267" />
+            <location filename="../../../gui/cockpit.py" line="322" />
+            <location filename="../../../gui/cockpit.py" line="270" />
             <source>Inbox</source>
-            <translation>Eingang</translation>
+            <translation>Unbearbeitete Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="327" />
-            <location filename="../../../gui/cockpit.py" line="268" />
+            <location filename="../../../gui/cockpit.py" line="330" />
+            <location filename="../../../gui/cockpit.py" line="271" />
             <source>Urgent</source>
             <translation>Dringend</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="323" />
-            <location filename="../../../gui/cockpit.py" line="269" />
+            <location filename="../../../gui/cockpit.py" line="326" />
+            <location filename="../../../gui/cockpit.py" line="272" />
             <source>Total Documents</source>
-            <translation>Belege Gesamt</translation>
+            <translation>Belege gesamt</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="325" />
-            <location filename="../../../gui/cockpit.py" line="270" />
+            <location filename="../../../gui/cockpit.py" line="328" />
+            <location filename="../../../gui/cockpit.py" line="273" />
             <source>Total Invoiced</source>
             <translation>Gesamtsumme</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="321" />
+            <location filename="../../../gui/cockpit.py" line="324" />
             <source>Processed</source>
             <translation>Verarbeitet</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="329" />
+            <location filename="../../../gui/cockpit.py" line="332" />
             <source>Review</source>
             <translation>Prüfung</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="511" />
+            <location filename="../../../gui/cockpit.py" line="514" />
             <source>Unlock Layout (Enable Dragging)</source>
-            <translation>Layout entsperren (Verschieben erlauben)</translation>
+            <translation>Bearbeitungsmodus ein</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="511" />
+            <location filename="../../../gui/cockpit.py" line="514" />
             <source>Lock Layout (Prevent Dragging)</source>
-            <translation>Layout sperren (Verschieben fixieren)</translation>
+            <translation>Bearbeitungsmodus aus</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="517" />
+            <location filename="../../../gui/cockpit.py" line="520" />
             <source>Add New Filter View...</source>
             <translation>Neue Filter-Ansicht hinzufügen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="552" />
+            <location filename="../../../gui/cockpit.py" line="555" />
             <source>Rename View</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="552" />
+            <location filename="../../../gui/cockpit.py" line="555" />
             <source>New Title:</source>
             <translation type="unfinished" />
         </message>
@@ -1076,12 +1076,16 @@
         <message>
             <location filename="../../../gui/pdf_viewer.py" line="794" />
             <source>Link scroll and zoom</source>
-            <translation type="unfinished" />
+            <translation>Scrollen und Zoom koppeln</translation>
         </message>
         <message>
             <location filename="../../../gui/pdf_viewer.py" line="795" />
             <source>Show visual differences</source>
-            <translation type="unfinished" />
+            <translation>Visuelle Unterschiede anzeigen</translation>
+        </message>
+        <message>
+            <source>Split Document</source>
+            <translation>Dokument teilen</translation>
         </message>
     </context>
     <context>
@@ -1139,7 +1143,7 @@
         <message>
             <location filename="../../../gui/duplicate_dialog.py" line="164" />
             <source>Remove from list (Ignore)</source>
-            <translation>Aus Liste entfernen (Ignorieren)</translation>
+            <translation>Auswahl ausblenden</translation>
         </message>
         <message>
             <location filename="../../../gui/duplicate_dialog.py" line="197" />
@@ -1617,7 +1621,7 @@
         <message>
             <location filename="../../../gui/filter_manager.py" line="381" />
             <source>matches</source>
-            <translation>entspricht (Regex)</translation>
+            <translation>regulärer Ausdruck</translation>
         </message>
         <message>
             <location filename="../../../gui/filter_manager.py" line="384" />
@@ -1697,7 +1701,7 @@
         <message>
             <location filename="../../../gui/filter_manager.py" line="501" />
             <source>Export to Exchange...</source>
-            <translation>Exportieren (Exchange)...</translation>
+            <translation>Filter exportieren</translation>
         </message>
         <message>
             <location filename="../../../gui/filter_manager.py" line="515" />
@@ -1862,7 +1866,7 @@
         <message>
             <location filename="../../../gui/l10n_registry.py" line="12" />
             <source>Incoming Invoice</source>
-            <translation>Neu Eingang</translation>
+            <translation>Rechnungseingang</translation>
         </message>
         <message>
             <location filename="../../../gui/l10n_registry.py" line="13" />
@@ -1902,22 +1906,22 @@
         <message>
             <location filename="../../../gui/l10n_registry.py" line="22" />
             <source>Monthly Invoice Count</source>
-            <translation>Rechnungseingang (Monatlich)</translation>
+            <translation>Monatlicher Belegeingang</translation>
         </message>
         <message>
             <location filename="../../../gui/l10n_registry.py" line="23" />
             <source>Monthly Spending</source>
-            <translation>Ausgaben (Monatlich)</translation>
+            <translation>Monatliche Ausgaben</translation>
         </message>
         <message>
             <location filename="../../../gui/l10n_registry.py" line="24" />
             <source>Tax Summary YTD</source>
-            <translation>Steuer-Übersicht (YTD)</translation>
+            <translation>Steuerübersicht (YTD)</translation>
         </message>
         <message>
             <location filename="../../../gui/l10n_registry.py" line="25" />
             <source>Tax Overview</source>
-            <translation>Steuer-Übersicht</translation>
+            <translation>Steuerübersicht</translation>
         </message>
         <message>
             <location filename="../../../gui/l10n_registry.py" line="26" />
@@ -1987,7 +1991,7 @@
         <message>
             <location filename="../../../gui/l10n_registry.py" line="41" />
             <source>Inbox</source>
-            <translation>Eingang</translation>
+            <translation>Unbearbeitete Dokumente</translation>
         </message>
         <message>
             <location filename="../../../gui/l10n_registry.py" line="42" />
@@ -2478,7 +2482,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2410" />
             <source>E&amp;xit</source>
-            <translation>B&amp;eenden</translation>
+            <translation>Be&amp;enden</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2412" />
@@ -2508,7 +2512,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2418" />
             <source>Check Integrity (Orphans/Ghosts)</source>
-            <translation>Integrität prüfen (Waisen/Geister)</translation>
+            <translation>Daten prüfen</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2419" />
@@ -2528,7 +2532,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2423" />
             <source>Purge All Data (Reset)</source>
-            <translation>Alle Daten löschen (Reset)</translation>
+            <translation>alle Daten zurücksetzen</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2424" />
@@ -2543,12 +2547,12 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2427" />
             <source>Show Orphaned Vault Files</source>
-            <translation>Verwaisende Vault-Dateien anzeigen</translation>
+            <translation>Verwaiste Dateien anzeigen</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2428" />
             <source>Prune Orphaned Vault Files (Console)</source>
-            <translation>Verwaiste Vault-Dateien bereinigen (Konsole)</translation>
+            <translation>verwaiste Dateien löschen</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2429" />
@@ -2558,12 +2562,12 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2430" />
             <source>Prune Broken Entity References (Console)</source>
-            <translation>Defekte Entitäts-Referenzen bereinigen (Konsole)</translation>
+            <translation>defekte Referenzen löschen</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2431" />
             <source>Deduplicate Vault (Inhaltsbasiert)</source>
-            <translation>Vault deduplizieren (inhaltsbasiert)</translation>
+            <translation>Duplikate löschen</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2433" />
@@ -2593,7 +2597,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2439" />
             <source>Run Extraction (Selected)</source>
-            <translation>Extraktion ausführen (Selektiert)</translation>
+            <translation>KI-Analyse starten</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2442" />
@@ -2985,7 +2989,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="207" />
             <source>Locked (Immutable)</source>
-            <translation>Gesperrt (Unveränderlich)</translation>
+            <translation>Dokument ist schreibgeschützt</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="208" />
@@ -3497,12 +3501,12 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/widgets/splitter_strip.py" line="358" />
             <source>Digital Original (Protected Signature)</source>
-            <translation>Digitales Original (Signaturgeschützt)</translation>
+            <translation>Digitale Signatur</translation>
         </message>
         <message>
             <location filename="../../../gui/widgets/splitter_strip.py" line="358" />
             <source>Digital Original (ZUGFeRD Data)</source>
-            <translation>Digitales Original (ZUGFeRD-Daten)</translation>
+            <translation>ZUGFeRD-Daten</translation>
         </message>
     </context>
     <context>
@@ -3510,7 +3514,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/pdf_viewer.py" line="352" />
             <source>Copied!</source>
-            <translation type="unfinished" />
+            <translation>Kopiert!</translation>
         </message>
     </context>
     <context>
@@ -3751,17 +3755,17 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/reporting.py" line="438" />
             <source>Export as CSV (Data)</source>
-            <translation>Als CSV exportieren (Daten)</translation>
+            <translation>CSV-Datenexport</translation>
         </message>
         <message>
             <location filename="../../../gui/reporting.py" line="439" />
             <source>Export as PDF (Report)</source>
-            <translation>Als PDF exportieren (Bericht)</translation>
+            <translation>PDF-Berichtsexport</translation>
         </message>
         <message>
             <location filename="../../../gui/reporting.py" line="440" />
             <source>Export as ZIP (Documents)</source>
-            <translation>Als ZIP exportieren (Dokumente)</translation>
+            <translation>ZIP-Archiv</translation>
         </message>
         <message>
             <location filename="../../../gui/reporting.py" line="497" />
@@ -4864,17 +4868,17 @@ Geschäftsführer: ...</source>
     <context>
         <name>StatCard</name>
         <message>
-            <location filename="../../../gui/cockpit.py" line="191" />
+            <location filename="../../../gui/cockpit.py" line="194" />
             <source>Rename...</source>
             <translation>Umbenennen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="192" />
+            <location filename="../../../gui/cockpit.py" line="195" />
             <source>Edit Configuration...</source>
             <translation>Konfiguration bearbeiten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="194" />
+            <location filename="../../../gui/cockpit.py" line="197" />
             <source>Remove from Cockpit</source>
             <translation>Aus Cockpit entfernen</translation>
         </message>
@@ -4908,7 +4912,7 @@ Geschäftsführer: ...</source>
         </message>
         <message>
             <source>Inbox</source>
-            <translation>Eingang</translation>
+            <translation>Unbearbeitete Dokumente</translation>
         </message>
         <message>
             <source>Urgent</source>
@@ -4916,7 +4920,7 @@ Geschäftsführer: ...</source>
         </message>
         <message>
             <source>Total Documents</source>
-            <translation>Belege Gesamt</translation>
+            <translation>Belege gesamt</translation>
         </message>
         <message>
             <source>Total Invoiced</source>
