@@ -177,6 +177,22 @@ class SemanticTranslator(QObject):
             case "File Link":
                 return self.tr("File Link")
 
+            # Generic / Segments
+            case "bodies":
+                return self.tr("Contents")
+            case "meta_header":
+                return self.tr("Meta Header")
+            case "finance_body":
+                return self.tr("Financial Data")
+            case "legal_body":
+                return self.tr("Legal Data")
+            case "repaired_text":
+                return self.tr("Repaired Text")
+            case "visual_audit":
+                return self.tr("Visual Audit")
+            case "workflow":
+                return self.tr("Workflow")
+
             # Fallback
             case _:
                 return key
@@ -209,21 +225,32 @@ class SemanticTranslator(QObject):
         parts = clean.split(".")
         beautified_parts = []
         for p in parts:
-            # Map common technical terms
+            # Map common technical terms (many already in translate())
             p_map = {
                 "bodies": self.tr("Contents"),
                 "finance_body": self.tr("Financial Data"),
                 "legal_body": self.tr("Legal Data"),
+                "meta_header": self.tr("Meta Header"),
+                "repaired_text": self.tr("Repaired Text"),
+                "visual_audit": self.tr("Visual Audit"),
+                "workflow": self.tr("Workflow"),
                 "iban": "IBAN",
                 "bic": "BIC",
                 "vat_id": "VAT-ID",
                 "tax_amount": self.tr("Tax Amount"),
-                "tax_rate": self.tr("Tax Rate")
+                "tax_rate": self.tr("Tax Rate"),
+                "total_amount": self.tr("Total Amount"),
+                "currency": self.tr("Currency")
             }
             if p in p_map:
                 beautified_parts.append(p_map[p])
             else:
-                # Fallback: Underscores to spaces, Capitalize
-                beautified_parts.append(p.replace("_", " ").title())
+                # Direct check against translate() for segments
+                seg_trans = self.translate(p)
+                if seg_trans != p:
+                    beautified_parts.append(seg_trans)
+                else:
+                    # Fallback: Underscores to spaces, Capitalize
+                    beautified_parts.append(p.replace("_", " ").title())
                 
         return " > ".join(beautified_parts)

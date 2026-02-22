@@ -203,16 +203,27 @@ class FilterConditionWidget(QWidget):
             elif cat_id == "raw":
                 # Phase 135: Filter out keys already covered by other categories
                 known_keys = set()
-                # 1. Standard tokens
-                for t in registry.get_all_tokens():
-                    known_keys.add(t.id)
-                # 2. AI Semantic fields
+                # 1. Standard tokens and their semantic variations
+                registry_ids = [t.id for t in registry.get_all_tokens()]
+                for rid in registry_ids:
+                    known_keys.add(rid)
+                    known_keys.add(f"semantic:{rid}")
+                    # Extra AI prefixes from extraction models
+                    known_keys.add(f"ai_{rid}")
+                    known_keys.add(f"semantic:ai_{rid}")
+
+                # 2. AI Semantic fields from config
                 config = MetadataNormalizer.get_config() or {}
                 for t_name, t_def in config.get("types", {}).items():
                     for f in t_def.get("fields", []):
+                        f_id = f["id"]
+                        known_keys.add(f_id)
+                        known_keys.add(f"semantic:{f_id}")
                         for s in f.get("strategies", []):
                             if s["type"] == "json_path":
-                                known_keys.add(f"semantic:{s['path']}")
+                                p = s["path"]
+                                known_keys.add(f"semantic:{p}")
+                                known_keys.add(p)
 
                 # Build nested menus for dotted keys
                 # Filter out known keys and stamp fields
