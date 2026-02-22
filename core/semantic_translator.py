@@ -192,6 +192,26 @@ class SemanticTranslator(QObject):
                 return self.tr("Visual Audit")
             case "workflow":
                 return self.tr("Workflow")
+            
+            # Workflow Segments
+            case "current_step":
+                return self.tr("Current Step")
+            case "history":
+                return self.tr("History")
+            case "is_verified":
+                return self.tr("Is Verified")
+            case "pkv_eligible":
+                return self.tr("Pkv Eligible")
+            case "pkv_status":
+                return self.tr("Pkv Status")
+            case "rule_id":
+                return self.tr("Rule Id")
+            case "signature_detected":
+                return self.tr("Signature Detected")
+            case "verified_at":
+                return self.tr("Verified At")
+            case "verified_by":
+                return self.tr("Verified By")
 
             # Fallback
             case _:

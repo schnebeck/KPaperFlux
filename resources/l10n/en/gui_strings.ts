@@ -4071,13 +4071,13 @@ Please install 'qrcode' package.</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="240" />
+        <location filename="../../../core/semantic_translator.py" line="260" />
         <location filename="../../../core/semantic_translator.py" line="94" />
         <source>Tax Amount</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="241" />
+        <location filename="../../../core/semantic_translator.py" line="261" />
         <location filename="../../../core/semantic_translator.py" line="166" />
         <location filename="../../../core/semantic_translator.py" line="96" />
         <source>Tax Rate</source>
@@ -4236,7 +4236,7 @@ Please install 'qrcode' package.</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="243" />
+        <location filename="../../../core/semantic_translator.py" line="263" />
         <location filename="../../../core/semantic_translator.py" line="170" />
         <source>Currency</source>
         <translation type="unfinished" />
@@ -4252,49 +4252,94 @@ Please install 'qrcode' package.</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="230" />
+        <location filename="../../../core/semantic_translator.py" line="250" />
         <location filename="../../../core/semantic_translator.py" line="182" />
         <source>Contents</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="233" />
+        <location filename="../../../core/semantic_translator.py" line="253" />
         <location filename="../../../core/semantic_translator.py" line="184" />
         <source>Meta Header</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="231" />
+        <location filename="../../../core/semantic_translator.py" line="251" />
         <location filename="../../../core/semantic_translator.py" line="186" />
         <source>Financial Data</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="232" />
+        <location filename="../../../core/semantic_translator.py" line="252" />
         <location filename="../../../core/semantic_translator.py" line="188" />
         <source>Legal Data</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="234" />
+        <location filename="../../../core/semantic_translator.py" line="254" />
         <location filename="../../../core/semantic_translator.py" line="190" />
         <source>Repaired Text</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="235" />
+        <location filename="../../../core/semantic_translator.py" line="255" />
         <location filename="../../../core/semantic_translator.py" line="192" />
         <source>Visual Audit</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="236" />
+        <location filename="../../../core/semantic_translator.py" line="256" />
         <location filename="../../../core/semantic_translator.py" line="194" />
         <source>Workflow</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="242" />
+        <location filename="../../../core/semantic_translator.py" line="198" />
+        <source>Current Step</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="200" />
+        <source>History</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="202" />
+        <source>Is Verified</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="204" />
+        <source>Pkv Eligible</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="206" />
+        <source>Pkv Status</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="208" />
+        <source>Rule Id</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="210" />
+        <source>Signature Detected</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="212" />
+        <source>Verified At</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="214" />
+        <source>Verified By</source>
+        <translation type="unfinished" />
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="262" />
         <source>Total Amount</source>
         <translation type="unfinished" />
     </message>
