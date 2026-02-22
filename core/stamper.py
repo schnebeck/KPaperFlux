@@ -26,6 +26,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from core.utils.forensics import get_pdf_class, PDFClass
 from core.utils.hybrid_handler import prepare_hybrid_container, restore_zugferd_xml
+import logging
+
+logger = logging.getLogger("KPaperFlux.Stamper")
 
 
 class DocumentStamper:
@@ -75,7 +78,8 @@ class DocumentStamper:
             if temp_envelope and os.path.exists(temp_envelope):
                 try:
                     os.remove(temp_envelope)
-                except: pass
+                except Exception as e:
+                    logger.warning(f"Cleanup of temp_envelope failed: {e}")
 
     def _apply_native_stamp(
         self,
@@ -103,8 +107,8 @@ class DocumentStamper:
             if "/Rotate" in first_page:
                 try:
                     page_rot = int(first_page.Rotate)
-                except (ValueError, TypeError):
-                    pass
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Invalid page rotation '{first_page.Rotate}': {e}")
 
             # Normalize to 0-360 positive
             page_rot = page_rot % 360

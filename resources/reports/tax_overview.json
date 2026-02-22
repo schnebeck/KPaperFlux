@@ -19,5 +19,11 @@
     }
   ],
   "visualizations": [],
-  "components": []
+  "components": [
+    {
+      "type": "text",
+      "content": "",
+      "settings": {}
+    }
+  ]
 }

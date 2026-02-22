@@ -19,6 +19,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap, QImage
 import json
 import io
+import logging
+from core.logger import get_logger, get_silent_logger
+
+logger = get_logger("gui.metadata_editor")
 from datetime import datetime
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale, QSize, QEvent
 from core.models.virtual import VirtualDocument as Document
@@ -147,9 +151,10 @@ class NestedTableDialog(QDialog):
                 return float(val_clean)
             if val_clean.isdigit() or (val_clean.startswith("-") and val_clean[1:].isdigit()):
                 return int(val_clean)
-        except (json.JSONDecodeError, ValueError):
-            pass # Return text as fallback
-        return text
+        except (json.JSONDecodeError, ValueError) as e:
+            # Fallback to text, but logging for clarity during debugging
+            get_silent_logger().debug(f"JSON/Numeric parse fallback for '{text}': {e}")
+            return text
 
 class MetadataEditorWidget(QWidget):
     """
@@ -1600,8 +1605,8 @@ class MetadataEditorWidget(QWidget):
                     typed_val = float(val_text)
                 elif val_text.isdigit():
                     typed_val = int(val_text)
-            except (json.JSONDecodeError, ValueError):
-                pass
+            except (json.JSONDecodeError, ValueError) as e:
+                get_silent_logger().debug(f"Metadata auto-typing failed for '{val_text}': {e}")
 
             if isinstance(target, list) and last_key.isdigit():
                 idx = int(last_key)

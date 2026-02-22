@@ -24,6 +24,9 @@ from core.models.virtual import VirtualDocument
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
 from core.vault import DocumentVault
+import logging
+
+logger = logging.getLogger("KPaperFlux.Integrity")
 
 
 @dataclass
@@ -229,8 +232,8 @@ class IntegrityManager:
                 if red.file_path and os.path.exists(red.file_path):
                     try:
                         os.remove(red.file_path)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning(f"Failed to remove physical file {red.file_path}: {e}")
                 self.phys_repo.delete(red.uuid)
                 phys_deleted += 1
 

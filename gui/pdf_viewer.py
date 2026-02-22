@@ -15,7 +15,7 @@ from pathlib import Path
 import tempfile
 import sys
 import os
-from core.logger import get_logger
+from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.pdf_viewer")
 
@@ -361,6 +361,14 @@ class PdfCanvas(QScrollArea):
         self.doc = fitz_doc
         self.current_page_idx = 0
         self.rotation = 0 # Reset rotation on new document
+        
+        # Phase 130: Reset search state on document change to force re-search
+        # Search results for the old document are no longer valid.
+        self.all_hits = []
+        self.current_hit_idx = -1
+        self.search_text = ""
+        self.display_label.set_search_hits([])
+        
         if self.doc:
             self.render_current_page()
         else:
@@ -888,8 +896,9 @@ class DualPdfViewerWidget(QWidget):
         """Enables feedback from slave zoom manually (avoiding circular loops)."""
         try:
             self.right_viewer.canvas.zoom_changed.disconnect(self._on_slave_zoom_changed)
-        except (RuntimeError, TypeError):
-            pass
+        except (RuntimeError, TypeError) as e:
+            # Signal might not be connected, safe to ignore but logging for traceability
+            get_silent_logger().debug(f"Zoom disconnect failed: {e}")
         self.right_viewer.canvas.zoom_changed.connect(self._on_slave_zoom_changed)
 
     def _reposition_link_button(self) -> None:
@@ -1013,8 +1022,9 @@ class DualPdfViewerWidget(QWidget):
         """
         try:
             self.right_viewer.canvas.zoom_changed.disconnect(self._on_slave_zoom_changed)
-        except (RuntimeError, TypeError):
-            pass
+        except (RuntimeError, TypeError) as e:
+            # Signal might not be connected, safe to ignore
+            get_silent_logger().debug(f"Zoom disconnect failed during load: {e}")
             
         self._zoom_delta = 0.0 
         self._orig_left_path = Path(left_path_raw)
@@ -1109,6 +1119,8 @@ class PdfViewerWidget(QWidget):
         self.current_pages_data: List[dict] = []
         self.temp_pdf_path: Optional[Path] = None
         self.search_text = ""
+        self.global_search_offset = 0  # Phase 131: Global Hit Tracking
+        self.global_search_total = 0   # Total hits across all results
         
         # Prevent viewer from pushing main window boundaries
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
@@ -1241,9 +1253,27 @@ class PdfViewerWidget(QWidget):
         self.btn_save.setVisible(False)
         self.btn_save.setToolTip(self.tr("Save Changes"))
         
+        self.lbl_hit_status = QLabel("")
+        self.lbl_hit_status.setStyleSheet(f"color: {text}; font-size: 12px; margin: 0 5px;")
+        self.lbl_hit_status.setVisible(False)
+
+        self.btn_hit_prev = QPushButton("▲")
+        self.btn_hit_prev.setFixedSize(24, 24)
+        self.btn_hit_prev.setToolTip(self.tr("Previous Hit (Up Arrow)"))
+        self.btn_hit_prev.setVisible(False)
+        self.btn_hit_prev.clicked.connect(self.canvas.prev_hit)
+
+        self.btn_hit_next = QPushButton("▼")
+        self.btn_hit_next.setFixedSize(24, 24)
+        self.btn_hit_next.setToolTip(self.tr("Next Hit (Down Arrow)"))
+        self.btn_hit_next.setVisible(False)
+        self.btn_hit_next.clicked.connect(self.canvas.next_hit)
+
         controls = [
             self.btn_prev, self.edit_page, self.lbl_page_count, self.btn_next,
             None, # Erste Feder: Nav -> Zoom
+            self.lbl_hit_status, self.btn_hit_prev, self.btn_hit_next, 
+            None,
             self.btn_zoom_out, self.edit_zoom, self.btn_zoom_in, 
             self.btn_fit,
             None, # Zweite Feder: Zoom -> Aktionen
@@ -1285,6 +1315,8 @@ class PdfViewerWidget(QWidget):
         self.btn_fit.setText(self.tr("Fit"))
         self.btn_split.setToolTip(self.tr("Split Document"))
         self.btn_save.setToolTip(self.tr("Save Changes"))
+        self.btn_hit_prev.setToolTip(self.tr("Previous Hit (Up Arrow)"))
+        self.btn_hit_next.setToolTip(self.tr("Next Hit (Down Arrow)"))
         # Update page count label with current total
         total = self.canvas.get_page_count()
         self.lbl_page_count.setText(f"/ {total}")
@@ -1589,8 +1621,44 @@ class PdfViewerWidget(QWidget):
 
     def _update_hit_status(self, current: int, total: int) -> None:
         """Updates the search hit counter and button visibility."""
-        # No longer used internally, signals are connected via MainWindow
-        pass
+        if total > 0:
+            # Phase 131: Use global context if provided
+            display_total = self.global_search_total if self.global_search_total > 0 else total
+            display_current = (current + 1 + self.global_search_offset) if self.global_search_total > 0 else (current + 1)
+            
+            self.lbl_hit_status.setText(f"{display_current} / {display_total}")
+            self.lbl_hit_status.setVisible(True)
+            self.btn_hit_prev.setVisible(True)
+            self.btn_hit_next.setVisible(True)
+        else:
+            self.lbl_hit_status.setVisible(False)
+            self.btn_hit_prev.setVisible(False)
+            self.btn_hit_next.setVisible(False)
+
+    def keyPressEvent(self, event) -> None:
+        """Handles keyboard navigation for pages and search hits."""
+        key = event.key()
+        
+        # Hit Navigation (Prioritize if hits exist)
+        if self.canvas.all_hits:
+            if key == Qt.Key.Key_Down:
+                self.canvas.next_hit()
+                event.accept()
+                return
+            elif key == Qt.Key.Key_Up:
+                self.canvas.prev_hit()
+                event.accept()
+                return
+        
+        # Page Navigation
+        if key == Qt.Key.Key_PageDown or key == Qt.Key.Key_Right:
+            self.canvas.jump_to_page(self.canvas.current_page_idx + 1)
+            event.accept()
+        elif key == Qt.Key.Key_PageUp or key == Qt.Key.Key_Left:
+            self.canvas.jump_to_page(self.canvas.current_page_idx - 1)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def update_zoom_label(self, factor: float) -> None:
         """Updates the zoom percentage label."""

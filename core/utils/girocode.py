@@ -10,10 +10,9 @@ Description:    Utility to generate SEPA Credit Transfer (EPC-QR) payloads,
 ------------------------------------------------------------------------------
 """
 
-import logging
-from typing import Optional
-
-logger = logging.getLogger("KPaperFlux.GiroCode")
+from typing import Optional, Any
+from core.logger import get_logger
+logger = get_logger("core.utils.girocode")
 
 
 class GiroCodeGenerator:

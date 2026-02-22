@@ -20,7 +20,7 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-from core.logger import get_logger
+from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("pipeline")
 
@@ -75,9 +75,10 @@ class PipelineProcessor:
                 logger.info(f"[Pipeline] Terminating subprocess PID {self.current_process.pid}...")
                 self.current_process.kill()
             except ProcessLookupError:
-                pass
+                # Process already gone, safe to ignore
+                get_silent_logger().debug(f"Process {self.current_process.pid} already terminated.")
             except Exception as e:
-                logger.info(f"Error killing process: {e}")
+                get_silent_logger().debug(f"Error killing process: {e}")
             self.current_process = None
 
     def _compute_sha256(self, path: Path) -> str:
@@ -195,9 +196,14 @@ class PipelineProcessor:
         v_doc.last_processed_at = datetime.datetime.now().isoformat()
         v_doc.export_filename = self._generate_export_filename(v_doc)
         
+        # 1.5 Populate Search Cache (Early fulltext availability)
+        from core.canonizer import CanonizerService
+        canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
+        v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
+
         # 2. Save Logical Entity
         self.logical_repo.save(v_doc)
-        logger.info(f"[Phase C] Persisted VirtualDocument: {new_uuid}")
+        logger.info(f"[Phase C] Persisted VirtualDocument: {new_uuid} (with {len(v_doc.cached_full_text)} chars text)")
 
         # 3. AI Analysis
         if not skip_ai:
@@ -243,6 +249,12 @@ class PipelineProcessor:
                             pf.raw_ocr_data = new_text_map
                             self.physical_repo.save(pf)
                             logger.info(f"  -> OCR data updated for {pf.uuid}")
+                
+                # Refresh cache after physical update
+                from core.canonizer import CanonizerService
+                canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
+                v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
+                self.logical_repo.save(v_doc)
 
             if not skip_ai:
                 # Helper to get file path for visual audit
@@ -456,7 +468,7 @@ class PipelineProcessor:
                         self.db.connection.execute("DELETE FROM physical_files WHERE uuid = ?", (f_uuid,))
                         logger.info(f"[Pipeline] Removed record from physical_files: {f_uuid}")
 
-    def process_document_with_instructions(self, file_path: str, instructions: List[Dict[str, Any]], move_source: bool = False) -> List[str]:
+    def process_document_with_instructions(self, file_path: str, instructions: List[Dict[str, Any]], move_source: bool = False, entity_callback=None) -> List[str]:
         """
         Stage 0 (Instruction-Based):
         1. Ingest physical file.
@@ -466,6 +478,7 @@ class PipelineProcessor:
             file_path: The path to the physical file.
             instructions: List of instructions for document splitting.
             move_source: Whether to move the source file.
+            entity_callback: Optional callable(uuid) called for each saved entity.
 
         Returns:
             A list of new entity UUIDs.
@@ -517,13 +530,21 @@ class PipelineProcessor:
                 created_at=datetime.datetime.now().isoformat(),
                 is_immutable=instr.get("locked", False)
             )
+            # Reconstruct text for searchability
+            from core.canonizer import CanonizerService
+            canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
+            v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
+            
             self.logical_repo.save(v_doc)
             new_uuids.append(v_doc.uuid)
+            
+            if entity_callback:
+                entity_callback(v_doc.uuid)
 
         logger.info(f"[Stage 0] Created {len(new_uuids)} entities from instructions.")
         return new_uuids
 
-    def process_batch_with_instructions(self, file_paths: List[str], instructions: List[Dict[str, Any]], move_source: bool = False, progress_callback=None) -> List[str]:
+    def process_batch_with_instructions(self, file_paths: List[str], instructions: List[Dict[str, Any]], move_source: bool = False, progress_callback=None, entity_callback=None) -> List[str]:
         """
         Stage 0 (Batch Instruction-Based):
         1. Ingest all physical files.
@@ -533,25 +554,35 @@ class PipelineProcessor:
             file_paths: List of paths to physical files.
             instructions: List of instructions, can reference multiple files.
             move_source: Whether to move source files.
-            progress_callback: Optional callable(current, total)
+            progress_callback: Optional callable(current_step, total_steps, label)
+            entity_callback: Optional callable(uuid) called when an entity is saved.
 
         Returns:
             A list of new entity UUIDs.
         """
+        total_files = len(file_paths)
+        total_entities = len(instructions)
+        total_steps = total_files + total_entities
+        
         # 1. Ingest all
         path_to_uuid: Dict[str, str] = {}
-        for path in file_paths:
+        for idx, path in enumerate(file_paths):
+            if progress_callback:
+                # Use sub-total 0..total_files range for ingestion
+                progress_callback(idx + 1, total_steps, f"Ingesting {os.path.basename(path)}...")
+            
             phys = self._ingest_physical_file(path, move_source)
             if phys:
                 path_to_uuid[path] = phys.uuid
 
         new_uuids: List[str] = []
-        total_instr = len(instructions)
 
         # 2. Process Instructions
         for idx, instr in enumerate(instructions):
             if progress_callback:
-                progress_callback(idx + 1, total_instr)
+                # Use range total_files..total_steps for logical creation
+                progress_callback(total_files + idx + 1, total_steps, f"Creating Document {idx+1}/{total_entities}...")
+            
             pages_data = instr.get("pages", [])
             if not pages_data:
                 continue
@@ -604,8 +635,16 @@ class PipelineProcessor:
                     is_immutable=instr.get("locked", False),
                     pdf_class=instr.get("pdf_class", "C")
                 )
+                # Reconstruct text for searchability
+                from core.canonizer import CanonizerService
+                canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
+                v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
+                
                 self.logical_repo.save(v_doc)
                 new_uuids.append(v_doc.uuid)
+                
+                if entity_callback:
+                    entity_callback(v_doc.uuid)
 
         logger.info(f"[Stage 0 Batch] Created {len(new_uuids)} entities from instructions across {len(file_paths)} files.")
         return new_uuids
@@ -716,21 +755,28 @@ class PipelineProcessor:
             A dictionary mapping 1-based page indices to text content.
         """
         try:
-            from pdfminer.high_level import extract_text
-
-            pages = self._calculate_page_count(path)
+            import fitz
+            doc = fitz.open(str(path))
             result: Dict[str, str] = {}
-            for i in range(pages):
-                text = extract_text(path, page_numbers=[i])
-                if text.strip():
+            for i in range(len(doc)):
+                text = doc[i].get_text().strip()
+                if text:
                     result[str(i + 1)] = text
+            doc.close()
             return result
-        except ImportError:
-            logger.info("pdfminer-six not found. Install it for native PDF extraction.")
-            return {}
         except Exception as e:
-            logger.info(f"Native extraction error: {e}")
-            return {}
+            logger.info(f"Fitz extraction failed, trying pdfminer: {e}")
+            try:
+                from pdfminer.high_level import extract_text
+                pages = self._calculate_page_count(path)
+                result: Dict[str, str] = {}
+                for i in range(pages):
+                    text = extract_text(path, page_numbers=[i])
+                    if text.strip():
+                        result[str(i + 1)] = text
+                return result
+            except (ImportError, Exception):
+                return {}
 
     def _run_ocr(self, path: Path) -> Dict[str, str]:
         """
@@ -772,13 +818,25 @@ class PipelineProcessor:
                     try:
                         self.current_process.kill()
                     except ProcessLookupError:
-                        pass
+                        # Process already terminated
+                        logger.debug("[Pipeline] OCR Process already gone during cleanup.")
             finally:
                 self.current_process = None
 
             if output_pdf.exists():
-                # Extract text from the OCR'd PDF using native extractor
-                return self._extract_text_native(output_pdf)
+                # 1. Replace the original file with the OCR'd version (Sandwich PDF)
+                # This ensures the viewer can find text hits natively.
+                try:
+                    # Sync metadata if possible (keep original timestamp for consistency)
+                    stat = path.stat()
+                    import shutil
+                    shutil.copy2(output_pdf, path)
+                    logger.info(f"[OCR] Replaced original with searchable PDF: {path}")
+                except Exception as e:
+                    logger.error(f"[OCR] Failed to replace original file: {e}")
+
+                # 2. Extract text from the OCR'd PDF using native extractor
+                return self._extract_text_native(path)
 
         return {}
 

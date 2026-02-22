@@ -13,7 +13,7 @@ from typing import Any, Optional, Union, List, Dict
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer, QObject
 import traceback
 import time
-from core.logger import get_logger
+from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.workers")
 # Core Imports
@@ -86,8 +86,9 @@ class ImportWorker(QThread):
     """
     Worker thread to import documents in the background.
     """
-    progress = pyqtSignal(int, str) # current_index, current_filename
+    progress = pyqtSignal(int, str) # current_index, current_description
     finished = pyqtSignal(int, int, list, str) # success_count, total_count, imported_uuids, error_msg
+    document_imported = pyqtSignal(str) # Emitted for each successfully created logical doc (UUID)
 
     def __init__(self, pipeline: PipelineProcessor, items: list, move_source: bool = False):
         super().__init__()
@@ -104,7 +105,13 @@ class ImportWorker(QThread):
         effective_total = 0
         for item in self.items:
             if isinstance(item, tuple) and item[0] == "BATCH" and isinstance(item[1], list):
-                effective_total += len(item[1])
+                # For batch, we consider both ingestion and instruction steps later
+                unique_files = set()
+                for doc_instr in item[1]:
+                    for pg in doc_instr.get("pages", []):
+                        if "file_path" in pg:
+                            unique_files.add(pg["file_path"])
+                effective_total += len(unique_files) + len(item[1])
             else:
                 effective_total += 1
         
@@ -124,14 +131,13 @@ class ImportWorker(QThread):
 
                 # SPECIAL BATCH MODE
                 if fpath == "BATCH" and isinstance(instructions, list):
-                    # instructions is a LIST of doc definitions
-                    
-                    def batch_progress_cb(curr, sub_total):
-                        # curr is 1-based from pipeline
-                        self.progress.emit(current_global_idx + curr - 1, f"Document {curr}/{sub_total}")
+                    def batch_progress_cb(curr, total, label):
+                        self.progress.emit(curr - 1, label)
+
+                    def batch_entity_cb(uid):
+                        self.document_imported.emit(uid)
 
                     try:
-                        # Extract all possible file paths from instructions
                         all_paths = set()
                         for doc_instr in instructions:
                             for pg in doc_instr.get("pages", []):
@@ -142,24 +148,29 @@ class ImportWorker(QThread):
                             list(all_paths), 
                             instructions, 
                             move_source=self.move_source,
-                            progress_callback=batch_progress_cb
+                            progress_callback=batch_progress_cb,
+                            entity_callback=batch_entity_cb
                         )
                         if uuids:
                             success_count += len(uuids)
                             imported_uuids.extend(uuids)
-                            current_global_idx += len(instructions)
+                            # current_global_idx is handled by the batch_progress_cb for UI
+                            current_global_idx += (len(all_paths) + len(instructions))
                     except Exception as e:
                         logger.error(f"Batch Import Error: {e}")
-                        current_global_idx += len(instructions) # Skip ahead anyway
                     continue
 
                 self.progress.emit(current_global_idx, fpath)
 
                 try:
-                    # Async Import: Skip AI initially
                     if instructions:
-                        # Pre-Flight Instruction Mode
-                        uuids = self.pipeline.process_document_with_instructions(fpath, instructions, move_source=self.move_source)
+                        # Pre-Flight Instruction Mode (Single File)
+                        uuids = self.pipeline.process_document_with_instructions(
+                            fpath, 
+                            instructions, 
+                            move_source=self.move_source,
+                            entity_callback=lambda uid: self.document_imported.emit(uid)
+                        )
                         if uuids:
                             success_count += len(uuids)
                             imported_uuids.extend(uuids)
@@ -167,6 +178,7 @@ class ImportWorker(QThread):
                         # Legacy Default Mode
                         doc = self.pipeline.process_document(fpath, move_source=self.move_source, skip_ai=True)
                         if doc:
+                            self.document_imported.emit(doc.uuid)
                             success_count += 1
                             imported_uuids.append(doc.uuid)
                     
@@ -180,7 +192,7 @@ class ImportWorker(QThread):
 
         except Exception as e:
             traceback.print_exc()
-            self.finished.emit(success_count, total, [], str(e))
+            self.finished.emit(success_count, effective_total, [], str(e))
 
     def cancel(self):
         self.is_cancelled = True
@@ -192,11 +204,13 @@ class ReprocessWorker(QThread):
     """
     progress = pyqtSignal(int, str) # current_index, uuid/status
     finished = pyqtSignal(int, int, list) # success_count, total, processed_uuids
+    error = pyqtSignal(str, str) # uuid, error_message
 
-    def __init__(self, pipeline: PipelineProcessor, uuids: list[str]):
+    def __init__(self, pipeline: PipelineProcessor, uuids: list[str], force_ocr: bool = False):
         super().__init__()
         self.pipeline = pipeline
         self.uuids = uuids
+        self.force_ocr = force_ocr
         self.is_cancelled = False
 
     def run(self):
@@ -213,17 +227,23 @@ class ReprocessWorker(QThread):
 
                 try:
                     # Async Reprocess: Skip AI initially (Local Extraction only)
-                    doc = self.pipeline.reprocess_document(uuid, skip_ai=True)
+                    doc = self.pipeline.reprocess_document(uuid, skip_ai=True, force_ocr=self.force_ocr)
                     if doc:
                         success_count += 1
                         processed_uuids.append(uuid)
+                    else:
+                        self.error.emit(uuid, "Document skip or logic error (returned None)")
                 except Exception as e:
-                    logger.error(f"Error reprocessing {uuid}: {e}")
+                    err_msg = str(e)
+                    logger.error(f"Error reprocessing {uuid}: {err_msg}")
+                    self.error.emit(uuid, err_msg)
 
             self.finished.emit(success_count, total, processed_uuids)
 
         except Exception as e:
+            err_msg = f"Fatal Worker Error: {e}"
             traceback.print_exc()
+            self.error.emit("worker", err_msg)
             self.finished.emit(success_count, total, [])
 
     def cancel(self):
@@ -452,8 +472,8 @@ class MatchAnalysisWorker(QThread):
                     m_doc_native.close()
                 if 'm_doc_scan' in locals():
                     m_doc_scan.close()
-            except: 
-                pass
+            except Exception as e:
+                get_silent_logger().debug(f"Resource closure failed during cleanup: {e}")
             logger.info(f"[MatchAnalysisThread-{thread_id}] Cleanup complete. Thread record ending.")
 
     def cancel(self) -> None:

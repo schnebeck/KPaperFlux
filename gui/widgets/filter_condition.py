@@ -3,6 +3,9 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QMenu, QCheckBox, QSizePolicy)
 from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, QEvent
 
+from core.logger import get_logger
+logger = get_logger("gui.widgets.filter_condition")
+
 # Mocks / Core Imports (angepasst für Standalone-Fähigkeit)
 try:
     from core.metadata_normalizer import MetadataNormalizer
@@ -10,29 +13,10 @@ try:
     from core.models.types import DocType
     from gui.widgets.multi_select_combo import MultiSelectComboBox
     from gui.widgets.date_range_picker import DateRangePicker
-except ImportError:
-    # Mocks, falls Core nicht verfügbar
-    class MetadataNormalizer:
-        @staticmethod
-        def get_config(): return {}
-    class SemanticTranslator:
-        @staticmethod
-        def instance():
-             class Dummy:
-                 def translate(self, x): return x
-             return Dummy()
-    class DocType:
-        INVOICE = "invoice"
-        RECEIPT = "receipt"
-        CONTRACT = "contract"
-    class MultiSelectComboBox(QComboBox):
-        selectionChanged = pyqtSignal()
-        def getCheckedItems(self): return []
-        def setCheckedItems(self, i): pass
-    class DateRangePicker(QWidget):
-        rangeChanged = pyqtSignal()
-        def get_value(self): return None
-        def set_value(self, v): pass
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in filter_condition.py: {e}")
+    sys.exit(1)
 
 
 class FilterConditionWidget(QWidget):

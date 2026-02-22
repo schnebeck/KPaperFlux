@@ -22,6 +22,9 @@ from PIL import Image, ImageChops
 
 from core.database import DatabaseManager
 from core.models.virtual import VirtualDocument as Document
+from core.logger import get_logger, get_silent_logger
+
+logger = get_logger("Similarity")
 
 
 class SimilarityManager:
@@ -272,5 +275,6 @@ class SimilarityManager:
             if temp_file and os.path.exists(temp_file):
                 try:
                     os.unlink(temp_file)
-                except OSError:
-                    pass
+                except OSError as e:
+                    # Safe to ignore in finally block, but logging for traceability
+                    get_silent_logger().debug(f"Could not unlink temp file {temp_file}: {e}")

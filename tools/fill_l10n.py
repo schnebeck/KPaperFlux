@@ -26,6 +26,17 @@ def fill():
     # Common translations applied to all contexts if not overridden
     common = {
         # Menus & Actions
+        "Search string too short (min 3 chars)": "Suchbegriff zu kurz (min. 3 Zeichen)",
+        "Searching for duplicates...": "Suche nach Duplikaten...",
+        "Searching...": "Suche...",
+        "%1 error(s) occurred during reprocessing. Check logs.": "%1 Fehler bei der Verarbeitung aufgetreten. Details im Log.",
+        "Processing Error": "Fehler bei der Verarbeitung",
+        "Reprocessing...": "Wird neu verarbeitet...",
+        "Running OCR...": "OCR wird ausgeführt...",
+        "%1 documents found (%2 occurrences)": "%1 Dokumente gefunden (%2 Treffer)",
+        "%1 documents found": "%1 Dokumente gefunden",
+        "No documents found": "Keine Dokumente gefunden",
+        "Force OCR / Searchable PDF": "OCR erzwingen / Durchsuchbares PDF",
         "Copied!": "Kopiert!",
         "&File": "&Datei",
         "&Edit": "&Bearbeiten",
@@ -340,7 +351,8 @@ def fill():
             "Filter Created": "Filter erstellt",
             "A new view filter '%s' has been created in the 'Views' folder.": "Ein neuer Ansichts-Filter '%s' wurde im Ordner 'Ansichten' erstellt.",
             "Filter Name:": "Filtername:",
-            "Search": "Suche",
+            "Search": "Suche",            "Show All": "Alle Dokumente anzeigen",
+
             "Filter": "Filter",
             "Rules": "Regeln",
             "Save Rule": "Regel speichern",
@@ -411,7 +423,11 @@ def fill():
             "Show visual differences": "Visuelle Unterschiede anzeigen",
             "Link scroll and zoom": "Scrollen und Zoom koppeln",
             "Split Document": "Dokument teilen",
+        },        "DocumentListWidget": {
+            "Search": "Suche",            "Show All": "Alle Dokumente anzeigen",
+
         },
+    
     }
 
     # DELTA LOGIC: Work on a single tree instance

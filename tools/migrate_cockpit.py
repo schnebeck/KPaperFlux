@@ -83,8 +83,8 @@ def migrate_payloads(directory):
                         wf.write(new_content)
                     print(f"[+] Updated payload type in: {p}")
                     count += 1
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[!] Error processing {p}: {e}")
     
     if count > 0:
         print(f"[*] Successfully updated {count} files.")
@@ -97,11 +97,10 @@ if __name__ == "__main__":
     
     # Ask or just do it? User said "sucht und umschreibt". 
     # I'll check common directories.
-    vault_path = None
     try:
         vault_path = AppConfig().get_vault_path()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[*] Could not determine vault path via AppConfig: {e}")
         
     if vault_path and os.path.exists(vault_path):
         migrate_payloads(vault_path)

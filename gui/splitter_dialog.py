@@ -6,29 +6,25 @@ from PyQt6.QtCore import Qt
 import fitz
 import os
 import json
+import logging
+
+from core.logger import get_logger
+logger = get_logger("gui.splitter_dialog")
 
 # Projekt-Imports
 try:
     from gui.widgets.splitter_strip import SplitterStripWidget, PageThumbnailWidget, SplitDividerWidget
-except ImportError:
-    # Falls gui.widgets nicht existiert, Warnung drucken oder Mock verwenden
-    print("Warnung: 'gui.widgets.splitter_strip' konnte nicht importiert werden.")
-    # Dummy-Klassen für den Syntax-Check
-    class SplitterStripWidget(QLabel):
-        def __init__(self): super().__init__("Splitter Strip Placeholder")
-    class PageThumbnailWidget: pass
-    class SplitDividerWidget: pass
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in splitter_dialog.py: {e}")
+    sys.exit(1)
 
 try:
     from gui.utils import show_selectable_message_box
-except ImportError:
-    def show_selectable_message_box(parent, title, text, icon=QMessageBox.Icon.Information, buttons=QMessageBox.StandardButton.Ok):
-        msg = QMessageBox(parent)
-        msg.setWindowTitle(title)
-        msg.setText(text)
-        msg.setIcon(icon)
-        msg.setStandardButtons(buttons)
-        return msg.exec()
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in splitter_dialog.py (gui.utils): {e}")
+    sys.exit(1)
 
 class SplitterDialog(QDialog):
     """
@@ -114,7 +110,8 @@ class SplitterDialog(QDialog):
              doc = fitz.open(file_path)
              self.adjust_size_to_content(doc.page_count)
              doc.close()
-        except: pass
+        except Exception as e:
+             logger.warning(f"Size adjustment failed for {file_path}: {e}")
 
         self.btn_cancel.setText(self.tr("Abort Import"))
         self.update_ui_state()
@@ -134,7 +131,8 @@ class SplitterDialog(QDialog):
                 doc = fitz.open(info["path"])
                 total_pages += doc.page_count
                 doc.close()
-            except: pass
+            except Exception as e:
+                logger.warning(f"Batch size adjustment failed for {info['path']}: {e}")
 
         count = len(file_info_list)
         msg = self.tr("Import Assistant: Batch (%n file(s))", "", len(file_info_list))
@@ -221,7 +219,7 @@ class SplitterDialog(QDialog):
 
                     self.reject()
                 except Exception as e:
-                    print(f"Error cancelling import: {e}")
+                    logger.error(f"Error cancelling import for {target_uuid}: {e}")
                     self.reject()
 
     def on_confirm_split(self):
@@ -230,15 +228,15 @@ class SplitterDialog(QDialog):
             instructions = self._scrape_instructions(ignore_splits=False)
             self.import_instructions = instructions # Payload
 
-            print(f"[DEBUG] SplitterDialog: Confirmed with {len(instructions)} entities.")
+            logger.debug(f"Confirmed with {len(instructions)} entities.")
             # For debugging: print first entity summary
             if instructions:
-                print(f"[DEBUG] Entity 1: {len(instructions[0]['pages'])} pages")
+                logger.debug(f"Entity 1: {len(instructions[0]['pages'])} pages")
 
             self.accept()
 
         except Exception as e:
-            print(f"[ERROR] SplitterDialog confirmation error: {e}")
+            logger.error(f"SplitterDialog confirmation error: {e}")
             show_selectable_message_box(self, self.tr("Error"), f"Failed to prepare instructions: {e}", icon=QMessageBox.Icon.Critical)
 
     def accept(self):

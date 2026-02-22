@@ -12,6 +12,7 @@ Description:    Data model for physical files stored in the immutable document
 """
 
 import json
+from core.logger import get_silent_logger
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
@@ -50,8 +51,8 @@ class PhysicalFile:
         if "raw_ocr_data" in row.keys() and row["raw_ocr_data"]:
             try:
                 ocr_data = json.loads(row["raw_ocr_data"])
-            except (json.JSONDecodeError, TypeError):
-                pass
+            except (json.JSONDecodeError, TypeError) as e:
+                get_silent_logger().warning(f"Failed to decode OCR data for physical file: {e}")
 
         return cls(
             uuid=str(row["uuid"]),

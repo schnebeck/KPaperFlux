@@ -18,17 +18,24 @@ The application has reached a high level of linguistic and structural maturity. 
 2. **Advanced L10n Tooling & Governance:**
     *   **Strict Governance:** Updated `agent_framework.md` to strictly forbid manual editing of `tools/fill_l10n.py`.
     *   **Programmatic Mapping:** Integrated `MasterMappingTool` into `l10n_tool.py` to allow safe, regex-based updates to the mapping dictionaries.
-    *   **CLI 'change' command:** Added a CLI interface to `l10n_tool.py` for automated updates: `python3 l10n_tool.py change --src "Source" --trans "Target" --sync`.
-3. **German Terminology Refinement:**
+3. **Search & OCR Excellence:**
+    *   **Critical Fix:** Resolved a deep database bug where the `IN` operator was unhandled, causing search results to include all documents. High-precision search (e.g., "Reichelt") now works correctly.
+    *   **Force OCR Feature:** Implemented "Force OCR / Searchable PDF" in the document list. This allows users to manually trigger OCR for scanned PDFs, converting them into searchable (Sandwich) versions and enabling hit navigation in the PDF viewer.
+    *   **Immediate Cache:** Searchable text is now cached immediately upon ingestion/processing to ensure real-time search availability.
+4. **German Terminology Refinement:**
     *   **No Parentheses:** Removed all technical/tautological parentheses (e.g., "(Reset)", "(Console)").
     *   **Grammar Alignment:** Moved away from English-style Title Case to correct German capitalization (Satzanfang groß, Adjektive klein).
     *   **Key Results:** 
         - "Inbox" -> "Unbearbeitete Dokumente"
         - "Total Documents" -> "Belege gesamt"
         - "Purge All Data" -> "alle Daten zurücksetzen"
-4. **Shortcut Integrity:**
+5. **Shortcut Integrity:**
     *   Resolved all shortcut collisions (`&`) in the main menu caused by longer German translations (e.g., A&bläufe vs &Ansicht).
     *   Fixed ampersand escaping in labels (e.g., "Bezahlt && Archiv").
+6. **Logging & Hardware Resilience (Phase 210):**
+    *   **High-Detail Logging:** All logs now include filename and line numbers (e.g., `core/logger.py:45`).
+    *   **Silent Exception Tracking:** Introduced `get_silent_logger()` for monitoring previously hidden errors.
+    *   **Graceful Hardware Handling:** Scanner functionality is now dynamically hidden if SANE is missing, instead of crashing or logging in German.
 
 ---
 
@@ -38,24 +45,26 @@ The application has reached a high level of linguistic and structural maturity. 
 > **DYNAMIC UI:** Never use `setFixedWidth()` on labels/buttons. Use `padding` and `setMinimumWidth()`.
 > **SHORTCUTS:** A `&` in the source string REQUIRES a shortcut in the translation. No `&` in source means ALL `&` in translation must be `&&`.
 > **L10N GOVERNANCE:** Never edit `tools/fill_l10n.py` manually. Always use `tools/l10n_tool.py change`.
-> **TDD FIRST:** All new features or bugfixes MUST be accompanied by/verified by a test in `tests/`.
+> **STRICT ENGLISH LOGGING:** All technical messages (logs, console, exceptions) must be in **English**. German is only for the GUI layer.
+> **LOGGING SYSTEM:** Never use `print()`. Always use `core.logger`.
+> **GRACEFUL DEGRADATION:** Optional hardware features (like scanning) must fail gracefully (e.g., hide menu items) instead of triggering a hard `sys.exit`.
 
 ---
 
 ## **Current Task State**
+**SEARCH ENGINE: Corrected.**
+- Database `IN` operator bug fixed.
+- Text occurrence count refined for German localization.
+- Deep search (OCR metadata + Cache) is consistent.
+
 **GUI STABILITY: High.**
 - Dashboard (Cockpit) is resilient to long localized labels.
-- Toolbar and Menus are fully localized and shortcut-safe.
-- **Test Isolation:** All configuration-related tests now use `profile="test"`, ensuring production settings (`~/.config/kpaperflux/`) are protected during test runs.
+- **Robustness:** Background worker errors are now captured and displayed as desktop notifications.
+- **New Feature:** Context-menu "Force OCR" triggered via `MainWindow.reprocess_document_slot(force_ocr=True)`.
 
-**LOCALIZATION: Complete for Core Features.**
-- The "Perfect Terminology" phase is complete.
-- Management tools (`l10n_tool.py`) are robust and tested.
-
-**AI BACKEND: Modernized.**
-- **Baseline:** Default model updated to `gemini-2.5-flash`.
-- **Lifecycle:** 1.5 and 2.0 series models are classified as "legacy" and will trigger automatic migration to the latest stable default.
-- **Provider:** Running on a Gemini 3-flash based infrastructure.
+**LOCALIZATION: Updated.**
+- Added translations for search counts, OCR progress, and error reporting.
+- Programs: `pylupdate6`, `fill_l10n.py`, `lrelease` sequence verified.
 
 **NEXT STEP: Implementation of retranslate_ui in the remaining viewer widgets (PDF Viewer, Splitter Strip).**
 

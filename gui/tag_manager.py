@@ -4,27 +4,24 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QGroupBox
 )
 from PyQt6.QtCore import Qt
+from core.logger import get_logger
+logger = get_logger("gui.tag_manager")
 
 # Core Imports
 try:
     from core.database import DatabaseManager
-except ImportError:
-    class DatabaseManager: pass
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in tag_manager.py (core.database): {e}")
+    sys.exit(1)
 
 # Hilfsfunktion für Message Boxen (Fallback)
 try:
     from gui.utils import show_selectable_message_box, show_notification
-except ImportError:
-    def show_selectable_message_box(parent, title, text, icon=QMessageBox.Icon.Information, buttons=QMessageBox.StandardButton.Ok):
-        msg = QMessageBox(parent)
-        msg.setWindowTitle(title)
-        msg.setText(text)
-        msg.setIcon(icon)
-        msg.setStandardButtons(buttons)
-        return msg.exec()
-
-    def show_notification(parent, title, text, duration=3000):
-        print(f"[Fallback-Notification] {title}: {text}")
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in tag_manager.py (gui.utils): {e}")
+    sys.exit(1)
 
 class TagManagerDialog(QDialog):
     def __init__(self, db_manager: DatabaseManager, parent=None):

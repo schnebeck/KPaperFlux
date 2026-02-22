@@ -25,7 +25,7 @@ import sys
 import tempfile
 import shutil
 import json
-from core.logger import get_logger
+from core.logger import get_logger, get_silent_logger
 from PyQt6.QtCore import QEvent
 
 logger = get_logger("gui.main_window")
@@ -43,6 +43,7 @@ from core.config import AppConfig
 from core.integrity import IntegrityManager
 from core.utils.forensics import check_pdf_immutable, PDFClass, get_pdf_class
 from core.exchange import ExchangeService, ExchangePayload
+from core.scanner import SANE_AVAILABLE
 
 # GUI Imports
 from gui.workers import ImportWorker, MainLoopWorker, SimilarityWorker, ReprocessWorker
@@ -202,6 +203,7 @@ class MainWindow(QMainWindow):
             self.list_widget.document_selected.connect(self._on_document_selected)
             self.list_widget.delete_requested.connect(self.delete_document_slot)
             self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
+            self.list_widget.re_ocr_requested.connect(lambda uuids: self.reprocess_document_slot(uuids, force_ocr=True))
             self.list_widget.merge_requested.connect(self.merge_documents_slot)
             # self.list_widget.export_requested.connect(self.export_documents_slot) # Handled internally
             self.list_widget.stamp_requested.connect(self.stamp_document_slot)
@@ -230,6 +232,7 @@ class MainWindow(QMainWindow):
             self.list_widget.stage2_requested.connect(self.run_stage_2_selected_slot)
             self.list_widget.active_filter_changed.connect(self._on_view_filter_changed)
             self.list_widget.show_generic_requested.connect(self.open_debug_audit_window)
+            self.list_widget.search_cleared.connect(self._on_search_cleared)
 
             # Phase 105: Active Filter Precedence
             self.advanced_filter.chk_active.toggled.connect(self.list_widget.set_advanced_filter_active)
@@ -272,7 +275,7 @@ class MainWindow(QMainWindow):
             self.pdf_viewer.document_changed.connect(self.list_widget.refresh_list)
         self.pdf_viewer.split_requested.connect(self.open_splitter_dialog_slot)
         self.pdf_viewer.canvas.hit_overflow.connect(self._on_pdf_hit_overflow)
-        self.pdf_viewer.canvas.hits_updated.connect(self.advanced_filter.update_hit_status)
+        self.pdf_viewer.canvas.hits_updated.connect(self._on_pdf_hits_updated)
         self.main_splitter.addWidget(self.pdf_viewer)
 
         # Set Initial Sizes
@@ -364,12 +367,62 @@ class MainWindow(QMainWindow):
     def _on_global_search_triggered(self, search_text: str):
         """Stores global search terms and updates viewer if active."""
         self.current_search_text = search_text
-        if hasattr(self, 'pdf_viewer'):
-            self.pdf_viewer.set_highlight_text(search_text)
         if hasattr(self, 'list_widget'):
-            # This triggers refresh_list which now includes hit counting
             self.list_widget.current_filter_text = search_text
-            self.list_widget.refresh_list()
+            self.list_widget.view_context = "Search"
+            self.list_widget.refresh_list(force_select_first=True)
+        
+        # Phase 131: Sync context if document is already loaded
+        if hasattr(self, 'pdf_viewer') and self.pdf_viewer.current_uuid:
+            self._sync_global_search_context(self.pdf_viewer.current_uuid)
+            self.pdf_viewer.set_highlight_text(search_text)
+        elif hasattr(self, 'pdf_viewer'):
+            self.pdf_viewer.set_highlight_text(search_text)
+
+    def _sync_global_search_context(self, current_uuid: str):
+        """Calculates global hit offset and total for the PDF viewer."""
+        if not hasattr(self, 'pdf_viewer') or not self.current_search_text or not self.list_widget:
+            if hasattr(self, 'pdf_viewer'):
+                self.pdf_viewer.global_search_total = 0
+                self.pdf_viewer.global_search_offset = 0
+            return
+
+        uuids_in_view = self.list_widget.get_all_uuids_in_view()
+        hit_map = self.list_widget.current_hit_map
+        
+        total_hits = sum(hit_map.values())
+        offset = 0
+        for u in uuids_in_view:
+            if u == current_uuid:
+                break
+            offset += hit_map.get(u, 0)
+        
+        self.pdf_viewer.global_search_total = total_hits
+        self.pdf_viewer.global_search_offset = offset
+    def _on_search_cleared(self):
+        """Resets all search-related state when 'Show All' is clicked."""
+        self.current_search_text = ""
+        if hasattr(self, 'advanced_filter'):
+            self.advanced_filter.clear_search()
+        if hasattr(self, "pdf_viewer"):
+            self.pdf_viewer.set_highlight_text("")
+            self.pdf_viewer.global_search_total = 0
+            self.pdf_viewer.global_search_offset = 0
+
+    def _on_pdf_hits_updated(self, current: int, total: int):
+        """Routes hit updates from viewer to sidebar with global context."""
+        if not hasattr(self, 'advanced_filter'):
+            return
+            
+        # Use global totals if session-wide search is active
+        if self.pdf_viewer.global_search_total > 0:
+            display_total = self.pdf_viewer.global_search_total
+            display_current = current + self.pdf_viewer.global_search_offset
+        else:
+            display_total = total
+            display_current = current
+            
+        self.advanced_filter.update_hit_status(display_current, display_total)
 
     def _on_pdf_hit_overflow(self, forward: bool):
         """Logic to switch to next/prev document containing search hits."""
@@ -489,7 +542,11 @@ class MainWindow(QMainWindow):
         self.action_scan = QAction("", self)
         self.action_scan.setShortcut("Ctrl+S")
         self.action_scan.triggered.connect(self.open_scanner_slot)
-        self.file_menu.addAction(self.action_scan)
+        if SANE_AVAILABLE:
+            self.file_menu.addAction(self.action_scan)
+        else:
+            self.action_scan.setVisible(False)
+            logger.info("Scanner functionality disabled: SANE_AVAILABLE is False")
 
         self.action_print = QAction("", self)
         self.action_print.setShortcut("Ctrl+P")
@@ -830,6 +887,8 @@ class MainWindow(QMainWindow):
         # Load into PDF Viewer
         path = self._resolve_pdf_path(uuid)
         if path:
+             self._sync_global_search_context(uuid)
+
              # Check for Search Hits for Deferred Navigation
              target_index = -1
              if self.current_search_text and self.db_manager:
@@ -963,7 +1022,7 @@ class MainWindow(QMainWindow):
                 if count > 1:
                     show_notification(self, self.tr("Deleted"), self.tr(f"Deleted {deleted_count} items."))
 
-    def reprocess_document_slot(self, uuids: list):
+    def reprocess_document_slot(self, uuids: list, force_ocr: bool = False):
         """Re-run pipeline for list of documents."""
         if not self.pipeline:
             return
@@ -981,7 +1040,8 @@ class MainWindow(QMainWindow):
 
         count = len(start_uuids)
 
-        progress = QProgressDialog(self.tr("Reprocessing..."), self.tr("Cancel"), 0, count, self)
+        label = self.tr("Reprocessing...") if not force_ocr else self.tr("Running OCR...")
+        progress = QProgressDialog(label, self.tr("Cancel"), 0, count, self)
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0) # Show immediately
         progress.forceShow() # Ensure visibility
@@ -995,7 +1055,8 @@ class MainWindow(QMainWindow):
              uuid_to_restore = self.pdf_viewer.current_uuid
              self.pdf_viewer.clear()
 
-        self.reprocess_worker = ReprocessWorker(self.pipeline, start_uuids)
+        self.reprocess_worker = ReprocessWorker(self.pipeline, start_uuids, force_ocr=force_ocr)
+        self.reprocess_errors = []
 
         # Connect Signals
         self.reprocess_worker.progress.connect(
@@ -1008,6 +1069,8 @@ class MainWindow(QMainWindow):
         self.reprocess_worker.finished.connect(
             lambda success, total, processed_uuids: self._on_reprocess_finished(success, total, processed_uuids, uuids, progress, uuid_to_restore)
         )
+
+        self.reprocess_worker.error.connect(lambda uid, msg: self.reprocess_errors.append(f"{uid}: {msg}"))
 
         progress.canceled.connect(self.reprocess_worker.cancel)
 
@@ -1043,6 +1106,19 @@ class MainWindow(QMainWindow):
         # Trigger Cockpit Refresh
         if hasattr(self, 'cockpit_widget') and self.cockpit_widget:
             self.cockpit_widget.refresh_stats()
+
+        # Phase 116 Error Reporting
+        if hasattr(self, 'reprocess_errors') and self.reprocess_errors:
+            error_count = len(self.reprocess_errors)
+            from gui.utils import show_notification
+            show_notification(
+                self, 
+                self.tr("Processing Error"), 
+                self.tr(f"{error_count} error(s) occurred during reprocessing. Check logs."),
+                duration=5000
+            )
+            # Clear errors for next run
+            self.reprocess_errors = []
 
         # Phase 107 Update: We NO LONGER add tasks manually to ai_worker.
         # The MainLoopWorker will pick up 'NEW' documents automatically.
@@ -1109,11 +1185,19 @@ class MainWindow(QMainWindow):
 
         is_batch = any(item[0] == "BATCH" for item in import_items if isinstance(item, tuple))
         
-        # Calculate effective total (including sub-items in batches)
+        # Calculate effective total (including sub-items and ingestion steps for batches)
         count = 0
         for item in import_items:
             if isinstance(item, tuple) and item[0] == "BATCH" and isinstance(item[1], list):
-                count += len(item[1])
+                # How many unique files in this batch?
+                unique_files = set()
+                for doc_instr in item[1]:
+                    for pg in doc_instr.get("pages", []):
+                        if "file_path" in pg:
+                            unique_files.add(pg["file_path"])
+                
+                # In batch mode, we have unique_files + len(instructions) steps
+                count += len(unique_files) + len(item[1])
             else:
                 count += 1
 
@@ -1133,9 +1217,17 @@ class MainWindow(QMainWindow):
 
         # Signals
         self.import_worker.progress.connect(
-            lambda i, fname: (
-                self.main_status_label.setText(self.tr(f"Importing {i+1}/{count}: {os.path.basename(fname)}...")),
-                progress.setValue(i)
+            lambda i, label: (
+                self.main_status_label.setText(self.tr(f"Importing {i+1}/{count}: {label}")),
+                progress.setValue(i+1)
+            )
+        )
+
+        # Incremental feedback during long batches
+        self.import_worker.document_imported.connect(
+            lambda uid: (
+                self.list_widget.refresh_list() if self.list_widget else None,
+                self.cockpit_widget.refresh_stats() if hasattr(self, "cockpit_widget") else None
             )
         )
 
@@ -2049,8 +2141,8 @@ class MainWindow(QMainWindow):
                 key = "DASH:" + json.dumps(query, sort_keys=True)
 
             self._cockpit_selections[key] = uuid
-        except:
-            pass
+        except Exception as e:
+            get_silent_logger().debug(f"Selection persistence failed: {e}")
 
     def _apply_navigation_filter(self, payload: dict):
         if self.advanced_filter:

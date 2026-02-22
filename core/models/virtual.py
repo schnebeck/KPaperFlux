@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from core.models.semantic import SemanticExtraction
 
 # --- Central Logging Setup ---
-logger = logging.getLogger("KPaperFlux.Model")
+from core.logger import get_logger, get_silent_logger
+logger = get_logger("Model")
 
 
 class SourceReference(BaseModel):
@@ -312,8 +313,8 @@ class VirtualDocument(BaseModel):
                 try:
                     parsed = json.loads(v)
                     if isinstance(parsed, list): return [str(t) for t in parsed]
-                except json.JSONDecodeError:
-                    pass # Not a JSON list, treat as comma-separated string
+                except json.JSONDecodeError as e:
+                    get_silent_logger().debug(f"Tag parsing: not a JSON list, falling back to comma-separated: {e}")
             return [t.strip() for t in v.split(",") if t.strip()]
         if isinstance(v, list): return [str(t) for t in v]
         return []
@@ -327,8 +328,8 @@ class VirtualDocument(BaseModel):
             try:
                 parsed = json.loads(v)
                 if isinstance(parsed, list): return [str(t) for t in parsed]
-            except json.JSONDecodeError:
-                pass # Not a JSON, treat as raw string
+            except json.JSONDecodeError as e:
+                get_silent_logger().debug(f"Tag list parsing: not JSON, treating as raw string: {e}")
             return [v]
         if isinstance(v, list): return [str(t) for t in v if t]
         return []

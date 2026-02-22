@@ -19,8 +19,8 @@ from typing import Optional, Dict
 # Root logger for the entire application
 APP_LOGGER_NAME = "kpaperflux"
 
-# Default format for log messages
-DEFAULT_FORMAT = "%(asctime)s [%(levelname).4s] %(name)s: %(message)s"
+# Default format for log messages (including filename and line number for high-fidelity debugging)
+DEFAULT_FORMAT = "%(asctime)s [%(levelname).4s] %(name)s (%(filename)s:%(lineno)d): %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 def setup_logging(
@@ -114,3 +114,10 @@ def log_sql_query(query: str, params: Optional[tuple] = None, result_count: int 
             msg += f" | PARAMS: {params}"
         msg += f" | RESULTS: {result_count}"
         logger.debug(msg)
+
+def get_silent_logger() -> logging.Logger:
+    """
+    Returns the specialized logger for refactored silent exceptions.
+    Use this to track legacy blocks that were previously hidden.
+    """
+    return get_logger("quality.silent")

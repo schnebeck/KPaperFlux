@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from core.logger import get_logger
+from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("scanner")
 
@@ -25,10 +25,10 @@ from PIL import Image
 
 try:
     import sane
-
     SANE_AVAILABLE = True
 except ImportError:
     SANE_AVAILABLE = False
+    logger.error("Scanner not available, python-sane not found")
 
 
 class ScannerDriver(ABC):
@@ -262,8 +262,8 @@ class SaneScanner(ScannerDriver):
             # SANE discovery can be flaky; re-init sometimes helps find devices that just went online
             try:
                 sane.init()
-            except Exception:
-                pass
+            except Exception as e:
+                get_silent_logger().debug(f"SANE init during discovery skip: {e}")
             devices = sane.get_devices()
             logger.info(f"[DEBUG] SANE discovered {len(devices)} devices: {devices}")
             return devices
@@ -749,8 +749,8 @@ class SaneScanner(ScannerDriver):
         if SANE_AVAILABLE:
             try:
                 sane.exit()
-            except Exception:
-                pass
+            except Exception as e:
+                get_silent_logger().debug(f"SANE exit failed: {e}")
 
 
 def get_scanner_driver(driver_type: str = "auto") -> ScannerDriver:

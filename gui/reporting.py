@@ -14,6 +14,10 @@ from gui.report_editor import ReportEditorWidget
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
 import math
 import os
+import logging
+from core.logger import get_logger, get_silent_logger
+
+logger = get_logger("gui.reporting")
 
 class ReportWorker(QThread):
     finished = pyqtSignal(dict)
@@ -1062,7 +1066,8 @@ class ReportingWidget(QWidget):
                 try:
                     p = label.split(" - ")
                     drill_cond = {"field": "amount", "op": "between", "value": f"{p[0]},{p[1]}"}
-                except: pass
+                except Exception as e:
+                    get_silent_logger().debug(f"Reporting: Drill-down label split failed for '{label}': {e}")
             else:
                 drill_cond = {"field": group_field, "op": "equals", "value": label}
 

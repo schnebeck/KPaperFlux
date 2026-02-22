@@ -17,6 +17,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint, QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
 import json
+from core.logger import get_logger
+logger = get_logger("gui.advanced_filter")
 
 # Projekt-Imports
 try:
@@ -35,7 +37,7 @@ try:
     from gui.workers import BatchTaggingWorker
     from core.workflow import WorkflowRuleRegistry
 except ImportError as e:
-    print(f"Warnung: Importfehler in advanced_filter.py: {e}")
+    logger.warning(f"Import error in advanced_filter.py: {e}")
     # --- MOCKS START ---
     # ... (Mocks bleiben zur Sicherheit drin, gekürzt für Übersicht)
     class FilterManagerDialog(QDialog):
@@ -743,6 +745,14 @@ class AdvancedFilterWidget(QWidget):
                 if other != btn:
                     other.setChecked(False)
             self.stack.setCurrentIndex(index)
+            # Phase 131: Trigger breadcrumb update on tab change
+            if index == 0: # Search
+                self.search_triggered.emit(self.txt_smart_search.text())
+            elif index == 1: # Filter
+                self._emit_change()
+            
+            # Phase 131: Literal for l10n tool detection
+            _ = self.tr("Advanced Filter")
         
         self._update_stack_visibility()
     def _update_stack_visibility(self):
@@ -832,7 +842,7 @@ class AdvancedFilterWidget(QWidget):
                 }
                 scope_msg = self.tr("in current view")
 
-        print(f"[Search-Debug] Final Query: {json.dumps(final_query)}")
+        print(f"[Search-Debug] Final Query: {final_query}")
 
         # 4. Count & Feedback
         count = 0
@@ -844,12 +854,21 @@ class AdvancedFilterWidget(QWidget):
 
         print(f"[Search-Debug] Count Result: {count}")
         
-        status_msg = self.tr(f"{count} Documents found ({scope_msg})")
-        if count > 0 and self.db_manager and text:
-            # Phase 106: Count total occurrences
-            total_hits = self.db_manager.count_total_text_occurrences_advanced(final_query, text)
-            if total_hits > 0:
-                status_msg = self.tr(f"{total_hits} matches in {count} documents")
+        if count == 0:
+            status_msg = self.tr("No documents found")
+        else:
+            # Base message: "X documents found"
+            status_msg = self.tr("%1 documents found").replace("%1", str(count))
+            
+            if self.db_manager and text:
+                # Phase 106: Count total occurrences
+                total_hits = self.db_manager.count_total_text_occurrences_advanced(final_query, text)
+                if total_hits >= count:
+                    # Clearer format: "X documents found (Y occurrences)"
+                    status_msg = self.tr("%1 documents found (%2 occurrences)") \
+                                     .replace("%1", str(count)) \
+                                     .replace("%2", str(total_hits))
+                # If total_hits < count, we stick to the base message to avoid confusion
 
         self.lbl_search_status.setText(status_msg)
         self.lbl_search_status.setStyleSheet("color: green;" if count > 0 else "color: red;")
@@ -1374,6 +1393,12 @@ class AdvancedFilterWidget(QWidget):
             self.btn_hit_prev.setVisible(False)
             self.btn_hit_next.setVisible(False)
 
+    def clear_search(self):
+        """Clears all search-related UI elements."""
+        self.txt_smart_search.clear()
+        self.lbl_search_status.setText("")
+        self.update_hit_status(0, 0)
+
     def retranslate_ui(self):
         """Updates all UI strings for on-the-fly localization."""
         # Modes - Use literals so pylupdate6 finds them
@@ -1383,6 +1408,8 @@ class AdvancedFilterWidget(QWidget):
         
         # Search Tab
         self.lbl_search_header.setText(self.tr("Query:"))
+        # Phase 131: Explicitly set "Advanced Filter" translation for breadcrumb context
+        # This will be picked up by DocumentListWidget.update_breadcrumb indirectly
         self.txt_smart_search.setPlaceholderText(self.tr("e.g. Amazon 2024 Invoice..."))
         self.btn_apply_search.setText("🔍")
         self.chk_search_scope.setText(self.tr("Search in current view only"))

@@ -1,5 +1,6 @@
 from decimal import Decimal
 from typing import Any, Union
+from core.logger import get_silent_logger
 
 def format_currency(val: Union[float, Decimal, str], currency: str = "€", locale: str = "de") -> str:
     """
@@ -46,6 +47,6 @@ def format_date(val: Any, locale: str = "de") -> str:
                 return dt.strftime("%d.%m.%Y")
             else:
                 return dt.strftime("%Y-%m-%d") # ISO standard for EN
-        except:
-            pass
+        except Exception as e:
+            get_silent_logger().debug(f"Failed to parse date '{val_str}': {e}")
     return val_str

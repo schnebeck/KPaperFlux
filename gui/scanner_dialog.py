@@ -10,6 +10,9 @@ from core.scanner import get_scanner_driver, ScannerDriver
 import os
 import tempfile
 import pikepdf
+import logging
+
+logger = logging.getLogger("KPaperFlux.Scanner")
 
 class DeviceDiscoveryWorker(QThread):
     finished = pyqtSignal(list)
@@ -80,7 +83,8 @@ class ScannerWorker(QThread):
                         with pikepdf.open(p) as src:
                             combined.pages.extend(src.pages)
                         try: os.remove(p)
-                        except: pass
+                        except Exception as e:
+                            logger.debug(f"Failed to remove temp page {p}: {e}")
                     combined.save(out_path)
                 self.finished.emit(out_path)
         except Exception as e:
@@ -291,15 +295,15 @@ class ScannerDialog(QDialog):
         # Check cache first
         cached_caps = self._get_cached_caps(device_id)
         if cached_caps:
-             print(f"[DEBUG] ScannerDialog: Using cached capabilities for {device_id}")
+             logger.debug(f"Using cached capabilities for {device_id}")
              self.device_caps = cached_caps
              self._apply_capabilities(cached_caps)
              # Refresh in background anyway to stay up-to-date
-             print(f"[DEBUG] ScannerDialog: Refreshing capabilities in background...")
+             logger.debug(f"Refreshing capabilities in background...")
              self._fetch_device_details(device_id, background=True)
              return
 
-        print(f"[DEBUG] ScannerDialog: No cache for {device_id}, performing initial fetch...")
+        logger.debug(f"No cache for {device_id}, performing initial fetch...")
         self.stack.setCurrentIndex(0)
         self.loading_label.setText(self.tr(f"Lade Geräteoptionen für {self.device_combo.currentText()}..."))
         self._fetch_device_details(device_id)
@@ -333,12 +337,12 @@ class ScannerDialog(QDialog):
         self._save_cached_caps(device_id, caps)
         
         if not background:
-            print(f"[DEBUG] ScannerDialog: capabilities loaded (Foreground): {list(caps.get('resolutions', {}).keys())}")
+            logger.debug(f"capabilities loaded (Foreground): {list(caps.get('resolutions', {}).keys())}")
             self._apply_capabilities(caps)
             self.stack.setCurrentIndex(1)
             QTimer.singleShot(100, self.adjustSize)
         else:
-            print(f"[DEBUG] ScannerDialog: capabilities refreshed (Background)")
+            logger.debug(f"capabilities refreshed (Background)")
             # If we loaded in background, update CMDS if we are currently on the same device
             if self.device_combo.currentData() == device_id:
                 # Silently update sources if they changed
@@ -370,21 +374,21 @@ class ScannerDialog(QDialog):
         self.detail_loading = False
         if self.stack.currentIndex() == 0:
             self.stack.setCurrentIndex(1)
-        print(f"Capability fetch error: {msg}")
+        logger.warning(f"Capability fetch error: {msg}")
 
     def _on_source_changed(self, index):
         """Update UI based on source (e.g. Duplex options and resolutions)."""
         src = self.source_combo.currentText()
         if not src: return
 
-        print(f"[DEBUG] ScannerDialog: Source changed to '{src}'")
+        logger.debug(f"Source changed to '{src}'")
         # 1. Handle Duplex UI
         is_duplex = any(kw in src for kw in ["Duplex", "Beidseitig", "Zweiseitig"])
         self.duplex_settings.setVisible(is_duplex)
         
         # 2. Use cached resolutions if available
         res_list = self.device_caps.get("resolutions", {}).get(src, [75, 150, 200, 300, 600])
-        print(f"[DEBUG] ScannerDialog: Loading {len(res_list)} resolutions from cache for '{src}'")
+        logger.debug(f"Loading {len(res_list)} resolutions from cache for '{src}'")
             
         self.dpi_combo.blockSignals(True)
         self.dpi_combo.clear()
@@ -426,7 +430,7 @@ class ScannerDialog(QDialog):
         self._start_discovery()
         
     def _on_devices_found(self, devices):
-        print(f"[DEBUG] ScannerDialog received {len(devices)} devices: {devices}")
+        logger.debug(f"ScannerDialog received {len(devices)} devices: {devices}")
         self.discovery_running = False
         saved_id = self.settings.value("last_device_id")
         

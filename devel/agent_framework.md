@@ -11,6 +11,10 @@ Produce **Clean Code** while strictly adhering to Test-Driven Development (TDD).
 **Strict English Policy:** 
 All code, documentation, variable names, function names, class names, comments, docstrings, and commit messages must be in **English**. Even when communicating with the user in German, all artifacts and repository content remain English.
 
+**Forbidden Manual Edits:**
+*   **`.ts` files:** (e.g., `gui_strings.ts`) Manual manipulation/direct editing via code-edit tools or `sed` is **strictly forbidden**. These files must only be updated via the official l10n workflow (extraction via `pylupdate6` and population via `fill_l10n.py` or programmatic use of `L10nTool`).
+*   **`tools/fill_l10n.py`:** Manual manipulation of the mapping logic is forbidden.
+
 **Mandatory Reading:** Before starting any task, read:
 1. `kpaperflux_specification.md` (What are we building?)
 2. `coding_rules_python.md` (How do we write code?)

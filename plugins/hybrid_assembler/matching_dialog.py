@@ -4,6 +4,8 @@ import fitz
 import cv2
 import numpy as np
 import json
+from core.logger import get_logger, get_silent_logger
+logger = get_logger("HybridPlugin")
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog,
@@ -52,7 +54,8 @@ class MatchWorker(QThread):
                 cache_100[p] = self.engine.pdf_page_to_numpy(doc, 0, dpi=100)
                 cache_150[p] = self.engine.pdf_page_to_numpy(doc, 0, dpi=150)
                 doc.close()
-            except: pass
+            except Exception as e:
+                get_silent_logger().warning(f"Rendering failed for {p}: {e}")
 
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=4) as executor:
@@ -97,7 +100,7 @@ class MatchWorker(QThread):
                     needs_refinement = False
 
             if needs_refinement:
-                print(f"[DEBUG] Scan {os.path.basename(scan_file)}: Triggering 150 DPI Refinement (Stage 1 Best: {int(best_score)})")
+                logger.debug(f"Scan {os.path.basename(scan_file)}: Triggering 150 DPI Refinement (Stage 1 Best: {int(best_score)})")
                 scan_img_150 = cache_150.get(scan_file)
                 final_candidates = []
                 for native_file, _ in candidates[:REFINEMENT_COUNT]:
@@ -111,9 +114,9 @@ class MatchWorker(QThread):
                 
                 final_candidates.sort(key=lambda x: x[1])
                 best_native, best_score = final_candidates[0]
-                print(f"[DEBUG] -> Stage 2 Final: {os.path.basename(best_native)} with Score {int(best_score)}")
+                logger.debug(f" -> Stage 2 Final: {os.path.basename(best_native)} with Score {int(best_score)}")
             else:
-                print(f"[DEBUG] Scan {os.path.basename(scan_file)}: Finalized at 100 DPI (Confident Match, Score: {int(best_score)})")
+                logger.debug(f"Scan {os.path.basename(scan_file)}: Finalized at 100 DPI (Confident Match, Score: {int(best_score)})")
 
             # Pool management & Decision
             status = "Mismatch"
@@ -195,7 +198,7 @@ class MatchingDialog(QDialog):
 
     def closeEvent(self, event):
         """Cleanup on close: stop all threads and batch processes."""
-        print("[Hybrid] Closing dialog. Cleaning up processes...")
+        logger.info("Closing hybrid matching dialog. Cleaning up processes...")
         
         # 1. Stop MatchWorker
         if hasattr(self, 'worker') and self.worker.isRunning():
@@ -311,6 +314,7 @@ class MatchingDialog(QDialog):
         self.worker.status_msg.connect(self.lbl_status.setText)
         self.worker.match_found.connect(self.on_match_found) # REAL-TIME STREAMING
         self.worker.finished.connect(self.on_finished)
+        logger.info(f"Starting hybrid analysis for folder: {self.current_folder}")
         self.worker.start()
 
     def on_progress(self, current, total):
@@ -545,7 +549,8 @@ class MatchingDialog(QDialog):
                 try:
                     os.remove(res["scan"])
                     os.remove(res["native"])
-                except: pass
+                except Exception as e:
+                    get_silent_logger().warning(f"Failed to delete original {res['scan']} or {res['native']}: {e}")
         else:
             QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to merge: %1").replace("%1", os.path.basename(out_path)))
 

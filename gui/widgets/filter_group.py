@@ -1,13 +1,16 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QComboBox, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, QEvent
+from core.logger import get_logger
+logger = get_logger("gui.widgets.filter_group")
 
 # Core Import: Jetzt sauber möglich, da ausgelagert!
 try:
     from gui.widgets.filter_condition import FilterConditionWidget
-except ImportError:
-    # Falls das Modul noch nicht existiert (während des Refactorings)
-    FilterConditionWidget = None
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in filter_group.py: {e}")
+    sys.exit(1)
 
 class FilterGroupWidget(QWidget):
     """
@@ -96,14 +99,13 @@ class FilterGroupWidget(QWidget):
         self.btn_add_group.setText(self.tr("+ Group"))
         if self.btn_remove:
             self.btn_remove.setText(self.tr("Remove Group"))
-        
         for child in self.children_widgets:
             if hasattr(child, "retranslate_ui"):
                 child.retranslate_ui()
 
     def add_condition(self, data=None):
         if not FilterConditionWidget:
-            print("Error: FilterConditionWidget class not found.")
+            logger.error("FilterConditionWidget class not found.")
             return
 
         child = FilterConditionWidget(self,

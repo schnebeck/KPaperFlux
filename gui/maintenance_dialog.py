@@ -3,6 +3,8 @@ from PyQt6.QtWidgets import (
     QPushButton, QHBoxLayout, QMessageBox, QLabel, QListWidgetItem
 )
 from PyQt6.QtCore import Qt, QEvent
+from core.logger import get_logger
+logger = get_logger("gui.maintenance_dialog")
 import os
 from pathlib import Path
 
@@ -13,14 +15,10 @@ from core.pipeline import PipelineProcessor
 # Hilfsfunktion für Message Boxen (Fallback)
 try:
     from gui.utils import show_selectable_message_box
-except ImportError:
-    def show_selectable_message_box(parent, title, text, icon=QMessageBox.Icon.Information, buttons=QMessageBox.StandardButton.Ok):
-        msg = QMessageBox(parent)
-        msg.setWindowTitle(title)
-        msg.setText(text)
-        msg.setIcon(icon)
-        msg.setStandardButtons(buttons)
-        return msg.exec()
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in maintenance_dialog.py (gui.utils): {e}")
+    sys.exit(1)
 
 class MaintenanceDialog(QDialog):
     def __init__(self, parent, integrity_manager: IntegrityManager, pipeline: PipelineProcessor):

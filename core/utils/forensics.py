@@ -14,6 +14,7 @@ import fitz
 import os
 from enum import Enum
 from typing import Optional
+from core.logger import get_silent_logger
 
 class PDFClass(Enum):
     """Classification according to Hybrid Protection Standard."""
@@ -78,7 +79,7 @@ def get_pdf_class(file_path: str) -> PDFClass:
             return PDFClass.ZUGFERD
             
     except Exception as e:
-        print(f"[Forensics] Error analyzing PDF class for {file_path}: {e}")
+        get_silent_logger().debug(f"Forensics: Error analyzing PDF class for {file_path}: {e}")
         
     return PDFClass.STANDARD
 
@@ -101,7 +102,7 @@ def check_pdf_immutable(file_path: str) -> bool:
                 doc.close()
                 return True
         doc.close()
-    except:
-        pass
+    except Exception as e:
+        get_silent_logger().debug(f"Forensics: Error checking metadata for {file_path}: {e}")
         
     return False

@@ -221,8 +221,10 @@ class ReportGenerator:
                         if doc.semantic_data: doc_val = doc.semantic_data.get_financial_value(agg.field)
                     
                     if doc_val is not None:
-                        try: total += Decimal(str(doc_val))
-                        except: pass
+                        try:
+                            total += Decimal(str(doc_val))
+                        except Exception as e:
+                            logger.warning(f"Invalid monetary value '{doc_val}' in {agg.field}: {e}")
                 field_totals[agg.field] = total
 
         for key in sorted_keys:
@@ -242,8 +244,10 @@ class ReportGenerator:
                         if doc.semantic_data: doc_val = doc.semantic_data.get_financial_value(agg.field)
                     
                     if doc_val is not None:
-                        try: vals.append(Decimal(str(doc_val)))
-                        except: pass
+                        try:
+                            vals.append(Decimal(str(doc_val)))
+                        except Exception as e:
+                            logger.warning(f"Invalid monetary value '{doc_val}' in {agg.field}: {e}")
 
                 # Apply OP
                 result_val = Decimal("0.00")

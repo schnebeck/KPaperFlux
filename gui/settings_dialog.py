@@ -7,6 +7,8 @@ import json
 import sys
 from typing import Optional
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QEvent, QCoreApplication
+from core.logger import get_logger
+logger = get_logger("gui.settings_dialog")
 
 # Core Imports
 from core.config import AppConfig
@@ -16,24 +18,18 @@ from core.ai_analyzer import AIAnalyzer
 # Hinweis: Falls diese Module fehlen, muss die Dateistruktur entsprechend existieren.
 try:
     from gui.vocabulary_settings import VocabularySettingsWidget
-except ImportError:
-    # Fallback Widget für Tests
-    class VocabularySettingsWidget(QWidget):
-        def __init__(self):
-            super().__init__()
-            QVBoxLayout(self).addWidget(QLabel("Vocabulary Settings Placeholder"))
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in settings_dialog.py (VocabularySettingsWidget): {e}")
+    sys.exit(1)
 
 # Hilfsfunktion für Message Boxen (Fallback, falls gui.utils fehlt)
 try:
     from gui.utils import show_selectable_message_box
-except ImportError:
-    def show_selectable_message_box(parent, title, text, icon=QMessageBox.Icon.Information, buttons=QMessageBox.StandardButton.Ok):
-        msg = QMessageBox(parent)
-        msg.setWindowTitle(title)
-        msg.setText(text)
-        msg.setIcon(icon)
-        msg.setStandardButtons(buttons)
-        return msg.exec()
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in settings_dialog.py (gui.utils): {e}")
+    sys.exit(1)
 
 class SettingsDialog(QDialog):
 

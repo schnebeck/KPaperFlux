@@ -94,7 +94,8 @@ class ProfessionalPdfRenderer:
             if os.path.exists(path):
                 try:
                     with open(path, "r", encoding="utf-8") as f: return json.load(f)
-                except: pass
+                except Exception as e:
+                    logger.warning(f"Failed to load units from {path}: {e}")
         return {}
 
     def render_document(self, data: SemanticExtraction):

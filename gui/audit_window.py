@@ -1,4 +1,5 @@
-import logging
+from core.logger import get_logger, get_silent_logger
+logger = get_logger("gui.audit_window")
 import tempfile
 import os
 from datetime import datetime
@@ -12,8 +13,10 @@ from PyQt6.QtCore import Qt, pyqtSignal, QMarginsF, QEvent, QSettings
 from PyQt6.QtGui import QFont, QTextDocument, QPageLayout
 try:
     from PyQt6.QtPrintSupport import QPrinter
-except ImportError:
-    QPrinter = None
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in audit_window.py (PyQt6.QtPrintSupport): {e}")
+    sys.exit(1)
 
 from core.models.virtual import VirtualDocument as Document
 from core.semantic_renderer import SemanticRenderer
@@ -22,7 +25,7 @@ from gui.widgets.workflow_controls import WorkflowControlsWidget
 from gui.pdf_viewer import PdfViewerWidget
 from gui.workers import SemanticRenderingWorker
 
-logger = logging.getLogger("KPaperFlux.Audit")
+logger = get_logger("Audit")
 
 class AuditWindow(QMainWindow):
     """
@@ -302,7 +305,8 @@ class AuditWindow(QMainWindow):
             try:
                 if os.path.exists(f):
                     os.remove(f)
-            except: pass
+            except Exception as e:
+                get_silent_logger().debug(f"Audit: Could not remove temp file {f}: {e}")
         self.temp_files = []
         
         self.closed.emit()

@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction
-from core.logger import get_logger, log_sql_query
+from core.logger import get_logger, log_sql_query, get_silent_logger
 
 # --- Central Logging Setup ---
 logger = get_logger("database")
@@ -393,10 +393,10 @@ class DatabaseManager:
                         data = json.loads(row[0])
                         if isinstance(data, dict):
                              self._extract_keys_recursive(data, keys, prefix="semantic:")
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-        except sqlite3.Error:
-            pass
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.warning(f"[DB] Corruption in semantic_data for row: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"[DB] get_all_semantic_keys failed: {e}")
 
         # 2. Extract from Stamp Labels
         for label in self.get_unique_stamp_labels():
@@ -843,6 +843,14 @@ class DatabaseManager:
             if isinstance(val, list) and len(val) == 2:
                 return f"{expr} BETWEEN ? AND ?", [val[0], val[1]]
 
+        if op == "in":
+            if not val:
+                return "1=0", [] # Nothing matches an empty set
+            if isinstance(val, (list, tuple, set)):
+                placeholders = ", ".join(["?" for _ in val])
+                return f"{expr} COLLATE NOCASE IN ({placeholders})", list(val)
+            return f"{expr} = ? COLLATE NOCASE", [val]
+
         return "1=1", []
 
     def get_all_entities_view(self) -> List[Document]:
@@ -888,7 +896,8 @@ class DatabaseManager:
                 if isinstance(data_in, (bytes, str)):
                     return json.loads(data_in)
                 return data_in
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError) as e:
+                get_silent_logger().debug(f"JSON failure in database Row hydration: {e}")
                 return default
 
         type_tags = safe_json_load(data.get("type_tags"), [])
@@ -1162,8 +1171,8 @@ class DatabaseManager:
                             for t in tags_list:
                                 if t and isinstance(t, str):
                                     tag_counts[t] = tag_counts.get(t, 0) + 1
-                    except (json.JSONDecodeError, TypeError):
-                        pass
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.debug(f"[DB] Skipping invalid tag JSON: {e}")
         except Exception as e:
             print(f"[WARN] get_all_tags_with_counts failed: {e}")
             
@@ -1286,10 +1295,10 @@ class DatabaseManager:
                     if isinstance(data, list):
                         for t in data:
                             tags.add(str(t))
-                except (json.JSONDecodeError, TypeError):
-                    pass
-        except sqlite3.Error:
-            pass
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.debug(f"[DB] Skipping invalid tag list: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"[DB] get_all_tags query failed: {e}")
         return sorted(list(tags))
 
     def count_documents(self) -> int:
@@ -1376,7 +1385,8 @@ class DatabaseManager:
             try:
                  self._connect()
                  self.init_db()
-            except: pass
+            except Exception as e:
+                 logger.error(f"Critical recovery failed: {e}")
             return False
 
     def get_source_mapping_from_entity(self, entity_uuid: str) -> Optional[List[Dict[str, Any]]]:
@@ -1402,7 +1412,8 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute(sql)
             return [row[0] for row in cursor.fetchall()]
-        except Exception:
+        except Exception as e:
+            get_silent_logger().debug(f"Silent exception in stamp label aggregation: {e}")
             return []
             
     def get_source_uuid_from_entity(self, entity_uuid: str) -> Optional[str]:

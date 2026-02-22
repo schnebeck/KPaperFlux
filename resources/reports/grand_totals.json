@@ -1,14 +1,15 @@
 {
-    "id": "grand_totals",
-    "name": "Grand Totals (Gross)",
-    "description": "Sum of all archived documents.",
-    "aggregations": [
-        {
-            "field": "amount",
-            "op": "sum"
-        }
-    ],
-    "visualizations": [
-        "table"
-    ]
+  "id": "grand_totals",
+  "name": "Grand Totals (Gross)",
+  "description": "Sum of all archived documents.",
+  "filter_query": {},
+  "group_by": null,
+  "aggregations": [
+    {
+      "field": "amount",
+      "op": "sum"
+    }
+  ],
+  "visualizations": [],
+  "components": []
 }

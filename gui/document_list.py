@@ -95,8 +95,10 @@ class DocumentListWidget(QWidget):
     save_list_requested = pyqtSignal(str, list) # name, uuids
     restore_requested = pyqtSignal(list) # Phase 92: Trash Restore
     apply_rule_requested = pyqtSignal(object, str) # rule_node, scope ("SELECTED")
+    re_ocr_requested = pyqtSignal(list)
     show_generic_requested = pyqtSignal(str) # UUID
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
+    search_cleared = pyqtSignal()       # Signal for global reset sync
     TAG_MAPPING = {
         "CTX_PRIVATE": "Private",
         "CTX_BUSINESS": "Business",
@@ -193,9 +195,26 @@ class DocumentListWidget(QWidget):
         bc_layout.addStretch()
 
         self.btn_reset_view = QPushButton("×")
-        self.btn_reset_view.setToolTip(self.tr("Reset View / Show All"))
-        self.btn_reset_view.setFixedSize(20, 20)
-        self.btn_reset_view.setStyleSheet("font-weight: bold; border-radius: 10px; border: none; background: #eee;")
+        self.btn_reset_view.setToolTip(self.tr("Show All"))
+        self.btn_reset_view.setFixedSize(22, 22)  # Slightly larger
+        self.btn_reset_view.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_reset_view.setStyleSheet("""
+            QPushButton {
+                font-weight: bold;
+                font-size: 16px;
+                border-radius: 11px;
+                border: none;
+                background-color: #d32f2f;
+                color: white;
+                padding-bottom: 2px;
+            }
+            QPushButton:hover {
+                background-color: #f44336;
+            }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
+        """)
         self.btn_reset_view.clicked.connect(self.clear_filters)
         bc_layout.addWidget(self.btn_reset_view)
 
@@ -574,6 +593,7 @@ class DocumentListWidget(QWidget):
             edit_action = menu.addAction(self.tr("Edit Document..."))
 
         reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
+        re_ocr_action = menu.addAction(self.tr("Force OCR / Searchable PDF"))
         
         # Phase 112: Debug Option
         debug_action = None
@@ -653,6 +673,8 @@ class DocumentListWidget(QWidget):
 
         if action == reprocess_action:
             self.reprocess_requested.emit(uuids)
+        elif action == re_ocr_action:
+            self.re_ocr_requested.emit(uuids)
         elif action == extract_selection_action:
             self.stage2_requested.emit(uuids)
         elif action == extract_view_action:
@@ -814,13 +836,18 @@ class DocumentListWidget(QWidget):
         self.tree.blockSignals(True)
         restored = False
 
-        # 1. Higher Priority: Explicit Target ( from Cockpit or Re-analysis)
-        if self.target_uuid_to_restore:
+        # 1. Highest Priority: Force Select First (e.g. for new searches or context changes)
+        if force_select_first and docs:
+             self.selectRow(0)
+             restored = True
+
+        # 2. Priority: Explicit Target ( from Cockpit or Re-analysis)
+        if not restored and self.target_uuid_to_restore:
              self.select_document(self.target_uuid_to_restore)
              self.target_uuid_to_restore = None
              restored = bool(self.tree.selectedItems())
 
-        # 2. Medium Priority: Previous Selection
+        # 3. Medium Priority: Previous Selection
         if not restored and selected_uuids:
              for uuid in selected_uuids:
                   self.select_document(uuid)
@@ -832,18 +859,13 @@ class DocumentListWidget(QWidget):
                                break
              restored = bool(self.tree.selectedItems())
 
-        # 3. Medium-Low Priority: Positional Persistence (Phase 105: Next Item logic)
+        # 4. Medium-Low Priority: Positional Persistence (Phase 105: Next Item logic)
         # If the doc moved out of filter, select the one now at the same row
         if not restored and current_row_index >= 0 and docs:
              target_index = min(current_row_index, self.tree.topLevelItemCount() - 1)
              if target_index >= 0:
                  self.selectRow(target_index)
                  restored = True
-
-        # 4. Fallback: First Document (Prevent Gray Canvas)
-        if not restored and force_select_first and docs:
-             self.selectRow(0)
-             restored = True
 
         self.tree.blockSignals(False)
 
@@ -1122,6 +1144,7 @@ class DocumentListWidget(QWidget):
              uid = item.data(1, Qt.ItemDataRole.UserRole)
              if uid in uuid_set and not item.isHidden():
                  item.setSelected(True)
+                 self.tree.scrollToItem(item)
 
     def apply_advanced_filter(self, query: dict, label: Optional[str] = None):
         """Apply advanced search query."""
@@ -1158,13 +1181,18 @@ class DocumentListWidget(QWidget):
             self.show_trash_bin(False, refresh=False) # Ensure we leave trash mode
             self.current_filter_text = None # Clear simple text search
 
-            # Smart Labeling for Breadcrumb
+            # PHASE 131: Use LITERALS for internal state!
             if label:
                  self.view_context = label
+            # Detect if this is a search (contains _meta_fulltext)
+            elif query and "_meta_fulltext" in query:
+                 self.view_context = "Search"
+                 self.current_filter_text = query["_meta_fulltext"] # Ensure breadcrumb sees it
             elif query and "field" in query and query["field"] == "uuid" and query["op"] == "in":
-                 self.view_context = "Manual Selection" # Usually from Cockpit or Maintenance
+                 self.view_context = "Manual Selection"
             else:
                  self.view_context = "Advanced Filter"
+                 self.current_filter_text = None # Clear simple text search if real filter applied
 
         self.update_breadcrumb()
         # Phase 105: Handled inside refresh_list logic
@@ -1400,35 +1428,52 @@ class DocumentListWidget(QWidget):
 
     def update_breadcrumb(self):
         """Update breadcrumb label based on current state."""
-        base = self.tr("Documents")
-        path = [base]
+        # Internal state should be literals. Translation happens HERE.
+        try:
+            base = self.tr("Documents")
+            path = [base]
 
-        if self.is_trash_mode:
-            path.append(self.tr("Trash Bin"))
-        elif self.view_context:
-            if self.view_context != "All Documents":
-                path.append(self.tr(self.view_context))
+            if self.is_trash_mode:
+                path.append(self.tr("Trash Bin"))
+            elif self.view_context:
+                # Comparison against literal or translated (if setting was via self.tr already)
+                if self.view_context == "All Documents" or self.view_context == self.tr("All Documents"):
+                    pass # Base only
+                elif self.view_context == "Search":
+                    path.append(self.tr("Search"))
+                elif self.view_context == "Advanced Filter":
+                    path.append(self.tr("Advanced Filter"))
+                elif self.view_context == "Manual Selection":
+                    path.append(self.tr("Manual Selection"))
+                elif self.view_context == "Trash Bin":
+                    path.append(self.tr("Trash Bin"))
+                else:
+                    path.append(self.tr(self.view_context))
 
-        # Add Search context if present
-        if getattr(self, "current_filter_text", None):
-             path.append(f"{self.tr('Search')}: '{self.current_filter_text}'")
+            # Add Search namespace if current_filter_text is present but not already in path
+            filter_text = getattr(self, "current_filter_text", None)
+            if filter_text and self.tr("Search") not in path:
+                 path.append(self.tr("Search"))
 
-        self.lbl_breadcrumb.setText(" > ".join(path))
+            self.lbl_breadcrumb.setText(" > ".join(path))
+            
+            # Color Coding for better orientation
+            color = "#555"
+            if self.is_trash_mode:
+                color = "#d32f2f"
+            elif "Semantic" in str(self.view_context) or "Missing" in str(self.view_context):
+                color = "#f57c00"
+            elif len(path) > 1:
+                color = "#1976d2"
+            self.lbl_breadcrumb.setStyleSheet(f"font-weight: bold; color: {color};")
+            
+            # Show/Hide Reset Button
+            is_active = len(path) > 1 or bool(filter_text)
+            self.btn_reset_view.setVisible(is_active)
 
-        # Color Coding for better orientation
-        color = "#555" # Default Gray
-        if self.is_trash_mode:
-            color = "#d32f2f" # Red
-        elif "Semantic" in self.view_context or "Missing" in self.view_context:
-            color = "#f57c00" # Orange
-        elif len(path) > 1:
-            color = "#1976d2" # Blue (Search/Filter)
-
-        self.lbl_breadcrumb.setStyleSheet(f"font-weight: bold; color: {color};")
-
-        # Show/Hide Reset Button
-        is_active = len(path) > 1 or getattr(self, "current_filter_text", None)
-        self.btn_reset_view.setVisible(bool(is_active))
+        except Exception as e:
+            logger.error(f"Breadcrumb update failed: {e}")
+            self.lbl_breadcrumb.setText(self.tr("Documents"))
 
     def clear_filters(self):
         """Reset all filters and view context."""
@@ -1438,6 +1483,7 @@ class DocumentListWidget(QWidget):
         self.view_context = "All Documents"
         self.show_trash_bin(False, refresh=True)
         self.update_breadcrumb()
+        self.search_cleared.emit()
 
     def set_view_context(self, label: str):
         """Explicitly set a context label for the breadcrumb."""

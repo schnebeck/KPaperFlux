@@ -12,20 +12,16 @@ from PyQt6.QtGui import (
 )
 import fitz  # PyMuPDF for thumbnails
 import os
-import json
+from core.logger import get_logger, get_silent_logger
+logger = get_logger("gui.widgets.splitter_strip")
 
 # Fallback für Utils, falls das Modul nicht im Pfad ist
 try:
     from gui.utils import show_selectable_message_box
-except ImportError:
-    from PyQt6.QtWidgets import QMessageBox
-    def show_selectable_message_box(parent, title, text, icon=QMessageBox.Icon.Information, buttons=QMessageBox.StandardButton.Ok):
-        msg = QMessageBox(parent)
-        msg.setWindowTitle(title)
-        msg.setText(text)
-        msg.setIcon(icon)
-        msg.setStandardButtons(buttons)
-        return msg.exec()
+except ImportError as e:
+    import sys
+    logger.error(f"Critical internal import failed in splitter_strip.py (gui.utils): {e}")
+    sys.exit(1)
 
 class SplitDividerWidget(QWidget):
     """
@@ -814,8 +810,8 @@ class SplitterStripWidget(QWidget):
                     t = all_thumbs[i]
                     t.set_selected(True)
                     self.selected_widgets.append(t)
-            except ValueError:
-                pass
+            except ValueError as e:
+                get_silent_logger().debug(f"Range selection lookup failed: {e}")
         else:
             for w in self.selected_widgets:
                 w.set_selected(False)
