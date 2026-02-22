@@ -37,3 +37,14 @@ def test_category_filtering():
     assert len(basis_tokens) > 0
     for t in basis_tokens:
         assert t.category == "basis"
+
+def test_beautify_key():
+    translator = SemanticTranslator.instance()
+    # Case 1: Known translation (stripping prefix)
+    assert translator.beautify_key("semantic:doc_date") == "Document Date"
+    # Case 2: Technical segment mapping
+    assert translator.beautify_key("semantic:bodies.finance_body") == "Contents > Financial Data"
+    # Case 3: Fallback (Titulize)
+    assert translator.beautify_key("something_custom") == "Something Custom"
+    # Case 4: Deep nesting
+    assert translator.beautify_key("a.b.c") == "A > B > C"

@@ -201,22 +201,48 @@ class FilterConditionWidget(QWidget):
                                 action.triggered.connect(lambda checked, k=key, n=f"{type_label} > {f_label}": self._set_field(k, n))
 
             elif cat_id == "raw":
+                # Phase 135: Filter out keys already covered by other categories
+                known_keys = set()
+                # 1. Standard tokens
+                for t in registry.get_all_tokens():
+                    known_keys.add(t.id)
+                # 2. AI Semantic fields
+                config = MetadataNormalizer.get_config() or {}
+                for t_name, t_def in config.get("types", {}).items():
+                    for f in t_def.get("fields", []):
+                        for s in f.get("strategies", []):
+                            if s["type"] == "json_path":
+                                known_keys.add(f"semantic:{s['path']}")
+
                 # Build nested menus for dotted keys
-                sorted_keys = sorted([k for k in self.extra_keys if not k.startswith("stamp_field:")])
+                # Filter out known keys and stamp fields
+                raw_keys = [k for k in self.extra_keys if k not in known_keys and not k.startswith("stamp_field:")]
+                sorted_keys = sorted(raw_keys)
+                
                 menus = {"": cat_menu}
                 for k in sorted_keys:
                     parts = k.split(".")
+                    # If it starts with semantic:, strip it for the menu structure if desired, 
+                    # but here we keep the structure for DOT-navigation
+                    
                     current_path = ""
                     for i in range(len(parts) - 1):
                         parent_path = current_path
                         part = parts[i]
+                        # Beautify the folder name
+                        display_part = translator.beautify_key(part) if i == 0 else part.replace("_", " ").title()
+                        
                         current_path = f"{parent_path}.{part}" if parent_path else part
                         if current_path not in menus:
-                            menus[current_path] = menus[parent_path].addMenu(part)
+                            menus[current_path] = menus[parent_path].addMenu(display_part)
+                    
+                    # Add the final action
                     leaf_name = parts[-1]
+                    display_leaf = translator.beautify_key(k).split(" > ")[-1]
+                    
                     parent_path = ".".join(parts[:-1])
-                    action = menus[parent_path].addAction(leaf_name)
-                    action.triggered.connect(lambda checked, key=k, name=k: self._set_field(key, name))
+                    action = menus[parent_path].addAction(display_leaf)
+                    action.triggered.connect(lambda checked, key=k, name=translator.beautify_key(k): self._set_field(key, name))
 
         menu.exec(self.btn_field_selector.mapToGlobal(self.btn_field_selector.rect().bottomLeft()))
 
@@ -335,6 +361,9 @@ class FilterConditionWidget(QWidget):
 
         elif key.startswith("stamp_field:"):
              display_name = f"Stempel: {key[12:]}"
+        else:
+             # Phase 135: Beautify raw keys
+             display_name = translator.beautify_key(key)
 
         self._set_field(key, display_name)
 

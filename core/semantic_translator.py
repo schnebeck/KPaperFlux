@@ -180,3 +180,50 @@ class SemanticTranslator(QObject):
             # Fallback
             case _:
                 return key
+
+    def beautify_key(self, key: str) -> str:
+        """
+        Cleans up a technical key for UI display.
+        Removes 'semantic:' prefix, replaces underscores with spaces, and capitalizes.
+        """
+        # 1. Remove Prefix
+        clean = key
+        if clean.startswith("semantic:"):
+            clean = clean[9:]
+        elif clean.startswith("field:"): # Used for some stamps/raw fields
+            clean = clean[6:]
+            
+        # 2. Check if it's a known token ID
+        from core.filter_token_registry import FilterTokenRegistry
+        registry = FilterTokenRegistry.instance()
+        token = registry.get_token(clean)
+        if token:
+            return self.translate(token.label_key)
+            
+        # 3. Check if there's a direct translation for the cleaned key
+        trans = self.translate(clean)
+        if trans != clean:
+            return trans
+            
+        # 4. Beautify segments
+        parts = clean.split(".")
+        beautified_parts = []
+        for p in parts:
+            # Map common technical terms
+            p_map = {
+                "bodies": self.tr("Contents"),
+                "finance_body": self.tr("Financial Data"),
+                "legal_body": self.tr("Legal Data"),
+                "iban": "IBAN",
+                "bic": "BIC",
+                "vat_id": "VAT-ID",
+                "tax_amount": self.tr("Tax Amount"),
+                "tax_rate": self.tr("Tax Rate")
+            }
+            if p in p_map:
+                beautified_parts.append(p_map[p])
+            else:
+                # Fallback: Underscores to spaces, Capitalize
+                beautified_parts.append(p.replace("_", " ").title())
+                
+        return " > ".join(beautified_parts)
