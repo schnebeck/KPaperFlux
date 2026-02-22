@@ -13,6 +13,7 @@ try:
     from core.models.types import DocType
     from gui.widgets.multi_select_combo import MultiSelectComboBox
     from gui.widgets.date_range_picker import DateRangePicker
+    from core.filter_token_registry import FilterTokenRegistry
 except ImportError as e:
     import sys
     logger.error(f"Critical internal import failed in filter_condition.py: {e}")
@@ -26,50 +27,12 @@ class FilterConditionWidget(QWidget):
     remove_requested = pyqtSignal()
     changed = pyqtSignal()
 
-    CATEGORIES = {
-        "basis": "Basis",
-        "ai": "Analysis",
-        "stamps": "Stamps",
-        "sys": "System",
-        "raw": "Raw Data"
-    }
-
-    FIELDS_BY_CAT = {
-        "basis": {
-            "Document Date": "doc_date",
-            "Classification": "classification",
-            "Status": "status",
-            "Tags": "tags",
-            "System Tags": "type_tags",
-            "Workflow Step": "workflow_step",
-            "Full Text": "cached_full_text",
-        },
-        "ai": {
-            "Direction": "direction",
-            "Context": "tenant_context",
-            "AI Confidence": "confidence",
-            "AI Reasoning": "reasoning",
-        },
-        "stamps": {
-            "Stamp Text (Total)": "stamp_text",
-            "Stamp Type": "stamp_type",
-            "Audit Mode": "visual_audit_mode",
-        },
-        "sys": {
-            "Filename": "original_filename",
-            "Pages": "page_count_virt",
-            "UUID": "uuid",
-            "Created At": "created_at",
-            "Processed At": "last_processed_at",
-            "In Trash": "deleted",
-        }
-    }
-
-    # Flat mapping for internal use / tests
-    FIELDS = {}
-    for cat in FIELDS_BY_CAT.values():
-        for label, val in cat.items():
-            FIELDS[val] = label
+    @property
+    def FIELDS(self):
+        """Legacy compatibility for older tests."""
+        registry = FilterTokenRegistry.instance()
+        translator = SemanticTranslator.instance()
+        return {t.id: translator.translate(t.label_key) for t in registry.get_all_tokens()}
 
     # Operators per type hint (simplified)
     OPERATORS = [
@@ -143,10 +106,15 @@ class FilterConditionWidget(QWidget):
         if not self.field_name:
             self.btn_field_selector.setText(self.tr("Select Field..."))
         else:
-            # We need to re-translate the field name if it's a standard one
-            # Look up internal key in FIELDS to get the translatable label
-            label = self.FIELDS.get(self.field_key, self.field_name)
-            self.btn_field_selector.setText(self.tr(label))
+            # Phase 135: Token-driven label resolution
+            registry = FilterTokenRegistry.instance()
+            translator = SemanticTranslator.instance()
+            token = registry.get_token(self.field_key)
+            if token:
+                display_name = translator.translate(token.label_key)
+                self.btn_field_selector.setText(display_name)
+            else:
+                self.btn_field_selector.setText(self.field_name)
 
         self.chk_negate.setText(self.tr("Not"))
         
@@ -178,22 +146,30 @@ class FilterConditionWidget(QWidget):
 
     def _show_field_menu(self):
         menu = QMenu(self)
+        registry = FilterTokenRegistry.instance()
         translator = SemanticTranslator.instance()
 
-        # 1. Categories
-        for cat_id, cat_label in self.CATEGORIES.items():
-            # Apply icon based on ID
-            icons = {"basis": "📦 ", "ai": "🤖 ", "stamps": "📑 ", "sys": "⚙️ ", "raw": "🛠 "}
-            display_label = icons.get(cat_id, "") + self.tr(cat_label)
+        # 1. Categories - Logic from registry
+        categories = {
+            "basis": ("📦 ", self.tr("Basis")),
+            "ai": ("🤖 ", self.tr("Analysis")),
+            "stamps": ("📑 ", self.tr("Stamps")),
+            "sys": ("⚙️ ", self.tr("System")),
+            "raw": ("🛠 ", self.tr("Raw Data"))
+        }
+
+        for cat_id, (icon, cat_label) in categories.items():
+            display_label = icon + cat_label
             cat_menu = menu.addMenu(display_label)
 
-            # Basis fields
-            fields = self.FIELDS_BY_CAT.get(cat_id, {})
-            for name, key in fields.items():
-                action = cat_menu.addAction(self.tr(name))
-                action.triggered.connect(lambda checked, k=key, n=self.tr(name): self._set_field(k, n))
+            # Standard tokens from registry
+            tokens = registry.get_tokens_by_category(cat_id)
+            for t in tokens:
+                label = translator.translate(t.label_key)
+                action = cat_menu.addAction(label)
+                action.triggered.connect(lambda checked, k=t.id, n=label: self._set_field(k, n))
 
-            # Dynamic additions per category
+            # Dynamic additions per category (Stamps)
             if cat_id == "stamps":
                 has_stamps = False
                 for k in self.extra_keys:
@@ -202,7 +178,7 @@ class FilterConditionWidget(QWidget):
                         label = k[12:]
                         action = cat_menu.addAction(self.tr("Field: %s") % label)
                         action.triggered.connect(lambda checked, k=k, n=label: self._set_field(k, n))
-                if not has_stamps and not fields:
+                if not has_stamps and not tokens:
                     cat_menu.setEnabled(False)
 
             elif cat_id == "ai":
@@ -225,27 +201,18 @@ class FilterConditionWidget(QWidget):
                                 action.triggered.connect(lambda checked, k=key, n=f"{type_label} > {f_label}": self._set_field(k, n))
 
             elif cat_id == "raw":
-                # Build nested menus for dotted keys (e.g. summary.tax.total)
+                # Build nested menus for dotted keys
                 sorted_keys = sorted([k for k in self.extra_keys if not k.startswith("stamp_field:")])
-
-                # Dictionary to store created menus to avoid duplicates
-                # Base is the cat_menu
                 menus = {"": cat_menu}
-
                 for k in sorted_keys:
                     parts = k.split(".")
                     current_path = ""
-
-                    # Create parent menus if needed
                     for i in range(len(parts) - 1):
                         parent_path = current_path
                         part = parts[i]
                         current_path = f"{parent_path}.{part}" if parent_path else part
-
                         if current_path not in menus:
                             menus[current_path] = menus[parent_path].addMenu(part)
-
-                    # Add the final action
                     leaf_name = parts[-1]
                     parent_path = ".".join(parts[:-1])
                     action = menus[parent_path].addAction(leaf_name)
@@ -345,28 +312,28 @@ class FilterConditionWidget(QWidget):
 
         self.chk_negate.setChecked(mode.get("negate", False))
 
-        # Determine Display Name for the button
+        # Phase 135: Resolve token to display name
+        registry = FilterTokenRegistry.instance()
+        translator = SemanticTranslator.instance()
+        token = registry.get_token(key)
+        
         display_name = key
-
-        # Search in static mappings
-        for cat, fields in self.FIELDS_BY_CAT.items():
-            for name, k in fields.items():
-                if k == key:
-                    display_name = name
-                    break
-
-        # Search in AI schema
-        if key.startswith("semantic:"):
+        if token:
+            display_name = translator.translate(token.label_key)
+        elif key.startswith("semantic:"):
              path = key[9:]
              config = MetadataNormalizer.get_config() or {}
              for t_name, t_def in config.get("types", {}).items():
                  for f in t_def.get("fields", []):
                      for s in f.get("strategies", []):
                          if s["type"] == "json_path" and s["path"] == path:
-                             display_name = f"{t_name} > {f['id']}"
+                             f_label_key = f.get("label_key", f["id"])
+                             f_label = translator.translate(f_label_key)
+                             label_key = t_def.get("label_key", f"type_{t_name.lower()}")
+                             type_label = translator.translate(label_key)
+                             display_name = f"{type_label} > {f_label}"
 
-        # Search in Dynamic Stamps
-        if key.startswith("stamp_field:"):
+        elif key.startswith("stamp_field:"):
              display_name = f"Stempel: {key[12:]}"
 
         self._set_field(key, display_name)

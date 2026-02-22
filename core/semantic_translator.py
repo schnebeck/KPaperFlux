@@ -105,6 +105,54 @@ class SemanticTranslator(QObject):
             case "field_delivery_date":
                 return self.tr("Delivery Date")
 
+            # Filter Tokens - Basis
+            case "field_doc_date":
+                return self.tr("Document Date")
+            case "field_classification":
+                return self.tr("Classification")
+            case "field_status":
+                return self.tr("Status")
+            case "field_tags":
+                return self.tr("Tags")
+            case "field_type_tags":
+                return self.tr("System Tags")
+            case "field_workflow_step":
+                return self.tr("Workflow Step")
+            case "field_full_text":
+                return self.tr("Full Text")
+
+            # Filter Tokens - AI
+            case "field_direction":
+                return self.tr("Direction")
+            case "field_tenant_context":
+                return self.tr("Context")
+            case "field_ai_confidence":
+                return self.tr("AI Confidence")
+            case "field_ai_reasoning":
+                return self.tr("AI Reasoning")
+
+            # Filter Tokens - Stamps
+            case "field_stamp_text_total":
+                return self.tr("Stamp Text (Total)")
+            case "field_stamp_type":
+                return self.tr("Stamp Type")
+            case "field_audit_mode":
+                return self.tr("Audit Mode")
+
+            # Filter Tokens - System
+            case "field_filename":
+                return self.tr("Filename")
+            case "field_pages":
+                return self.tr("Pages")
+            case "field_uuid":
+                return self.tr("UUID")
+            case "field_created_at":
+                return self.tr("Created At")
+            case "field_processed_at":
+                return self.tr("Processed At")
+            case "field_in_trash":
+                return self.tr("In Trash")
+
             # Generic
             case "Date":
                 return self.tr("Date")
