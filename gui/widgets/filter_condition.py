@@ -122,8 +122,22 @@ class FilterConditionWidget(QWidget):
         self.combo_op.blockSignals(True)
         old_op = self.combo_op.currentData()
         self.combo_op.clear()
-        for name, key in self.OPERATORS:
-            self.combo_op.addItem(self.tr(name), key)
+        
+        # Explicit tr() calls for pylupdate6 to pick up the keys
+        ops = [
+            (self.tr("Contains"), "contains"),
+            (self.tr("Equals"), "equals"),
+            (self.tr("Starts With"), "starts_with"),
+            (self.tr("Greater Than"), "gt"),
+            (self.tr("Less Than"), "lt"),
+            (self.tr("Is Empty"), "is_empty"),
+            (self.tr("Is Not Empty"), "is_not_empty"),
+            (self.tr("In List"), "in"),
+            (self.tr("Between"), "between")
+        ]
+        
+        for name, key in ops:
+            self.combo_op.addItem(name, key)
         
         idx = self.combo_op.findData(old_op)
         if idx >= 0:

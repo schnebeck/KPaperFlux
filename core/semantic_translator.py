@@ -295,6 +295,110 @@ class SemanticTranslator(QObject):
             case "email":
                 return self.tr("Email")
 
+            # Finance Body Detailed Keys
+            case "invoice_number":
+                return self.tr("Invoice Number")
+            case "invoice_date":
+                return self.tr("Invoice Date")
+            case "due_date":
+                return self.tr("Due Date")
+            case "payment_reference":
+                return self.tr("Payment Reference")
+            case "order_number":
+                return self.tr("Order Number")
+            case "order_date":
+                return self.tr("Order Date")
+            case "service_date":
+                return self.tr("Service Date")
+            case "customer_id":
+                return self.tr("Customer ID")
+            case "buyer_reference":
+                return self.tr("Buyer Reference")
+            case "project_reference":
+                return self.tr("Project Reference")
+            case "accounting_reference":
+                return self.tr("Accounting Reference")
+            case "payment_terms":
+                return self.tr("Payment Terms")
+            case "payment_accounts":
+                return self.tr("Payment Accounts")
+            case "line_items":
+                return self.tr("Line Items")
+            case "monetary_summation":
+                return self.tr("Monetary Summation")
+            case "tax_breakdown":
+                return self.tr("Tax Breakdown")
+            case "pos":
+                return self.tr("Position")
+            case "description":
+                return self.tr("Description")
+            case "quantity":
+                return self.tr("Quantity")
+            case "unit":
+                return self.tr("Unit")
+            case "unit_price":
+                return self.tr("Unit Price")
+            case "total_price":
+                return self.tr("Total Price")
+            case "article_number":
+                return self.tr("Article Number")
+            case "tax_basis_amount":
+                return self.tr("Tax Basis Amount")
+            case "tax_amount":
+                return self.tr("Tax Amount")
+            case "tax_category":
+                return self.tr("Tax Category")
+            case "line_total_amount":
+                return self.tr("Line Total Amount")
+            case "charge_total_amount":
+                return self.tr("Charge Total Amount")
+            case "allowance_total_amount":
+                return self.tr("Allowance Total Amount")
+            case "tax_basis_total_amount":
+                return self.tr("Tax Basis Total Amount")
+            case "tax_total_amount":
+                return self.tr("Tax Total Amount")
+            case "grand_total_amount":
+                return self.tr("Grand Total Amount")
+            case "due_payable_amount":
+                return self.tr("Due Payable Amount")
+
+            # Legal Body Detailed Keys
+            case "document_title":
+                return self.tr("Document Title")
+            case "contract_id":
+                return self.tr("Contract ID")
+            case "issuer":
+                return self.tr("Issuer")
+            case "beneficiary":
+                return self.tr("Beneficiary")
+            case "subject_reference":
+                return self.tr("Subject Reference")
+            case "statements":
+                return self.tr("Statements")
+            case "compliance_standards":
+                return self.tr("Compliance Standards")
+            case "effective_date":
+                return self.tr("Effective Date")
+            case "termination_date":
+                return self.tr("Termination Date")
+            case "valid_until":
+                return self.tr("Valid Until")
+            case "notice_period":
+                return self.tr("Notice Period")
+            case "renewal_clause":
+                return self.tr("Renewal Clause")
+            case "contract_type":
+                return self.tr("Contract Type")
+            case "parties":
+                return self.tr("Parties")
+            case "value":
+                return self.tr("Value")
+            case "anchor_type":
+                return self.tr("Anchor Type")
+            case "anchor_scope":
+                return self.tr("Anchor Scope")
+
             # Fallback
             case _:
                 return key

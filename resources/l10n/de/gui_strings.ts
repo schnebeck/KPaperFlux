@@ -1395,75 +1395,84 @@
         <translation>Nicht</translation>
     </message>
     <message>
-        <location filename="../../../gui/widgets/filter_condition.py" line="154" />
+        <location filename="../../../gui/widgets/filter_condition.py" line="128" />
+        <source>Contains</source>
+        <translation>enthält</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="129" />
+        <source>Equals</source>
+        <translation>ist gleich</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="130" />
+        <source>Starts With</source>
+        <translation>beginnt mit</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="131" />
+        <source>Greater Than</source>
+        <translation>größer als</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="132" />
+        <source>Less Than</source>
+        <translation>kleiner als</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="133" />
+        <source>Is Empty</source>
+        <translation>ist leer</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="134" />
+        <source>Is Not Empty</source>
+        <translation>ist nicht leer</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="135" />
+        <source>In List</source>
+        <translation>in Liste</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="136" />
+        <source>Between</source>
+        <translation>zwischen</translation>
+    </message>
+    <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="168" />
         <source>Basis</source>
         <translation>Basis</translation>
     </message>
     <message>
-        <location filename="../../../gui/widgets/filter_condition.py" line="155" />
+        <location filename="../../../gui/widgets/filter_condition.py" line="169" />
         <source>Analysis</source>
         <translation>Analyse</translation>
     </message>
     <message>
-        <location filename="../../../gui/widgets/filter_condition.py" line="156" />
+        <location filename="../../../gui/widgets/filter_condition.py" line="170" />
         <source>Stamps</source>
         <translation>Stempel</translation>
     </message>
     <message>
-        <location filename="../../../gui/widgets/filter_condition.py" line="157" />
+        <location filename="../../../gui/widgets/filter_condition.py" line="171" />
         <source>System</source>
         <translation>System</translation>
     </message>
     <message>
-        <location filename="../../../gui/widgets/filter_condition.py" line="158" />
+        <location filename="../../../gui/widgets/filter_condition.py" line="172" />
         <source>Raw Data</source>
         <translation>Rohdaten</translation>
     </message>
     <message>
-        <location filename="../../../gui/widgets/filter_condition.py" line="181" />
+        <location filename="../../../gui/widgets/filter_condition.py" line="195" />
         <source>Field: %s</source>
         <translation>Feld: %s</translation>
     </message>
     <message>
-        <location filename="../../../gui/widgets/filter_condition.py" line="259" />
+        <location filename="../../../gui/widgets/filter_condition.py" line="273" />
         <source>%s [Total]</source>
         <translation>%s [Gesamt]</translation>
-    </message>
-    <message>
-        <source>Contains</source>
-        <translation type="vanished">enthält</translation>
-    </message>
-    <message>
-        <source>Equals</source>
-        <translation type="vanished">ist gleich</translation>
-    </message>
-    <message>
-        <source>Starts With</source>
-        <translation type="vanished">beginnt mit</translation>
-    </message>
-    <message>
-        <source>Greater Than</source>
-        <translation type="vanished">größer als</translation>
-    </message>
-    <message>
-        <source>Less Than</source>
-        <translation type="vanished">kleiner als</translation>
-    </message>
-    <message>
-        <source>Is Empty</source>
-        <translation type="vanished">ist leer</translation>
-    </message>
-    <message>
-        <source>Is Not Empty</source>
-        <translation type="vanished">ist nicht leer</translation>
-    </message>
-    <message>
-        <source>In List</source>
-        <translation type="vanished">in Liste</translation>
-    </message>
-    <message>
-        <source>Between</source>
-        <translation type="vanished">zwischen</translation>
     </message>
     <message>
         <source>Direction</source>
@@ -1918,11 +1927,11 @@
     </message>
     <message>
         <source>Is Empty</source>
-        <translation type="vanished">ist leer</translation>
+        <translation>ist leer</translation>
     </message>
     <message>
         <source>Is Not Empty</source>
-        <translation type="vanished">ist nicht leer</translation>
+        <translation>ist nicht leer</translation>
     </message>
     <message>
         <source>NOT</source>
@@ -3460,7 +3469,7 @@ Are you completely sure you want to reset the system?</source>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="285" />
         <source>Value</source>
-        <translation type="unfinished" />
+        <translation>Wert</translation>
     </message>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="287" />
@@ -4533,21 +4542,25 @@ Please install 'qrcode' package.</source>
         <translation>Brief</translation>
     </message>
     <message>
+        <location filename="../../../core/semantic_translator.py" line="300" />
         <location filename="../../../core/semantic_translator.py" line="66" />
         <source>Invoice Number</source>
         <translation>Rechnungsnummer</translation>
     </message>
     <message>
+        <location filename="../../../core/semantic_translator.py" line="302" />
         <location filename="../../../core/semantic_translator.py" line="68" />
         <source>Invoice Date</source>
         <translation>Rechnungsdatum</translation>
     </message>
     <message>
+        <location filename="../../../core/semantic_translator.py" line="304" />
         <location filename="../../../core/semantic_translator.py" line="70" />
         <source>Due Date</source>
         <translation>Fälligkeitsdatum</translation>
     </message>
     <message>
+        <location filename="../../../core/semantic_translator.py" line="314" />
         <location filename="../../../core/semantic_translator.py" line="72" />
         <source>Customer ID</source>
         <translation>Kundennummer</translation>
@@ -4558,6 +4571,7 @@ Please install 'qrcode' package.</source>
         <translation>Bestellnummer</translation>
     </message>
     <message>
+        <location filename="../../../core/semantic_translator.py" line="370" />
         <location filename="../../../core/semantic_translator.py" line="78" />
         <source>Contract ID</source>
         <translation>Vertragsnummer</translation>
@@ -4588,13 +4602,14 @@ Please install 'qrcode' package.</source>
         <translation>Unser Zeichen</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="342" />
+        <location filename="../../../core/semantic_translator.py" line="446" />
+        <location filename="../../../core/semantic_translator.py" line="348" />
         <location filename="../../../core/semantic_translator.py" line="94" />
         <source>Tax Amount</source>
         <translation>Steuerbetrag</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="343" />
+        <location filename="../../../core/semantic_translator.py" line="447" />
         <location filename="../../../core/semantic_translator.py" line="166" />
         <location filename="../../../core/semantic_translator.py" line="96" />
         <source>Tax Rate</source>
@@ -4756,7 +4771,7 @@ Please install 'qrcode' package.</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="345" />
+        <location filename="../../../core/semantic_translator.py" line="449" />
         <location filename="../../../core/semantic_translator.py" line="170" />
         <source>Currency</source>
         <translation>Währung</translation>
@@ -4788,43 +4803,43 @@ Please install 'qrcode' package.</source>
         <translation>Referenzen</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="332" />
+        <location filename="../../../core/semantic_translator.py" line="436" />
         <location filename="../../../core/semantic_translator.py" line="196" />
         <source>Contents</source>
         <translation>Inhalte</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="335" />
+        <location filename="../../../core/semantic_translator.py" line="439" />
         <location filename="../../../core/semantic_translator.py" line="198" />
         <source>Meta Header</source>
         <translation>Kopfdaten</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="333" />
+        <location filename="../../../core/semantic_translator.py" line="437" />
         <location filename="../../../core/semantic_translator.py" line="200" />
         <source>Financial Data</source>
         <translation>Finanzdaten</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="334" />
+        <location filename="../../../core/semantic_translator.py" line="438" />
         <location filename="../../../core/semantic_translator.py" line="202" />
         <source>Legal Data</source>
         <translation>Rechtliche Daten</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="336" />
+        <location filename="../../../core/semantic_translator.py" line="440" />
         <location filename="../../../core/semantic_translator.py" line="204" />
         <source>Repaired Text</source>
         <translation>Reparierter Text</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="337" />
+        <location filename="../../../core/semantic_translator.py" line="441" />
         <location filename="../../../core/semantic_translator.py" line="206" />
         <source>Visual Audit</source>
         <translation>Visuelle Prüfung</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="338" />
+        <location filename="../../../core/semantic_translator.py" line="442" />
         <location filename="../../../core/semantic_translator.py" line="208" />
         <source>Workflow</source>
         <translation>Ablauf</translation>
@@ -5020,7 +5035,227 @@ Please install 'qrcode' package.</source>
         <translation>E-Mail</translation>
     </message>
     <message>
+        <location filename="../../../core/semantic_translator.py" line="306" />
+        <source>Payment Reference</source>
+        <translation>Zahlungsreferenz</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="308" />
+        <source>Order Number</source>
+        <translation>Bestellnummer</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="310" />
+        <source>Order Date</source>
+        <translation>Bestelldatum</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="312" />
+        <source>Service Date</source>
+        <translation>Leistungsdatum</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="316" />
+        <source>Buyer Reference</source>
+        <translation>Käuferreferenz</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="318" />
+        <source>Project Reference</source>
+        <translation>Projektnummer</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="320" />
+        <source>Accounting Reference</source>
+        <translation>Buchungsreferenz</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="322" />
+        <source>Payment Terms</source>
+        <translation>Zahlungsbedingungen</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="324" />
+        <source>Payment Accounts</source>
+        <translation>Bankverbindungen</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="326" />
+        <source>Line Items</source>
+        <translation>Positionen</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="328" />
+        <source>Monetary Summation</source>
+        <translation>Gesamtsummen</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="330" />
+        <source>Tax Breakdown</source>
+        <translation>Steueraufschlüsselung</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="332" />
+        <source>Position</source>
+        <translation>Position</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="334" />
+        <source>Description</source>
+        <translation>Beschreibung</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="336" />
+        <source>Quantity</source>
+        <translation>Menge</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="338" />
+        <source>Unit</source>
+        <translation>Einheit</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="340" />
+        <source>Unit Price</source>
+        <translation>Einzelpreis</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="342" />
+        <source>Total Price</source>
+        <translation>Gesamtpreis</translation>
+    </message>
+    <message>
         <location filename="../../../core/semantic_translator.py" line="344" />
+        <source>Article Number</source>
+        <translation>Artikelnummer</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="346" />
+        <source>Tax Basis Amount</source>
+        <translation>Steuerbasisbetrag</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="350" />
+        <source>Tax Category</source>
+        <translation>Steuerkategorie</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="352" />
+        <source>Line Total Amount</source>
+        <translation>Netto-Gesamtbetrag</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="354" />
+        <source>Charge Total Amount</source>
+        <translation>Zuschlag-Gesamtbetrag</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="356" />
+        <source>Allowance Total Amount</source>
+        <translation>Nachlass-Gesamtbetrag</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="358" />
+        <source>Tax Basis Total Amount</source>
+        <translation>Steuerbasis-Gesamtbetrag</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="360" />
+        <source>Tax Total Amount</source>
+        <translation>Umsatzsteuer-Gesamtbetrag</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="362" />
+        <source>Grand Total Amount</source>
+        <translation>Brutto-Gesamtbetrag</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="364" />
+        <source>Due Payable Amount</source>
+        <translation>Zahlbetrag</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="368" />
+        <source>Document Title</source>
+        <translation>Dokumenttitel</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="372" />
+        <source>Issuer</source>
+        <translation>Aussteller</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="374" />
+        <source>Beneficiary</source>
+        <translation>Begünstigter</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="376" />
+        <source>Subject Reference</source>
+        <translation>Betreff-Referenz</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="378" />
+        <source>Statements</source>
+        <translation>Erklärungen</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="380" />
+        <source>Compliance Standards</source>
+        <translation>Compliance-Standards</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="382" />
+        <source>Effective Date</source>
+        <translation>Inkrafttreten</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="384" />
+        <source>Termination Date</source>
+        <translation>Kündigungsdatum</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="386" />
+        <source>Valid Until</source>
+        <translation>Gültig bis</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="388" />
+        <source>Notice Period</source>
+        <translation>Kündigungsfrist</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="390" />
+        <source>Renewal Clause</source>
+        <translation>Verlängerungsklausel</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="392" />
+        <source>Contract Type</source>
+        <translation>Vertragsart</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="394" />
+        <source>Parties</source>
+        <translation>Parteien</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="396" />
+        <source>Value</source>
+        <translation>Wert</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="398" />
+        <source>Anchor Type</source>
+        <translation>Ankertyp</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="400" />
+        <source>Anchor Scope</source>
+        <translation>Anker-Geltungsbereich</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="448" />
         <source>Total Amount</source>
         <translation>Gesamtbetrag</translation>
     </message>
