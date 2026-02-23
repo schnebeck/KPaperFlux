@@ -260,14 +260,49 @@ class SemanticTranslator(QObject):
             # Forensic / Visual Audit
             case "audit_summary":
                 return self.tr("Audit Summary")
+            case "was_stamp_interference":
+                return self.tr("Stamp Interference")
+            case "has_handwriting":
+                return self.tr("Has Handwriting")
+
             case "layer_stamps":
                 return self.tr("Layer Stamps")
+            case "location":
+                return self.tr("Location")
+            case "form_fields":
+                return self.tr("Form Fields")
+            case "label":
+                return self.tr("Label")
+            case "raw_value":
+                return self.tr("Raw Value")
+            case "value_type":
+                return self.tr("Value Type")
+
             case "signatures":
                 return self.tr("Signatures")
+            case "has_signature":
+                return self.tr("Has Signature")
+            case "count":
+                return self.tr("Count")
+            case "details":
+                return self.tr("Details")
+
             case "integrity":
                 return self.tr("Integrity")
+            case "is_type_match":
+                return self.tr("Type Match")
+            case "suggested_types":
+                return self.tr("Suggested Types")
+
             case "arbiter_decision":
                 return self.tr("Decision")
+            case "raw_ocr_quality_score":
+                return self.tr("Raw OCR Quality Score")
+            case "ai_vision_quality_score":
+                return self.tr("AI Vision Quality Score")
+            case "primary_source_recommendation":
+                return self.tr("Primary Source Recommendation")
+
             case "meta_mode":
                 return self.tr("Audit Mode")
             case "raw_content":
