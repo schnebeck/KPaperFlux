@@ -257,6 +257,44 @@ class SemanticTranslator(QObject):
             case "user":
                 return self.tr("User")
 
+            # Forensic / Visual Audit
+            case "audit_summary":
+                return self.tr("Audit Summary")
+            case "layer_stamps":
+                return self.tr("Layer Stamps")
+            case "signatures":
+                return self.tr("Signatures")
+            case "integrity":
+                return self.tr("Integrity")
+            case "arbiter_decision":
+                return self.tr("Decision")
+            case "meta_mode":
+                return self.tr("Audit Mode")
+            case "raw_content":
+                return self.tr("Raw Content")
+            case "normalized_value":
+                return self.tr("Normalized Value")
+
+            # Address Info
+            case "company":
+                return self.tr("Company")
+            case "name":
+                return self.tr("Name")
+            case "street":
+                return self.tr("Street")
+            case "house_number":
+                return self.tr("House Number")
+            case "zip_code":
+                return self.tr("ZIP Code")
+            case "city":
+                return self.tr("City")
+            case "country":
+                return self.tr("Country")
+            case "phone":
+                return self.tr("Phone")
+            case "email":
+                return self.tr("Email")
+
             # Fallback
             case _:
                 return key

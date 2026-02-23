@@ -1527,7 +1527,7 @@
     </message>
     <message>
         <source>Audit Mode</source>
-        <translation type="vanished">Visuelle Prüfung</translation>
+        <translation>Prüfmodus</translation>
     </message>
     <message>
         <source>Stamp Text(Total)</source>
@@ -4313,7 +4313,7 @@ Please install 'qrcode' package.</source>
     <message>
         <location filename="../../../gui/dialogs/rule_manager.py" line="140" />
         <source>Name</source>
-        <translation type="unfinished" />
+        <translation>Name</translation>
     </message>
     <message>
         <location filename="../../../gui/dialogs/rule_manager.py" line="141" />
@@ -4588,13 +4588,13 @@ Please install 'qrcode' package.</source>
         <translation>Unser Zeichen</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="304" />
+        <location filename="../../../core/semantic_translator.py" line="342" />
         <location filename="../../../core/semantic_translator.py" line="94" />
         <source>Tax Amount</source>
         <translation>Steuerbetrag</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="305" />
+        <location filename="../../../core/semantic_translator.py" line="343" />
         <location filename="../../../core/semantic_translator.py" line="166" />
         <location filename="../../../core/semantic_translator.py" line="96" />
         <source>Tax Rate</source>
@@ -4692,9 +4692,10 @@ Please install 'qrcode' package.</source>
         <translation type="unfinished">Stempel - Typ</translation>
     </message>
     <message>
+        <location filename="../../../core/semantic_translator.py" line="272" />
         <location filename="../../../core/semantic_translator.py" line="140" />
         <source>Audit Mode</source>
-        <translation type="unfinished">Visuelle Prüfung</translation>
+        <translation>Prüfmodus</translation>
     </message>
     <message>
         <location filename="../../../core/semantic_translator.py" line="176" />
@@ -4755,7 +4756,7 @@ Please install 'qrcode' package.</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="307" />
+        <location filename="../../../core/semantic_translator.py" line="345" />
         <location filename="../../../core/semantic_translator.py" line="170" />
         <source>Currency</source>
         <translation>Währung</translation>
@@ -4787,43 +4788,43 @@ Please install 'qrcode' package.</source>
         <translation>Referenzen</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="294" />
+        <location filename="../../../core/semantic_translator.py" line="332" />
         <location filename="../../../core/semantic_translator.py" line="196" />
         <source>Contents</source>
         <translation>Inhalte</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="297" />
+        <location filename="../../../core/semantic_translator.py" line="335" />
         <location filename="../../../core/semantic_translator.py" line="198" />
         <source>Meta Header</source>
         <translation>Kopfdaten</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="295" />
+        <location filename="../../../core/semantic_translator.py" line="333" />
         <location filename="../../../core/semantic_translator.py" line="200" />
         <source>Financial Data</source>
         <translation>Finanzdaten</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="296" />
+        <location filename="../../../core/semantic_translator.py" line="334" />
         <location filename="../../../core/semantic_translator.py" line="202" />
         <source>Legal Data</source>
         <translation>Rechtliche Daten</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="298" />
+        <location filename="../../../core/semantic_translator.py" line="336" />
         <location filename="../../../core/semantic_translator.py" line="204" />
         <source>Repaired Text</source>
         <translation>Reparierter Text</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="299" />
+        <location filename="../../../core/semantic_translator.py" line="337" />
         <location filename="../../../core/semantic_translator.py" line="206" />
         <source>Visual Audit</source>
         <translation>Visuelle Prüfung</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="300" />
+        <location filename="../../../core/semantic_translator.py" line="338" />
         <location filename="../../../core/semantic_translator.py" line="208" />
         <source>Workflow</source>
         <translation>Ablauf</translation>
@@ -4939,7 +4940,87 @@ Please install 'qrcode' package.</source>
         <translation>Benutzer</translation>
     </message>
     <message>
-        <location filename="../../../core/semantic_translator.py" line="306" />
+        <location filename="../../../core/semantic_translator.py" line="262" />
+        <source>Audit Summary</source>
+        <translation>Prüfbericht</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="264" />
+        <source>Layer Stamps</source>
+        <translation>Ebenen-Stempel</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="266" />
+        <source>Signatures</source>
+        <translation>Signaturen</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="268" />
+        <source>Integrity</source>
+        <translation>Integrität</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="270" />
+        <source>Decision</source>
+        <translation>Entscheidung</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="274" />
+        <source>Raw Content</source>
+        <translation>Rohinhalt</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="276" />
+        <source>Normalized Value</source>
+        <translation>Normalisierter Wert</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="280" />
+        <source>Company</source>
+        <translation>Firma</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="282" />
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="284" />
+        <source>Street</source>
+        <translation>Straße</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="286" />
+        <source>House Number</source>
+        <translation>Hausnummer</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="288" />
+        <source>ZIP Code</source>
+        <translation>PLZ</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="290" />
+        <source>City</source>
+        <translation>Stadt</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="292" />
+        <source>Country</source>
+        <translation>Land</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="294" />
+        <source>Phone</source>
+        <translation>Telefon</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="296" />
+        <source>Email</source>
+        <translation>E-Mail</translation>
+    </message>
+    <message>
+        <location filename="../../../core/semantic_translator.py" line="344" />
         <source>Total Amount</source>
         <translation>Gesamtbetrag</translation>
     </message>
