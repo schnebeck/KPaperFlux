@@ -98,6 +98,12 @@ To add or update translations, follow this strict sequence:
     ```
 5.  **Verification:** Run `pytest tests/gui/test_localization.py` to ensure coverage and validity.
 
+### **5.4 The L10n Golden Rule (CRITICAL)**
+To prevent accidental loss of existing translations (marking them as `vanished` or `obsolete`), follow this rule:
+> [!IMPORTANT]
+> **NEVER** run `pylupdate6` on a subset of files. ALWAYS scan the entire source tree to maintain all string associations.
+> **Correct Command:** `pylupdate6 . -ts resources/l10n/de/gui_strings.ts` (The current directory `.` captures all files).
+
 ## **6. Project Structure**
 
 ```text
