@@ -242,8 +242,8 @@ class FilterConditionWidget(QWidget):
                     for i in range(len(parts) - 1):
                         parent_path = current_path
                         part = parts[i]
-                        # Beautify the folder name
-                        display_part = translator.beautify_key(part) if i == 0 else part.replace("_", " ").title()
+                        # Beautify the folder name (Phase 135: Apply translator to all levels)
+                        display_part = translator.beautify_key(part)
                         
                         current_path = f"{parent_path}.{part}" if parent_path else part
                         if current_path not in menus:

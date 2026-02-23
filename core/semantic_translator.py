@@ -233,6 +233,16 @@ class SemanticTranslator(QObject):
             case "IMPLIED_TIME":
                 return self.tr("Time")
 
+            # Nested Workflow / Misc
+            case "action":
+                return self.tr("Action")
+            case "comment":
+                return self.tr("Comment")
+            case "timestamp":
+                return self.tr("Timestamp")
+            case "user":
+                return self.tr("User")
+
             # Fallback
             case _:
                 return key
