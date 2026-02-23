@@ -715,7 +715,7 @@ class MetadataEditorWidget(QWidget):
             
         self.display_documents([self.doc])
         self.metadata_saved.emit()
-        show_notification(self, self.tr("Workflow Updated"), self.tr("Rule assigned: %1").arg(new_rule_id or self.tr("None")))
+        show_notification(self, self.tr("Workflow Updated"), self.tr("Rule assigned: %1").replace("%1", new_rule_id or self.tr("None")))
         
         # Live Update Audit Window
         if self.audit_window and self.audit_window.isVisible():

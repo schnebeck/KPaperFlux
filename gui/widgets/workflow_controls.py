@@ -2,6 +2,7 @@ import logging
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QVBoxLayout
 from PyQt6.QtCore import pyqtSignal, Qt
 from core.workflow import WorkflowRuleRegistry, WorkflowEngine, WorkflowState
+from core.semantic_translator import SemanticTranslator
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger("KPaperFlux.WorkflowUI")
@@ -86,8 +87,9 @@ class WorkflowControlsWidget(QWidget):
 
         state_def = rule.states.get(self.current_step)
         
+        st = SemanticTranslator.instance()
         label = state_def.label if state_def else self.current_step
-        self.status_lbl.setText(self.tr(label))
+        self.status_lbl.setText(st.translate(label))
         
         # Apply Status Color
         color = self._get_status_color(self.current_step, state_def)
@@ -107,9 +109,9 @@ class WorkflowControlsWidget(QWidget):
             for trans in state_def.transitions:
                 if trans.auto: continue # Skip auto-transitions in UI
                 
-                # Try translation of raw action OR capitalized version
-                text = trans.action.capitalize().replace("_", " ")
-                translated_text = self.tr(text)
+                # Use SemanticTranslator for action names
+                # Most actions in JSON are lowercase, but translator should handle them
+                translated_text = st.translate(trans.action.capitalize().replace("_", " "))
 
                 if trans.icon:
                     btn = QPushButton(f"{trans.icon} {translated_text}")
@@ -190,7 +192,8 @@ class WorkflowControlsWidget(QWidget):
         
         for rule in rules:
             # Use Name if available, otherwise ID. Don't show both.
-            label = self.tr(rule.name or rule.id)
+            st = SemanticTranslator.instance()
+            label = st.translate(rule.name or rule.id)
             action = menu.addAction(label)
             action.triggered.connect(lambda checked, rid=rule.id: self.rule_changed.emit(rid))
             

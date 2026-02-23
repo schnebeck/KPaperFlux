@@ -157,16 +157,16 @@ def test_stage0_workflow_comprehensive(test_env):
     source_mapping_1 = db.get_source_mapping_from_entity(doc1_uuid)
     phys_uuid_1 = source_mapping_1[0]["file_uuid"]
     
-    pipeline.delete_entity(doc1_uuid)
+    pipeline.delete_entity(doc1_uuid, purge=True)
     # merged_doc still uses it!
     assert vault.get_file_path(phys_uuid_1) is not None
     assert os.path.exists(vault.get_file_path(phys_uuid_1))
     
     # 5.2 Delete part_a 
-    pipeline.delete_entity(part_a.uuid)
+    pipeline.delete_entity(part_a.uuid, purge=True)
     
     # 5.3 Delete merged doc
-    pipeline.delete_entity(merged_doc.uuid)
+    pipeline.delete_entity(merged_doc.uuid, purge=True)
     # Now NO ONE uses doc1's physical file. 
     assert not os.path.exists(vault.get_file_path(phys_uuid_1))
     
@@ -176,7 +176,7 @@ def test_stage0_workflow_comprehensive(test_env):
     assert os.path.exists(vault.get_file_path(phys_uuid_2))
     
     # 5.5 Delete part_b -> doc2's physical file should be purged
-    pipeline.delete_entity(part_b.uuid)
+    pipeline.delete_entity(part_b.uuid, purge=True)
     assert not os.path.exists(vault.get_file_path(phys_uuid_2))
     
     # --- 6. DATABASE INTEGRITY ---

@@ -1373,19 +1373,22 @@ class PdfViewerWidget(QWidget):
         doc_obj = None
         target_uuid = None
         
-        # 1. Handle direct Document object
         if hasattr(path_or_uuid, "source_mapping"):
             doc_obj = path_or_uuid
             target_uuid = getattr(doc_obj, "uuid", None)
             path = Path("NONE_EXISTING_PATH_FOR_MODEL_OBJECT")
         else:
-            target_uuid = uuid if uuid else (
-                str(path_or_uuid) if not Path(str(path_or_uuid)).exists() else None
-            )
-            path = Path(str(path_or_uuid))
+            # Check if it's a UUID (36 chars) or a valid Path
+            possible_path = Path(str(path_or_uuid))
+            if not possible_path.exists() and len(str(path_or_uuid)) >= 32:
+                 target_uuid = str(path_or_uuid)
+                 path = possible_path
+            else:
+                 target_uuid = uuid
+                 path = possible_path
         
-        # 2. Resolve via Pipeline if only UUID given
-        if not path.exists() and not doc_obj and self.pipeline and target_uuid:
+        # 2. Resolve via Pipeline if UUID is available (Stronger than path for virtual docs)
+        if not doc_obj and self.pipeline and target_uuid:
             doc_obj = self.pipeline.get_document(target_uuid)
             
         # 3. Handle Logical/Virtual reconstruction
@@ -1393,7 +1396,8 @@ class PdfViewerWidget(QWidget):
             self.current_uuid = target_uuid
             self.current_pages_data = []
             # Flatten the source mapping into a sequential page list
-            for ref in doc_obj.source_mapping:
+            mapping = doc_obj.source_mapping if hasattr(doc_obj, 'source_mapping') else []
+            for ref in mapping:
                 phys_file = self.pipeline.physical_repo.get_by_uuid(ref.file_uuid)
                 if phys_file:
                     for p_idx in ref.pages:
@@ -1412,8 +1416,9 @@ class PdfViewerWidget(QWidget):
                     self.on_document_status_ready()
                     return
 
-            self._refresh_preview()
-            return
+            if self.current_pages_data:
+                self._refresh_preview()
+                return
                 
         if path.exists():
             self.current_pages_data = [] # Clear virtual data if loading direct path

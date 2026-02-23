@@ -29,7 +29,7 @@ def test_token_translation():
     translator = SemanticTranslator.instance()
     label = translator.translate("field_doc_date")
     # Default is English in the code
-    assert label == "Document Date"
+    assert label == "Date"
     
 def test_category_filtering():
     registry = FilterTokenRegistry.instance()
@@ -41,7 +41,7 @@ def test_category_filtering():
 def test_beautify_key():
     translator = SemanticTranslator.instance()
     # Case 1: Known translation (stripping prefix)
-    assert translator.beautify_key("semantic:doc_date") == "Document Date"
+    assert translator.beautify_key("semantic:doc_date") == "Date"
     # Case 2: Technical segment mapping
     assert translator.beautify_key("semantic:bodies.finance_body") == "Contents > Financial Data"
     # Case 3: Fallback (Titulize)

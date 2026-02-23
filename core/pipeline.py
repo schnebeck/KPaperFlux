@@ -417,12 +417,14 @@ class PipelineProcessor:
         self.physical_cleanup(file_uuids_to_check)
         return new_uuids
 
-    def delete_entity(self, entity_uuid: str) -> bool:
+    def delete_entity(self, entity_uuid: str, purge: bool = False) -> bool:
         """
-        Hard deletes an entity and cleans up orphaned physical files.
+        Deletes an entity. Defaults to soft-delete (Trash Bin).
+        If purge=True, performs a hard delete and cleans up physical files.
 
         Args:
             entity_uuid: The UUID of the entity to delete.
+            purge: If True, permanently delete from DB and Vault.
 
         Returns:
             True if successful.
@@ -433,13 +435,34 @@ class PipelineProcessor:
 
         file_uuids_to_check = [ref.file_uuid for ref in v_doc.source_mapping]
 
-        # 1. Delete Entity
-        self.logical_repo.delete_by_uuid(entity_uuid)
-        logger.info(f"[Pipeline] Deleted Entity {entity_uuid}")
+        if purge:
+            # 1. Hard Delete Entity
+            self.logical_repo.delete_by_uuid(entity_uuid)
+            logger.info(f"[Pipeline] Hard-Deleted Entity {entity_uuid}")
+            # 2. Cleanup orphaned files
+            self.physical_cleanup(file_uuids_to_check)
+        else:
+            # 1. Soft Delete Entity
+            self.logical_repo.mark_deleted(entity_uuid, True)
+            logger.info(f"[Pipeline] Soft-Deleted Entity {entity_uuid} (Moved to Trash)")
 
-        # 2. Cleanup orphaned files
-        self.physical_cleanup(file_uuids_to_check)
         return True
+
+    def archive_entity(self, entity_uuid: str, archive: bool = True) -> bool:
+        """
+        Soft-archives or restores an entity.
+        
+        Args:
+            entity_uuid: The UUID of the entity.
+            archive: True to archive, False to restore.
+            
+        Returns:
+            True if successful.
+        """
+        success = self.logical_repo.mark_archived(entity_uuid, archive)
+        if success:
+             logger.info(f"[Pipeline] {'Archived' if archive else 'Restored'} Entity {entity_uuid}")
+        return success
 
     def physical_cleanup(self, file_uuids: List[str]) -> None:
         """

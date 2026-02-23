@@ -426,7 +426,7 @@ class FilterManagerDialog(QDialog):
                      else:
                          v_display = str(v)
                          
-                     neg = self.tr("NOT ") if c.get('negate') else ""
+                     neg = self.tr("NOT") + " " if c.get('negate') else ""
                      lines.append(f"<li>{neg}<b>{f_display}</b> <i>{o}</i> '{v_display}'</li>")
                  lines.append("</ul>")
             
@@ -471,7 +471,7 @@ class FilterManagerDialog(QDialog):
             return
 
         if len(nodes) == 1:
-            msg = self.tr("Delete '%1'?").arg(nodes[0].name)
+            msg = self.tr("Delete '%1'?").replace("%1", nodes[0].name)
         else:
             msg = self.tr("Delete %n selected item(s)?", "", len(nodes))
 

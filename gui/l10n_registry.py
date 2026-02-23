@@ -17,6 +17,14 @@ class L10nMarker(QObject):
         self.tr("Reject")
         self.tr("Mark as paid")
         self.tr("Reset")
+        self.tr("Apply")
+        
+        # Smart Dunning (German in JSON, but needs to be translated via Marker)
+        self.tr("Posteingang")
+        self.tr("Warten auf Zahlung")
+        self.tr("1. Mahnstufe")
+        self.tr("Abgeschlossen")
+        self.tr("Inkasso / Recht")
         
         # Reports
         self.tr("Monthly Invoice Count")

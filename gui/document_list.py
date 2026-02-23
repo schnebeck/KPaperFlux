@@ -98,6 +98,7 @@ class DocumentListWidget(QWidget):
     re_ocr_requested = pyqtSignal(list)
     show_generic_requested = pyqtSignal(str) # UUID
     purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
+    archive_requested = pyqtSignal(list, bool) # [NEW] Archive/Unarchive
     search_cleared = pyqtSignal()       # Signal for global reset sync
     TAG_MAPPING = {
         "CTX_PRIVATE": "Private",
@@ -123,31 +124,33 @@ class DocumentListWidget(QWidget):
 
     def _get_fixed_column_labels(self):
         """Returns translated labels for fixed columns."""
+        st = SemanticTranslator.instance()
         return {
             0: "#",
-            1: self.tr("Entity ID"),
-            2: self.tr("Filename"),
-            3: self.tr("Pages"),
-            4: self.tr("Imported Date"),
-            5: self.tr("Used Date"),
-            6: self.tr("Deleted Date"),
-            7: self.tr("Locked Date"),
-            8: self.tr("Autoprocessed Date"),
-            9: self.tr("Exported Date"),
-            10: self.tr("Status"),
-            11: self.tr("Type Tags"),
-            12: self.tr("Tags")
+            1: st.translate("field_uuid"),
+            2: st.translate("field_filename"),
+            3: st.translate("field_pages"),
+            4: st.translate("field_created_at"),
+            5: st.translate("field_last_used"),
+            6: st.translate("field_deleted_at"),
+            7: st.translate("field_locked_at"),
+            8: st.translate("field_processed_at"),
+            9: st.translate("field_exported_at"),
+            10: st.translate("field_status"),
+            11: st.translate("field_type_tags"),
+            12: st.translate("field_tags")
         }
 
     def _get_semantic_labels(self):
         """Returns translated labels for semantic fields."""
+        st = SemanticTranslator.instance()
         return {
-            "doc_date": self.tr("Date"),
-            "sender_name": self.tr("Sender"),
-            "total_amount": self.tr("Amount"),
-            "total_gross": self.tr("Gross Amount"),
-            "total_net": self.tr("Net Amount"),
-            "invoice_number": self.tr("Invoice #")
+            "doc_date": st.translate("field_doc_date"),
+            "sender_name": st.translate("Sender"),
+            "total_amount": st.translate("Total Amount"),
+            "total_gross": st.translate("Gross Amount"),
+            "total_net": st.translate("Net Amount"),
+            "invoice_number": st.translate("Invoice Number")
         }
 
     def __init__(self, 
@@ -170,6 +173,7 @@ class DocumentListWidget(QWidget):
         self.current_hit_map: Dict[str, int] = {} # Phase 106: hit counts
         self.dynamic_columns = []
         self.is_trash_mode = False
+        self.is_archive_mode = False
         self.view_context = self.tr("All Documents") # For Breadcrumb
         self.fixed_columns = self._get_fixed_column_labels()
         self.semantic_labels = self._get_semantic_labels()
@@ -312,7 +316,7 @@ class DocumentListWidget(QWidget):
         if logic_idx > 0: # Do not allow hiding Row Counter (0)
             menu.addSeparator()
             col_name = self.tree.headerItem().text(logic_idx)
-            hide_action = menu.addAction(self.tr(f"Hide '{col_name}'"))
+            hide_action = menu.addAction(self.tr("Hide '%1'").replace("%1", col_name))
 
             def hide_slot():
                 header.setSectionHidden(logic_idx, True)
@@ -459,6 +463,22 @@ class DocumentListWidget(QWidget):
             self.current_advanced_query = None
             # Phase 110: Default Sort for Trash (Column 6: Deleted Date)
             self.tree.sortByColumn(6, Qt.SortOrder.DescendingOrder)
+
+        if refresh:
+            self.refresh_list()
+        self.save_state()
+
+    def show_archive(self, enable: bool, refresh: bool = True):
+        """Switch between Normal View and Archive View."""
+        self.is_archive_mode = enable
+
+        # Clear filters if entering archive mode
+        if enable:
+            self.current_filter = {}
+            self.current_filter_text = ""
+            self.current_advanced_query = None
+            # Phase 110: Default Sort for Archive (Column 9: Exported/Archived Date)
+            self.tree.sortByColumn(9, Qt.SortOrder.DescendingOrder)
 
         if refresh:
             self.refresh_list()
@@ -651,15 +671,35 @@ class DocumentListWidget(QWidget):
 
         menu.addSeparator()
 
+        count = len(selected_items)
+        if count == 0 and uuid:
+            count = 1
+
+        if count == 1:
+            delete_label = self.tr("Delete Document")
+            archive_label = self.tr("Archive Document")
+            restore_label = self.tr("Restore from Archive")
+        else:
+            delete_label = self.tr("Delete %n Document(s)", "", count)
+            archive_label = self.tr("Archive %n Document(s)", "", count)
+            restore_label = self.tr("Restore %n Document(s) from Archive", "", count)
+
+        unarchive_action = None
+        archive_action = None
+        purge_action = None
+        restore_trash_action = None
+        delete_action = None
+
         if self.is_trash_mode:
-             restore_action = menu.addAction(self.tr("Restore"))
+             restore_trash_action = menu.addAction(self.tr("Restore"))
              purge_action = menu.addAction(self.tr("Delete Permanently"))
              reprocess_action = None # Disable reprocess in trash
-             delete_action = None
+        elif self.is_archive_mode:
+             unarchive_action = menu.addAction(restore_label)
+             delete_action = menu.addAction(delete_label)
         else:
-             delete_action = menu.addAction(self.tr("Delete Document"))
-             restore_action = None
-             purge_action = None
+             archive_action = menu.addAction(archive_label)
+             delete_action = menu.addAction(delete_label)
 
         action = menu.exec(self.tree.viewport().mapToGlobal(pos))
 
@@ -692,6 +732,16 @@ class DocumentListWidget(QWidget):
             self.edit_requested.emit(uuids[0])
         elif action == delete_action:
             self.delete_selected_documents(uuids)
+        elif action == archive_action:
+            self.archive_requested.emit(uuids, True)
+        elif action == unarchive_action:
+            self.archive_requested.emit(uuids, False)
+        elif action == restore_trash_action:
+            # Assuming we need a signal for this too or just handle it here?
+            # Standard DocumentList lets MainWindow handle it via signals usually.
+            # But wait, is there a restore_requested signal?
+            # Checking...
+            pass 
         elif merge_action and action == merge_action:
              self.merge_requested.emit(uuids)
         elif action == tags_action:
@@ -770,6 +820,12 @@ class DocumentListWidget(QWidget):
              pass 
         if self.is_trash_mode:
             docs = self.db_manager.get_deleted_entities_view()
+        elif self.is_archive_mode:
+            docs = self.db_manager.search_documents_advanced({
+                "field": "archived",
+                "op": "equals",
+                "value": True
+            })
         else:
             # FIX: Prioritize Advanced Filter (Search) if it is set, regardless of "active" flag if it comes from search
             # The issue was that Cockpit Filter was overriding Search.
@@ -1169,16 +1225,34 @@ class DocumentListWidget(QWidget):
                 return any(check_trash(c) for c in q["conditions"])
             return False
 
+        def check_archive(q):
+            if not q: return False
+            if "field" in q and q["field"] == "archived":
+                val = q.get("value")
+                if val is True: return True
+                if isinstance(val, str) and val.lower() in ("true", "1", "yes"): return True
+                if isinstance(val, int) and val == 1: return True
+                return False
+            if "conditions" in q:
+                return any(check_archive(c) for c in q["conditions"])
+            return False
+
         is_mode_trash = check_trash(query)
-        logger.info(f"[DEBUG] check_trash result: {is_mode_trash} for query: {query}")
+        is_mode_archive = check_archive(query)
+        logger.info(f"[DEBUG] check results: trash={is_mode_trash}, archive={is_mode_archive} for query: {query}")
 
         if is_mode_trash:
             self.current_advanced_query = None
             self.show_trash_bin(True, refresh=False)
-            self.view_context = "Trash Bin"
+            self.view_context = self.tr("Trash Bin")
+        elif is_mode_archive:
+            self.current_advanced_query = None
+            self.show_archive(True, refresh=False)
+            self.view_context = self.tr("Archive")
         else:
             self.current_advanced_query = query # Persist
             self.show_trash_bin(False, refresh=False) # Ensure we leave trash mode
+            self.show_archive(False, refresh=False) # Ensure we leave archive mode
             self.current_filter_text = None # Clear simple text search
 
             # PHASE 131: Use LITERALS for internal state!
@@ -1442,7 +1516,7 @@ class DocumentListWidget(QWidget):
                 elif self.view_context == "Search":
                     path.append(self.tr("Search"))
                 elif self.view_context == "Advanced Filter":
-                    path.append(self.tr("Advanced Filter"))
+                    path.append(self.tr("Filter"))
                 elif self.view_context == "Manual Selection":
                     path.append(self.tr("Manual Selection"))
                 elif self.view_context == "Trash Bin":

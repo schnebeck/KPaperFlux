@@ -73,7 +73,7 @@ def test_document_list_filtering(qtbot, filled_db):
                 return widget.tree.topLevelItem(i)
         return None
 
-    col_type = get_col("Type Tags")
+    col_type = get_col("System Tags")
     
     assert widget.tree.topLevelItemCount() == 3
     

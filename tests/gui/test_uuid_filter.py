@@ -29,8 +29,8 @@ def test_set_condition_uuid_list(qapp):
     widget.set_condition(condition)
     
     # Verify Display
-    # Field should show UUID
-    assert widget.btn_field_selector.text() == "UUID"
+    # Field should show ID (Synchronized from UUID)
+    assert widget.btn_field_selector.text() == "ID"
     
     # Operator should be "In List"
     assert widget.combo_op.currentData() == "in"
@@ -42,8 +42,8 @@ def test_get_condition_uuid_list(qapp):
     widget = FilterConditionWidget()
     
     # Set UI state manually
-    # Select UUID
-    widget._set_field("uuid", "UUID")
+    # Select ID (Formerly UUID)
+    widget._set_field("uuid", "ID")
     
     # Select IN
     idx_op = widget.combo_op.findData("in")

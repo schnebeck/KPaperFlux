@@ -48,8 +48,8 @@ def test_date_sorting(document_list, mock_db):
     header_labels = [tree.headerItem().text(i) for i in range(tree.columnCount())]
     def get_col(label): return header_labels.index(label)
     
-    col_date = get_col("Date")
-    col_uuid = get_col("Entity ID")
+    col_date = get_col("Date") if "Date" in header_labels else get_col("Datum")
+    col_uuid = get_col("ID")
     
     # Verify we populated the tree
     assert tree.topLevelItemCount() == 2
@@ -103,8 +103,8 @@ def test_number_sorting(document_list, mock_db):
     header_labels = [tree.headerItem().text(i) for i in range(tree.columnCount())]
     def get_col(label): return header_labels.index(label)
     
-    col_amount = get_col("Amount")
-    col_uuid = get_col("Entity ID")
+    col_amount = get_col("Total Amount") if "Total Amount" in header_labels else get_col("Gesamtbetrag")
+    col_uuid = get_col("ID")
     
     # Sort Ascending (Smallest First)
     tree.sortItems(col_amount, Qt.SortOrder.AscendingOrder)

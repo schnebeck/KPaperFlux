@@ -72,9 +72,10 @@ class LogicalRepository(BaseRepository):
             last_used, last_processed_at, is_immutable, thumbnail_path, 
             cached_full_text, semantic_data, created_at, deleted, 
             deleted_at, locked_at, exported_at,
-            page_count_virt, type_tags, tags, pdf_class
+            page_count_virt, type_tags, tags, pdf_class,
+            archived, storage_location, ai_confidence, process_id
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT(uuid) DO UPDATE SET
             source_mapping=excluded.source_mapping,
@@ -94,7 +95,11 @@ class LogicalRepository(BaseRepository):
             page_count_virt=excluded.page_count_virt,
             type_tags=excluded.type_tags,
             tags=excluded.tags,
-            pdf_class=excluded.pdf_class
+            pdf_class=excluded.pdf_class,
+            archived=excluded.archived,
+            storage_location=excluded.storage_location,
+            ai_confidence=excluded.ai_confidence,
+            process_id=excluded.process_id
         """
 
         values = (
@@ -117,6 +122,10 @@ class LogicalRepository(BaseRepository):
             type_tags_json,
             tags_json,
             doc.pdf_class,
+            int(doc.archived),
+            doc.storage_location,
+            doc.ai_confidence,
+            doc.process_id
         )
 
         try:
@@ -142,7 +151,8 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            tags, deleted_at, locked_at, exported_at, pdf_class
+            tags, deleted_at, locked_at, exported_at, pdf_class,
+            archived, storage_location, ai_confidence, process_id
         FROM virtual_documents
         WHERE uuid = ?
         """
@@ -170,7 +180,8 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            tags, deleted_at, locked_at, exported_at, pdf_class
+            tags, deleted_at, locked_at, exported_at, pdf_class,
+            archived, storage_location, ai_confidence, process_id
         FROM virtual_documents
         WHERE source_mapping LIKE ?
         """
@@ -198,6 +209,49 @@ class LogicalRepository(BaseRepository):
             print(f"[LogicalRepo] Delete error: {e}")
             return False
 
+    def mark_deleted(self, uuid: str, is_deleted: bool = True) -> bool:
+        """
+        Soft-deletes or restores a virtual document.
+        
+        Args:
+            uuid: The document UUID.
+            is_deleted: True to mark as deleted, False to restore.
+            
+        Returns:
+            True if the operation was successful.
+        """
+        now = datetime.now().isoformat() if is_deleted else None
+        sql = "UPDATE virtual_documents SET deleted = ?, deleted_at = ? WHERE uuid = ?"
+        try:
+            with self.conn:
+                cursor = self.conn.execute(sql, (int(is_deleted), now, uuid))
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"[LogicalRepo] mark_deleted error: {e}")
+            return False
+
+    def mark_archived(self, uuid: str, is_archived: bool = True) -> bool:
+        """
+        Soft-archives or restores a virtual document.
+        
+        Args:
+            uuid: The document UUID.
+            is_archived: True to mark as archived, False to restore.
+            
+        Returns:
+            True if the operation was successful.
+        """
+        now = datetime.now().isoformat() if is_archived else None
+        # We use exported_at as a proxy for archived_at if needed, but let's keep it clean
+        sql = "UPDATE virtual_documents SET archived = ?, exported_at = ? WHERE uuid = ?"
+        try:
+            with self.conn:
+                cursor = self.conn.execute(sql, (int(is_archived), now, uuid))
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"[LogicalRepo] mark_archived error: {e}")
+            return False
+
     def get_all(self, include_deleted: bool = True) -> List[VirtualDocument]:
         """
         Fetches all logical documents from the repository.
@@ -213,7 +267,8 @@ class LogicalRepository(BaseRepository):
             uuid, source_mapping, status, export_filename, last_used, 
             last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
             semantic_data, created_at, deleted, page_count_virt, type_tags,
-            tags, deleted_at, locked_at, exported_at, pdf_class
+            tags, deleted_at, locked_at, exported_at, pdf_class,
+            archived, storage_location, ai_confidence, process_id
         FROM virtual_documents
         """
         if not include_deleted:

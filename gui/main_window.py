@@ -228,6 +228,7 @@ class MainWindow(QMainWindow):
 
             # Phase 92: Trash Actions
             self.list_widget.restore_requested.connect(self.restore_documents_slot)
+            self.list_widget.archive_requested.connect(self.archive_document_slot)
             self.list_widget.purge_requested.connect(self.purge_documents_slot)
             self.list_widget.stage2_requested.connect(self.run_stage_2_selected_slot)
             self.list_widget.active_filter_changed.connect(self._on_view_filter_changed)
@@ -235,7 +236,7 @@ class MainWindow(QMainWindow):
             self.list_widget.search_cleared.connect(self._on_search_cleared)
 
             # Phase 105: Active Filter Precedence
-            self.advanced_filter.chk_active.toggled.connect(self.list_widget.set_advanced_filter_active)
+            self.advanced_filter.filter_active_changed.connect(self.list_widget.set_advanced_filter_active)
             # Synchronize initial state
             self.list_widget.advanced_filter_active = self.advanced_filter.chk_active.isChecked()
 
@@ -404,6 +405,7 @@ class MainWindow(QMainWindow):
         self.current_search_text = ""
         if hasattr(self, 'advanced_filter'):
             self.advanced_filter.clear_search()
+            self.advanced_filter.set_active(False) # [NEW] Sync reset
         if hasattr(self, "pdf_viewer"):
             self.pdf_viewer.set_highlight_text("")
             self.pdf_viewer.global_search_total = 0
@@ -988,13 +990,13 @@ class MainWindow(QMainWindow):
                 for uuid in uuids:
                     # 0. If in Trash Mode, Purge Immediately
                     if is_trash_mode:
-                        if self.pipeline.delete_entity(uuid):
+                        if self.pipeline.delete_entity(uuid, purge=True):
                              deleted_count += 1
                         continue
 
                     # 1. Try Deleting as Entity (Smart Delete)
-                    # This removes the semantic row. If it was the last one, it trashes the source doc.
-                    if self.pipeline.delete_entity(uuid):
+                    # Use soft-delete (trash=True) by default in normal view
+                    if self.pipeline.delete_entity(uuid, purge=False):
                         deleted_count += 1
                         continue
 
@@ -2002,6 +2004,24 @@ class MainWindow(QMainWindow):
         if count > 0:
             self.list_widget.refresh_list()
             show_notification(self, self.tr("Restored"), self.tr(f"Restored {count} document(s)."))
+
+    def archive_document_slot(self, uuids: list[str], archive: bool = True):
+        """Handles archiving or restoring documents from the archive."""
+        count = 0
+        for uid in uuids:
+            if self.pipeline.archive_entity(uid, archive):
+                count += 1
+            
+        if count > 0:
+            self.list_widget.refresh_list()
+            action_str = self.tr("Archived") if archive else self.tr("Restored from Archive")
+            if archive:
+                msg_str = self.tr("Archived %n document(s)", "", count)
+            else:
+                msg_str = self.tr("Restored %n document(s) from Archive", "", count)
+            
+            # Using a safer way to concatenate translated strings if needed
+            show_notification(self, action_str, msg_str)
 
     def purge_data_slot(self):
         """

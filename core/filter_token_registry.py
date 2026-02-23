@@ -83,6 +83,11 @@ class FilterTokenRegistry:
             FilterToken("uuid", "sys", "field_uuid", "string", "🆔 "),
             FilterToken("created_at", "sys", "field_created_at", "date", "⏰ "),
             FilterToken("last_processed_at", "sys", "field_processed_at", "date", "⏰ "),
+            FilterToken("last_used", "sys", "field_last_used", "date", "⏰ "),
+            FilterToken("deleted_at", "sys", "field_deleted_at", "date", "⏰ "),
+            FilterToken("locked_at", "sys", "field_locked_at", "date", "⏰ "),
+            FilterToken("exported_at", "sys", "field_exported_at", "date", "⏰ "),
+            FilterToken("archived", "sys", "field_archived", "list", "📦 "),
             FilterToken("deleted", "sys", "field_in_trash", "list", "🗑️ "),
         ]
 

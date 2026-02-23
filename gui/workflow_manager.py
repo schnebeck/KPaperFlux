@@ -775,7 +775,7 @@ class WorkflowManagerWidget(QWidget):
         if rule:
             self.form_editor.load_rule(rule)
             self._clear_dirty()
-            self.status_lbl.setText(self.tr("Editing: %1").arg(rule.name or rule_id))
+            self.status_lbl.setText(self.tr("Editing: %1").replace("%1", rule.name or rule_id))
 
     def _create_new_rule(self):
         rule = WorkflowRule(
@@ -802,14 +802,14 @@ class WorkflowManagerWidget(QWidget):
             for existing in reg.list_rules():
                 if existing.name == rule.name and existing.id != rule.id:
                     QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                        self.tr("A rule with the name '%1' already exists.").arg(rule.name))
+                                        self.tr("A rule with the name '%1' already exists.").replace("%1", rule.name))
                     return
 
             file_path = os.path.join(self.workflow_dir, f"{rule.id}.json")
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(rule.model_dump(), f, indent=2)
                 
-            QMessageBox.information(self, self.tr("Success"), self.tr("Rule '%1' saved and activated.").arg(rule.name))
+            QMessageBox.information(self, self.tr("Success"), self.tr("Rule '%1' saved and activated.").replace("%1", rule.name))
             
             self._clear_dirty()
             
@@ -823,7 +823,7 @@ class WorkflowManagerWidget(QWidget):
             self.workflows_changed.emit()
             
         except Exception as e:
-            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save rule: %1").arg(str(e)))
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save rule: %1").replace("%1", str(e)))
 
     def _revert_changes(self):
         """Cancel changes and reload current rule."""
@@ -941,7 +941,7 @@ class WorkflowRuleManagerDialog(QDialog):
             reg = WorkflowRuleRegistry()
             if any(p.name == name for p in reg.list_rules()):
                 QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                    self.tr("A workflow with the name '%1' already exists.").arg(name))
+                                    self.tr("A workflow with the name '%1' already exists.").replace("%1", name))
                 return
 
             # Generate stable ID from name + timestamp
@@ -979,7 +979,7 @@ class WorkflowRuleManagerDialog(QDialog):
                 reg = WorkflowRuleRegistry()
                 if any(p.name == new_name for p in reg.list_rules()):
                     QMessageBox.warning(self, self.tr("Duplicate Name"), 
-                                        self.tr("A rule with the name '%1' already exists.").arg(new_name))
+                                        self.tr("A rule with the name '%1' already exists.").replace("%1", new_name))
                     return
 
                 data["name"] = new_name
@@ -996,7 +996,7 @@ class WorkflowRuleManagerDialog(QDialog):
         
         if len(items) == 1:
             title = self.tr("Delete Rule")
-            msg = self.tr("Are you sure you want to delete the rule '%1'?").arg(items[0].text())
+            msg = self.tr("Are you sure you want to delete the rule '%1'?").replace("%1", items[0].text())
         else:
             title = self.tr("Delete Rules")
             msg = self.tr("Are you sure you want to delete %n selected rule(s)?", "", len(items))
@@ -1013,7 +1013,7 @@ class WorkflowRuleManagerDialog(QDialog):
         if in_use:
             QMessageBox.critical(
                 self, self.tr("Rules in Use"),
-                self.tr("The following rules cannot be deleted because they are still in use:\n\n%1").arg(", ".join(in_use))
+                self.tr("The following rules cannot be deleted because they are still in use:\n\n%1").replace("%1", ", ".join(in_use))
             )
             return
 

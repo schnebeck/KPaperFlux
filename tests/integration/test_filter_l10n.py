@@ -26,7 +26,7 @@ def test_filter_condition_l10n_ui(app):
     widget.set_condition({"field": "doc_date", "op": "equals", "value": "2023-01-01"})
     
     # Verify button text in English
-    assert widget.btn_field_selector.text() == "Document Date"
+    assert widget.btn_field_selector.text() == "Date"
     
     # 2. Simulate German Translation
     # In a real app, MainWindow loads the .qm file. 
@@ -43,15 +43,15 @@ def test_filter_condition_l10n_ui(app):
         widget.retranslate_ui()
         
         # Verify button text in German
-        # Based on my grep, it's 'Belegdatum'
-        assert widget.btn_field_selector.text() == "Belegdatum"
+        # Based on my grep, it's 'Datum'
+        assert widget.btn_field_selector.text() == "Datum"
         
         # Cleanup
         app.removeTranslator(translator)
     else:
         # If QM is missing, we at least verify that it still shows the key or English
         widget.retranslate_ui()
-        assert widget.btn_field_selector.text() == "Document Date"
+        assert widget.btn_field_selector.text() == "Date"
 
 def test_filter_condition_persistence_agnostic(app):
     """

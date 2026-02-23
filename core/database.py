@@ -443,9 +443,11 @@ class DatabaseManager:
 
         where_clause, params = self._build_where_clause(query)
         
-        # Exclude deleted documents unless explicitly searched
+        # Exclude deleted/archived documents unless explicitly searched
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
+        if "archived" not in where_clause.lower():
+            where_clause = f"({where_clause}) AND archived = 0"
             
         sql = f"""
             SELECT {self._doc_select}
@@ -863,7 +865,7 @@ class DatabaseManager:
         sql = f"""
             SELECT {self._doc_select}
             FROM virtual_documents
-            WHERE deleted = 0
+            WHERE deleted = 0 AND archived = 0
             ORDER BY created_at DESC
         """
         cursor = self.connection.cursor()
@@ -973,7 +975,7 @@ class DatabaseManager:
             SELECT {', '.join(['v.' + c.strip() for c in self._doc_select.split(',')])}
             FROM virtual_documents v
             JOIN virtual_documents_fts f ON v.uuid = f.uuid
-            WHERE f.cached_full_text MATCH ? AND v.deleted = 0
+            WHERE f.cached_full_text MATCH ? AND v.deleted = 0 AND v.archived = 0
             ORDER BY rank
         """
         cursor = self.connection.cursor()
@@ -1317,7 +1319,7 @@ class DatabaseManager:
         Returns:
             Integer count.
         """
-        sql = "SELECT COUNT(*) FROM virtual_documents WHERE deleted = 0"
+        sql = "SELECT COUNT(*) FROM virtual_documents WHERE deleted = 0 AND archived = 0"
         params = []
         if status:
              sql += " AND status = ?"

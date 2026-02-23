@@ -107,7 +107,7 @@ class SemanticTranslator(QObject):
 
             # Filter Tokens - Basis
             case "field_doc_date":
-                return self.tr("Document Date")
+                return self.tr("Date")
             case "field_classification":
                 return self.tr("Classification")
             case "field_status":
@@ -145,13 +145,25 @@ class SemanticTranslator(QObject):
             case "field_pages":
                 return self.tr("Pages")
             case "field_uuid":
-                return self.tr("UUID")
+                return self.tr("ID")
             case "field_created_at":
-                return self.tr("Created At")
+                return self.tr("Imported Date")
             case "field_processed_at":
-                return self.tr("Processed At")
+                return self.tr("Autoprocessed Date")
+            case "field_last_used":
+                return self.tr("Used Date")
+            case "field_deleted_at":
+                return self.tr("Deleted Date")
+            case "field_locked_at":
+                return self.tr("Locked Date")
+            case "field_exported_at":
+                return self.tr("Exported Date")
             case "field_in_trash":
                 return self.tr("In Trash")
+            case "field_archived":
+                return self.tr("Archived")
+            case "archived":
+                return self.tr("Archived")
 
             # Generic
             case "Date":
@@ -226,6 +238,37 @@ class SemanticTranslator(QObject):
                 return self.tr("Verified At")
             case "verified_by":
                 return self.tr("Verified By")
+
+            # Workflow States & Actions (Engine Backend)
+            case "Incoming Invoice":
+                return self.tr("Incoming Invoice")
+            case "Ready for Payment":
+                return self.tr("Ready for Payment")
+            case "Paid & Archived":
+                return self.tr("Paid & Archived")
+            case "Rejected / Spam":
+                return self.tr("Rejected / Spam")
+            case "Posteingang":
+                return self.tr("Posteingang")
+            case "Warten auf Zahlung":
+                return self.tr("Warten auf Zahlung")
+            case "1. Mahnstufe":
+                return self.tr("1. Mahnstufe")
+            case "Abgeschlossen":
+                return self.tr("Abgeschlossen")
+            case "Inkasso / Recht":
+                return self.tr("Inkasso / Recht")
+            
+            case "Verify":
+                return self.tr("Verify")
+            case "Reject":
+                return self.tr("Reject")
+            case "Mark as paid":
+                return self.tr("Mark as paid")
+            case "Reset":
+                return self.tr("Reset")
+            case "Apply":
+                return self.tr("Apply")
 
             # IMPLIED / Stamp Fields
             case "IMPLIED_BARCODE_VALUE":

@@ -81,8 +81,8 @@ def test_save_and_verify_ui_operator(main_window):
     assert len(rows) == 1
     row = rows[0]
     
-    # Field: UUID
-    assert row.btn_field_selector.text() == "UUID"
+    # Field: ID (Synchronized from UUID)
+    assert row.btn_field_selector.text() == "ID"
     
     # Operator: In List (key='in')
     # If this fails (equals 'contains'), then finding 'in' failed

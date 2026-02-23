@@ -89,8 +89,8 @@ def test_smart_list_filtering(qtbot, db_with_docs):
     # Discovery phase
     header_labels = [widget.tree.headerItem().text(i) for i in range(widget.tree.columnCount())]
     def get_col(label): return header_labels.index(label)
-    col_sender = get_col("Sender")
-    col_uuid = get_col("Entity ID")
+    col_sender = get_col("Sender") if "Sender" in header_labels else get_col("Absender")
+    col_uuid = get_col("ID")
 
     # Query: "2024"
     widget.apply_filter({'date_from': '2024-01-01', 'date_to': '2024-12-31'})

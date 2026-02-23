@@ -75,6 +75,7 @@ class AdvancedFilterWidget(QWidget):
     trash_mode_changed = pyqtSignal(bool) # New signal for Trash Mode
     request_apply_rule = pyqtSignal(object, str) # rule, scope ("ALL", "FILTERED", "SELECTED")
     search_triggered = pyqtSignal(str) # Emits the raw search text for highlighting
+    filter_active_changed = pyqtSignal(bool) # [NEW] Signal for active toggle
     next_hit_requested = pyqtSignal()
     prev_hit_requested = pyqtSignal()
 
@@ -752,7 +753,7 @@ class AdvancedFilterWidget(QWidget):
                 self._emit_change()
             
             # Phase 131: Literal for l10n tool detection
-            _ = self.tr("Advanced Filter")
+            _ = self.tr("Filter")
         
         self._update_stack_visibility()
     def _update_stack_visibility(self):
@@ -1012,7 +1013,16 @@ class AdvancedFilterWidget(QWidget):
 
     def _on_active_toggled(self, checked):
         # Toggling active state applied immediately
+        self.filter_active_changed.emit(checked)
+        self._set_dirty()
         self._emit_change()
+
+    def set_active(self, active: bool):
+        """Programmatically set the 'Filter active' state without triggering dirty flag."""
+        if self.chk_active:
+            self.chk_active.blockSignals(True)
+            self.chk_active.setChecked(active)
+            self.chk_active.blockSignals(False)
 
     def _emit_change(self):
         query = self.get_query_object()
@@ -1426,6 +1436,7 @@ class AdvancedFilterWidget(QWidget):
         self.btn_manage.setToolTip(self.tr("Manage Filters"))
         self.btn_clear.setText(self.tr("Clear All"))
         self.btn_apply.setText(self.tr("Apply Changes"))
+        self.btn_apply.setToolTip(self.tr("Changes are applied automatically when 'Filter active' is checked."))
         self.chk_active.setText(self.tr("Filter Active"))
 
         # Rules Tab
