@@ -177,6 +177,20 @@ class SemanticTranslator(QObject):
             case "File Link":
                 return self.tr("File Link")
 
+            # Meta Header Technical Keys
+            case "sender":
+                return self.tr("Sender")
+            case "recipient":
+                return self.tr("Recipient")
+            case "doc_date":
+                return self.tr("Date")
+            case "doc_number":
+                return self.tr("Doc Number")
+            case "language":
+                return self.tr("Language")
+            case "references":
+                return self.tr("References")
+
             # Generic / Segments
             case "bodies":
                 return self.tr("Contents")
