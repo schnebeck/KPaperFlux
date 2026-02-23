@@ -213,6 +213,26 @@ class SemanticTranslator(QObject):
             case "verified_by":
                 return self.tr("Verified By")
 
+            # IMPLIED / Stamp Fields
+            case "IMPLIED_BARCODE_VALUE":
+                return self.tr("Barcode Value")
+            case "IMPLIED_CODE":
+                return self.tr("Code")
+            case "IMPLIED_DATE_CODE":
+                return self.tr("Date Code")
+            case "IMPLIED_NUMBER":
+                return self.tr("Number")
+            case "IMPLIED_QR_CODE_DATA":
+                return self.tr("QR Code Data")
+            case "IMPLIED_QR_CODE_TYPE":
+                return self.tr("QR Code Type")
+            case "IMPLIED_SIGNATURE":
+                return self.tr("Signature")
+            case "IMPLIED_TEXT":
+                return self.tr("Text")
+            case "IMPLIED_TIME":
+                return self.tr("Time")
+
             # Fallback
             case _:
                 return key

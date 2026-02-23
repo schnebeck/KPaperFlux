@@ -176,8 +176,10 @@ class FilterConditionWidget(QWidget):
                     if k.startswith("stamp_field:"):
                         has_stamps = True
                         label = k[12:]
-                        action = cat_menu.addAction(self.tr("Field: %s") % label)
-                        action.triggered.connect(lambda checked, k=k, n=label: self._set_field(k, n))
+                        # Phase 135: Beautify and translate
+                        display_name = translator.beautify_key(label)
+                        action = cat_menu.addAction(self.tr("Field: %s") % display_name)
+                        action.triggered.connect(lambda checked, k=k, n=display_name: self._set_field(k, n))
                 if not has_stamps and not tokens:
                     cat_menu.setEnabled(False)
 
