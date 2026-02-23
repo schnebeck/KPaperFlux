@@ -1425,6 +1425,11 @@
         <translation>Feld: %s</translation>
     </message>
     <message>
+        <location filename="../../../gui/widgets/filter_condition.py" line="259" />
+        <source>%s [Total]</source>
+        <translation>%s [Gesamt]</translation>
+    </message>
+    <message>
         <source>Contains</source>
         <translation type="vanished">enthält</translation>
     </message>
@@ -3419,7 +3424,7 @@ Are you completely sure you want to reset the system?</source>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="278" />
         <source>Text</source>
-        <translation type="unfinished">Text</translation>
+        <translation>Text</translation>
     </message>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="278" />
@@ -3465,7 +3470,7 @@ Are you completely sure you want to reset the system?</source>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="292" />
         <source>Time</source>
-        <translation type="unfinished">Zeit</translation>
+        <translation>Zeit</translation>
     </message>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="292" />
@@ -3475,12 +3480,12 @@ Are you completely sure you want to reset the system?</source>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="292" />
         <source>User</source>
-        <translation type="unfinished" />
+        <translation>Benutzer</translation>
     </message>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="292" />
         <source>Comment</source>
-        <translation type="unfinished" />
+        <translation>Kommentar</translation>
     </message>
     <message>
         <location filename="../../../gui/metadata_editor.py" line="296" />
@@ -4797,7 +4802,7 @@ Please install 'qrcode' package.</source>
         <location filename="../../../core/semantic_translator.py" line="285" />
         <location filename="../../../core/semantic_translator.py" line="192" />
         <source>Visual Audit</source>
-        <translation type="unfinished">Visuelle Prüfung</translation>
+        <translation>Visuelle Prüfung</translation>
     </message>
     <message>
         <location filename="../../../core/semantic_translator.py" line="286" />
@@ -4813,7 +4818,7 @@ Please install 'qrcode' package.</source>
     <message>
         <location filename="../../../core/semantic_translator.py" line="200" />
         <source>History</source>
-        <translation type="unfinished">Historie</translation>
+        <translation>Historie</translation>
     </message>
     <message>
         <location filename="../../../core/semantic_translator.py" line="202" />
@@ -4898,22 +4903,22 @@ Please install 'qrcode' package.</source>
     <message>
         <location filename="../../../core/semantic_translator.py" line="238" />
         <source>Action</source>
-        <translation type="unfinished">Aktion</translation>
+        <translation>Aktion</translation>
     </message>
     <message>
         <location filename="../../../core/semantic_translator.py" line="240" />
         <source>Comment</source>
-            <translation>Kommentar</translation>
+        <translation>Kommentar</translation>
     </message>
     <message>
         <location filename="../../../core/semantic_translator.py" line="242" />
         <source>Timestamp</source>
-            <translation>Zeitstempel</translation>
+        <translation>Zeitstempel</translation>
     </message>
     <message>
         <location filename="../../../core/semantic_translator.py" line="244" />
         <source>User</source>
-            <translation>Benutzer</translation>
+        <translation>Benutzer</translation>
     </message>
     <message>
         <location filename="../../../core/semantic_translator.py" line="292" />

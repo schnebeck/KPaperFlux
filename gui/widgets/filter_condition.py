@@ -253,6 +253,11 @@ class FilterConditionWidget(QWidget):
                     leaf_name = parts[-1]
                     display_leaf = translator.beautify_key(k).split(" > ")[-1]
                     
+                    # Phase 135: If this key is also a parent of other keys, mark it as [Total]
+                    is_parent = any(sk.startswith(k + ".") for sk in sorted_keys)
+                    if is_parent:
+                        display_leaf = self.tr("%s [Total]") % display_leaf
+                    
                     parent_path = ".".join(parts[:-1])
                     action = menus[parent_path].addAction(display_leaf)
                     action.triggered.connect(lambda checked, key=k, name=translator.beautify_key(k): self._set_field(key, name))
