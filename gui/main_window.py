@@ -855,15 +855,6 @@ class MainWindow(QMainWindow):
         if docs:
             self.editor_widget.display_documents(docs)
             
-        # Update Status Bar with Sum (Phase 4)
-        total_sum = 0.0
-        for d in docs:
-            if d.total_gross:
-                total_sum += float(d.total_gross or 0)
-        
-        self._selected_sum = total_sum
-        self._refresh_status_bar()
-
     def _refresh_status_bar(self):
         """Unified status bar text update."""
         status_text = self.tr("Docs: %s/%s") % (self._visible_count, self._total_count)
@@ -899,6 +890,15 @@ class MainWindow(QMainWindow):
 
         # Sync Search Context (offsets for global navigation)
         self._sync_global_search_context(uuid)
+
+        # Update Status Bar with Sum (Phase 4) - Always update on selection!
+        total_sum = 0.0
+        for d in docs:
+            if d.total_gross:
+                total_sum += float(d.total_gross or 0)
+        
+        self._selected_sum = total_sum
+        self._refresh_status_bar()
 
         # Check for Search Hits for Deferred Navigation (Jumping to relevant page)
         target_index = -1
