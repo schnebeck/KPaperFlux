@@ -247,6 +247,9 @@ class MainWindow(QMainWindow):
             self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
 
             self.left_pane_splitter.addWidget(self.list_widget)
+            # Ensure the list widget expands and the filter widget shrinks/collapses correctly
+            self.left_pane_splitter.setStretchFactor(0, 0) # Filter
+            self.left_pane_splitter.setStretchFactor(1, 1) # List
 
             # --- FIX: Metadata Editor (Unten links) ---
             # Dieser Block fehlte oder war unvollständig, was zum Absturz führte.

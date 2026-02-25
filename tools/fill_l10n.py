@@ -362,7 +362,8 @@ def fill():
             "Apply to ALL documents": "Auf ALLE Dokumente anwenden",
             "Apply to current List View (Filtered)": "Auf aktuelle Ansicht anwendung (gefiltert)",
             "Apply to SELECTED documents only": "Nur auf AUSGEWÄHLTE Dokumente anwenden",
-            "No 'Add Tags' defined. Cannot create a filter for nothing.": "Keine Tags zum Hinzufügen definiert. Filter kann nicht erstellt werden.",
+            "No 'Add Tags' defined. Cannot create a filter for nothing.": "Keine Tags zum Hinzufügen definiert. Filter kann nicht erstellt werden.",            "--- Saved Rule ---": "--- Gespeicherte Regeln ---",
+
         },
         "WorkflowRuleFormEditor": {
             "Rule Name:": "Name der Regel:",

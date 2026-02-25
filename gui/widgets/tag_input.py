@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from PyQt6.QtGui import QKeyEvent
 
 class TagBadge(QFrame):
-    """A small pill/badge representing a single tag."""
+    """A premium pill/badge representing a single tag."""
     deleted = pyqtSignal(str)
 
     def __init__(self, text, parent=None):
@@ -15,13 +15,14 @@ class TagBadge(QFrame):
             #TagBadge {
                 background-color: #e3f2fd;
                 border: 1px solid #bbdefb;
-                border-radius: 4px;
-                padding-left: 4px;
+                border-radius: 12px;
+                padding: 2px 4px;
             }
             QLabel {
-                color: #1976d2;
+                color: #1565c0;
                 font-weight: bold;
                 font-size: 11px;
+                margin-left: 2px;
             }
             #CloseBtn {
                 border: none;
@@ -29,6 +30,7 @@ class TagBadge(QFrame):
                 color: #1976d2;
                 font-weight: bold;
                 padding: 0 4px;
+                font-size: 12px;
             }
             #CloseBtn:hover {
                 color: #d32f2f;
@@ -36,7 +38,7 @@ class TagBadge(QFrame):
         """)
         
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setContentsMargins(4, 1, 4, 1)
         layout.setSpacing(2)
         
         lbl = QLabel(text)
@@ -44,7 +46,7 @@ class TagBadge(QFrame):
         
         btn = QPushButton("×")
         btn.setObjectName("CloseBtn")
-        btn.setFixedSize(16, 16)
+        btn.setFixedSize(18, 18)
         btn.clicked.connect(lambda: self.deleted.emit(self.text))
         layout.addWidget(btn)
 
@@ -60,46 +62,82 @@ class TagInputWidget(QFrame):
         self.setObjectName("TagInputWidget")
         self.setStyleSheet("""
             #TagInputWidget {
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                background-color: white;
+                border: 1px solid #aaa;
+                border-radius: 8px;
+                background-color: #f8f9fa;
+            }
+            #TagInputWidget:hover {
+                border: 1px solid #888;
+                background-color: #fff;
+            }
+            #TagInputWidget[focused="true"] {
+                border: 2px solid #1976d2;
+                background-color: #fff;
             }
             QLineEdit {
                 border: none;
                 background: transparent;
-                min-width: 50px;
+                min-width: 80px;
+                color: #333;
+                font-size: 13px;
+                padding: 4px;
             }
         """)
         
+        self.setProperty("focused", "false")
         self.tags = []
         
+        # Main Layout
+        outer_layout = QHBoxLayout(self)
+        outer_layout.setContentsMargins(8, 0, 8, 0)
+        outer_layout.setSpacing(4)
+
+        # Icon Prefix
+        self.lbl_icon = QLabel("🏷️")
+        self.lbl_icon.setStyleSheet("font-size: 14px; background: transparent;")
+        outer_layout.addWidget(self.lbl_icon)
+
+        # Scroll Area for tags
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.scroll.setFixedHeight(32)
+        self.scroll.setFixedHeight(34)
+        self.scroll.setStyleSheet("background: transparent;")
         
         self.container = QWidget()
+        self.container.setStyleSheet("background: transparent;")
         self.main_layout = QHBoxLayout(self.container)
-        self.main_layout.setContentsMargins(4, 2, 4, 2)
-        self.main_layout.setSpacing(4)
+        self.main_layout.setContentsMargins(0, 2, 0, 2)
+        self.main_layout.setSpacing(6)
         
         self.scroll.setWidget(self.container)
-        
-        outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(0, 0, 0, 0)
-        outer_layout.addWidget(self.scroll)
+        outer_layout.addWidget(self.scroll, 1)
 
         self.line_edit = QLineEdit()
-        self.line_edit.setPlaceholderText("...")
-        self.line_edit.setMinimumWidth(60)
+        self.line_edit.setPlaceholderText(self.tr("Hinzufügen..."))
+        self.line_edit.setMinimumWidth(80)
         self.line_edit.textChanged.connect(self._on_text_changed)
         self.line_edit.returnPressed.connect(self._add_current_text)
         self.line_edit.installEventFilter(self)
         
+        # Track focus for parent styling
+        self.line_edit.focusInEvent = lambda e: self._on_focus_changed(True, e)
+        self.line_edit.focusOutEvent = lambda e: self._on_focus_changed(False, e)
+        
         self.main_layout.addWidget(self.line_edit)
         self.main_layout.addStretch()
+
+    def _on_focus_changed(self, focused, event):
+        self.setProperty("focused", "true" if focused else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
+        # Restore default behavior
+        if focused:
+            QLineEdit.focusInEvent(self.line_edit, event)
+        else:
+            QLineEdit.focusOutEvent(self.line_edit, event)
 
     def setTags(self, tags: list[str]):
         """Programmatically set the list of tags."""

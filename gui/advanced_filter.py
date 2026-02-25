@@ -83,6 +83,7 @@ class AdvancedFilterWidget(QWidget):
 
     def __init__(self, parent=None, db_manager=None, filter_tree=None, save_callback=None):
         super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self.db_manager = db_manager
         self.filter_tree = filter_tree
         self.save_callback = save_callback
@@ -107,8 +108,12 @@ class AdvancedFilterWidget(QWidget):
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        from PyQt6.QtWidgets import QLayout
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(0)
+        self.setMinimumHeight(0)
 
         # Custom Sub-Navigation Bar
         sub_nav_container = QWidget()
@@ -178,20 +183,28 @@ class AdvancedFilterWidget(QWidget):
         layout.addWidget(self.sep_line)
 
         self.stack = QStackedWidget()
+        if self.stack.layout():
+            from PyQt6.QtWidgets import QLayout
+            self.stack.layout().setSizeConstraint(QLayout.SizeConstraint.SetMinAndMaxSize)
+        self.stack.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         layout.addWidget(self.stack)
-        layout.addStretch(1) # Ensure top alignment
+        layout.addStretch(1) # [REF] Ensure items are pushed to TOP, giving space back to DocumentList
         
         self._update_stack_visibility()
 
         # --- TAB 1: Suche ---
         self.search_tab = QWidget()
+        self.search_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         search_layout = QVBoxLayout(self.search_tab)
+        search_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        from PyQt6.QtWidgets import QLayout
+        search_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         search_layout.setContentsMargins(0, 5, 0, 5)
         search_layout.setSpacing(8)
 
         s_row = QHBoxLayout()
         self.lbl_search_header = QLabel("")
-        self.lbl_search_header.setFixedWidth(70)
+        self.lbl_search_header.setFixedWidth(110)
         s_row.addWidget(self.lbl_search_header)
         self.txt_smart_search = QLineEdit()
         self.txt_smart_search.setClearButtonEnabled(True)
@@ -243,14 +256,18 @@ class AdvancedFilterWidget(QWidget):
 
         # --- TAB 2: Ansicht filtern ---
         self.filter_tab = QWidget()
+        self.filter_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         filter_layout = QVBoxLayout(self.filter_tab)
+        filter_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        from PyQt6.QtWidgets import QLayout
+        filter_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         filter_layout.setContentsMargins(0, 5, 0, 5)
         filter_layout.setSpacing(8)
 
         # Top Bar (Management)
         top_bar = QHBoxLayout()
         self.lbl_filter_select = QLabel("")
-        self.lbl_filter_select.setFixedWidth(70)
+        self.lbl_filter_select.setFixedWidth(110)
         top_bar.addWidget(self.lbl_filter_select)
         self.combo_filters = QComboBox()
         self.combo_filters.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
@@ -305,7 +322,6 @@ class AdvancedFilterWidget(QWidget):
         # Conditions Area
         self.scroll = QScrollArea()
         self.scroll.setFrameShape(QFrame.Shape.NoFrame) # Remove outer frame
-        self.scroll.setMinimumHeight(300) # [PHASE 131] Ensure enough space for several conditions
         self.scroll.setWidgetResizable(True)
         self.scroll.setVisible(False) # [PHASE 131] Hide until Load/New
         self.root_group = FilterGroupWidget(extra_keys=self.extra_keys,
@@ -315,7 +331,7 @@ class AdvancedFilterWidget(QWidget):
                                             is_root=True)
         self.root_group.changed.connect(self._set_dirty)
         self.scroll.setWidget(self.root_group)
-        filter_layout.addWidget(self.scroll, 1)
+        filter_layout.addWidget(self.scroll)
 
         # Bottom Bar
         bottom_bar = QHBoxLayout()
@@ -347,7 +363,6 @@ class AdvancedFilterWidget(QWidget):
         self.btn_save.clicked.connect(self.save_current_filter)
         bottom_bar.addWidget(self.btn_save)
         filter_layout.addLayout(bottom_bar)
-        filter_layout.addStretch() # Ensure compactness when scroll is hidden
 
         self.stack.addWidget(self.filter_tab)
 
@@ -357,24 +372,28 @@ class AdvancedFilterWidget(QWidget):
 
     def _init_rules_tab(self):
         self.rules_tab = QWidget()
+        self.rules_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         rules_layout = QVBoxLayout(self.rules_tab)
+        rules_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        from PyQt6.QtWidgets import QLayout
+        rules_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         rules_layout.setContentsMargins(0, 5, 0, 5)
         rules_layout.setSpacing(8)
 
         # Top Bar (Management) - Harmonized with Filter View
         top_bar = QHBoxLayout()
         self.lbl_rule_select = QLabel("")
-        self.lbl_rule_select.setFixedWidth(70)
+        self.lbl_rule_select.setFixedWidth(110)
         top_bar.addWidget(self.lbl_rule_select)
         self.combo_rules = QComboBox()
         self.combo_rules.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.combo_rules.setMinimumWidth(150)
-        self.combo_rules.currentIndexChanged.connect(self._on_combo_rule_selected) # [NEW]
+        self.combo_rules.currentIndexChanged.connect(self._on_combo_rule_selected)
         top_bar.addWidget(self.combo_rules, 1)
 
         self.btn_load_rule = QPushButton("")
         self.btn_load_rule.setFixedHeight(30)
-        self.btn_load_rule.setEnabled(False) # [NEW] Disabled until selection
+        self.btn_load_rule.setEnabled(False) 
         self.btn_load_rule.clicked.connect(self._on_load_rule_clicked)
         top_bar.addWidget(self.btn_load_rule)
 
@@ -400,15 +419,23 @@ class AdvancedFilterWidget(QWidget):
         self.btn_toggle_rules.setFixedHeight(30)
         self.btn_toggle_rules.setStyleSheet("color: #ff9800; font-weight: bold; border: none; background: transparent; font-size: 16px;")
         self.btn_toggle_rules.setToolTip(self.tr("Show/Hide Editor"))
-        self.btn_toggle_rules.setVisible(False) # Hide by default
+        self.btn_toggle_rules.setVisible(False) 
         self.btn_toggle_rules.clicked.connect(self._toggle_rules_visibility)
         top_bar.addWidget(self.btn_toggle_rules)
 
         rules_layout.addLayout(top_bar)
 
+        # Combined Editor Container (Tags + Workflow + Conditions)
+        self.rules_editor_widget = QWidget()
+        self.rules_editor_widget.setVisible(False)
+        editor_layout = QVBoxLayout(self.rules_editor_widget)
+        editor_layout.setContentsMargins(0, 0, 0, 0)
+        editor_layout.setSpacing(8)
+
         # Metadata / Tagging Row
         meta_row = QHBoxLayout()
         self.lbl_tags_add = QLabel("")
+        self.lbl_tags_add.setFixedWidth(110) # Align with top bar
         meta_row.addWidget(self.lbl_tags_add)
 
         self.edit_tags_add = TagInputWidget()
@@ -416,37 +443,41 @@ class AdvancedFilterWidget(QWidget):
         meta_row.addWidget(self.edit_tags_add, 1)
 
         self.lbl_tags_rem = QLabel("")
+        self.lbl_tags_rem.setFixedWidth(110)
         meta_row.addWidget(self.lbl_tags_rem)
         self.edit_tags_rem = TagInputWidget()
         self.edit_tags_rem.tagsChanged.connect(self._set_rule_dirty)
         meta_row.addWidget(self.edit_tags_rem, 1)
-        rules_layout.addLayout(meta_row)
+        editor_layout.addLayout(meta_row)
 
         # Phase 126: Workflow Assignment Row
         wf_row = QHBoxLayout()
         self.lbl_assign_wf = QLabel("")
+        self.lbl_assign_wf.setFixedWidth(110)
         wf_row.addWidget(self.lbl_assign_wf)
         self.combo_assign_wf = QComboBox()
         self.combo_assign_wf.currentIndexChanged.connect(self._set_rule_dirty)
         wf_row.addWidget(self.combo_assign_wf, 1)
         wf_row.addStretch()
-        rules_layout.addLayout(wf_row)
+        editor_layout.addLayout(wf_row)
         
         self._populate_wf_combo()
 
         # Conditions Area (Mirrored FilterGroupWidget)
-        self.rules_scroll = QScrollArea()
-        self.rules_scroll.setFrameShape(QFrame.Shape.NoFrame) # Remove outer frame
-        self.rules_scroll.setMinimumHeight(300) # [PHASE 131] Ensure enough space for several conditions
-        self.rules_scroll.setWidgetResizable(True)
-        self.rules_scroll.setVisible(False) # [PHASE 131] Hide until Load/New
         self.rules_root_group = FilterGroupWidget(extra_keys=self.extra_keys,
                                                   available_tags=self.available_tags,
                                                   available_workflow_steps=self.available_workflow_steps,
                                                   is_root=True)
         self.rules_root_group.changed.connect(self._set_rule_dirty)
-        self.rules_scroll.setWidget(self.rules_root_group)
-        rules_layout.addWidget(self.rules_scroll, 1)
+        editor_layout.addWidget(self.rules_root_group, 1)
+
+        # Rules Scroll Area (Wraps the combined editor)
+        self.rules_scroll = QScrollArea()
+        self.rules_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.rules_scroll.setWidgetResizable(True)
+        self.rules_scroll.setWidget(self.rules_editor_widget)
+        self.rules_scroll.setVisible(False)
+        rules_layout.addWidget(self.rules_scroll)
 
         # Bottom Bar (Processing)
         bottom_bar = QHBoxLayout()
@@ -497,7 +528,6 @@ class AdvancedFilterWidget(QWidget):
         bottom_bar.addWidget(self.chk_rule_auto)
 
         rules_layout.addLayout(bottom_bar)
-        rules_layout.addStretch() # Ensure compactness when rules_scroll is hidden
 
         # Populate rules combo
         self._load_rules_to_combo()
@@ -518,30 +548,69 @@ class AdvancedFilterWidget(QWidget):
         self.combo_rules.clear()
         self.combo_rules.addItem(self.tr("--- Saved Rule ---"), None)
 
-        if not self.filter_tree:
-            self.combo_rules.blockSignals(False)
-            return
+        if self.filter_tree:
+            all_rules = []
+            
+            # Rules are currently filters with actions
+            # We collect all FILTER type nodes for categorization
+            def collect_rules(node, path_prefix=""):
+                for child in node.children:
+                    if child.node_type == NodeType.FILTER:
+                        localized_name = self.tr(child.name)
+                        display = f"{path_prefix}{localized_name}" if path_prefix else localized_name
+                        all_rules.append((display, child))
+                    elif child.node_type == NodeType.FOLDER:
+                        new_prefix = f"{path_prefix}{child.name} / " if path_prefix else f"{child.name} / "
+                        collect_rules(child, new_prefix)
 
-        rules = self.filter_tree.get_active_rules(only_auto=False)
+            collect_rules(self.filter_tree.root)
 
-        for rule in rules:
-            display_name = self.tr(rule.name or rule.id)
-            self.combo_rules.addItem(display_name, rule)
+            # 1. Top 3 frequently used (Star prefix)
+            top_3 = sorted([r for r in all_rules if r[1].usage_count > 0], 
+                           key=lambda x: x[1].usage_count, reverse=True)[:3]
+            
+            if top_3:
+                for display, node in top_3:
+                    self.combo_rules.addItem(f"⭐ {display}", node)
+                self.combo_rules.insertSeparator(self.combo_rules.count())
+
+            # 2. All Rules (Alphabetical)
+            all_rules.sort(key=lambda x: x[0].lower())
+            for display, node in all_rules:
+                self.combo_rules.addItem(display, node)
+
         self.combo_rules.blockSignals(False)
 
     def _on_load_rule_clicked(self):
         """Manually triggered loading of the selected rule."""
-        rule = self.combo_rules.currentData()
-        if not rule:
+        data = self.combo_rules.currentData()
+        if not data:
             self.clear_rule()
             return
 
-        self.rules_scroll.setVisible(True) # Show editor area
-        self.btn_toggle_rules.setVisible(True) # Show toggle
-        self.btn_toggle_rules.setText("🔼")
+        # Phase 107: Usage Tracking
+        if isinstance(data, FilterNode) and data.node_type == NodeType.FILTER:
+            data.usage_count += 1
+            if self.save_callback:
+                self.save_callback()
+            
+            # Refresh combo to update "Top 3"
+            current_id = data.id
+            self._load_rules_to_combo()
+            
+            # Relocate same item
+            for i in range(self.combo_rules.count()):
+                item_data = self.combo_rules.itemData(i)
+                if isinstance(item_data, FilterNode) and item_data.id == current_id:
+                    self.combo_rules.blockSignals(True)
+                    self.combo_rules.setCurrentIndex(i)
+                    self.combo_rules.blockSignals(False)
+                    break
+
+        self.btn_toggle_rules.setVisible(True)
         self.chk_rule_enabled.setEnabled(True)
         self.chk_rule_enabled.setChecked(True)
-        self._update_stack_visibility()
+        self._set_rules_editor_visible(True)
         self._on_saved_rule_selected(0)
 
     def _on_saved_rule_selected(self, index):
@@ -663,31 +732,54 @@ class AdvancedFilterWidget(QWidget):
         self.combo_rules.blockSignals(True)
         self.combo_rules.setCurrentIndex(0)
         self.combo_rules.blockSignals(False)
-        self.edit_tags_add.clear()
-        self.edit_tags_rem.clear()
-
+        self.clear_rule()
+        self.rules_editor_widget.setVisible(True)
+        self.rules_scroll.setVisible(True)
+        self.btn_toggle_rules.setVisible(True)
+        self.btn_toggle_rules.setText("🔼")
         self.chk_rule_enabled.setEnabled(True)
         self.chk_rule_enabled.setChecked(True)
-
-        self.rules_root_group.clear()
-        self.combo_assign_wf.setCurrentIndex(0)
         self._reset_rule_dirty()
-        self.rules_scroll.setVisible(True) # Show editor
-        self.btn_toggle_rules.setVisible(True) # Show toggle
-        self.btn_toggle_rules.setText("🔼")
+        self._update_stack_visibility()
+
+    def _set_filter_editor_visible(self, visible: bool):
+        self.scroll.setVisible(visible)
+        if visible:
+            self.scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.scroll.setMinimumHeight(320)
+            self.scroll.setMaximumHeight(16777215)
+        else:
+            self.scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+            self.scroll.setMinimumHeight(0)
+            self.scroll.setMaximumHeight(0)
+        self.btn_toggle_editor.setText("🔼" if visible else "🔽")
         self._update_stack_visibility()
 
     def _toggle_editor_visibility(self):
-        is_visible = self.scroll.isVisible()
-        self.scroll.setVisible(not is_visible)
-        self.btn_toggle_editor.setText("🔼" if not is_visible else "🔽")
+        self._set_filter_editor_visible(not self.scroll.isVisible())
+
+    def _set_rules_editor_visible(self, visible: bool):
+        self.rules_scroll.setVisible(visible)
+        self.rules_editor_widget.setVisible(visible)
+        if visible:
+            self.rules_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.rules_scroll.setMinimumHeight(320)
+            self.rules_scroll.setMaximumHeight(16777215)
+            self.rules_editor_widget.setMinimumHeight(320)
+            self.rules_editor_widget.setMaximumHeight(16777215)
+            self.btn_toggle_rules.setText("🔼")
+        else:
+            self.rules_scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+            self.rules_scroll.setMinimumHeight(0)
+            self.rules_scroll.setMaximumHeight(0)
+            self.rules_editor_widget.setMinimumHeight(0)
+            self.rules_editor_widget.setMaximumHeight(0)
+            self.btn_toggle_rules.setText("🔽")
+        self.size_changed.emit()
         self._update_stack_visibility()
 
     def _toggle_rules_visibility(self):
-        is_visible = self.rules_scroll.isVisible()
-        self.rules_scroll.setVisible(not is_visible)
-        self.btn_toggle_rules.setText("🔼" if not is_visible else "🔽")
-        self._update_stack_visibility()
+        self._set_rules_editor_visible(not self.rules_scroll.isVisible())
 
     def manage_rules(self):
         # Find "Tags" folder for focus
@@ -921,39 +1013,47 @@ class AdvancedFilterWidget(QWidget):
         
         if not has_selection:
             # Sub-nav + Spacer + Margins only.
-            self.setMinimumHeight(85)
-            self.setMaximumHeight(90)
-            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         elif self.stack.currentIndex() == 0:
             # SEARCH MODE: Must contain Sub-nav + Header Row + Search Status Row
-            self.setMinimumHeight(140)
-            self.setMaximumHeight(160)
-            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-            self.updateGeometry()
+            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         elif self.stack.currentIndex() == 1:
             # FILTER MODE: Needs space for conditions IF VISIBLE
             if hasattr(self, 'scroll') and self.scroll.isVisible():
-                self.setMinimumHeight(320)
-                self.setMaximumHeight(16777215)
                 self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
             else:
-                # Collapsed: Sub-nav + Filter Select Bar + Bottom Bar
-                self.setMinimumHeight(160)
-                self.setMaximumHeight(180)
-                self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-            self.updateGeometry()
+                # Collapsed
+                self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         else:
-            # RULES MODE: Needs most space even when collapsed (Tags + Workflow rows)
+            # RULES MODE
             if hasattr(self, 'rules_scroll') and self.rules_scroll.isVisible():
-                self.setMinimumHeight(380)
-                self.setMaximumHeight(16777215)
                 self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
             else:
-                # Collapsed: Sub-nav + Rule Select + Tags Rows + Workflow Row + Bottom Bar
-                self.setMinimumHeight(240)
-                self.setMaximumHeight(260)
-                self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-            self.updateGeometry()
+                # Collapsed
+                self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        
+        self.updateGeometry()
+        self.stack.updateGeometry()
+        if self.layout():
+            self.layout().invalidate()
+            self.layout().activate()
+        if self.stack.layout():
+            self.stack.layout().invalidate()
+            self.stack.layout().activate()
+        
+        # Isolation: Ensure hidden pages don't influence stack size hint
+        self.stack.setMinimumHeight(0)
+        self.stack.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        
+        for i in range(self.stack.count()):
+            page = self.stack.widget(i)
+            if i == self.stack.currentIndex():
+                page.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+                page.setMinimumHeight(0)
+                page.updateGeometry()
+            else:
+                page.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+                page.updateGeometry()
 
         # Notify Splitter
         self.size_changed.emit()
@@ -1275,34 +1375,51 @@ class AdvancedFilterWidget(QWidget):
         self.combo_filters.addItem(self.tr("--- Saved Filter ---"), None)
 
         if self.filter_tree:
-            # Add Favorites (by UUID -> lookup)
-            # For MVP, populate from all known filters or just favorites?
-            # Let's populate from Root Children that are Filters for now?
-            # Or traverse favorites.
-            # Tree API has 'favorites' list of IDs.
-            # But we don't have easy ID lookup in Tree.
-            # Recursively add all filters to combo logic
-            def add_nodes(node, path_prefix=""):
+            all_filters = []
+            system_nodes = []
+            
+            def collect_nodes(node, path_prefix=""):
                 for child in node.children:
-                     if child.node_type == NodeType.FILTER:
-                         localized_name = self.tr(child.name)
-                         display = f"{path_prefix}{localized_name}" if path_prefix else localized_name
-                         self.combo_filters.addItem(display, child)
-                         if child.description:
-                             self.combo_filters.setItemData(self.combo_filters.count()-1, child.description, Qt.ItemDataRole.ToolTipRole)
-                     elif child.node_type == NodeType.TRASH:
-                         display = f"[ {self.tr('Trash')} ]"
-                         self.combo_filters.addItem(display, child)
-                     elif child.node_type == NodeType.ARCHIVE:
-                         display = f"[ {self.tr('Archive')} ]"
-                         self.combo_filters.addItem(display, child)
-                     elif child.node_type == NodeType.FOLDER:
-                         new_prefix = f"{path_prefix}{child.name} / " if path_prefix else f"{child.name} / "
-                         add_nodes(child, new_prefix)
+                    if child.node_type == NodeType.FILTER:
+                        localized_name = self.tr(child.name)
+                        display = f"{path_prefix}{localized_name}" if path_prefix else localized_name
+                        all_filters.append((display, child))
+                    elif child.node_type in [NodeType.TRASH, NodeType.ARCHIVE]:
+                        localized_name = self.tr(child.name)
+                        display = f"[ {localized_name} ]"
+                        system_nodes.append((display, child))
+                    elif child.node_type == NodeType.FOLDER:
+                        new_prefix = f"{path_prefix}{child.name} / " if path_prefix else f"{child.name} / "
+                        collect_nodes(child, new_prefix)
 
-            add_nodes(self.filter_tree.root)
+            collect_nodes(self.filter_tree.root)
 
-            # Separator
+            # 1. Top 3 frequently used (Star prefix)
+            top_3 = sorted([f for f in all_filters if f[1].usage_count > 0], 
+                           key=lambda x: x[1].usage_count, reverse=True)[:3]
+            
+            if top_3:
+                for display, node in top_3:
+                    self.combo_filters.addItem(f"⭐ {display}", node)
+                    if node.description:
+                        self.combo_filters.setItemData(self.combo_filters.count()-1, node.description, Qt.ItemDataRole.ToolTipRole)
+                self.combo_filters.insertSeparator(self.combo_filters.count())
+
+            # 2. System Filters (Alphabetical)
+            system_nodes.sort(key=lambda x: x[0].lower())
+            if system_nodes:
+                for display, node in system_nodes:
+                    self.combo_filters.addItem(display, node)
+                self.combo_filters.insertSeparator(self.combo_filters.count())
+
+            # 3. User Filters (Alphabetical)
+            all_filters.sort(key=lambda x: x[0].lower())
+            for display, node in all_filters:
+                self.combo_filters.addItem(display, node)
+                if node.description:
+                    self.combo_filters.setItemData(self.combo_filters.count()-1, node.description, Qt.ItemDataRole.ToolTipRole)
+
+            # Extra: Command
             self.combo_filters.insertSeparator(self.combo_filters.count())
             self.combo_filters.addItem(self.tr("Browse All..."), "BROWSE_ALL")
 
@@ -1316,12 +1433,30 @@ class AdvancedFilterWidget(QWidget):
             self.loaded_filter_node = None
             self.clear_all(reset_combo=True) # Reset if nothing to load
             return
-        self.scroll.setVisible(True) # Show editor
+
+        # Phase 107: Usage Tracking for Top 3
+        if isinstance(data, FilterNode) and data.node_type == NodeType.FILTER:
+            data.usage_count += 1
+            if self.save_callback:
+                self.save_callback()
+            
+            # Refresh combo to update "Top 3" ordering
+            current_id = data.id
+            self.load_known_filters()
+            
+            # Find and select the same node again (it might have moved to Top 3)
+            for i in range(self.combo_filters.count()):
+                item_data = self.combo_filters.itemData(i)
+                if isinstance(item_data, FilterNode) and item_data.id == current_id:
+                    self.combo_filters.blockSignals(True)
+                    self.combo_filters.setCurrentIndex(i)
+                    self.combo_filters.blockSignals(False)
+                    break
+
         self.btn_toggle_editor.setVisible(True) # Show toggle
-        self.btn_toggle_editor.setText("🔼")
         self.chk_active.setEnabled(True)
         self.chk_active.setChecked(True)
-        self._update_stack_visibility()
+        self._set_filter_editor_visible(True)
         self._on_saved_filter_selected(0)
 
     def _on_new_filter_clicked(self):
@@ -1331,12 +1466,10 @@ class AdvancedFilterWidget(QWidget):
         self.combo_filters.blockSignals(False)
         self.clear_all(reset_combo=False)
         self.root_group.set_read_only(False) # [NEW]
-        self.scroll.setVisible(True) # Show editor
         self.btn_toggle_editor.setVisible(True) # Show toggle
-        self.btn_toggle_editor.setText("🔼")
         self.chk_active.setEnabled(True)
         self.chk_active.setChecked(True)
-        self._update_stack_visibility()
+        self._set_filter_editor_visible(True)
 
     def _on_saved_filter_selected(self, index):
         data = self.combo_filters.currentData()

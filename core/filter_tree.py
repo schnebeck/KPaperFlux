@@ -57,6 +57,7 @@ class FilterNode:
         self.assign_workflow: Optional[str] = None
         self.auto_apply: bool = False
         self.is_enabled: bool = True
+        self.usage_count: int = 0 # New field for smart sorting
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -76,6 +77,7 @@ class FilterNode:
             "assign_workflow": self.assign_workflow,
             "auto_apply": self.auto_apply,
             "is_enabled": self.is_enabled,
+            "usage_count": self.usage_count,
             "children": [child.to_dict() for child in self.children]
         }
 
@@ -285,6 +287,7 @@ class FilterTree:
         node.assign_workflow = data.get("assign_workflow")
         node.auto_apply = bool(data.get("auto_apply", False))
         node.is_enabled = bool(data.get("is_enabled", True))
+        node.usage_count = int(data.get("usage_count", 0))
 
         for child_data in data.get("children", []):
             child_node = self._parse_node(child_data, parent=node)
