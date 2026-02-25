@@ -27,6 +27,7 @@ class FilterGroupWidget(QWidget):
         self.available_system_tags = available_system_tags or []
         self.available_workflow_steps = available_workflow_steps or []
         self.is_root = is_root
+        self._is_read_only = False
 
         # Style
         self.main_layout = QVBoxLayout(self)
@@ -34,14 +35,13 @@ class FilterGroupWidget(QWidget):
         self.main_layout.setSpacing(4)
 
         self.frame = QFrame()
-        if not self.is_root:
-            self.frame.setFrameShape(QFrame.Shape.StyledPanel)
-            self.frame.setStyleSheet(".QFrame { border: 1px solid #CCC; border-radius: 4px; background-color: rgba(0,0,0,10); }")
-        else:
-            self.frame.setFrameShape(QFrame.Shape.NoFrame)
+        self.frame.setFrameShape(QFrame.Shape.StyledPanel)
+        # Give every group a border, root gets slightly less background for clarity
+        bg_alpha = 10 if not is_root else 5
+        self.frame.setStyleSheet(f".QFrame {{ border: 1px solid #CCC; border-radius: 4px; background-color: rgba(0,0,0,{bg_alpha}); }}")
 
         self.layout = QVBoxLayout(self.frame)
-        self.layout.setContentsMargins(8 if not is_root else 0, 8, 8, 8)
+        self.layout.setContentsMargins(8, 8, 8, 8)
 
         # --- Header ---
         header_layout = QHBoxLayout()
@@ -173,7 +173,7 @@ class FilterGroupWidget(QWidget):
                     conditions.append(cond)
             elif isinstance(child, FilterGroupWidget):
                 group_q = child.get_query()
-                if group_q["conditions"]:
+                if group_q.get("conditions"):
                     conditions.append(group_q)
 
         return {
@@ -200,3 +200,17 @@ class FilterGroupWidget(QWidget):
             else:
                 # Is a Condition
                 self.add_condition(item)
+
+    def set_read_only(self, read_only: bool):
+        """Disables all interactive elements recursively."""
+        self._is_read_only = read_only
+        self.combo_logic.setEnabled(not read_only)
+        self.btn_add_condition.setEnabled(not read_only)
+        self.btn_add_group.setEnabled(not read_only)
+        if self.btn_remove:
+            self.btn_remove.setEnabled(not read_only)
+
+        # Recursively apply to children
+        for child in self.children_widgets:
+            if hasattr(child, "set_read_only"):
+                child.set_read_only(read_only)

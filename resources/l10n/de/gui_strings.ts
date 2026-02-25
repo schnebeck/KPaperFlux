@@ -337,11 +337,6 @@
             <translation>Alles leeren</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1438" />
-            <source>Apply Changes</source>
-            <translation>Anwenden</translation>
-        </message>
-        <message>
             <location filename="../../../gui/advanced_filter.py" line="1439" />
             <source>Changes are applied automatically when 'Filter active' is checked.</source>
             <translation>Änderungen werden automatisch angewendet, wenn 'Filter aktiv' aktiviert ist.</translation>
@@ -350,11 +345,6 @@
             <location filename="../../../gui/advanced_filter.py" line="1440" />
             <source>Filter Active</source>
             <translation>Filter aktiv</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/advanced_filter.py" line="1444" />
-            <source>Revert</source>
-            <translation>Zurücksetzen</translation>
         </message>
         <message>
             <location filename="../../../gui/advanced_filter.py" line="1445" />
@@ -387,11 +377,6 @@
             <translation>Ablauf zuweisen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1454" />
-            <source>Create a search-view that filters for the tags this rule adds</source>
-            <translation>Erstellt eine Ansicht, die nach den Tags dieser Regel filtert</translation>
-        </message>
-        <message>
             <location filename="../../../gui/advanced_filter.py" line="1455" />
             <source>Apply to View</source>
             <translation>Auf Ansicht anwenden</translation>
@@ -415,6 +400,26 @@
             <location filename="../../../gui/advanced_filter.py" line="1459" />
             <source>Automatically apply this rule to new documents during import/analysis</source>
             <translation>Diese Regel automatisch bei Import/Analyse auf neue Dokumente anwenden</translation>
+        </message>
+        <message>
+            <source>New</source>
+            <translation>Neu</translation>
+        </message>
+        <message>
+            <source>Load</source>
+            <translation>Laden</translation>
+        </message>
+        <message>
+            <source>Changes:</source>
+            <translation>Änderungen:</translation>
+        </message>
+        <message>
+            <source>Create a search-view that filters for the tags this rule adds</source>
+            <translation>Erstellt eine Ansicht, die nach den Tags dieser Regel filtert</translation>
+        </message>
+        <message>
+            <source>Apply</source>
+            <translation>Anwenden</translation>
         </message>
     </context>
     <context>
@@ -1795,7 +1800,7 @@
         <message>
             <location filename="../../../gui/l10n_registry.py" line="20" />
             <source>Apply</source>
-            <translation type="unfinished" />
+            <translation>Anwenden</translation>
         </message>
         <message>
             <location filename="../../../gui/l10n_registry.py" line="54" />
@@ -4269,7 +4274,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../core/semantic_translator.py" line="271" />
             <source>Apply</source>
-            <translation type="unfinished" />
+            <translation>Anwenden</translation>
         </message>
         <message>
             <location filename="../../../core/semantic_translator.py" line="275" />

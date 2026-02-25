@@ -1132,6 +1132,7 @@ class PdfViewerWidget(QWidget):
         self.toolbar_policy = 'comparison' if controller else 'standard'
         
         self.canvas = PdfCanvas(self)
+        self.toast = ToastOverlay(self) # Phase 131: User feedback for async errors
         self._init_ui()
         
         self.canvas.page_changed.connect(self.on_page_changed)
@@ -1397,6 +1398,8 @@ class PdfViewerWidget(QWidget):
             self.current_pages_data = []
             # Flatten the source mapping into a sequential page list
             mapping = doc_obj.source_mapping if hasattr(doc_obj, 'source_mapping') else []
+        
+            missing_count = 0
             for ref in mapping:
                 phys_file = self.pipeline.physical_repo.get_by_uuid(ref.file_uuid)
                 if phys_file:
@@ -1406,25 +1409,40 @@ class PdfViewerWidget(QWidget):
                             "page_index": p_idx - 1,  # DB uses 1-based, Fitz uses 0-based
                             "rotation": ref.rotation or 0
                         })
+                else:
+                    missing_count += 1
             
+            if missing_count > 0:
+                logger.warning(f"[PdfViewer] Found {missing_count} missing source references for UUID {target_uuid}")
+                self.toast.show_message(self.tr("Source missing"), self.rect().center())
+
             if not self.current_pages_data and hasattr(doc_obj, 'file_path') and doc_obj.file_path:
                 # Fallback to direct file loading if no fragments/mapping exist
                 direct_path = Path(doc_obj.file_path)
                 if direct_path.exists():
-                    self.canvas.set_document(fitz.open(str(direct_path)))
-                    self._update_toolbar_policy()
-                    self.on_document_status_ready()
-                    return
+                    try:
+                        self.canvas.set_document(fitz.open(str(direct_path)))
+                        self._update_toolbar_policy()
+                        self.on_document_status_ready()
+                        return
+                    except Exception as e:
+                        logger.error(f"[PdfViewer] Failed to open direct path: {e}")
+                        self.toast.show_message(self.tr("Load Error"), self.rect().center())
 
             if self.current_pages_data:
                 self._refresh_preview()
                 return
-                
-        if path.exists():
+            
+        if path and path.exists():
             self.current_pages_data = [] # Clear virtual data if loading direct path
-            self.canvas.set_document(fitz.open(str(path)))
-            self._update_toolbar_policy()
-            self.on_document_status_ready()
+            try:
+                self.canvas.set_document(fitz.open(str(path)))
+                self._update_toolbar_policy()
+                self.on_document_status_ready()
+            except Exception as e:
+                logger.error(f"[PdfViewer] Failed to open path: {e}")
+                self.toast.show_message(self.tr("Invalid PDF"), self.rect().center())
+                self.clear()
             
         idx = jump_to_index if jump_to_index >= 0 else (initial_page - 1 if initial_page > 1 else -1)
         if idx >= 0:
@@ -1439,30 +1457,51 @@ class PdfViewerWidget(QWidget):
         if not self.current_pages_data:
             return
             
-        out_doc = fitz.open()
-        for item in self.current_pages_data:
-            src = fitz.open(item['file_path'])
-            if item['page_index'] == -1:
-                out_doc.insert_pdf(src)
-            else:
-                out_doc.insert_pdf(
-                    src, 
-                    from_page=item['page_index'], 
-                    to_page=item['page_index']
-                )
-            if item['rotation'] != 0:
-                out_doc[-1].set_rotation(item['rotation'])
-            src.close()
+        try:
+            out_doc = fitz.open()
+            for item in self.current_pages_data:
+                src_path = item.get('file_path')
+                if not src_path or not os.path.exists(src_path):
+                    logger.warning(f"Fragment source path not found: {src_path}")
+                    continue
+                    
+                try:
+                    with fitz.open(src_path) as src:
+                        if item['page_index'] == -1:
+                            out_doc.insert_pdf(src)
+                        else:
+                            out_doc.insert_pdf(
+                                src, 
+                                from_page=item['page_index'], 
+                                to_page=item['page_index']
+                            )
+                        if item.get('rotation', 0) != 0:
+                            out_doc[-1].set_rotation(item['rotation'])
+                except Exception as e:
+                    logger.error(f"Error inserting PDF fragment {src_path}: {e}")
+
+            if out_doc.page_count == 0:
+                logger.error("Reconstructed document has 0 pages.")
+                self.toast.show_message(self.tr("Empty Doc"), self.rect().center())
+                self.clear()
+                return
+
+            fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="kview_")
+            os.close(fd)
+            self.temp_pdf_path = Path(temp_path)
+            out_doc.save(str(self.temp_pdf_path))
+            out_doc.close()
+
+            # Load the temporary file into the canvas
+            self.canvas.set_document(fitz.open(str(self.temp_pdf_path)))
+            self._update_toolbar_policy()
+            self.on_document_status_ready()
             
-        fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="kview_")
-        os.close(fd)
-        self.temp_pdf_path = Path(temp_path)
-        out_doc.save(str(self.temp_pdf_path))
-        out_doc.close()
+        except Exception as e:
+            logger.error(f"Failed to refresh preview: {e}")
+            self.toast.show_message(self.tr("Stitch Error"), self.rect().center())
+            self.clear()
         
-        self.canvas.set_document(fitz.open(str(self.temp_pdf_path)))
-        self._update_toolbar_policy()
-        self.on_document_status_ready()
 
     def _update_toolbar_policy(self) -> None:
         """

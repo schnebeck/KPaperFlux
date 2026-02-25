@@ -107,6 +107,7 @@ def test_filter_dirty_indicator_with_standard_paths(advanced_widget, filter_tree
     # Load the filter
     idx = advanced_widget.combo_filters.findText("Exact 50")
     advanced_widget.combo_filters.setCurrentIndex(idx)
+    advanced_widget._on_load_filter_clicked()
     advanced_widget.loaded_filter_node = node
     
     # 1. Initially clean
@@ -153,6 +154,7 @@ def test_delete_filter_integration(advanced_widget, filter_tree):
     
     idx = advanced_widget.combo_filters.findText("Trash Me")
     advanced_widget.combo_filters.setCurrentIndex(idx)
+    advanced_widget._on_load_filter_clicked()
     node = advanced_widget.combo_filters.currentData()
     
     with patch('gui.advanced_filter.show_selectable_message_box', return_value=QMessageBox.StandardButton.Yes):

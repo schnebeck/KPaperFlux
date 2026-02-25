@@ -72,8 +72,9 @@ def test_save_and_verify_ui_operator(main_window):
     idx = combo.findText("IntegrationTestList")
     assert idx >= 0, "Saved filter not found in combo box"
     
-    # Select it -> Triggers load_from_object
+    # Select it -> Triggers load_from_object (Now manual)
     combo.setCurrentIndex(idx)
+    adv_widget._on_load_filter_clicked()
     
     # 5. Verify UI State
     # Should have 1 row

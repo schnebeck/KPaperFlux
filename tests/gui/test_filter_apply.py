@@ -12,6 +12,9 @@ def filter_widget(qapp):
 def test_apply_workflow(filter_widget):
     # 1. Add Condition
     filter_widget.add_condition()
+    filter_widget.chk_active.setEnabled(True)
+    filter_widget.chk_active.setChecked(True)
+    filter_widget.filter_changed.emit.reset_mock()
     assert len(filter_widget.root_group.children_widgets) == 1
     row = filter_widget.root_group.children_widgets[0]
     row._set_field("amount", "Amount") # Ensure field is set so get_condition works

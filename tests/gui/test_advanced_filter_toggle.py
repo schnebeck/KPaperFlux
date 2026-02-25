@@ -9,6 +9,10 @@ def test_filter_toggle_logic(qtbot):
     # Add a condition
     widget.add_condition({"field": "sender", "op": "contains", "value": "Test"})
     
+    # Activate and check
+    widget.chk_active.setEnabled(True)
+    widget.chk_active.setChecked(True)
+    
     # 1. Active (Default) -> Should match condition
     # catch signal
     with qtbot.waitSignal(widget.filter_changed) as blocker:

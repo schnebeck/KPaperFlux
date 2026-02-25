@@ -801,6 +801,10 @@ class DatabaseManager:
             val = list(resolved_val)
         else:
             val = resolved_val
+        # Phase 131: Robust Boolean strings (from UI text fields)
+        if isinstance(val, str):
+            if val.lower() == "true": val = True
+            elif val.lower() == "false": val = False
 
         if op == "equals":
             if isinstance(val, list):
@@ -955,7 +959,8 @@ class DatabaseManager:
         try:
             return Document(**doc_data)
         except Exception as e:
-            logger.error(f"ValidationError for {doc_data.get('uuid')}: {e}")
+            logger.error(f"CRITICAL: VirtualDocument hydration failed for UUID {doc_data.get('uuid')}: {e}")
+            logger.debug(f"Faulty doc_data: {doc_data}")
             return None
 
     def search_documents(self, search_text: str) -> List[Document]:

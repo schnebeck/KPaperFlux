@@ -78,6 +78,8 @@ class FilterConditionWidget(QWidget):
         self.input_stack.addWidget(self.input_multi)
         self.input_date = DateRangePicker()
         self.input_stack.addWidget(self.input_date)
+        self.input_bool = QCheckBox()
+        self.input_stack.addWidget(self.input_bool)
 
         # 3. Add to Layout
         self.layout.addWidget(self.btn_field_selector, 1)
@@ -93,6 +95,7 @@ class FilterConditionWidget(QWidget):
         self.input_text.textChanged.connect(self.changed)
         self.input_multi.selectionChanged.connect(lambda: self.changed.emit())
         self.input_date.rangeChanged.connect(lambda: self.changed.emit())
+        self.input_bool.toggled.connect(self.changed)
         self.btn_remove.clicked.connect(self.remove_requested)
         
         self.retranslate_ui()
@@ -332,6 +335,9 @@ class FilterConditionWidget(QWidget):
               self.input_stack.setCurrentIndex(1)
               self.input_multi.clear()
               self.input_multi.addItems(["STAMP_ONLY", "FULL_AUDIT", "NONE"])
+        elif field_key in ["archived", "deleted"]:
+              self.input_stack.setCurrentIndex(3) # Bool
+              self.input_bool.setText(self.tr("Is True"))
         else:
             self.input_stack.setCurrentIndex(0) # Text
 
@@ -359,6 +365,8 @@ class FilterConditionWidget(QWidget):
             val = self.input_multi.getCheckedItems()
         elif idx == 2: # Date
             val = self.input_date.get_value()
+        elif idx == 3: # Bool
+            val = self.input_bool.isChecked()
 
         res = {"field": field_key, "op": op, "value": val, "negate": self.chk_negate.isChecked()}
         return res
@@ -416,5 +424,17 @@ class FilterConditionWidget(QWidget):
                  self.input_multi.setCheckedItems(val)
              elif isinstance(val, str):
                  self.input_multi.setCheckedItems([val])
-        elif current_idx == 2:
-             self.input_date.set_value(val)
+        elif current_idx == 2: # Date
+              self.input_date.set_value(val)
+        elif current_idx == 3: # Bool
+              self.input_bool.setChecked(bool(val))
+
+    def set_read_only(self, read_only: bool):
+        """Disables all interactive elements."""
+        self.btn_field_selector.setEnabled(not read_only)
+        self.combo_op.setEnabled(not read_only)
+        self.chk_negate.setEnabled(not read_only)
+        self.input_text.setEnabled(not read_only)
+        self.input_multi.setEnabled(not read_only)
+        self.input_date.setEnabled(not read_only)
+        self.btn_remove.setEnabled(not read_only)

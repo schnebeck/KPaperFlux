@@ -225,6 +225,7 @@ class MainWindow(QMainWindow):
             self.advanced_filter.next_hit_requested.connect(lambda: self.pdf_viewer.canvas.next_hit())
 
             self.advanced_filter.trash_mode_changed.connect(self.set_trash_mode)
+            self.advanced_filter.archive_mode_changed.connect(self.set_archive_mode) # [NEW]
 
             # Phase 92: Trash Actions
             self.list_widget.restore_requested.connect(self.restore_documents_slot)
@@ -237,6 +238,7 @@ class MainWindow(QMainWindow):
 
             # Phase 105: Active Filter Precedence
             self.advanced_filter.filter_active_changed.connect(self.list_widget.set_advanced_filter_active)
+            self.advanced_filter.size_changed.connect(self.left_pane_splitter.updateGeometry)
             # Synchronize initial state
             self.list_widget.advanced_filter_active = self.advanced_filter.chk_active.isChecked()
 
@@ -259,6 +261,12 @@ class MainWindow(QMainWindow):
 
             self.left_pane_splitter.addWidget(self.editor_widget)
             self.editor_widget.setVisible(False)
+
+            # Define Stretch Factors: Filter (0) | List (1) | Editor (0)
+            # This ensures the List expands to fill available space
+            self.left_pane_splitter.setStretchFactor(0, 0)
+            self.left_pane_splitter.setStretchFactor(1, 1)
+            self.left_pane_splitter.setStretchFactor(2, 0)
             # ------------------------------------------
 
         # Add Left Pane to Main Splitter
@@ -886,22 +894,16 @@ class MainWindow(QMainWindow):
         uuid = primary_doc.uuid
         self._last_selected_uuid = uuid
 
-        # Load into PDF Viewer
-        path = self._resolve_pdf_path(uuid)
-        if path:
-             self._sync_global_search_context(uuid)
+        # Sync Search Context (offsets for global navigation)
+        self._sync_global_search_context(uuid)
 
-             # Check for Search Hits for Deferred Navigation
-             target_index = -1
-             if self.current_search_text and self.db_manager:
-                 hits = self.db_manager.find_text_pages_in_document(uuid, self.current_search_text)
-                 if hits:
-                     target_index = hits[0] # 0-based
-                     logger.info(f"[Search-Hit-Debug] Term: '{self.current_search_text}', UUID: '{uuid}', Found on Pages: {hits} -> Jumping to {target_index}")
-
-             self.pdf_viewer.load_document(path, jump_to_index=target_index)
-        else:
-             logger.info(f"Error: Could not resolve PDF path for {uuid}")
+        # Check for Search Hits for Deferred Navigation (Jumping to relevant page)
+        target_index = -1
+        if self.current_search_text and self.db_manager:
+            hits = self.db_manager.find_text_pages_in_document(uuid, self.current_search_text)
+            if hits:
+                target_index = hits[0] # 0-based
+                logger.info(f"[Search-Hit-Debug] Term: '{self.current_search_text}', UUID: '{uuid}', Found on Pages: {hits} -> Jumping to {target_index}")
 
         # Update Info Panel
         if hasattr(self, 'info_panel') and self.info_panel:
@@ -909,50 +911,40 @@ class MainWindow(QMainWindow):
 
         # Update Editor (Batch aware)
         if hasattr(self, 'editor_widget'):
-            logger.info(f"[DEBUG] Ensuring Editor Visible. Current: {self.editor_widget.isVisible()}")
             self.editor_widget.setVisible(True)
             self.editor_widget.display_documents(docs)
 
             # Robust Status Sync (Case Insensitive)
-            doc = primary_doc
-            stat = (doc.status or "NEW").upper()
+            stat = (primary_doc.status or "NEW").upper()
             idx = self.editor_widget.status_combo.findText(stat)
             if idx >= 0:
                 self.editor_widget.status_combo.setCurrentIndex(idx)
             else:
-                self.editor_widget.status_combo.setCurrentText(stat) # Fallback if not in list
-            self.editor_widget.export_filename_edit.setText(doc.original_filename or "")
+                self.editor_widget.status_combo.setCurrentText(stat)
+            self.editor_widget.export_filename_edit.setText(primary_doc.original_filename or "")
 
-        # Phase 105: UI Resilience - Check Splitter Sizes
-        # 1. Main Splitter (Left Pane | PDF Viewer)
+        # Phase 105: UI Resilience - Check Splitter Sizes (Force expand if collapsed)
         main_sizes = self.main_splitter.sizes()
-        if main_sizes and main_sizes[1] == 0:
-            logger.info("[DEBUG] PDF Viewer collapsed! Forcing expand.")
+        if main_sizes and len(main_sizes) > 1 and main_sizes[1] == 0:
             total = sum(main_sizes)
             self.main_splitter.setSizes([int(total*0.4), int(total*0.6)])
 
-        # 2. Left Pane Splitter (Filter | List | Editor)
         sizes = self.left_pane_splitter.sizes()
-        if sizes and sizes[2] == 0:
-            logger.info("[DEBUG] Editor pane collapsed! Forcing expand.")
+        if sizes and len(sizes) > 2 and sizes[2] == 0:
             total = sum(sizes)
-            new_sizes = [sizes[0], int(total*0.6), int(total*0.4)]
-            self.left_pane_splitter.setSizes(new_sizes)
+            self.left_pane_splitter.setSizes([sizes[0], int(total*0.6), int(total*0.4)])
 
-        # Update PDF Viewer
+        # Update PDF Viewer - CONSOLIDATED SINGLE LOAD CALL
         if hasattr(self, 'pdf_viewer'):
             if not self.pdf_viewer.isVisible():
-                logger.info(f"[DEBUG] Ensuring Viewer Visible.")
                 self.pdf_viewer.setVisible(True)
 
-            if docs:
-                # Show first doc as reference (works for single and batch)
-                self.pdf_viewer.load_document(docs[0].uuid, uuid=docs[0].uuid)
-                # Apply current global search highlight if any
-                if self.current_search_text:
-                    self.pdf_viewer.set_highlight_text(self.current_search_text)
-            else:
-                self.pdf_viewer.clear()
+            # Load via UUID (PdfViewer handles resolution and stitching internally)
+            self.pdf_viewer.load_document(uuid, uuid=uuid, jump_to_index=target_index)
+            
+            # Apply current global search highlight if any
+            if self.current_search_text:
+                self.pdf_viewer.set_highlight_text(self.current_search_text)
 
     def delete_selected_slot(self):
         """Handle deletion via Menu Hack."""
@@ -1993,6 +1985,14 @@ class MainWindow(QMainWindow):
         self.list_widget.show_trash_bin(enabled)
         if enabled:
             self.main_status_label.setText(self.tr("Viewing Trash Bin"))
+        else:
+            self.main_status_label.setText(self.tr("Ready"))
+
+    def set_archive_mode(self, enabled: bool):
+        """Displays documents currently in the archive."""
+        self.list_widget.show_archive(enabled)
+        if enabled:
+            self.main_status_label.setText(self.tr("Viewing Archive"))
         else:
             self.main_status_label.setText(self.tr("Ready"))
 

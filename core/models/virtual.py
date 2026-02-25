@@ -17,7 +17,7 @@ class SourceReference(BaseModel):
     Points to a specific segment within a physical file.
     Part of the source_mapping for a VirtualDocument.
     """
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     file_uuid: str
     pages: List[int]
@@ -29,7 +29,7 @@ class VirtualPage(BaseModel):
     Represents a single logical page in a VirtualDocument.
     Assembled from a physical source at runtime.
     """
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     page_number: int  # Logical page number (1-based)
     text_content: str  # Extracted and normalized text

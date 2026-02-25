@@ -34,6 +34,11 @@ TRANSLATIONS = {
     "Audit Mode": "Audit-Modus",
     "In Trash": "Im Papierkorb",
     "Archived": "Archiviert",
+    "Load": "Laden",
+    "New": "Neu",
+    "Changes:": "Änderungen:",
+    "Discard": "Verwerfen",
+    "Apply": "Anwenden",
 }
 
 NUMERUS_TRANSLATIONS = {

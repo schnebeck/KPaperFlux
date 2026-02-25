@@ -73,9 +73,11 @@ class AdvancedFilterWidget(QWidget):
     """
     filter_changed = pyqtSignal(dict) # Emits Query Object
     trash_mode_changed = pyqtSignal(bool) # New signal for Trash Mode
+    archive_mode_changed = pyqtSignal(bool) # [NEW] Signal for Archive Mode
     request_apply_rule = pyqtSignal(object, str) # rule, scope ("ALL", "FILTERED", "SELECTED")
     search_triggered = pyqtSignal(str) # Emits the raw search text for highlighting
     filter_active_changed = pyqtSignal(bool) # [NEW] Signal for active toggle
+    size_changed = pyqtSignal() # [NEW] Signal for splitter notification
     next_hit_requested = pyqtSignal()
     prev_hit_requested = pyqtSignal()
 
@@ -163,20 +165,21 @@ class AdvancedFilterWidget(QWidget):
         sub_nav_layout.addStretch()
         layout.addWidget(sub_nav_container)
         
-        # Consistent vertical spacing (10px gap before content starts)
+        # Consistent vertical spacing (5px gap before content starts)
         self.nav_spacer = QWidget()
-        self.nav_spacer.setFixedHeight(10)
+        self.nav_spacer.setFixedHeight(5)
         layout.addWidget(self.nav_spacer)
 
         # Horizontal separator
         self.sep_line = QFrame()
         self.sep_line.setFrameShape(QFrame.Shape.HLine)
         self.sep_line.setFrameShadow(QFrame.Shadow.Sunken)
-        self.sep_line.setStyleSheet("background-color: #ddd; max-height: 1px; margin-bottom: 12px;")
+        self.sep_line.setStyleSheet("background-color: #ddd; max-height: 1px; margin-bottom: 0px;")
         layout.addWidget(self.sep_line)
 
         self.stack = QStackedWidget()
         layout.addWidget(self.stack)
+        layout.addStretch(1) # Ensure top alignment
         
         self._update_stack_visibility()
 
@@ -188,6 +191,7 @@ class AdvancedFilterWidget(QWidget):
 
         s_row = QHBoxLayout()
         self.lbl_search_header = QLabel("")
+        self.lbl_search_header.setFixedWidth(70)
         s_row.addWidget(self.lbl_search_header)
         self.txt_smart_search = QLineEdit()
         self.txt_smart_search.setClearButtonEnabled(True)
@@ -240,41 +244,59 @@ class AdvancedFilterWidget(QWidget):
         # --- TAB 2: Ansicht filtern ---
         self.filter_tab = QWidget()
         filter_layout = QVBoxLayout(self.filter_tab)
+        filter_layout.setContentsMargins(0, 5, 0, 5)
+        filter_layout.setSpacing(8)
 
         # Top Bar (Management)
         top_bar = QHBoxLayout()
         self.lbl_filter_select = QLabel("")
+        self.lbl_filter_select.setFixedWidth(70)
         top_bar.addWidget(self.lbl_filter_select)
         self.combo_filters = QComboBox()
         self.combo_filters.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.combo_filters.setMinimumWidth(150)
-        self.combo_filters.currentIndexChanged.connect(self._on_saved_filter_selected)
-        top_bar.addWidget(self.combo_filters, 1) # Still stretch 1 to fill available space
+        # currentIndexChanged is now restricted (only commands), manual "Laden" required for filters
+        self.combo_filters.currentIndexChanged.connect(self._on_combo_filter_selected)
+        top_bar.addWidget(self.combo_filters, 1)
 
-        self.btn_revert = QPushButton()
-        self.btn_revert.setFixedHeight(30)
-        self.btn_revert.setToolTip(self.tr("Revert Changes"))
-        self.btn_revert.setEnabled(False)
-        self.btn_revert.clicked.connect(self.revert_changes)
-        top_bar.addWidget(self.btn_revert)
+        self.btn_load = QPushButton("")
+        self.btn_load.setFixedHeight(30)
+        self.btn_load.setEnabled(False) # [NEW] Disabled until selection
+        self.btn_load.clicked.connect(self._on_load_filter_clicked)
+        top_bar.addWidget(self.btn_load)
 
-        self.btn_save = QPushButton()
-        self.btn_save.setFixedHeight(30)
-        self.btn_save.clicked.connect(self.save_current_filter)
-        top_bar.addWidget(self.btn_save)
+        self.btn_new = QPushButton("")
+        self.btn_new.setFixedHeight(30)
+        self.btn_new.clicked.connect(self._on_new_filter_clicked)
+        top_bar.addWidget(self.btn_new)
 
         self.btn_manage = QPushButton()
         self.btn_manage.setFixedHeight(30)
-        self.btn_manage.setToolTip(self.tr("Manage Filters"))
         self.btn_manage.clicked.connect(self.manage_filters)
         top_bar.addWidget(self.btn_manage)
+
+        self.chk_active = QCheckBox("")
+        self.chk_active.setChecked(False)
+        self.chk_active.setEnabled(False)
+        self.chk_active.toggled.connect(self._on_active_toggled)
+        top_bar.addWidget(self.chk_active)
 
         self.btn_export = QPushButton()
         self.btn_export.setFixedHeight(30)
         self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; font-weight: bold; padding: 4px 16px;")
-        self.btn_export.setToolTip(self.tr("Export filter"))
         self.btn_export.clicked.connect(self.export_current_filter)
         top_bar.addWidget(self.btn_export)
+
+        # Toggle Editor Button
+        self.btn_toggle_editor = QPushButton("🔽")
+        self.btn_toggle_editor.setFixedWidth(30)
+        self.btn_toggle_editor.setFixedHeight(30)
+        self.btn_toggle_editor.setStyleSheet("color: #ff9800; font-weight: bold; border: none; background: transparent; font-size: 16px;")
+        self.btn_toggle_editor.setToolTip(self.tr("Show/Hide Editor"))
+        self.btn_toggle_editor.setVisible(False) # Hide by default
+        self.btn_toggle_editor.clicked.connect(self._toggle_editor_visibility)
+        top_bar.addWidget(self.btn_toggle_editor)
+
         filter_layout.addLayout(top_bar)
         
         # Add Drag & Drop support
@@ -282,7 +304,10 @@ class AdvancedFilterWidget(QWidget):
 
         # Conditions Area
         self.scroll = QScrollArea()
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame) # Remove outer frame
+        self.scroll.setMinimumHeight(300) # [PHASE 131] Ensure enough space for several conditions
         self.scroll.setWidgetResizable(True)
+        self.scroll.setVisible(False) # [PHASE 131] Hide until Load/New
         self.root_group = FilterGroupWidget(extra_keys=self.extra_keys,
                                             available_tags=self.available_tags,
                                             available_system_tags=self.available_system_tags,
@@ -300,16 +325,29 @@ class AdvancedFilterWidget(QWidget):
         bottom_bar.addWidget(self.btn_clear)
         bottom_bar.addStretch()
 
+        self.lbl_changes = QLabel("")
+        self.lbl_changes.setStyleSheet("color: #666; margin-right: 5px;")
+        bottom_bar.addWidget(self.lbl_changes)
+
+        self.btn_revert = QPushButton()
+        self.btn_revert.setFixedHeight(30)
+        self.btn_revert.setEnabled(False)
+        self.btn_revert.clicked.connect(self.revert_changes)
+        bottom_bar.addWidget(self.btn_revert)
+
         self.btn_apply = QPushButton("")
+        self.btn_apply.setFixedHeight(30)
         self.btn_apply.setEnabled(False)
         self.btn_apply.clicked.connect(self._emit_change)
         bottom_bar.addWidget(self.btn_apply)
 
-        self.chk_active = QCheckBox("")
-        self.chk_active.setChecked(True)
-        self.chk_active.toggled.connect(self._on_active_toggled)
-        bottom_bar.addWidget(self.chk_active)
+        self.btn_save = QPushButton()
+        self.btn_save.setFixedHeight(30)
+        self.btn_save.setEnabled(False)
+        self.btn_save.clicked.connect(self.save_current_filter)
+        bottom_bar.addWidget(self.btn_save)
         filter_layout.addLayout(bottom_bar)
+        filter_layout.addStretch() # Ensure compactness when scroll is hidden
 
         self.stack.addWidget(self.filter_tab)
 
@@ -320,32 +358,52 @@ class AdvancedFilterWidget(QWidget):
     def _init_rules_tab(self):
         self.rules_tab = QWidget()
         rules_layout = QVBoxLayout(self.rules_tab)
+        rules_layout.setContentsMargins(0, 5, 0, 5)
+        rules_layout.setSpacing(8)
 
         # Top Bar (Management) - Harmonized with Filter View
         top_bar = QHBoxLayout()
         self.lbl_rule_select = QLabel("")
+        self.lbl_rule_select.setFixedWidth(70)
         top_bar.addWidget(self.lbl_rule_select)
         self.combo_rules = QComboBox()
         self.combo_rules.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.combo_rules.setMinimumWidth(150)
-        self.combo_rules.currentIndexChanged.connect(self._on_saved_rule_selected)
+        self.combo_rules.currentIndexChanged.connect(self._on_combo_rule_selected) # [NEW]
         top_bar.addWidget(self.combo_rules, 1)
 
-        self.btn_revert_rule = QPushButton("")
-        self.btn_revert_rule.setFixedHeight(30)
-        self.btn_revert_rule.setEnabled(False)
-        self.btn_revert_rule.clicked.connect(self.revert_rule_changes)
-        top_bar.addWidget(self.btn_revert_rule)
+        self.btn_load_rule = QPushButton("")
+        self.btn_load_rule.setFixedHeight(30)
+        self.btn_load_rule.setEnabled(False) # [NEW] Disabled until selection
+        self.btn_load_rule.clicked.connect(self._on_load_rule_clicked)
+        top_bar.addWidget(self.btn_load_rule)
 
-        self.btn_save_rule = QPushButton()
-        self.btn_save_rule.setFixedHeight(30)
-        self.btn_save_rule.clicked.connect(self._on_save_rule_clicked)
-        top_bar.addWidget(self.btn_save_rule)
+        self.btn_new_rule = QPushButton("")
+        self.btn_new_rule.setFixedHeight(30)
+        self.btn_new_rule.clicked.connect(self._on_new_rule_clicked)
+        top_bar.addWidget(self.btn_new_rule)
 
         self.btn_manage_rules = QPushButton("")
         self.btn_manage_rules.setFixedHeight(30)
         self.btn_manage_rules.clicked.connect(self.manage_rules)
         top_bar.addWidget(self.btn_manage_rules)
+
+        self.chk_rule_enabled = QCheckBox("")
+        self.chk_rule_enabled.setChecked(False)
+        self.chk_rule_enabled.setEnabled(False)
+        self.chk_rule_enabled.toggled.connect(self._set_rule_dirty)
+        top_bar.addWidget(self.chk_rule_enabled)
+
+        # Toggle Rules Button
+        self.btn_toggle_rules = QPushButton("🔽")
+        self.btn_toggle_rules.setFixedWidth(30)
+        self.btn_toggle_rules.setFixedHeight(30)
+        self.btn_toggle_rules.setStyleSheet("color: #ff9800; font-weight: bold; border: none; background: transparent; font-size: 16px;")
+        self.btn_toggle_rules.setToolTip(self.tr("Show/Hide Editor"))
+        self.btn_toggle_rules.setVisible(False) # Hide by default
+        self.btn_toggle_rules.clicked.connect(self._toggle_rules_visibility)
+        top_bar.addWidget(self.btn_toggle_rules)
+
         rules_layout.addLayout(top_bar)
 
         # Metadata / Tagging Row
@@ -378,7 +436,10 @@ class AdvancedFilterWidget(QWidget):
 
         # Conditions Area (Mirrored FilterGroupWidget)
         self.rules_scroll = QScrollArea()
+        self.rules_scroll.setFrameShape(QFrame.Shape.NoFrame) # Remove outer frame
+        self.rules_scroll.setMinimumHeight(300) # [PHASE 131] Ensure enough space for several conditions
         self.rules_scroll.setWidgetResizable(True)
+        self.rules_scroll.setVisible(False) # [PHASE 131] Hide until Load/New
         self.rules_root_group = FilterGroupWidget(extra_keys=self.extra_keys,
                                                   available_tags=self.available_tags,
                                                   available_workflow_steps=self.available_workflow_steps,
@@ -394,17 +455,35 @@ class AdvancedFilterWidget(QWidget):
         self.btn_clear_rule.clicked.connect(self.clear_rule)
         bottom_bar.addWidget(self.btn_clear_rule)
 
-        bottom_bar.addStretch()
-
         self.btn_create_view = QPushButton("")
+        self.btn_create_view.setFixedHeight(30)
         self.btn_create_view.setEnabled(False)
         self.btn_create_view.clicked.connect(self.create_view_filter_from_rule)
         bottom_bar.addWidget(self.btn_create_view)
 
+        bottom_bar.addStretch()
+
+        self.lbl_changes_rule = QLabel("")
+        self.lbl_changes_rule.setStyleSheet("color: #666; margin-right: 5px;")
+        bottom_bar.addWidget(self.lbl_changes_rule)
+
+        self.btn_revert_rule = QPushButton("")
+        self.btn_revert_rule.setFixedHeight(30)
+        self.btn_revert_rule.setEnabled(False)
+        self.btn_revert_rule.clicked.connect(self.revert_rule_changes)
+        bottom_bar.addWidget(self.btn_revert_rule)
+
         self.btn_apply_view = QPushButton("")
+        self.btn_apply_view.setFixedHeight(30)
         self.btn_apply_view.setEnabled(False)
         self.btn_apply_view.clicked.connect(self._on_apply_rule_to_view)
         bottom_bar.addWidget(self.btn_apply_view)
+
+        self.btn_save_rule = QPushButton()
+        self.btn_save_rule.setFixedHeight(30)
+        self.btn_save_rule.setEnabled(False)
+        self.btn_save_rule.clicked.connect(self._on_save_rule_clicked)
+        bottom_bar.addWidget(self.btn_save_rule)
 
         self.btn_apply_all = QPushButton("")
         self.btn_apply_all.setStyleSheet("font-weight: bold; background-color: #f1f8e9;")
@@ -412,17 +491,13 @@ class AdvancedFilterWidget(QWidget):
         self.btn_apply_all.clicked.connect(self._on_batch_run_clicked)
         bottom_bar.addWidget(self.btn_apply_all)
 
-        self.chk_rule_enabled = QCheckBox("")
-        self.chk_rule_enabled.setChecked(True)
-        self.chk_rule_enabled.toggled.connect(self._set_rule_dirty)
-        bottom_bar.addWidget(self.chk_rule_enabled)
-
         self.chk_rule_auto = QCheckBox("")
         self.chk_rule_auto.setChecked(True)
         self.chk_rule_auto.toggled.connect(self._set_rule_dirty)
         bottom_bar.addWidget(self.chk_rule_auto)
 
         rules_layout.addLayout(bottom_bar)
+        rules_layout.addStretch() # Ensure compactness when rules_scroll is hidden
 
         # Populate rules combo
         self._load_rules_to_combo()
@@ -453,6 +528,21 @@ class AdvancedFilterWidget(QWidget):
             display_name = self.tr(rule.name or rule.id)
             self.combo_rules.addItem(display_name, rule)
         self.combo_rules.blockSignals(False)
+
+    def _on_load_rule_clicked(self):
+        """Manually triggered loading of the selected rule."""
+        rule = self.combo_rules.currentData()
+        if not rule:
+            self.clear_rule()
+            return
+
+        self.rules_scroll.setVisible(True) # Show editor area
+        self.btn_toggle_rules.setVisible(True) # Show toggle
+        self.btn_toggle_rules.setText("🔼")
+        self.chk_rule_enabled.setEnabled(True)
+        self.chk_rule_enabled.setChecked(True)
+        self._update_stack_visibility()
+        self._on_saved_rule_selected(0)
 
     def _on_saved_rule_selected(self, index):
         rule = self.combo_rules.currentData()
@@ -492,38 +582,82 @@ class AdvancedFilterWidget(QWidget):
 
     def _set_rule_dirty(self):
         """Enable buttons when rule has unsaved changes."""
-        self.btn_revert_rule.setEnabled(True)
-        self.btn_apply_view.setEnabled(True)
-        self.btn_apply_all.setEnabled(True)
-        self.btn_clear_rule.setEnabled(True)
+        if getattr(self, '_loading', False):
+            return
 
-        has_tags = bool(self.edit_tags_add.text().strip())
+        query = self.rules_root_group.get_query()
+        has_query = bool(query and query.get("conditions"))
+        has_tags = bool(self.edit_tags_add.text().strip() or self.edit_tags_rem.text().strip())
+        rule = self.combo_rules.currentData()
+
+        # If we have a rule loaded, any state might be a modification.
+        # If we DON'T have a rule, only meaningful content is a modification.
+        is_modified = has_query or has_tags or rule is not None
+
+        self.btn_revert_rule.setEnabled(is_modified)
+        self.btn_save_rule.setEnabled(is_modified)
+        self.btn_apply_view.setEnabled(has_query)
+        self.btn_apply_all.setEnabled(has_query)
+        self.btn_clear_rule.setEnabled(has_query or has_tags)
         self.btn_create_view.setEnabled(has_tags)
 
-        self.btn_save_rule.setStyleSheet("font-weight: bold; color: blue;")
+        if is_modified:
+            self.btn_save_rule.setStyleSheet("background-color: #fff9c4; font-weight: bold;")
+        else:
+            self.btn_save_rule.setStyleSheet("")
+
+        # Add * to combo if needed
+        rule = self.combo_rules.currentData()
+        if rule:
+            idx = self.combo_rules.currentIndex()
+            if idx >= 0:
+                current_text = self.combo_rules.itemText(idx)
+                if not current_text.endswith(" *"):
+                     self.combo_rules.setItemText(idx, current_text + " *")
 
     def _reset_rule_dirty(self):
         """Disable buttons after save/load. Harmonized with Filter View."""
         self.btn_revert_rule.setEnabled(False)
+        self.btn_save_rule.setEnabled(False)
+        self.btn_save_rule.setStyleSheet("")
         self.btn_apply_view.setEnabled(False)
         self.btn_apply_all.setEnabled(False)
 
         query = self.rules_root_group.get_query()
         has_query = bool(query and query.get("conditions"))
+        has_tags = bool(self.edit_tags_add.text().strip() or self.edit_tags_rem.text().strip())
+        self.btn_clear_rule.setEnabled(has_query or has_tags)
 
-        self.btn_revert_rule.setEnabled(False)
-        self.btn_clear_rule.setEnabled(has_query)
-
-        has_tags = bool(self.edit_tags_add.text().strip())
         self.btn_create_view.setEnabled(has_tags)
 
         self.btn_save_rule.setStyleSheet("")
+
+        # Remove * from combo
+        idx = self.combo_rules.currentIndex()
+        if idx >= 0:
+            current_text = self.combo_rules.itemText(idx)
+            if current_text.endswith(" *"):
+                 self.combo_rules.setItemText(idx, current_text[:-2])
 
     def revert_rule_changes(self):
         self._on_saved_rule_selected(self.combo_rules.currentIndex())
 
     def clear_rule(self):
-        self._on_new_rule_clicked()
+        self._loading = True
+        try:
+            self.rules_root_group.clear()
+            self.edit_tags_add.clear()
+            self.edit_tags_rem.clear()
+            self.chk_rule_enabled.setChecked(True)
+            self.chk_rule_auto.setChecked(False)
+            self.combo_assign_wf.setCurrentIndex(0)
+            self._reset_rule_dirty()
+        finally:
+            self._loading = False
+        self.rules_scroll.setVisible(True) # Show editor
+        self.btn_toggle_rules.setVisible(True) # Show toggle
+        self.btn_toggle_rules.setText("🔼")
+        self._update_stack_visibility()
 
     def _on_new_rule_clicked(self):
         self.combo_rules.blockSignals(True)
@@ -531,11 +665,29 @@ class AdvancedFilterWidget(QWidget):
         self.combo_rules.blockSignals(False)
         self.edit_tags_add.clear()
         self.edit_tags_rem.clear()
+
+        self.chk_rule_enabled.setEnabled(True)
         self.chk_rule_enabled.setChecked(True)
-        self.chk_rule_auto.setChecked(True)
+
         self.rules_root_group.clear()
         self.combo_assign_wf.setCurrentIndex(0)
         self._reset_rule_dirty()
+        self.rules_scroll.setVisible(True) # Show editor
+        self.btn_toggle_rules.setVisible(True) # Show toggle
+        self.btn_toggle_rules.setText("🔼")
+        self._update_stack_visibility()
+
+    def _toggle_editor_visibility(self):
+        is_visible = self.scroll.isVisible()
+        self.scroll.setVisible(not is_visible)
+        self.btn_toggle_editor.setText("🔼" if not is_visible else "🔽")
+        self._update_stack_visibility()
+
+    def _toggle_rules_visibility(self):
+        is_visible = self.rules_scroll.isVisible()
+        self.rules_scroll.setVisible(not is_visible)
+        self.btn_toggle_rules.setText("🔼" if not is_visible else "🔽")
+        self._update_stack_visibility()
 
     def manage_rules(self):
         # Find "Tags" folder for focus
@@ -764,32 +916,47 @@ class AdvancedFilterWidget(QWidget):
             self.nav_spacer.setVisible(has_selection)
         
         # KEEP TOP MARGIN STABLE at 10 to avoid jumping!
-        # Bottom margin is 10 when open, 5 when closed for a tiny breathing room
-        self.layout().setContentsMargins(10, 10, 10, 10 if has_selection else 5)
+        # Bottom margin is 0 to align flush with the list view
+        self.layout().setContentsMargins(10, 10, 10, 0)
         
         if not has_selection:
-            # Fixed height to avoid any redistribution of space in Splitter
-            # 10 (top) + 30 (button) + 5 (internal layout bottom) + 5 (new bottom margin) = 50
-            self.setMaximumHeight(50)
-            self.setFixedHeight(50) 
+            # Sub-nav + Spacer + Margins only.
+            self.setMinimumHeight(85)
+            self.setMaximumHeight(90)
+            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         elif self.stack.currentIndex() == 0:
-            # SEARCH MODE: Keep it compact but avoid clipping
-            self.setMaximumHeight(135)
-            self.setMinimumHeight(125)
+            # SEARCH MODE: Must contain Sub-nav + Header Row + Search Status Row
+            self.setMinimumHeight(140)
+            self.setMaximumHeight(160)
             self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
             self.updateGeometry()
         elif self.stack.currentIndex() == 1:
-            # FILTER MODE: Needs space for conditions
-            self.setMinimumHeight(300)
-            self.setMaximumHeight(16777215)
-            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
+            # FILTER MODE: Needs space for conditions IF VISIBLE
+            if hasattr(self, 'scroll') and self.scroll.isVisible():
+                self.setMinimumHeight(320)
+                self.setMaximumHeight(16777215)
+                self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
+            else:
+                # Collapsed: Sub-nav + Filter Select Bar + Bottom Bar
+                self.setMinimumHeight(160)
+                self.setMaximumHeight(180)
+                self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
             self.updateGeometry()
         else:
-            # RULES MODE: Needs even more space for the rule form
-            self.setMinimumHeight(350)
-            self.setMaximumHeight(16777215)
-            self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
+            # RULES MODE: Needs most space even when collapsed (Tags + Workflow rows)
+            if hasattr(self, 'rules_scroll') and self.rules_scroll.isVisible():
+                self.setMinimumHeight(380)
+                self.setMaximumHeight(16777215)
+                self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
+            else:
+                # Collapsed: Sub-nav + Rule Select + Tags Rows + Workflow Row + Bottom Bar
+                self.setMinimumHeight(240)
+                self.setMaximumHeight(260)
+                self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
             self.updateGeometry()
+
+        # Notify Splitter
+        self.size_changed.emit()
 
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
@@ -934,14 +1101,24 @@ class AdvancedFilterWidget(QWidget):
         pass
 
     def clear_all(self, reset_combo=True):
-        self._reset_dirty_indicator()
-        if reset_combo and isinstance(reset_combo, bool):
-            self.combo_filters.setCurrentIndex(0)
+        self._loading = True
+        try:
+            if reset_combo and isinstance(reset_combo, bool):
+                self.combo_filters.setCurrentIndex(0)
+                self.scroll.setVisible(False)
+                self.btn_toggle_editor.setVisible(False) # Hide toggle on clear
+                self.chk_active.setChecked(False)
+                self.chk_active.setEnabled(False)
+                self.loaded_filter_node = None
+                self._update_stack_visibility()
 
-        self.root_group.clear()
-        self._set_dirty()
-        # Auto-apply to update view immediately (UX feedback)
-        self._emit_change()
+            self.root_group.clear()
+            self.root_group.set_read_only(False) # [NEW] Ensure clean state
+            self._reset_dirty_indicator()
+            # Auto-apply to update view immediately (UX feedback)
+            self._emit_change()
+        finally:
+            self._loading = False
 
     def get_query(self):
         """Returns the current query from the UI."""
@@ -965,6 +1142,13 @@ class AdvancedFilterWidget(QWidget):
         self.btn_revert.setEnabled(False)
         self.chk_active.setChecked(True) # Assume active upon load
 
+        # [NEW] Set Read-Only state for protected nodes
+        is_protected = False
+        if node and hasattr(node, "node_type"):
+            if node.node_type in [NodeType.TRASH, NodeType.ARCHIVE]:
+                 is_protected = True
+        self.root_group.set_read_only(is_protected)
+
         # Auto-Apply on Load? Usually yes for saved filters.
         self._emit_change()
 
@@ -973,17 +1157,36 @@ class AdvancedFilterWidget(QWidget):
         if getattr(self, '_loading', False):
             return
 
+        query = self.get_query_object()
+        has_query = bool(query and query.get("conditions"))
+        
+        # Protected types cannot be saved or reverted
+        is_protected = False
+        if self.loaded_filter_node and hasattr(self.loaded_filter_node, "node_type"):
+            if self.loaded_filter_node.node_type in [NodeType.TRASH, NodeType.ARCHIVE]:
+                 is_protected = True
+
+        is_modified = (has_query or self.loaded_filter_node is not None) and not is_protected
+
         if self.btn_apply:
-            self.btn_apply.setEnabled(True)
+            # [MOD] Apply is also disabled for protected nodes to enforce true read-only
+            self.btn_apply.setEnabled((has_query or self.loaded_filter_node is not None) and not is_protected)
 
         if self.btn_clear:
-            self.btn_clear.setEnabled(True)
+            self.btn_clear.setEnabled(has_query)
 
-        if self.btn_revert and self.loaded_filter_node:
-             self.btn_revert.setEnabled(True)
+        if self.btn_revert:
+             self.btn_revert.setEnabled(is_modified)
+        
+        if self.btn_save:
+             self.btn_save.setEnabled(is_modified)
+             if is_modified:
+                 self.btn_save.setStyleSheet("background-color: #fff9c4; font-weight: bold;") # Subtle highlight
+             else:
+                 self.btn_save.setStyleSheet("")
 
-        # Ignore Trash Node
-        if self.loaded_filter_node and hasattr(self.loaded_filter_node, "node_type") and self.loaded_filter_node.node_type == NodeType.TRASH:
+        # Ignore Protected Nodes for Dirty Indicator (*)
+        if is_protected:
             return
 
         if self.loaded_filter_node:
@@ -995,8 +1198,11 @@ class AdvancedFilterWidget(QWidget):
 
     def _reset_dirty_indicator(self):
         """Removes the * from the currently loaded filter in the combo."""
-        if self.btn_revert:
-            self.btn_revert.setEnabled(False)
+        self.btn_revert.setEnabled(False)
+        self.btn_save.setEnabled(False)
+        self.btn_save.setStyleSheet("")
+        if self.btn_apply:
+            self.btn_apply.setEnabled(False)
 
         # Update Clear All button based on content
         query = self.get_query_object()
@@ -1023,6 +1229,23 @@ class AdvancedFilterWidget(QWidget):
             self.chk_active.blockSignals(True)
             self.chk_active.setChecked(active)
             self.chk_active.blockSignals(False)
+
+    def _on_combo_filter_selected(self, index):
+        """Triggered on every selection change. Controls the 'Load' button state."""
+        data = self.combo_filters.currentData()
+        
+        # Enable Load button if we have a valid node selected
+        # BROWSE_ALL is handled immediately, so it doesn't need the Load button enabled
+        is_valid_selection = data is not None and data != "BROWSE_ALL"
+        self.btn_load.setEnabled(is_valid_selection)
+
+        if data == "BROWSE_ALL":
+             self._on_saved_filter_selected(index)
+
+    def _on_combo_rule_selected(self, index):
+        """Triggered on every selection change in the Rules combo."""
+        data = self.combo_rules.currentData()
+        self.btn_load_rule.setEnabled(data is not None)
 
     def _emit_change(self):
         query = self.get_query_object()
@@ -1086,6 +1309,35 @@ class AdvancedFilterWidget(QWidget):
         self.combo_filters.blockSignals(False)
 
 
+    def _on_load_filter_clicked(self):
+        """Manually triggered loading of the selected filter."""
+        data = self.combo_filters.currentData()
+        if not data:
+            self.loaded_filter_node = None
+            self.clear_all(reset_combo=True) # Reset if nothing to load
+            return
+        self.scroll.setVisible(True) # Show editor
+        self.btn_toggle_editor.setVisible(True) # Show toggle
+        self.btn_toggle_editor.setText("🔼")
+        self.chk_active.setEnabled(True)
+        self.chk_active.setChecked(True)
+        self._update_stack_visibility()
+        self._on_saved_filter_selected(0)
+
+    def _on_new_filter_clicked(self):
+        """Reset editor for a new filter."""
+        self.combo_filters.blockSignals(True)
+        self.combo_filters.setCurrentIndex(0)
+        self.combo_filters.blockSignals(False)
+        self.clear_all(reset_combo=False)
+        self.root_group.set_read_only(False) # [NEW]
+        self.scroll.setVisible(True) # Show editor
+        self.btn_toggle_editor.setVisible(True) # Show toggle
+        self.btn_toggle_editor.setText("🔼")
+        self.chk_active.setEnabled(True)
+        self.chk_active.setChecked(True)
+        self._update_stack_visibility()
+
     def _on_saved_filter_selected(self, index):
         data = self.combo_filters.currentData()
         if not data:
@@ -1112,14 +1364,33 @@ class AdvancedFilterWidget(QWidget):
                  ]
              }
              self.load_from_object(trash_query)
+             self.trash_mode_changed.emit(True)
+             self.archive_mode_changed.emit(False) # [NEW]
+             self._emit_change()
+             return
+
+        if hasattr(data, "node_type") and data.node_type == NodeType.ARCHIVE:
+             self.loaded_filter_node = data
+             # Standardize Archive as a normal filter Query
+             # This ensures verify logic in DocumentList.apply_advanced_filter works.
+             archive_query = {
+                 "operator": "AND",
+                 "conditions": [
+                     {"field": "archived", "op": "equals", "value": True}
+                 ]
+             }
+             self.load_from_object(archive_query)
+             self.trash_mode_changed.emit(False)
+             self.archive_mode_changed.emit(True) # [NEW]
              self._emit_change()
              return
 
         # It's a FilterNode or saved dict (legacy)
         # We stored FilterNode object in addItem
 
-        # Ensure we exit trash mode
+        # Ensure we exit special modes
         self.trash_mode_changed.emit(False)
+        self.archive_mode_changed.emit(False) # [NEW]
 
         if hasattr(data, "data"):
              self.load_from_object(data.data)
@@ -1151,11 +1422,21 @@ class AdvancedFilterWidget(QWidget):
             # Special Trash Handling
             self.loaded_filter_node = node
             self.trash_mode_changed.emit(True)
+            self.archive_mode_changed.emit(False) # [NEW]
             self._sync_combo_selection(node)
             return
 
+        if node.node_type == NodeType.ARCHIVE:
+             # Special Archive Handling
+             self.loaded_filter_node = node
+             self.trash_mode_changed.emit(False)
+             self.archive_mode_changed.emit(True) # [NEW]
+             self._sync_combo_selection(node)
+             return
+
         # Normal Filter
         self.trash_mode_changed.emit(False) # Exit trash mode
+        self.archive_mode_changed.emit(False) # [NEW]
 
         if node.data is not None:
             self.load_from_object(node.data)
@@ -1200,7 +1481,16 @@ class AdvancedFilterWidget(QWidget):
 
         finally:
             self._loading = False
-            self.btn_apply.setEnabled(False) # Loaded state is clean
+            
+            # [NEW] Set Read-Only state for protected nodes
+            is_protected = False
+            if self.loaded_filter_node and hasattr(self.loaded_filter_node, "node_type"):
+                if self.loaded_filter_node.node_type in [NodeType.TRASH, NodeType.ARCHIVE]:
+                     is_protected = True
+            self.root_group.set_read_only(is_protected)
+            
+            self._set_dirty() # [NEW] Force UI update (disables Apply if protected)
+            self.btn_apply.setEnabled(not is_protected and False) # Force clean state but respect protection
             self.btn_revert.setEnabled(False)
             self._loading = False
 
@@ -1427,34 +1717,43 @@ class AdvancedFilterWidget(QWidget):
         
         # Filter Tab
         self.lbl_filter_select.setText(self.tr("Select:"))
+        self.btn_load.setText(self.tr("Load"))
+        self.btn_new.setText(self.tr("New"))
+        self.btn_manage.setText("⚙️ " + self.tr("Manage"))
+        self.btn_manage.setToolTip(self.tr("Manage Filters"))
+        self.chk_active.setText(self.tr("Filter Active"))
+        self.btn_export.setText("📤 " + self.tr("Export"))
+        self.btn_export.setToolTip(self.tr("Export filter"))
+
+        self.lbl_changes.setText(self.tr("Changes:"))
         self.btn_revert.setText(self.tr("Discard"))
         self.btn_revert.setToolTip(self.tr("Revert Changes"))
         self.btn_save.setText(self.tr("Save"))
-        self.btn_export.setText("📤 " + self.tr("Export"))
-        self.btn_export.setToolTip(self.tr("Export filter"))
-        self.btn_manage.setText("⚙️ " + self.tr("Manage"))
-        self.btn_manage.setToolTip(self.tr("Manage Filters"))
         self.btn_clear.setText(self.tr("Clear All"))
-        self.btn_apply.setText(self.tr("Apply Changes"))
+        self.btn_apply.setText(self.tr("Apply"))
         self.btn_apply.setToolTip(self.tr("Changes are applied automatically when 'Filter active' is checked."))
-        self.chk_active.setText(self.tr("Filter Active"))
 
         # Rules Tab
         self.lbl_rule_select.setText(self.tr("Select:"))
-        self.btn_revert_rule.setText(self.tr("Revert"))
-        self.btn_save_rule.setText(self.tr("Save..."))
+        self.btn_load_rule.setText(self.tr("Load"))
+        self.btn_new_rule.setText(self.tr("New"))
         self.btn_manage_rules.setText(self.tr("Manage"))
+        self.chk_rule_enabled.setText(self.tr("Active"))
+
         self.lbl_tags_add.setText(self.tr("Add Tags:"))
         self.lbl_tags_rem.setText(self.tr("Remove Tags:"))
         self.edit_tags_add.setToolTip(self.tr("Enter tags to add. Press comma or Enter to confirm (e.g. INVOICE, TELEKOM)"))
         self.edit_tags_rem.setToolTip(self.tr("Enter tags to remove. Press comma or Enter to confirm (e.g. DRAFT, REVIEW)"))
         self.lbl_assign_wf.setText(self.tr("Assign Workflow:"))
+
+        self.lbl_changes_rule.setText(self.tr("Changes:"))
+        self.btn_revert_rule.setText(self.tr("Discard"))
+        self.btn_save_rule.setText(self.tr("Save..."))
         self.btn_clear_rule.setText(self.tr("Clear All"))
         self.btn_create_view.setText(self.tr("Create View-filter"))
         self.btn_create_view.setToolTip(self.tr("Create a search-view that filters for the tags this rule adds"))
         self.btn_apply_view.setText(self.tr("Apply to View"))
         self.btn_apply_all.setText(self.tr("Apply to all"))
-        self.chk_rule_enabled.setText(self.tr("Active"))
         self.chk_rule_auto.setText(self.tr("Run on Import"))
         self.chk_rule_auto.setToolTip(self.tr("Automatically apply this rule to new documents during import/analysis"))
 

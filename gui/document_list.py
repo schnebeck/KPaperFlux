@@ -880,7 +880,7 @@ class DocumentListWidget(QWidget):
 
         # User Feedback: Auto-select if exactly one result OR if a specific query/search is active
         # This ensures immediate display of the top result after a search.
-        if len(docs) == 1 or active_query:
+        if len(docs) == 1 or active_query or self.is_trash_mode or self.is_archive_mode:
             force_select_first = True
 
         # Re-apply basic filter (hide/show) if one was active
@@ -1255,18 +1255,32 @@ class DocumentListWidget(QWidget):
             self.show_archive(False, refresh=False) # Ensure we leave archive mode
             self.current_filter_text = None # Clear simple text search
 
+            # Detection logic for actual filter activity
+            has_conditions = False
+            if query:
+                if "conditions" in query and query["conditions"]:
+                    # Check if at least one condition is not just a placeholder
+                    has_conditions = any(c.get("field") != "__placeholder__" for c in query["conditions"] if isinstance(c, dict))
+                elif "field" in query:
+                    has_conditions = query["field"] != "__placeholder__"
+
             # PHASE 131: Use LITERALS for internal state!
             if label:
                  self.view_context = label
-            # Detect if this is a search (contains _meta_fulltext)
-            elif query and "_meta_fulltext" in query:
+            # Detect if this is a search (contains _meta_fulltext and it's not empty)
+            elif query and "_meta_fulltext" in query and query["_meta_fulltext"].strip():
                  self.view_context = "Search"
                  self.current_filter_text = query["_meta_fulltext"] # Ensure breadcrumb sees it
             elif query and "field" in query and query["field"] == "uuid" and query["op"] == "in":
                  self.view_context = "Manual Selection"
-            else:
+            elif has_conditions:
                  self.view_context = "Advanced Filter"
                  self.current_filter_text = None # Clear simple text search if real filter applied
+            else:
+                 # Default: No valid filter/search active
+                 self.view_context = "All Documents"
+                 self.current_filter_text = None
+                 self.current_advanced_query = None
 
         self.update_breadcrumb()
         # Phase 105: Handled inside refresh_list logic
@@ -1555,8 +1569,13 @@ class DocumentListWidget(QWidget):
         self.current_cockpit_query = None
         self.current_filter_text = ""
         self.view_context = "All Documents"
-        self.show_trash_bin(False, refresh=True)
+        
+        # Phase 110: Comprehensive reset including Trash and Archive
+        self.is_trash_mode = False
+        self.is_archive_mode = False
+        
         self.update_breadcrumb()
+        self.refresh_list()
         self.search_cleared.emit()
 
     def set_view_context(self, label: str):
