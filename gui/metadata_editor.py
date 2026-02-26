@@ -1301,8 +1301,8 @@ class MetadataEditorWidget(QWidget):
                 dd_str = doc.due_date
                 if len(dd_str) == 10: dd_str += "T00:00:00"
                 doc_data_for_wf["DAYS_UNTIL_DUE"] = (datetime.fromisoformat(dd_str) - now).days
-        except Exception:
-             pass
+        except Exception as e:
+             logger.debug(f"Workflow date calculation skipped: {e}")
 
         self.workflow_controls.update_workflow(rule_id, current_step, doc_data_for_wf)
         

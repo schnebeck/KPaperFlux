@@ -451,44 +451,54 @@ class ReportingWidget(QWidget):
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
 
-        # Toolbar
-        toolbar = QHBoxLayout()
+        # Toolbar Area (Two rows for better L10n space)
+        toolbar_container = QVBoxLayout()
+        toolbar_container.setSpacing(10)
+        
+        # Row 1: Selection and Data Management
+        row1 = QHBoxLayout()
         self.lbl_select_prefix = QLabel()
-        toolbar.addWidget(self.lbl_select_prefix)
+        row1.addWidget(self.lbl_select_prefix)
         
         self.combo_reports = QComboBox()
         self.combo_reports.setMinimumWidth(200)
         self.combo_reports.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.combo_reports.currentIndexChanged.connect(self.refresh_data)
-        toolbar.addWidget(self.combo_reports)
+        row1.addWidget(self.combo_reports)
 
-        self.btn_comment = QPushButton()
-        self.btn_comment.clicked.connect(self.add_text_block)
-        toolbar.addWidget(self.btn_comment)
-        
         self.btn_new = QPushButton()
         self.btn_new.clicked.connect(self.create_new_report)
-        toolbar.addWidget(self.btn_new)
+        row1.addWidget(self.btn_new)
 
         self.btn_import = QPushButton()
         self.btn_import.clicked.connect(self.import_report_from_file)
-        toolbar.addWidget(self.btn_import)
+        row1.addWidget(self.btn_import)
 
         self.btn_clear = QPushButton()
         self.btn_clear.clicked.connect(self.clear_results)
-        toolbar.addWidget(self.btn_clear)
+        row1.addWidget(self.btn_clear)
 
-        toolbar.addSpacing(20)
+        row1.addStretch()
+        toolbar_container.addLayout(row1)
+
+        # Row 2: Layout, View and Export
+        row2 = QHBoxLayout()
+
+        self.btn_comment = QPushButton()
+        self.btn_comment.clicked.connect(self.add_text_block)
+        row2.addWidget(self.btn_comment)
+
+        row2.addSpacing(10)
 
         self.btn_save_layout = QPushButton()
         self.btn_save_layout.clicked.connect(self.save_layout)
-        toolbar.addWidget(self.btn_save_layout)
+        row2.addWidget(self.btn_save_layout)
 
         self.btn_load_layout = QPushButton()
         self.btn_load_layout.clicked.connect(self.load_layout)
-        toolbar.addWidget(self.btn_load_layout)
+        row2.addWidget(self.btn_load_layout)
 
-        toolbar.addStretch()
+        row2.addStretch()
 
         # Global Zoom Controls
         self.btn_zoom_out = QPushButton("-")
@@ -515,10 +525,10 @@ class ReportingWidget(QWidget):
         zoom_group.addWidget(self.edit_zoom)
         zoom_group.addWidget(self.btn_zoom_in)
         
-        toolbar.addLayout(zoom_group)
-        toolbar.addWidget(self.btn_fit)
+        row2.addLayout(zoom_group)
+        row2.addWidget(self.btn_fit)
         
-        toolbar.addSpacing(10)
+        row2.addSpacing(10)
         
         self.btn_export = QPushButton()
         self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; font-weight: bold; padding: 4px 16px;")
@@ -536,9 +546,10 @@ class ReportingWidget(QWidget):
         self.act_zip.triggered.connect(lambda: self.export_as("zip"))
 
         self.btn_export.setMenu(self.export_menu)
-        toolbar.addWidget(self.btn_export)
+        row2.addWidget(self.btn_export)
         
-        self.main_layout.addLayout(toolbar)
+        toolbar_container.addLayout(row2)
+        self.main_layout.addLayout(toolbar_container)
 
         # Main Content area (Scrollable)
         self.scroll = QScrollArea()
