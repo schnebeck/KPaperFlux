@@ -314,7 +314,24 @@ class MainWindow(QMainWindow):
         self.activity_panel = BackgroundActivityStatusBar()
         self.status_layout.addWidget(self.activity_panel)
         
-        self.status_layout.addStretch()
+        # Phase 135: Centered Sum Container
+        self.status_layout.addStretch(1)
+        
+        self.sum_status_label = QLabel("")
+        self.sum_status_label.setObjectName("SumStatusLabel")
+        self.sum_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sum_status_label.setStyleSheet("""
+            #SumStatusLabel {
+                color: #1976d2;
+                font-weight: bold;
+                font-size: 13px;
+                min-width: 120px;
+            }
+        """)
+        self.sum_status_label.hide() # Hide when 0.0
+        self.status_layout.addWidget(self.sum_status_label)
+        
+        self.status_layout.addStretch(1)
         self.statusBar().addWidget(self.status_container, 1)
 
         self.create_tool_bar()
@@ -858,12 +875,14 @@ class MainWindow(QMainWindow):
     def _refresh_status_bar(self):
         """Unified status bar text update."""
         status_text = self.tr("Docs: %s/%s") % (self._visible_count, self._total_count)
+        self.main_status_label.setText(status_text)
         
         if self._selected_sum > 0:
-            # Localized formatting for Currency
-            status_text += f" | Σ {self._selected_sum:,.2f} EUR"
-            
-        self.main_status_label.setText(status_text)
+            # Display sum in the dedicated centered label
+            self.sum_status_label.setText(f"Σ {self._selected_sum:,.2f} EUR")
+            self.sum_status_label.show()
+        else:
+            self.sum_status_label.hide()
 
     def _on_document_selected(self, uuids: list[str]):
         """Callback when selection changes in document list."""
