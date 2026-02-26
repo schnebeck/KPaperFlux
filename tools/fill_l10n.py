@@ -36,6 +36,7 @@ def fill():
         "%1 documents found (%2 occurrences)": "%1 Dokumente gefunden (%2 Treffer)",
         "%1 documents found": "%1 Dokumente gefunden",
         "No documents found": "Keine Dokumente gefunden",
+        "Selection Gross (total): %s EUR": "Auswahl Brutto (gesamt): %s EUR",
         "Force OCR / Searchable PDF": "OCR erzwingen / Durchsuchbares PDF",
         "Copied!": "Kopiert!",
         "&File": "&Datei",

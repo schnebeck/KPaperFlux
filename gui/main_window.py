@@ -878,8 +878,9 @@ class MainWindow(QMainWindow):
         self.main_status_label.setText(status_text)
         
         if self._selected_sum > 0:
-            # Display sum in the dedicated centered label
-            self.sum_status_label.setText(f"Σ {self._selected_sum:,.2f} EUR")
+            # Display sum in the dedicated centered label with localized prefix
+            label_text = self.tr("Selection Gross (total): %s EUR") % f"{self._selected_sum:,.2f}"
+            self.sum_status_label.setText(label_text)
             self.sum_status_label.show()
         else:
             self.sum_status_label.hide()
