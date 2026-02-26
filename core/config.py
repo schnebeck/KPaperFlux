@@ -42,6 +42,7 @@ class AppConfig:
     KEY_ANTHROPIC_MODEL: str = "anthropic_model"
     KEY_LOG_LEVEL: str = "log_level"
     KEY_LOG_COMPONENTS: str = "log_components"
+    KEY_PDF_PAGE_SIZE: str = "pdf_page_size"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
@@ -440,3 +441,12 @@ class AppConfig:
     def get_log_file_path(self) -> Path:
         """Returns the absolute path to the log file."""
         return self.get_data_dir() / "app.log"
+
+    def get_pdf_page_size(self) -> Optional[str]:
+        """Retrieves the preferred PDF page size (e.g. 'A4', 'LETTER')."""
+        val = self._get_setting("General", self.KEY_PDF_PAGE_SIZE, None)
+        return str(val) if val else None
+
+    def set_pdf_page_size(self, size: str) -> None:
+        """Saves the preferred PDF page size."""
+        self._set_setting("General", self.KEY_PDF_PAGE_SIZE, size)

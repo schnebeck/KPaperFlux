@@ -3155,7 +3155,6 @@ Are you completely sure you want to reset the system?</source>
             <translation>Wiederkehrende Zahlung / Abonnement</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="666" />
             <location filename="../../../gui/metadata_editor.py" line="353" />
             <location filename="../../../gui/metadata_editor.py" line="306" />
             <source>Frequency:</source>
@@ -3294,13 +3293,11 @@ Are you completely sure you want to reset the system?</source>
             <translation>Historie</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="678" />
             <location filename="../../../gui/metadata_editor.py" line="355" />
             <source>Service Period Start:</source>
             <translation>Leistungsbeginn:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="684" />
             <location filename="../../../gui/metadata_editor.py" line="356" />
             <source>Service Period End:</source>
             <translation>Leistungsende:</translation>
@@ -3316,13 +3313,11 @@ Are you completely sure you want to reset the system?</source>
             <translation>Vertragsnummer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="699" />
             <location filename="../../../gui/metadata_editor.py" line="360" />
             <source>Effective Date:</source>
             <translation>Vertragsbeginn:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="705" />
             <location filename="../../../gui/metadata_editor.py" line="361" />
             <source>Valid Until:</source>
             <translation>Gültig bis:</translation>
@@ -3404,41 +3399,6 @@ Are you completely sure you want to reset the system?</source>
             <translation>Änderungen speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="660" />
-            <source>Once</source>
-            <translation>Einmalig</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/metadata_editor.py" line="661" />
-            <source>Daily</source>
-            <translation>Täglich</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/metadata_editor.py" line="662" />
-            <source>Weekly</source>
-            <translation>Wöchentlich</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/metadata_editor.py" line="663" />
-            <source>Monthly</source>
-            <translation>Monatlich</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/metadata_editor.py" line="664" />
-            <source>Quarterly</source>
-            <translation>Quartalsweise</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/metadata_editor.py" line="665" />
-            <source>Yearly</source>
-            <translation>Jährlich</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/metadata_editor.py" line="672" />
-            <source>Next Billing Date:</source>
-            <translation type="unfinished" />
-        </message>
-        <message>
             <location filename="../../../gui/metadata_editor.py" line="879" />
             <source>Auto-transition triggered</source>
             <translation type="unfinished" />
@@ -3483,77 +3443,101 @@ Are you completely sure you want to reset the system?</source>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1405" />
+            <location filename="../../../gui/metadata_editor.py" line="1360" />
             <source>No source mapping available.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1624" />
+            <location filename="../../../gui/metadata_editor.py" line="1651" />
             <source>Recipient</source>
             <translation>Empfänger</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1625" />
+            <location filename="../../../gui/metadata_editor.py" line="1652" />
             <source>IBAN</source>
             <translation>IBAN</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1626" />
+            <location filename="../../../gui/metadata_editor.py" line="1653" />
             <source>Amount</source>
             <translation>Betrag</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1628" />
+            <location filename="../../../gui/metadata_editor.py" line="1655" />
             <source>Incomplete data for GiroCode:
 Missing</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1643" />
+            <location filename="../../../gui/metadata_editor.py" line="1670" />
             <source>Invalid IBAN Checksum!
 Cannot generate Payment Code.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1667" />
+            <location filename="../../../gui/metadata_editor.py" line="1694" />
             <source>QR Library not installed.
 Please install 'qrcode' package.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1670" />
+            <location filename="../../../gui/metadata_editor.py" line="1697" />
             <source>Invalid Amount format.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1673" />
+            <location filename="../../../gui/metadata_editor.py" line="1700" />
             <source>Error generating QR:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1683" />
+            <location filename="../../../gui/metadata_editor.py" line="1710" />
             <source>Cannot copy: Incomplete GiroCode data.</source>
             <translation>Kopieren fehlgeschlagen: Unvollständige GiroCode-Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1696" />
+            <location filename="../../../gui/metadata_editor.py" line="1723" />
             <source>GiroCode payload copied to clipboard.</source>
             <translation>GiroCode-Daten in die Zwischenablage kopiert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1698" />
+            <location filename="../../../gui/metadata_editor.py" line="1725" />
             <source>Copy Error</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1983" />
+            <location filename="../../../gui/metadata_editor.py" line="2010" />
             <source>Saved</source>
             <translation>Gespeichert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1983" />
+            <location filename="../../../gui/metadata_editor.py" line="2010" />
             <source>Changes saved to Database.</source>
             <translation>Änderungen in Datenbank gespeichert.</translation>
+        </message>
+        <message>
+            <source>Once</source>
+            <translation>Einmalig</translation>
+        </message>
+        <message>
+            <source>Daily</source>
+            <translation>Täglich</translation>
+        </message>
+        <message>
+            <source>Weekly</source>
+            <translation>Wöchentlich</translation>
+        </message>
+        <message>
+            <source>Monthly</source>
+            <translation>Monatlich</translation>
+        </message>
+        <message>
+            <source>Quarterly</source>
+            <translation>Quartalsweise</translation>
+        </message>
+        <message>
+            <source>Yearly</source>
+            <translation>Jährlich</translation>
         </message>
     </context>
     <context>
@@ -3652,12 +3636,12 @@ Please install 'qrcode' package.</source>
     <context>
         <name>PdfReportGenerator</name>
         <message>
-            <location filename="../../../core/exporters/pdf_report.py" line="97" />
+            <location filename="../../../core/exporters/pdf_report.py" line="111" />
             <source>Generated: {date}</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/exporters/pdf_report.py" line="170" />
+            <location filename="../../../core/exporters/pdf_report.py" line="184" />
             <source>Page {n}</source>
             <translation type="unfinished" />
         </message>
@@ -3775,67 +3759,72 @@ Please install 'qrcode' package.</source>
             <translation>Berichtsdefinition speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="60" />
+            <location filename="../../../gui/report_editor.py" line="59" />
+            <source>Numeric Step:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/report_editor.py" line="61" />
             <source>Table</source>
             <translation>Tabelle</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="61" />
+            <location filename="../../../gui/report_editor.py" line="62" />
             <source>Bar Chart</source>
             <translation>Balkendiagramm</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="62" />
+            <location filename="../../../gui/report_editor.py" line="63" />
             <source>Pie Chart</source>
             <translation>Tortendiagramm</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="63" />
+            <location filename="../../../gui/report_editor.py" line="64" />
             <source>Trend</source>
             <translation>Trend</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="64" />
+            <location filename="../../../gui/report_editor.py" line="65" />
             <source>CSV Export</source>
             <translation>CSV Export</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="68" />
+            <location filename="../../../gui/report_editor.py" line="69" />
             <source>Import from Saved Filter</source>
             <translation>Aus gespeichertem Filter laden</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="71" />
+            <location filename="../../../gui/report_editor.py" line="72" />
             <source>Select 'amount:X' for histogram view (grouping by price ranges).</source>
             <translation>Nutzen Sie 'amount:X' für Histogramme (Preisbereiche).</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="74" />
+            <location filename="../../../gui/report_editor.py" line="75" />
             <source>Field</source>
             <translation>Feld</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="74" />
+            <location filename="../../../gui/report_editor.py" line="75" />
             <source>Operation</source>
             <translation>Operation</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="312" />
+            <location filename="../../../gui/report_editor.py" line="334" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="312" />
+            <location filename="../../../gui/report_editor.py" line="334" />
             <source>Report definition '%s' saved.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="315" />
+            <location filename="../../../gui/report_editor.py" line="337" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="315" />
+            <location filename="../../../gui/report_editor.py" line="337" />
             <source>Failed to save report</source>
             <translation type="unfinished" />
         </message>

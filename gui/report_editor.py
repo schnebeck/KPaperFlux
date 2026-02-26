@@ -56,6 +56,7 @@ class ReportEditorWidget(QWidget):
         self.btn_add_agg.setText("+ " + self.tr("Add Aggregation"))
         self.btn_del_agg.setText("- " + self.tr("Remove Selected"))
         self.btn_save.setText(self.tr("Save Report Definition"))
+        self.lbl_step_prefix.setText(self.tr("Numeric Step:"))
         
         self.chk_table.setText(self.tr("Table"))
         self.chk_chart.setText(self.tr("Bar Chart"))
@@ -104,12 +105,21 @@ class ReportEditorWidget(QWidget):
         self.lbl_group_prefix = QLabel()
         group_layout.addWidget(self.lbl_group_prefix)
         self.combo_group = QComboBox()
-        self.combo_group.addItems([
-            "None", "doc_date:month", "doc_date:year", "sender", "type",
-            "amount:10", "amount:50", "amount:100", "amount:500"
-        ])
+        self.combo_group.setEditable(True)
+        self.combo_group.addItems(["None", "doc_date:month", "doc_date:year", "doc_date:day", "sender", "type", "amount"])
+        if self.extra_keys:
+            self.combo_group.addItems(self.extra_keys)
         self.combo_group.currentIndexChanged.connect(self._on_changed)
         group_layout.addWidget(self.combo_group, 1)
+
+        self.lbl_step_prefix = QLabel()
+        group_layout.addWidget(self.lbl_step_prefix)
+        self.edit_step = QLineEdit()
+        self.edit_step.setPlaceholderText("1.0")
+        self.edit_step.setFixedWidth(60)
+        self.edit_step.textChanged.connect(self._on_changed)
+        group_layout.addWidget(self.edit_step)
+        
         config_layout.addLayout(group_layout)
         
         # Aggregations
@@ -229,8 +239,15 @@ class ReportEditorWidget(QWidget):
         self.edit_name.setText(report.name)
         self.edit_desc.setPlainText(report.description or "")
         
-        idx = self.combo_group.findText(report.group_by or "None")
-        self.combo_group.setCurrentIndex(max(0, idx))
+        
+        group_val = report.group_by or "None"
+        if ":" in group_val and not group_val.startswith("doc_date:") and not group_val.startswith("created_at:"):
+            field, step = group_val.split(":", 1)
+            self.combo_group.setCurrentText(field)
+            self.edit_step.setText(step)
+        else:
+            self.combo_group.setCurrentText(group_val)
+            self.edit_step.clear()
         
         # Load filter criteria
         if report.filter_query:
@@ -287,7 +304,12 @@ class ReportEditorWidget(QWidget):
             if self.chk_trend.isChecked(): comps.append(ReportComponent(type="trend_chart"))
         
         group = self.combo_group.currentText()
-        if group == "None": group = None
+        if group == "None" or not group: 
+            group = None
+        else:
+            step = self.edit_step.text().strip()
+            if step and group not in ["doc_date:month", "doc_date:year", "doc_date:day", "sender", "type"]:
+                group = f"{group}:{step}"
         
         return ReportDefinition(
             id=pb_id,

@@ -173,13 +173,25 @@ class ReportGenerator:
                     key = doc.sender_name or "Unknown"
                 elif group_field == "type":
                     key = doc.type_tags[0] if doc.type_tags else "OTHER"
-                elif group_field.startswith("amount:"):
+                elif ":" in group_field:
+                    # Generic numeric grouping: field:step
                     try:
-                        step = float(group_field.split(":")[1])
-                        val = float(doc.total_amount or 0)
-                        bin_idx = int(val // step)
+                        f_name, step_str = group_field.split(":", 1)
+                        step = float(step_str)
+                        
+                        # Resolve numeric value
+                        if f_name == "amount":
+                            val = doc.total_amount
+                        else:
+                            val = getattr(doc, f_name, None)
+                            if val is None and hasattr(doc, 'semantic_data') and doc.semantic_data:
+                                val = doc.semantic_data.get_financial_value(f_name)
+                        
+                        num_val = float(val or 0)
+                        bin_idx = int(num_val // step)
                         key = f"{bin_idx * step:g} - {(bin_idx + 1) * step:g}"
-                    except:
+                    except Exception as e:
+                        logger.debug(f"Numeric grouping failed for {f_name}: {e}")
                         key = "Unknown"
                 else:
                     # Generic attribute/property access

@@ -65,7 +65,7 @@ class PdfReportGenerator:
             textColor=colors.HexColor("#2c3e50")
         ))
 
-    def generate(self, title: str, items: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None, metadata_type: str = "report_definition", pagesize=A4) -> bytes:
+    def generate(self, title: str, items: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None, metadata_type: str = "report_definition", pagesize=None) -> bytes:
         """
         Generates a PDF report from a list of ordered items.
         
@@ -74,8 +74,22 @@ class PdfReportGenerator:
             items: List of dictionaries with keys 'type' and 'value'.
             metadata: Optional dictionary to embed (Universal Exchange Format).
             metadata_type: Type of the exchange payload.
-            pagesize: ReportLab pagesize (default A4).
+            pagesize: ReportLab pagesize. If None, auto-detected from Config or Locale.
         """
+        if pagesize is None:
+            # 1. Check Config
+            from core.config import AppConfig
+            config_size = AppConfig().get_pdf_page_size()
+            if config_size:
+                pagesize = LETTER if config_size.upper() == "LETTER" else A4
+            else:
+                # 2. Auto-detect from Locale
+                # US and Canada typically use Imperial measurement system
+                if self.locale.measurementSystem() == QLocale.MeasurementSystem.ImperialSystem:
+                    pagesize = LETTER
+                else:
+                    pagesize = A4
+
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer, 
