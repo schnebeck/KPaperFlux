@@ -37,6 +37,10 @@ from gui.widgets.tag_input import TagInputWidget
 from gui.widgets.workflow_controls import WorkflowControlsWidget
 from gui.audit_window import AuditWindow
 
+# Core Models
+from core.models.semantic import SemanticExtraction, WorkflowInfo, SubscriptionInfo
+from core.workflow import WorkflowRuleRegistry
+
 class NestedTableDialog(QDialog):
     """Dialog for editing lists of objects (tables in tables)."""
     def __init__(self, data: List[Any], title: str, parent=None, read_only: bool = False):
@@ -192,6 +196,29 @@ class MetadataEditorWidget(QWidget):
         
         self._init_ui()
 
+    @staticmethod
+    def _set_qdate(widget: QDateEdit, val: Optional[str]):
+        """Helper to safely set a QDateEdit from an ISO string, defaulting to 1900-01-01."""
+        if val:
+            try:
+                d = QDate.fromString(val, Qt.DateFormat.ISODate)
+                if d.isValid():
+                    widget.setDate(d)
+                else:
+                    widget.setDate(QDate(1900, 1, 1))
+            except Exception:
+                widget.setDate(QDate(1900, 1, 1))
+        else:
+            widget.setDate(QDate(1900, 1, 1))
+
+    @staticmethod
+    def _get_qdate_str(widget: QDateEdit) -> Optional[str]:
+        """Helper to get ISO string from QDateEdit, returning None if date is 1900/1901 (unset)."""
+        d = widget.date()
+        if d.year() <= 1901:
+            return None
+        return d.toString(Qt.DateFormat.ISODate)
+
     def set_db_manager(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
 
@@ -273,6 +300,23 @@ class MetadataEditorWidget(QWidget):
         self.btn_copy_pay_payload.setText(self.tr("Copy Payload"))
         self.btn_copy_pay_payload.setToolTip(self.tr("Copy the raw GiroCode data for banking apps"))
 
+        # Subscription Section
+        self.lbl_pay_sub_header.setText("--- " + self.tr("Subscription / Recurring") + " ---")
+        self.chk_pay_recurring.setText(self.tr("Recurring Payment / Subscription"))
+        self.lbl_pay_freq_prefix.setText(self.tr("Frequency:"))
+        self.lbl_pay_service_start_prefix.setText(self.tr("Service Start:"))
+        self.lbl_pay_service_end_prefix.setText(self.tr("Service End:"))
+        self.lbl_pay_next_billing_prefix.setText(self.tr("Next Billing:"))
+
+        self.pay_freq_combo.blockSignals(True)
+        cur_freq = self.pay_freq_combo.currentData()
+        self.pay_freq_combo.clear()
+        for f in ["Once", "Daily", "Weekly", "Monthly", "Quarterly", "Yearly"]:
+            self.pay_freq_combo.addItem(self.tr(f), f.upper())
+        idx_f = self.pay_freq_combo.findData(cur_freq)
+        if idx_f >= 0: self.pay_freq_combo.setCurrentIndex(idx_f)
+        self.pay_freq_combo.blockSignals(False)
+
         # Stamps Table
         self.stamps_table.setHorizontalHeaderLabels([
             self.tr("Type"), self.tr("Text"), self.tr("Page"), self.tr("Confidence")
@@ -296,11 +340,53 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.setTabText(0, self.tr("General"))
         self.tab_widget.setTabText(1, self.tr("Analysis"))
         self.tab_widget.setTabText(2, self.tr("Payment"))
-        self.tab_widget.setTabText(3, self.tr("Stamps"))
-        self.tab_widget.setTabText(4, self.tr("Semantic Data"))
-        self.tab_widget.setTabText(5, self.tr("Source Mapping"))
-        self.tab_widget.setTabText(6, self.tr("Debug Data"))
-        self.tab_widget.setTabText(7, self.tr("History"))
+        self.tab_widget.setTabText(3, self.tr("Subscriptions & Contracts"))
+        self.tab_widget.setTabText(4, self.tr("Stamps"))
+        self.tab_widget.setTabText(5, self.tr("Semantic Data"))
+        self.tab_widget.setTabText(6, self.tr("Source Mapping"))
+        self.tab_widget.setTabText(7, self.tr("Debug Data"))
+        self.tab_widget.setTabText(8, self.tr("History"))
+
+        # Subscription & Contract Labels
+        self.lbl_sub_recurring_header.setText("--- " + self.tr("Subscription / Recurring") + " ---")
+        self.chk_sub_recurring.setText(self.tr("Recurring Payment / Subscription"))
+        self.lbl_sub_freq_prefix.setText(self.tr("Frequency:"))
+        self.lbl_sub_next_billing_prefix.setText(self.tr("Next Billing:"))
+        self.lbl_sub_service_start_prefix.setText(self.tr("Service Period Start:"))
+        self.lbl_sub_service_end_prefix.setText(self.tr("Service Period End:"))
+        
+        self.lbl_sub_legal_header.setText("--- " + self.tr("Contract Details") + " ---")
+        self.lbl_sub_contract_id_prefix.setText(self.tr("Contract ID:"))
+        self.lbl_sub_effective_date_prefix.setText(self.tr("Effective Date:"))
+        self.lbl_sub_valid_until_prefix.setText(self.tr("Valid Until:"))
+        self.lbl_sub_renewal_prefix.setText(self.tr("Renewal Clause:"))
+        
+        self.lbl_sub_notice_header.setText("--- " + self.tr("Notice Period") + " ---")
+        self.lbl_sub_notice_value_prefix.setText(self.tr("Value:"))
+        self.lbl_sub_notice_unit_prefix.setText(self.tr("Unit:"))
+        self.lbl_sub_notice_anchor_prefix.setText(self.tr("Anchor:"))
+        self.lbl_sub_notice_text_prefix.setText(self.tr("Original Text:"))
+
+        self.sub_freq_combo.blockSignals(True)
+        cur_sub_f = self.sub_freq_combo.currentData()
+        self.sub_freq_combo.clear()
+        for f in ["Once", "Daily", "Weekly", "Monthly", "Quarterly", "Yearly"]:
+            self.sub_freq_combo.addItem(self.tr(f), f.upper())
+        idx_sub_f = self.sub_freq_combo.findData(cur_sub_f)
+        if idx_sub_f >= 0: self.sub_freq_combo.setCurrentIndex(idx_sub_f)
+        self.sub_freq_combo.blockSignals(False)
+
+        self.sub_notice_unit_combo.blockSignals(True)
+        cur_u = self.sub_notice_unit_combo.currentData()
+        self.sub_notice_unit_combo.clear()
+        self.sub_notice_unit_combo.addItem(self.tr("None"), None)
+        self.sub_notice_unit_combo.addItem(self.tr("Days"), "DAYS")
+        self.sub_notice_unit_combo.addItem(self.tr("Weeks"), "WEEKS")
+        self.sub_notice_unit_combo.addItem(self.tr("Months"), "MONTHS")
+        self.sub_notice_unit_combo.addItem(self.tr("Years"), "YEARS")
+        idx_u = self.sub_notice_unit_combo.findData(cur_u)
+        if idx_u >= 0: self.sub_notice_unit_combo.setCurrentIndex(idx_u)
+        self.sub_notice_unit_combo.blockSignals(False)
 
         self.lbl_source_mapping_header.setText(self.tr("Physical Source Components:"))
         self.lbl_raw_virtual_header.setText(self.tr("Raw Virtual Document Storage:"))
@@ -435,8 +521,8 @@ class MetadataEditorWidget(QWidget):
         self.lbl_date_prefix = QLabel()
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
+        self.date_edit.setDisplayFormat("dd.MM.yyyy")
         self.date_edit.setSpecialValueText(" ") # Allow 'empty' look
-        self.date_edit.setDisplayFormat(QLocale.system().dateFormat(QLocale.FormatType.ShortFormat))
         analysis_layout.addRow(self.lbl_date_prefix, self.date_edit)
 
         # Reasoning field removed to save space/tokens in AI output
@@ -473,6 +559,39 @@ class MetadataEditorWidget(QWidget):
         payment_form.addRow(self.lbl_pay_bic_prefix, self.pay_bic_edit)
         payment_form.addRow(self.lbl_pay_amount_prefix, self.pay_amount_edit)
         payment_form.addRow(self.lbl_pay_purpose_prefix, self.pay_purpose_edit)
+        
+        # Subscription Sub-Section
+        self.lbl_pay_sub_header = QLabel()
+        self.lbl_pay_sub_header.setStyleSheet("font-weight: bold; margin-top: 10px; color: #555;")
+        payment_form.addRow(self.lbl_pay_sub_header)
+        
+        self.chk_pay_recurring = QCheckBox()
+        payment_form.addRow("", self.chk_pay_recurring)
+        
+        self.lbl_pay_freq_prefix = QLabel()
+        self.pay_freq_combo = QComboBox()
+        payment_form.addRow(self.lbl_pay_freq_prefix, self.pay_freq_combo)
+        
+        self.lbl_pay_service_start_prefix = QLabel()
+        self.pay_service_start_edit = QDateEdit()
+        self.pay_service_start_edit.setCalendarPopup(True)
+        self.pay_service_start_edit.setDisplayFormat("dd.MM.yyyy")
+        self.pay_service_start_edit.setSpecialValueText(" ")
+        payment_form.addRow(self.lbl_pay_service_start_prefix, self.pay_service_start_edit)
+        
+        self.lbl_pay_service_end_prefix = QLabel()
+        self.pay_service_end_edit = QDateEdit()
+        self.pay_service_end_edit.setCalendarPopup(True)
+        self.pay_service_end_edit.setDisplayFormat("dd.MM.yyyy")
+        self.pay_service_end_edit.setSpecialValueText(" ")
+        payment_form.addRow(self.lbl_pay_service_end_prefix, self.pay_service_end_edit)
+        
+        self.lbl_pay_next_billing_prefix = QLabel()
+        self.pay_next_billing_edit = QDateEdit()
+        self.pay_next_billing_edit.setCalendarPopup(True)
+        self.pay_next_billing_edit.setDisplayFormat("dd.MM.yyyy")
+        self.pay_next_billing_edit.setSpecialValueText(" ")
+        payment_form.addRow(self.lbl_pay_next_billing_prefix, self.pay_next_billing_edit)
         
         fields_layout.addStretch()
         fields_layout.addLayout(payment_form)
@@ -519,6 +638,102 @@ class MetadataEditorWidget(QWidget):
 
         self.tab_widget.addTab(self.payment_scroll, "")
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.payment_scroll), False)
+
+        # --- Tab 3: Subscriptions & Contracts (Phase 138) ---
+        self.sub_contract_scroll = QScrollArea()
+        self.sub_contract_scroll.setWidgetResizable(True)
+        self.sub_contract_tab = QWidget()
+        self.sub_contract_scroll.setWidget(self.sub_contract_tab)
+        sub_layout = QVBoxLayout(self.sub_contract_tab)
+        sub_form = QFormLayout()
+        
+        # Section: Recurring Info
+        self.lbl_sub_recurring_header = QLabel()
+        self.lbl_sub_recurring_header.setStyleSheet("font-weight: bold; color: #1565c0;")
+        sub_form.addRow(self.lbl_sub_recurring_header)
+        
+        self.chk_sub_recurring = QCheckBox()
+        sub_form.addRow("", self.chk_sub_recurring)
+        
+        self.lbl_sub_freq_prefix = QLabel()
+        self.sub_freq_combo = QComboBox()
+        self.sub_freq_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        sub_form.addRow(self.lbl_sub_freq_prefix, self.sub_freq_combo)
+        
+        self.lbl_sub_next_billing_prefix = QLabel()
+        self.sub_next_billing_edit = QDateEdit()
+        self.sub_next_billing_edit.setCalendarPopup(True)
+        self.sub_next_billing_edit.setDisplayFormat("dd.MM.yyyy")
+        self.sub_next_billing_edit.setSpecialValueText(" ")
+        sub_form.addRow(self.lbl_sub_next_billing_prefix, self.sub_next_billing_edit)
+
+        self.lbl_sub_service_start_prefix = QLabel()
+        self.sub_service_start_edit = QDateEdit()
+        self.sub_service_start_edit.setCalendarPopup(True)
+        self.sub_service_start_edit.setDisplayFormat("dd.MM.yyyy")
+        self.sub_service_start_edit.setSpecialValueText(" ")
+        sub_form.addRow(self.lbl_sub_service_start_prefix, self.sub_service_start_edit)
+        
+        self.lbl_sub_service_end_prefix = QLabel()
+        self.sub_service_end_edit = QDateEdit()
+        self.sub_service_end_edit.setCalendarPopup(True)
+        self.sub_service_end_edit.setDisplayFormat("dd.MM.yyyy")
+        self.sub_service_end_edit.setSpecialValueText(" ")
+        sub_form.addRow(self.lbl_sub_service_end_prefix, self.sub_service_end_edit)
+
+        # Section: Legal Details
+        self.lbl_sub_legal_header = QLabel()
+        self.lbl_sub_legal_header.setStyleSheet("font-weight: bold; color: #1565c0; margin-top: 15px;")
+        sub_form.addRow(self.lbl_sub_legal_header)
+        
+        self.lbl_sub_contract_id_prefix = QLabel()
+        self.sub_contract_id_edit = QLineEdit()
+        sub_form.addRow(self.lbl_sub_contract_id_prefix, self.sub_contract_id_edit)
+        
+        self.lbl_sub_effective_date_prefix = QLabel()
+        self.sub_effective_date_edit = QDateEdit()
+        self.sub_effective_date_edit.setCalendarPopup(True)
+        self.sub_effective_date_edit.setDisplayFormat("dd.MM.yyyy")
+        self.sub_effective_date_edit.setSpecialValueText(" ")
+        sub_form.addRow(self.lbl_sub_effective_date_prefix, self.sub_effective_date_edit)
+        
+        self.lbl_sub_valid_until_prefix = QLabel()
+        self.sub_valid_until_edit = QDateEdit()
+        self.sub_valid_until_edit.setCalendarPopup(True)
+        self.sub_valid_until_edit.setDisplayFormat("dd.MM.yyyy")
+        self.sub_valid_until_edit.setSpecialValueText(" ")
+        sub_form.addRow(self.lbl_sub_valid_until_prefix, self.sub_valid_until_edit)
+        
+        self.lbl_sub_renewal_prefix = QLabel()
+        self.sub_renewal_edit = QLineEdit()
+        sub_form.addRow(self.lbl_sub_renewal_prefix, self.sub_renewal_edit)
+
+        # Section: Notice Period
+        self.lbl_sub_notice_header = QLabel()
+        self.lbl_sub_notice_header.setStyleSheet("font-weight: bold; color: #1565c0; margin-top: 15px;")
+        sub_form.addRow(self.lbl_sub_notice_header)
+        
+        self.lbl_sub_notice_value_prefix = QLabel()
+        self.sub_notice_value_edit = QLineEdit()
+        sub_form.addRow(self.lbl_sub_notice_value_prefix, self.sub_notice_value_edit)
+        
+        self.lbl_sub_notice_unit_prefix = QLabel()
+        self.sub_notice_unit_combo = QComboBox()
+        sub_form.addRow(self.lbl_sub_notice_unit_prefix, self.sub_notice_unit_combo)
+        
+        self.lbl_sub_notice_anchor_prefix = QLabel()
+        self.sub_notice_anchor_edit = QLineEdit()
+        sub_form.addRow(self.lbl_sub_notice_anchor_prefix, self.sub_notice_anchor_edit)
+        
+        self.lbl_sub_notice_text_prefix = QLabel()
+        self.sub_notice_text_edit = QLineEdit()
+        sub_form.addRow(self.lbl_sub_notice_text_prefix, self.sub_notice_text_edit)
+
+        sub_layout.addLayout(sub_form)
+        sub_layout.addStretch()
+        
+        self.tab_widget.addTab(self.sub_contract_scroll, "")
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.sub_contract_scroll), False)
 
         # --- Tab: Stamps (Stage 1.5) - Phase 105 ---
         self.stamps_tab = QWidget()
@@ -995,37 +1210,74 @@ class MetadataEditorWidget(QWidget):
                     self.stamps_table.setItem(row, 1, QTableWidgetItem(str(s.get("text") or s.get("raw_content") or "")))
                     self.stamps_table.setItem(row, 2, QTableWidgetItem(str(s.get("page", 1))))
                     self.stamps_table.setItem(row, 3, QTableWidgetItem(str(s.get("confidence", 1.0))))
+        # Update Subscription & Contract Tab (Phase 138)
+        sub_info = sd_dict.get("bodies", {}).get("subscription_info") or sd_dict.get("subscription_info") or {}
+        legal_body = sd_dict.get("bodies", {}).get("legal_body") or sd_dict.get("legal_body") or {}
+
+        # Populate Recurring Info
+        self.chk_sub_recurring.setChecked(bool(sub_info.get("is_recurring")))
+        freq = str(sub_info.get("frequency") or "ONCE").upper()
+        idx_f = self.sub_freq_combo.findData(freq)
+        if idx_f >= 0: self.sub_freq_combo.setCurrentIndex(idx_f)
+        
+        self._set_qdate(self.sub_next_billing_edit, sub_info.get("next_billing_date"))
+        self._set_qdate(self.sub_service_start_edit, sub_info.get("service_period_start"))
+        self._set_qdate(self.sub_service_end_edit, sub_info.get("service_period_end"))
+        
+        # Populate Legal Details
+        self.sub_contract_id_edit.setText(str(legal_body.get("contract_id") or ""))
+        self._set_qdate(self.sub_effective_date_edit, legal_body.get("effective_date"))
+        self._set_qdate(self.sub_valid_until_edit, legal_body.get("valid_until"))
+        self.sub_renewal_edit.setText(str(legal_body.get("renewal_clause") or ""))
+        
+        # Populate Notice Period
+        notice = legal_body.get("notice_period") or {}
+        self.sub_notice_value_edit.setText(str(notice.get("value") or ""))
+        n_unit = str(notice.get("unit") or "").upper()
+        idx_u = self.sub_notice_unit_combo.findData(n_unit)
+        if idx_u >= 0: self.sub_notice_unit_combo.setCurrentIndex(idx_u)
+        
+        self.sub_notice_anchor_edit.setText(str(notice.get("anchor_scope") or notice.get("anchor_type") or ""))
+        self.sub_notice_text_edit.setText(str(notice.get("original_text") or ""))
+
+        # Update Payment Tab (Legacy Subscription Fields)
+        pay_sub_info = sd_dict.get("bodies", {}).get("subscription_info") or sd_dict.get("subscription_info")
+        if isinstance(pay_sub_info, dict):
+            self.chk_pay_recurring.setChecked(bool(pay_sub_info.get("is_recurring")))
+            freq = str(pay_sub_info.get("frequency") or "ONCE").upper()
+            idx_f = self.pay_freq_combo.findData(freq)
+            if idx_f >= 0: self.pay_freq_combo.setCurrentIndex(idx_f)
+            
+            self._set_qdate(self.pay_service_start_edit, pay_sub_info.get("service_period_start"))
+            self._set_qdate(self.pay_service_end_edit, pay_sub_info.get("service_period_end"))
+            self._set_qdate(self.pay_next_billing_edit, pay_sub_info.get("next_billing_date"))
         else:
-            self.tab_widget.setTabVisible(idx_stamps, False)
+            self.chk_pay_recurring.setChecked(False)
+            self.pay_freq_combo.setCurrentIndex(0)
+            self.pay_service_start_edit.setDate(QDate(1900, 1, 1))
+            self.pay_service_end_edit.setDate(QDate(1900, 1, 1))
+            self.pay_next_billing_edit.setDate(QDate(1900, 1, 1))
 
         self._populate_semantic_table(sd_dict)
 
-        # Phase 113: Auto-assign Rule based on Tags if none is set
+        # Workflow Logic
         if sd and (not getattr(sd, "workflow", None) or not sd.workflow.rule_id):
             from core.workflow import WorkflowRuleRegistry
             registry = WorkflowRuleRegistry()
-            # Try type tags first
             tags = doc.type_tags or []
             matched_pb = registry.find_rule_for_tags(tags)
             if matched_pb:
                 if not getattr(sd, "workflow", None):
-                    from core.models.semantic import WorkflowInfo
                     sd.workflow = WorkflowInfo()
-                
-                print(f"[Workflow-GUI] Auto-assigning rule '{matched_pb.id}' for document {doc.uuid}")
                 sd.workflow.rule_id = matched_pb.id
                 sd.workflow.current_step = "NEW"
                 self._mark_dirty()
 
-        # Workflow Logic (Dynamic)
         wf_data = getattr(sd, "workflow", None)
         rule_id = wf_data.rule_id if wf_data else None
         current_step = wf_data.current_step if wf_data else "NEW"
         
-        # Prepare flat data for requirement check (e.g. amount, iban, etc.)
-        # + Virtual time-based fields (Phase 112)
         now = datetime.now()
-        
         doc_data_for_wf = {
             "total_gross": doc.total_amount,
             "iban": doc.iban,
@@ -1046,20 +1298,17 @@ class MetadataEditorWidget(QWidget):
                 doc_data_for_wf["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
                 
             if doc.due_date:
-                # Handle YYYY-MM-DD by ensuring it looks like ISO
                 dd_str = doc.due_date
                 if len(dd_str) == 10: dd_str += "T00:00:00"
                 doc_data_for_wf["DAYS_UNTIL_DUE"] = (datetime.fromisoformat(dd_str) - now).days
-        except Exception as e:
-            logger.debug(f"Time calculation failed: {e}")
+        except Exception:
+             pass
 
         self.workflow_controls.update_workflow(rule_id, current_step, doc_data_for_wf)
         
-        # PKV Sync
         with QSignalBlocker(self.chk_pkv):
             self.chk_pkv.setChecked(wf_data.pkv_eligible if wf_data else False)
 
-        # 112: Populate History
         self._populate_history_table(wf_data)
 
         # Extracted Data
@@ -1068,44 +1317,30 @@ class MetadataEditorWidget(QWidget):
         # Date Handling
         doc_date = doc.doc_date
         if doc_date:
-            from PyQt6.QtCore import QDate
             if isinstance(doc_date, str):
                 qdate = QDate.fromString(doc_date, Qt.DateFormat.ISODate)
                 if qdate.isValid(): self.date_edit.setDate(qdate)
             elif hasattr(doc_date, "isoformat"):
                 self.date_edit.setDate(QDate.fromString(doc_date.isoformat(), Qt.DateFormat.ISODate))
         else:
-            from PyQt6.QtCore import QDate
-            self.date_edit.setDate(QDate(2000, 1, 1)) # Default
+            self.date_edit.setDate(QDate(1900, 1, 1))
 
         # Payment / GiroCode Logic
-        idx_payment = self.tab_widget.indexOf(self.payment_scroll)
-        
-        # Robust lookup for bank info
-        # Check both the primary fields and fallback (Phase 125 Improved)
         iban = doc.iban or ""
         total = doc.total_amount
         sender = doc.sender_name or ""
         
-        # Show payment tab for financial documents OR if payment info exists
-        is_financial = any(t in ["INVOICE", "RECEIPT", "UTILITY_BILL", "EXPENSE_REPORT"] for t in (doc.type_tags or []))
-        
-        if is_financial or iban or (total and float(total) > 0):
-            self.tab_widget.setTabVisible(idx_payment, True)
-            self.pay_recipient_edit.setText(sender)
-            self.pay_iban_edit.setText(iban)
-            self.pay_bic_edit.setText(doc.bic or "")
-            self.pay_amount_edit.setText(f"{float(total or 0):.2f}" if total is not None else "")
-            self.pay_purpose_edit.setText(doc.doc_number or "")
-            self.refresh_girocode()
-        else:
-            self.tab_widget.setTabVisible(idx_payment, False)
-            self.qr_label.setPixmap(QPixmap())
+        # We handle visibility centrally via _update_tab_visibility now
+        self.pay_recipient_edit.setText(sender)
+        self.pay_iban_edit.setText(iban)
+        self.pay_bic_edit.setText(doc.bic or "")
+        self.pay_amount_edit.setText(f"{float(total or 0):.2f}" if total is not None else "")
+        self.pay_purpose_edit.setText(doc.doc_number or "")
+        self.refresh_girocode()
 
-        # Sync Audit Window if visible
+        # Sync Audit Window
         if self.audit_window and self.audit_window.isVisible():
             self.audit_window.display_document(doc)
-
 
         # Source Mapping
         try:
@@ -1114,28 +1349,22 @@ class MetadataEditorWidget(QWidget):
                 resolved_mapping = []
                 for segment in mapping:
                     seg_dict = segment.model_dump()
-                    # Resolve Physical File Info
                     if self.db_manager:
                         p_file = self.db_manager.get_physical_file(segment.file_uuid)
                         if p_file:
                             seg_dict["vault_filename"] = p_file.get("original_filename")
                             seg_dict["vault_path"] = p_file.get("file_path")
-                            seg_dict["vault_size_kb"] = f"{p_file.get('file_size', 0) / 1024:.1f}"
                     resolved_mapping.append(seg_dict)
-                
                 self.source_viewer.setPlainText(json.dumps(resolved_mapping, indent=2, ensure_ascii=False, default=str))
             else:
                  self.source_viewer.setPlainText(self.tr("No source mapping available."))
         except Exception as e:
-            print(f"Error displaying source mapping: {e}")
             self.source_viewer.setPlainText(f"Error: {e}")
 
         # Full Text & Semantic Data
         self.full_text_viewer.setPlainText(getattr(doc, "cached_full_text", ""))
 
-        # Display raw semantic data (AI Results) for debugging
         if hasattr(doc, "semantic_data") and doc.semantic_data:
-            # Pydantic model dump for JSON serialization
             try:
                 if hasattr(doc.semantic_data, "model_dump"):
                     raw_data = doc.semantic_data.model_dump()
@@ -1147,9 +1376,84 @@ class MetadataEditorWidget(QWidget):
         else:
             self.semantic_viewer.setPlainText("{}")
         
+        # CALL CENTRAL VISIBILITY HELPER (Phase 138+)
+        self._update_tab_visibility(doc, sd_dict)
+
         if not externally_locked:
             self._reset_dirty()
             self._locked_for_load = False
+
+    def _update_tab_visibility(self, doc: Document, sd_dict: Dict[str, Any]):
+        """General helper to hide/show tabs based on document data content (Universal Rule)."""
+        # 0: General
+        has_general = any([
+            doc.uuid, doc.status, doc.original_filename, doc.tags,
+            doc.archived, doc.storage_location
+        ])
+        self.tab_widget.setTabVisible(0, bool(has_general))
+
+        # 1: Analysis
+        has_analysis = any([
+            doc.type_tags, sd_dict.get("direction"), sd_dict.get("tenant_context"),
+            doc.sender_name, doc.doc_date
+        ])
+        self.tab_widget.setTabVisible(1, bool(has_analysis))
+
+        # 2: Payment
+        relevant_pay_types = {"INVOICE", "RECEIPT", "UTILITY_BILL", "EXPENSE_REPORT"}
+        has_pay_type = any(t.upper() in relevant_pay_types for t in (doc.type_tags or []))
+        has_pay_data = any([doc.iban, doc.bic, doc.total_amount, doc.doc_number])
+        self.tab_widget.setTabVisible(2, has_pay_type or has_pay_data)
+
+        # 3: Subscriptions & Contracts
+        sub_info = sd_dict.get("bodies", {}).get("subscription_info") or sd_dict.get("subscription_info") or {}
+        legal_body = sd_dict.get("bodies", {}).get("legal_body") or sd_dict.get("legal_body") or {}
+        contract_types = {"CONTRACT", "INSURANCE_POLICY", "MEMBERSHIP_DOC"}
+        has_contract_type = any(t.upper() in contract_types for t in (doc.type_tags or []))
+        has_sub_data = bool(sub_info.get("is_recurring")) or any(v for k, v in sub_info.items() if v and k != "is_recurring")
+        has_legal_data = any(v for v in legal_body.values() if v)
+        self.tab_widget.setTabVisible(3, has_contract_type or has_sub_data or has_legal_data)
+
+        # 4: Stamps
+        audit_data = sd_dict.get("visual_audit") or sd_dict
+        stamps = audit_data.get("layer_stamps") or audit_data.get("stamps") or []
+        self.tab_widget.setTabVisible(4, bool(stamps))
+
+        # 5: Semantic Data (Table)
+        # Deep check for meaningful semantic content
+        def is_meaningful(val):
+            if isinstance(val, dict):
+                return any(is_meaningful(v) for v in val.values())
+            if isinstance(val, list):
+                return any(is_meaningful(v) for v in val)
+            return val is not None and val != "" and val is not False
+
+        has_meaningful_semantic = False
+        if sd_dict:
+            # 1. Check custom fields
+            if sd_dict.get("custom_fields") and is_meaningful(sd_dict["custom_fields"]):
+                has_meaningful_semantic = True
+            # 2. Check bodies (excluding default empty ones)
+            elif sd_dict.get("bodies"):
+                for k, v in sd_dict["bodies"].items():
+                    if v and is_meaningful(v):
+                        has_meaningful_semantic = True
+                        break
+        
+        self.tab_widget.setTabVisible(5, has_meaningful_semantic)
+
+        # 6: Source Mapping
+        has_source = bool(doc.source_mapping)
+        self.tab_widget.setTabVisible(6, has_source)
+
+        # 7: Raw Semanticviewer / Debug Data
+        has_raw_sd = bool(sd_dict) and sd_dict != {}
+        self.tab_widget.setTabVisible(7, has_raw_sd)
+
+        # 8: History
+        wf_data = getattr(doc.semantic_data, "workflow", None) if doc.semantic_data else None
+        has_history = bool(wf_data and wf_data.history)
+        self.tab_widget.setTabVisible(8, has_history)
 
     def _add_stamp_row(self):
         row = self.stamps_table.rowCount()
@@ -1476,7 +1780,6 @@ class MetadataEditorWidget(QWidget):
 
         # 2. Semantic Metadata (Extracted Data)
         # We merge existing semantic_data with UI changes
-        from core.models.semantic import SemanticExtraction
         sd = self.doc.semantic_data if self.doc else None
         if not sd:
             sd = SemanticExtraction()
@@ -1487,7 +1790,6 @@ class MetadataEditorWidget(QWidget):
         
         # Workflow Persistence
         if not sd.workflow:
-            from core.models.semantic import WorkflowInfo
             sd.workflow = WorkflowInfo()
         sd.workflow.pkv_eligible = self.chk_pkv.isChecked()
 
@@ -1536,43 +1838,102 @@ class MetadataEditorWidget(QWidget):
                     "confidence": conf_val
                 })
 
-        sd_dict = sd.model_dump()
-        sd_dict["visual_audit"] = sd_dict.get("visual_audit") or {}
-        sd_dict["visual_audit"]["layer_stamps"] = stamps_list
+        sd_dict_final = sd.model_dump()
+        sd_dict_final["visual_audit"] = sd_dict_final.get("visual_audit") or {}
+        sd_dict_final["visual_audit"]["layer_stamps"] = stamps_list
 
-        # 4. Semantic Table Persistence (Mapping Back)
+        # Reconstruct SubscriptionInfo
+        sub_info = {
+            "is_recurring": self.chk_sub_recurring.isChecked(),
+            "frequency": self.sub_freq_combo.currentData(),
+            "next_billing_date": self._get_qdate_str(self.sub_next_billing_edit),
+            "service_period_start": self._get_qdate_str(self.sub_service_start_edit),
+            "service_period_end": self._get_qdate_str(self.sub_service_end_edit)
+        }
+        
+        # Reconstruct LegalBody
+        try:
+            val_text = self.sub_notice_value_edit.text().strip()
+            n_val = int(val_text) if val_text.isdigit() else None
+        except Exception:
+             n_val = None
+        
+        legal_body = {
+            "contract_id": self.sub_contract_id_edit.text().strip() or None,
+            "effective_date": self._get_qdate_str(self.sub_effective_date_edit),
+            "valid_until": self._get_qdate_str(self.sub_valid_until_edit),
+            "renewal_clause": self.sub_renewal_edit.text().strip() or None,
+            "notice_period": {
+                "value": n_val,
+                "unit": self.sub_notice_unit_combo.currentData(),
+                "original_text": self.sub_notice_text_edit.text().strip() or None
+            }
+        }
+        
+        if "bodies" not in sd_dict_final: sd_dict_final["bodies"] = {}
+        sd_dict_final["bodies"]["subscription_info"] = sub_info
+        
+        # Merge legal_body into existing one if present to preserve issuer/beneficiary not in UI
+        existing_legal = sd_dict_final["bodies"].get("legal_body") or {}
+        existing_legal.update({k: v for k, v in legal_body.items() if v is not None})
+        sd_dict_final["bodies"]["legal_body"] = existing_legal
+
+        # 4. Payment Tab Subscription Persistence (Legacy)
+        if self.chk_pay_recurring.isChecked():
+            pay_sub_info = {
+                "is_recurring": True,
+                "frequency": self.pay_freq_combo.currentData(),
+                "service_period_start": self._get_qdate_str(self.pay_service_start_edit),
+                "service_period_end": self._get_qdate_str(self.pay_service_end_edit),
+                "next_billing_date": self._get_qdate_str(self.pay_next_billing_edit)
+            }
+            if "bodies" not in sd_dict_final: sd_dict_final["bodies"] = {}
+            sd_dict_final["bodies"]["subscription_info"] = pay_sub_info
+        else:
+            if "bodies" in sd_dict_final:
+                sd_dict_final["bodies"].pop("subscription_info", None)
+
+        # 5. Semantic Table Persistence (Mapping Back)
         for r in range(self.semantic_table.rowCount()):
             item_sec = self.semantic_table.item(r, 0)
             item_key = self.semantic_table.item(r, 1)
             item_val = self.semantic_table.item(r, 2)
-            if not item_sec or not item_key or not item_val: continue
+            if not item_sec or not item_key or not item_val:
+                continue
 
             section = item_sec.text()
             field_path = item_key.text()
             val_text = item_val.text()
-            if not field_path: continue
+            if not field_path:
+                continue
 
             # Map back to target dict
-            root = sd_dict
+            root = sd_dict_final
             if section == "Meta":
-                if "meta_header" not in sd_dict: sd_dict["meta_header"] = {}
-                root = sd_dict["meta_header"]
+                if "meta_header" not in sd_dict_final:
+                    sd_dict_final["meta_header"] = {}
+                root = sd_dict_final["meta_header"]
             elif section == "Custom":
-                if "custom_fields" not in sd_dict: sd_dict["custom_fields"] = {}
-                root = sd_dict["custom_fields"]
+                if "custom_fields" not in sd_dict_final:
+                    sd_dict_final["custom_fields"] = {}
+                root = sd_dict_final["custom_fields"]
             else:
                 body_key = section.lower() + "_body"
-                if "bodies" in sd_dict and (body_key in sd_dict["bodies"] or section.lower() in sd_dict["bodies"]):
-                    if body_key in sd_dict["bodies"]: root = sd_dict["bodies"][body_key]
-                    else: root = sd_dict["bodies"][section.lower()]
-                elif section.lower() in sd_dict:
-                    root = sd_dict[section.lower()]
-                elif body_key in sd_dict:
-                    root = sd_dict[body_key]
+                if "bodies" in sd_dict_final and (body_key in sd_dict_final["bodies"] or section.lower() in sd_dict_final["bodies"]):
+                    if body_key in sd_dict_final["bodies"]:
+                        root = sd_dict_final["bodies"][body_key]
+                    else:
+                        root = sd_dict_final["bodies"][section.lower()]
+                elif section.lower() in sd_dict_final:
+                    root = sd_dict_final[section.lower()]
+                elif body_key in sd_dict_final:
+                    root = sd_dict_final[body_key]
                 else:
-                    if "bodies" not in sd_dict: sd_dict["bodies"] = {}
-                    sd_dict["bodies"][body_key] = {}
-                    root = sd_dict["bodies"][body_key]
+                    if "bodies" not in sd_dict_final:
+                        sd_dict_final["bodies"] = {}
+                    if body_key not in sd_dict_final["bodies"]:
+                        sd_dict_final["bodies"][body_key] = {}
+                    root = sd_dict_final["bodies"][body_key]
 
             parts = field_path.split(".")
             target = root
@@ -1580,14 +1941,16 @@ class MetadataEditorWidget(QWidget):
                 if part.isdigit():
                     idx = int(part)
                     if isinstance(target, list):
-                        while len(target) <= idx: target.append({})
+                        while len(target) <= idx:
+                            target.append({})
                         target = target[idx]
                     else:
-                        if part not in target: target[part] = {}
+                        if part not in target:
+                            target[part] = {}
                         target = target[part]
                 else:
                     if part not in target:
-                        if i + 1 < len(parts) and parts[i+1].isdigit():
+                        if i + 1 < len(parts) and parts[i + 1].isdigit():
                             target[part] = []
                         else:
                             target[part] = {}
@@ -1598,9 +1961,12 @@ class MetadataEditorWidget(QWidget):
             try:
                 if val_text.strip().startswith(("[", "{")):
                     typed_val = json.loads(val_text)
-                elif val_text.lower() == "true": typed_val = True
-                elif val_text.lower() == "false": typed_val = False
-                elif not val_text: typed_val = None
+                elif val_text.lower() == "true":
+                    typed_val = True
+                elif val_text.lower() == "false":
+                    typed_val = False
+                elif not val_text:
+                    typed_val = None
                 elif "." in val_text and val_text.replace(".", "", 1).isdigit():
                     typed_val = float(val_text)
                 elif val_text.isdigit():
@@ -1610,22 +1976,31 @@ class MetadataEditorWidget(QWidget):
 
             if isinstance(target, list) and last_key.isdigit():
                 idx = int(last_key)
-                while len(target) <= idx: target.append(None)
+                while len(target) <= idx:
+                    target.append(None)
                 target[idx] = typed_val
             else:
                 target[last_key] = typed_val
 
-        # Update root metadata in sd_dict
-        if sd_dict.get("meta_header") is None: sd_dict["meta_header"] = {}
-        if sd_dict["meta_header"].get("sender") is None: sd_dict["meta_header"]["sender"] = {}
-        sd_dict["meta_header"]["sender"]["name"] = self.sender_edit.text().strip()
+        # Update root metadata in sd_dict_final
+        if sd_dict_final.get("meta_header") is None: sd_dict_final["meta_header"] = {}
+        if sd_dict_final["meta_header"].get("sender") is None: sd_dict_final["meta_header"]["sender"] = {}
+        sd_dict_final["meta_header"]["sender"]["name"] = self.sender_edit.text().strip()
         
         if self.date_edit.date().year() > 2000:
-             sd_dict["meta_header"]["doc_date"] = self.date_edit.date().toString(Qt.DateFormat.ISODate)
+             sd_dict_final["meta_header"]["doc_date"] = self.date_edit.date().toString(Qt.DateFormat.ISODate)
         
         # Re-validate back to SemanticExtraction model
-        from core.models.semantic import SemanticExtraction
-        updates["semantic_data"] = SemanticExtraction.model_validate(sd_dict)
+        try:
+             # Prune empty bodies if they were created during traversal
+             if "bodies" in sd_dict_final:
+                 sd_dict_final["bodies"] = {k: v for k, v in sd_dict_final["bodies"].items() if v}
+             
+             updated_sd = SemanticExtraction.model_validate(sd_dict_final)
+             updates["semantic_data"] = updated_sd
+        except Exception as e:
+             logger.error(f"Failed to validate updated semantic data: {e}")
+             pass
 
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)

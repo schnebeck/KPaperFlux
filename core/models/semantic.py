@@ -124,6 +124,15 @@ class LegalBody(BaseModel):
     contract_type: Optional[str] = None
     parties: List[str] = Field(default_factory=list)
 
+class SubscriptionInfo(BaseModel):
+    """Details for recurring payments and subscriptions."""
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    is_recurring: bool = Field(False, description="True if the document is part of a subscription")
+    frequency: Optional[str] = Field(None, description="MUST be: DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY, ONCE")
+    service_period_start: Optional[str] = Field(None, description="Start of service period (YYYY-MM-DD)")
+    service_period_end: Optional[str] = Field(None, description="End of service period (YYYY-MM-DD)")
+    next_billing_date: Optional[str] = Field(None, description="Predicted next billing date (YYYY-MM-DD)")
+
 class WorkflowLog(BaseModel):
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
     action: str
@@ -177,7 +186,11 @@ class SemanticExtraction(BaseModel):
     @field_validator("bodies", mode="after")
     @classmethod
     def parse_bodies(cls, v: Dict[str, Any]) -> Dict[str, Any]:
-        mapping = {"finance_body": FinanceBody, "legal_body": LegalBody}
+        mapping = {
+            "finance_body": FinanceBody, 
+            "legal_body": LegalBody,
+            "subscription_info": SubscriptionInfo
+        }
         parsed = {}
         for key, value in v.items():
             if key in mapping and isinstance(value, dict):

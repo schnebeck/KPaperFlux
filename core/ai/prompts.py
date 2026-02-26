@@ -94,6 +94,7 @@ Current Scan Mode: {mode}
    - **OUTBOUND:** User Identity is in the **SENDER/HEADER** area.
    - **INTERNAL:** User Identity is both Sender and Recipient.
 
+9. 
     - Avoid splitting a document just because the visual layout changes on subsequent pages (e.g. from tabular data to a text report).
 
 7. **GROUNDEDNESS & UNCERTAINTY:**
@@ -382,6 +383,9 @@ Use the following standardized terminology for extraction:
   - BT-110 (Tax Total) -> "tax_total_amount"
   - BT-112 (Grand Total) -> "grand_total_amount"
   - BT-115 (Payable) -> "due_payable_amount"
+- **OTHER:** Use for any other significant technical identifiers.
+- **BT-731 (Service Start Date):** -> "service_period_start"
+- **BT-732 (Service End Date):** -> "service_period_end"
 
 ### 📜 LEGAL & CONTRACTUAL DIRECTIVES
 If extracting into "legal_body":
@@ -400,6 +404,7 @@ If extracting into "legal_body":
   - **original_text:** The raw text describing the notice period (e.g., '6 weeks to quarter end').
 - **renewal_clause:** Text describing auto-renewal (e.g., '12 months').
 - **contract_type:** RENTAL, INSURANCE, EMPLOYMENT, etc.
+- **parties:** List of str.
 
 ### 🔗 UNIVERSAL SEMANTIC LINKING (MetaHeader)
 For ALL document types, extract ALL found IDs into the "references" list:
@@ -408,4 +413,12 @@ For ALL document types, extract ALL found IDs into the "references" list:
 - **PROJECT_REFERENCE:** Reference to a project or site (BT-11).
 - **INVOICE_ID:** If found as a reference in a non-invoice document.
 - **OTHER:** Use for any other significant technical identifiers.
+
+### 🔄 SUBSCRIPTION & RECURRING DETECTION
+If the document is an "INVOICE" or "UTILITY_BILL", look for recurring patterns:
+- **Keywords:** Scan for "Subscription", "Membership", "Contract Period", "monthly", "yearly", "monatlich", "jährlich", "Grundgebühr".
+- **Service Period:** Map identified billing periods to `service_period_start` and `service_period_end`.
+- **Frequency:** Determine the cycle (DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY, ONCE).
+- **Trigger:** If any period or recurring keyword is found, set `is_recurring` to true in `subscription_info`.
+- **Prediction:** Extract or predict the `next_billing_date` based on the current date and frequency.
 """

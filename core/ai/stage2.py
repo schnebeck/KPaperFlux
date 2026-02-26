@@ -76,7 +76,8 @@ class Stage2Processor:
         
         BODY_MODELS = {
             "finance_body": FinanceBody,
-            "legal_body": LegalBody
+            "legal_body": LegalBody,
+            "subscription_info": SubscriptionInfo
         }
         target_model = BODY_MODELS.get(target_body_key)
         
@@ -276,13 +277,18 @@ class Stage2Processor:
                     }
                     target_body_key = TYPE_TO_BODY.get(entity_type.upper(), "other_body")
                     
+                    # Also collect subscription_info if it's a financial document
+                    extra_body_keys = []
+                    if target_body_key == "finance_body":
+                        extra_body_keys.append("subscription_info")
+
                     source_bodies = extraction.get("bodies", {}) if isinstance(extraction.get("bodies"), dict) else {}
                     for key, value in extraction.items():
                         if key.endswith("_body"):
                             source_bodies[key] = value
                     
                     for key, value in source_bodies.items():
-                        if key == target_body_key:
+                        if key == target_body_key or key in extra_body_keys:
                             final_semantic_data["bodies"][key] = value
                     
                     if not final_semantic_data["meta_header"]:
@@ -393,7 +399,12 @@ class Stage2Processor:
 
         bodies = extraction.get("bodies", {})
         if isinstance(bodies, dict):
-            body_map = {"finance_body": FinanceBody, "legal_body": LegalBody}
+            from core.models.semantic import SubscriptionInfo
+            body_map = {
+                "finance_body": FinanceBody, 
+                "legal_body": LegalBody,
+                "subscription_info": SubscriptionInfo
+            }
             for b_key, b_model in body_map.items():
                 b_data = bodies.get(b_key)
                 if isinstance(b_data, dict):
