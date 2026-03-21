@@ -223,7 +223,7 @@ class SimilarityManager:
 
         # Resolve path
         path_str = self.vault.get_file_path(doc.uuid)
-        if not path_str or not os.path.exists(path_str):
+        if not path_str or not Path(path_str).exists():
             if hasattr(self.db_manager, "get_source_uuid_from_entity"):
                 phys_uuid = self.db_manager.get_source_uuid_from_entity(doc.uuid)
                 if phys_uuid:
@@ -272,9 +272,9 @@ class SimilarityManager:
             logger.error(f"Visual Sim Error {doc.original_filename}: {e}")
             return []
         finally:
-            if temp_file and os.path.exists(temp_file):
+            if temp_file and Path(temp_file).exists():
                 try:
-                    os.unlink(temp_file)
+                    Path(temp_file).unlink()
                 except OSError as e:
                     # Safe to ignore in finally block, but logging for traceability
                     get_silent_logger().debug(f"Could not unlink temp file {temp_file}: {e}")

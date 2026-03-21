@@ -11,8 +11,8 @@ Description:    Forensic analysis for PDFs. Detects digital signatures,
 """
 
 import fitz
-import os
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 from core.logger import get_silent_logger
 
@@ -28,7 +28,7 @@ def get_pdf_class(file_path: str) -> PDFClass:
     """
     Analyzes the structure of a PDF to determine its protection class.
     """
-    if not os.path.exists(file_path) or not file_path.lower().endswith(".pdf"):
+    if not Path(file_path).exists() or not file_path.lower().endswith(".pdf"):
         return PDFClass.STANDARD
         
     try:

@@ -61,7 +61,7 @@ class ExchangeService:
         return None
 
     @staticmethod
-    def save_to_file(payload_type: str, data: Dict[str, Any], target_path: str):
+    def save_to_file(payload_type: str, data: Dict[str, Any], target_path: str) -> None:
         """Saves a standalone JSON exchange file."""
         payload = ExchangePayload(type=payload_type, payload=data)
         with open(target_path, "w", encoding="utf-8") as f:

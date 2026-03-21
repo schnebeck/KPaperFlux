@@ -15,6 +15,7 @@ Description:    Central database manager for SQLite persistence. Handles
 import json
 import sqlite3
 import threading
+from pathlib import Path
 import traceback
 import uuid
 from contextlib import contextmanager
@@ -1344,12 +1345,12 @@ class DatabaseManager:
                 self.connection = None
 
             # 2. Delete Database File (Nuclear Option)
-            if self.db_path != ":memory:" and os.path.exists(self.db_path):
+            if self.db_path != ":memory:" and Path(self.db_path).exists():
                 # Delete main file and WAL/SHM
                 for suffix in ["", "-wal", "-shm"]:
-                    p = self.db_path + suffix
-                    if os.path.exists(p):
-                        os.unlink(p)
+                    p = Path(self.db_path + suffix)
+                    if p.exists():
+                        p.unlink()
                 logger.info(f"Purge: Deleted database file {self.db_path}")
 
             # 3. Re-initialize
@@ -1357,16 +1358,15 @@ class DatabaseManager:
             self.init_db()
 
             # 4. Clear Vault
-            if vault_path and os.path.exists(vault_path):
-                for filename in os.listdir(vault_path):
-                    file_path = os.path.join(vault_path, filename)
+            if vault_path and Path(vault_path).exists():
+                for entry in Path(vault_path).iterdir():
                     try:
-                        if os.path.isfile(file_path):
-                            os.unlink(file_path)
-                        elif os.path.isdir(file_path):
-                            shutil.rmtree(file_path)
+                        if entry.is_file():
+                            entry.unlink()
+                        elif entry.is_dir():
+                            shutil.rmtree(entry)
                     except Exception as e:
-                        logger.error(f"Purge error at {file_path}: {e}")
+                        logger.error(f"Purge error at {entry}: {e}")
             return True
         except Exception as e:
             logger.error(f"Purge failed: {e}")

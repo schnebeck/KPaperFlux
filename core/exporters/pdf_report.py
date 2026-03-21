@@ -11,8 +11,8 @@ Description:    High-fidelity PDF report generation using ReportLab.
 """
 
 import io
-import os
 import datetime
+from pathlib import Path
 import xml.sax.saxutils as saxutils
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
@@ -176,7 +176,7 @@ class PdfReportGenerator:
             canvas.line(1.5*cm, 1.5*cm, width - 1.5*cm, 1.5*cm)
             
             # 1. Logo (Start of line)
-            if self.logo_path and os.path.exists(self.logo_path):
+            if self.logo_path and Path(self.logo_path).exists():
                 try:
                     # Draw a small version of the logo
                     logo_size = 0.8 * cm

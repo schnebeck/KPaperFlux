@@ -3,6 +3,7 @@ import cv2
 import fitz
 import numpy as np
 from pathlib import Path
+from typing import List, Optional
 from core.plugins.base import KPaperFluxPlugin
 from core.utils.hybrid_engine import HybridEngine
 from core.utils.forensics import check_pdf_immutable
@@ -16,7 +17,7 @@ class HybridAssemblerPlugin(KPaperFluxPlugin):
     with scanned signatures/stamps.
     """
     
-    def __init__(self, api=None):
+    def __init__(self, api: Optional[object] = None) -> None:
         super().__init__(api)
         self.dialog = None
 
@@ -26,17 +27,17 @@ class HybridAssemblerPlugin(KPaperFluxPlugin):
     def get_description(self) -> str:
         return self.tr("Assembles hybrid PDFs from native and scanned versions.")
 
-    def get_tool_actions(self, parent=None):
+    def get_tool_actions(self, parent: Optional[object] = None) -> List:
         from PyQt6.QtGui import QAction
         action = QAction(self.tr("Assemble Hybrid PDFs..."), parent)
         action.triggered.connect(lambda: self.open_matching_dialog(parent))
         return [action]
 
-    def open_matching_dialog(self, parent=None):
+    def open_matching_dialog(self, parent: Optional[object] = None) -> None:
         if not self.dialog:
             # Ensure local path is in sys.path for the import
             import sys
-            plugin_dir = os.path.dirname(__file__)
+            plugin_dir = str(Path(__file__).parent)
             if plugin_dir not in sys.path:
                 sys.path.insert(0, plugin_dir)
                 
@@ -48,7 +49,7 @@ class HybridAssemblerPlugin(KPaperFluxPlugin):
         self.dialog.raise_()
         self.dialog.activateWindow()
 
-    def _on_dialog_closed(self):
+    def _on_dialog_closed(self) -> None:
         self.dialog = None
 
     def create_hybrid(self, native_pdf: str, scan_pdf: str, output_path: str) -> bool:

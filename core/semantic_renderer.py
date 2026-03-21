@@ -1,5 +1,5 @@
-import os
 import json
+from pathlib import Path
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional, List
@@ -27,8 +27,8 @@ class SemanticRenderer:
         """Loads ISO unit code translations from the l10n folder."""
         # Try current locale first, then fallback to English
         for loc in [self.locale, "en"]:
-            path = os.path.join(self.l10n_dir, loc, "units.json")
-            if os.path.exists(path):
+            path = Path(self.l10n_dir) / loc / "units.json"
+            if path.exists():
                 try:
                     with open(path, "r", encoding="utf-8") as f:
                         self.unit_codes = json.load(f)
@@ -39,21 +39,21 @@ class SemanticRenderer:
     def _load_templates(self):
         """Loads templates from the locale-specific folder and the common folder."""
         # 1. Load Locale Specific (e.g. l10n/de/templates/)
-        locale_path = os.path.join(self.l10n_dir, self.locale, "templates")
-        self.templates["locale"] = self._load_from_dir(locale_path)
-        
+        locale_path = Path(self.l10n_dir) / self.locale / "templates"
+        self.templates["locale"] = self._load_from_dir(str(locale_path))
+
         # 2. Load Common Fallbacks (e.g. l10n/common/templates/)
-        common_path = os.path.join(self.l10n_dir, "common", "templates")
-        self.templates["standard"] = self._load_from_dir(common_path)
+        common_path = Path(self.l10n_dir) / "common" / "templates"
+        self.templates["standard"] = self._load_from_dir(str(common_path))
 
     def _load_from_dir(self, path: str) -> List[Dict]:
         found = []
-        if not os.path.exists(path):
+        if not Path(path).exists():
             return found
-            
-        for filename in os.listdir(path):
-            if filename.endswith(".json"):
-                full_path = os.path.join(path, filename)
+
+        for filename in Path(path).iterdir():
+            if filename.suffix == ".json":
+                full_path = filename
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
                         found.append(json.load(f))

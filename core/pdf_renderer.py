@@ -12,8 +12,8 @@ Description:    Highly creative and diverse PDF renderer. Supports multiple
 ------------------------------------------------------------------------------
 """
 
-import os
 import random
+from pathlib import Path
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Any, Dict
@@ -90,8 +90,8 @@ class ProfessionalPdfRenderer:
     def _load_unit_codes(self) -> dict:
         import json
         for loc in [self.locale, "en"]:
-            path = os.path.join("resources", "l10n", loc, "units.json")
-            if os.path.exists(path):
+            path = Path("resources") / "l10n" / loc / "units.json"
+            if path.exists():
                 try:
                     with open(path, "r", encoding="utf-8") as f: return json.load(f)
                 except Exception as e:
@@ -130,7 +130,7 @@ class ProfessionalPdfRenderer:
         if sender:
             if is_first:
                 # 1. LOGO placement
-                if self.logo_path and os.path.exists(self.logo_path):
+                if self.logo_path and Path(self.logo_path).exists():
                     try:
                         from PIL import Image as PILImage
                         with PILImage.open(self.logo_path) as img:

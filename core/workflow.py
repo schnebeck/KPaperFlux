@@ -1,6 +1,6 @@
 
-import os
 import json
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
 
@@ -136,13 +136,13 @@ class WorkflowRuleRegistry:
     def load_from_directory(self, path: str):
         """Loads all .json files from the specified directory as rules."""
         self.rules.clear() # Reset cache to handle deleted files
-        if not os.path.exists(path):
+        if not Path(path).exists():
             logger.warning(f"Workflow directory not found: {path}")
             return
 
-        for filename in os.listdir(path):
-            if filename.endswith(".json"):
-                full_path = os.path.join(path, filename)
+        for entry in Path(path).iterdir():
+            if entry.suffix == ".json":
+                full_path = entry
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
                         data = json.load(f)

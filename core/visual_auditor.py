@@ -273,7 +273,7 @@ class VisualAuditor:
         Returns:
             A dictionary containing 'images' (List of labeled PIL images) and 'page1_text'.
         """
-        if not os.path.exists(pdf_path):
+        if not Path(pdf_path).exists():
             logger.error(f"File not found: {pdf_path}")
             return {"images": [], "page1_text": ""}
 
