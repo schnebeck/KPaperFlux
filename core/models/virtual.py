@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import uuid
 import logging
 from datetime import datetime, date
@@ -335,45 +336,16 @@ class VirtualDocument(BaseModel):
         return []
 
     @classmethod
-    def from_row(cls, row: Union[Tuple[Any, ...], Dict[str, Any]]) -> 'VirtualDocument':
+    def from_row(cls, row: Union[sqlite3.Row, Dict[str, Any]]) -> 'VirtualDocument':
         """
         Parses a database row and hydrates a VirtualDocument instance.
-        Supports both tuple results (from LogicalRepository) and dictionary-like rows.
+        Accepts sqlite3.Row objects (connection.row_factory = sqlite3.Row) or plain dicts.
         """
         if not row:
             return None
 
-        # Convert tuple to dict if needed (Mapping indexes to LogicalRepository.get_by_uuid SQL)
-        if isinstance(row, (tuple, list)) and not hasattr(row, 'keys'):
-            data = {
-                "uuid": row[0],
-                "source_mapping": row[1],
-                "status": row[2],
-                "export_filename": row[3],
-                "last_used": row[4],
-                "last_processed_at": row[5],
-                "is_immutable": bool(row[6]),
-                "thumbnail_path": row[7],
-                "cached_full_text": row[8],
-                "semantic_data": row[9],
-                "created_at": row[10],
-                "deleted": bool(row[11]),
-                "page_count_virt": row[12],
-                "type_tags": row[13],
-                "tags": row[14],
-                "deleted_at": row[15],
-                "locked_at": row[16],
-                "exported_at": row[17],
-                "pdf_class": row[18],
-                "archived": bool(row[19]),
-                "storage_location": row[20],
-                "ai_confidence": float(row[21]),
-                "process_id": row[22]
-            }
-        elif hasattr(row, 'keys'): # Handle sqlite3.Row or dict
-            data = dict(row)
-        else:
-            data = row
+        # sqlite3.Row and dict both expose .keys(); convert to plain dict for uniform access.
+        data: Dict[str, Any] = dict(row)
 
         # Handle JSON strings
         def safe_json(val, default):
