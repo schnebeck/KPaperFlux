@@ -5,6 +5,10 @@ import fitz
 from typing import Tuple, Optional
 import os
 
+from core.logger import get_logger
+logger = get_logger("utils.hybrid_engine")
+
+
 class HybridEngine:
     """
     Engine for comparing and aligning documents.
@@ -128,7 +132,7 @@ class HybridEngine:
             
             return distance
         except Exception as e:
-            print(f"[HybridEngine] Score Calculation Failed: {e}")
+            logger.error(f"Score Calculation Failed: {e}")
             return float('inf')
 
     @staticmethod

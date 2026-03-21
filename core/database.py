@@ -220,7 +220,7 @@ class DatabaseManager:
             cursor.execute(sql, [entity_uuid] + params)
             return cursor.fetchone() is not None
         except sqlite3.Error as e:
-            print(f"[DB] Error in matches_condition: {e}")
+            logger.error(f"Error in matches_condition: {e}")
             return False
 
     def update_document_metadata(self, uuid: str, updates: Dict[str, Any]) -> bool:
@@ -515,7 +515,7 @@ class DatabaseManager:
             result = cursor.fetchone()
             return result[0] if result and result[0] is not None else 0.0
         except sqlite3.Error as e:
-            print(f"[DB] Error in sum_documents_advanced: {e}")
+            logger.error(f"Error in sum_documents_advanced: {e}")
             return 0.0
 
     def get_trend_data_advanced(self, query: Dict[str, Any], days: Optional[int] = 30, aggregation: str = "count", cumulative: bool = False) -> List[float]:
@@ -614,7 +614,7 @@ class DatabaseManager:
         except Exception as e:
             import traceback
             traceback.print_exc()
-            print(f"[DB] Error in get_trend_data_advanced: {e}")
+            logger.error(f"Error in get_trend_data_advanced: {e}")
             return [0.0] * 30
 
     def _build_where_clause(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
@@ -1186,7 +1186,7 @@ class DatabaseManager:
                     except (json.JSONDecodeError, TypeError) as e:
                         logger.debug(f"[DB] Skipping invalid tag JSON: {e}")
         except Exception as e:
-            print(f"[WARN] get_all_tags_with_counts failed: {e}")
+            logger.warning(f"get_all_tags_with_counts failed: {e}")
             
         return tag_counts
 
@@ -1389,7 +1389,7 @@ class DatabaseManager:
                         elif os.path.isdir(file_path):
                             shutil.rmtree(file_path)
                     except Exception as e:
-                        print(f"Purge error at {file_path}: {e}")
+                        logger.error(f"Purge error at {file_path}: {e}")
             return True
         except Exception as e:
             logger.error(f"Purge failed: {e}")

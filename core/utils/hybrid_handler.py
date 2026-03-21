@@ -16,6 +16,10 @@ import io
 from typing import Optional
 from core.utils.forensics import get_pdf_class, PDFClass
 
+from core.logger import get_logger
+logger = get_logger("utils.hybrid_handler")
+
+
 def prepare_hybrid_container(file_path: str, output_path: str) -> bool:
     """
     Implements the Hybrid Protection Standard for Class A, B, and AB.
@@ -90,7 +94,7 @@ def _create_envelope(original_path: str, output_path: str, p_class: PDFClass) ->
         doc_orig.close()
         return True
     except Exception as e:
-        print(f"[HybridHandler] Error creating envelope: {e}")
+        logger.error(f"Error creating envelope: {e}")
         return False
 
 def _create_zugferd_working_copy(original_path: str, output_path: str) -> bool:
@@ -102,7 +106,7 @@ def _create_zugferd_working_copy(original_path: str, output_path: str) -> bool:
         shutil.copy2(original_path, output_path)
         return True
     except Exception as e:
-        print(f"[HybridHandler] Error creating Class B working copy: {e}")
+        logger.error(f"Error creating Class B working copy: {e}")
         return False
 
 def restore_zugferd_xml(original_source_path: str, target_pdf_path: str) -> bool:
@@ -140,5 +144,5 @@ def restore_zugferd_xml(original_source_path: str, target_pdf_path: str) -> bool
             
         return False
     except Exception as e:
-        print(f"[HybridHandler] Error restoring ZUGFeRD XML: {e}")
+        logger.error(f"Error restoring ZUGFeRD XML: {e}")
         return False

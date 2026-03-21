@@ -24,9 +24,9 @@ from core.models.virtual import VirtualDocument
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
 from core.vault import DocumentVault
-import logging
+from core.logger import get_logger
 
-logger = logging.getLogger("KPaperFlux.Integrity")
+logger = get_logger("integrity")
 
 
 @dataclass
@@ -78,7 +78,7 @@ class IntegrityManager:
                     sha256_hash.update(byte_block)
             return sha256_hash.hexdigest()
         except Exception as e:
-            print(f"Error hashing {path}: {e}")
+            logger.info(f"Error hashing {path}: {e}")
             raise
 
     def check_integrity(self) -> IntegrityReport:
@@ -145,19 +145,19 @@ class IntegrityManager:
         Returns:
             The number of files deleted.
         """
-        print("\n=== PRUNE: Orphaned Vault Files ===")
+        logger.info("\n=== PRUNE: Orphaned Vault Files ===")
         report = self.check_integrity()
         count = 0
         for g in report.ghosts:
             try:
-                print(f"Deleting ghost file: {g.name}")
+                logger.info(f"Deleting ghost file: {g.name}")
                 g.unlink()
                 count += 1
             except Exception as e:
-                print(f"Error deleting {g.name}: {e}")
+                logger.info(f"Error deleting {g.name}: {e}")
 
-        print(f"Finished. Removed {count} files.")
-        print("===================================\n")
+        logger.info(f"Finished. Removed {count} files.")
+        logger.info("===================================\n")
         return count
 
     def prune_broken_entity_references(self) -> int:
@@ -167,19 +167,19 @@ class IntegrityManager:
         Returns:
             The number of entities deleted.
         """
-        print("\n=== PRUNE: Broken Entity References ===")
+        logger.info("\n=== PRUNE: Broken Entity References ===")
         report = self.check_integrity()
         count = 0
         for o in report.orphans:
             try:
-                print(f"Deleting broken entity: {o.uuid}")
+                logger.info(f"Deleting broken entity: {o.uuid}")
                 self.logic_repo.delete_by_uuid(o.uuid)
                 count += 1
             except Exception as e:
-                print(f"Error deleting entity {o.uuid}: {e}")
+                logger.info(f"Error deleting entity {o.uuid}: {e}")
 
-        print(f"Finished. Removed {count} entities.")
-        print("=======================================\n")
+        logger.info(f"Finished. Removed {count} entities.")
+        logger.info("=======================================\n")
         return count
 
     def deduplicate_vault(self) -> None:
@@ -190,13 +190,13 @@ class IntegrityManager:
         3. Prunes broken entities.
         4. Identifies and deletes logical entities with identical source mappings.
         """
-        print("\n=== ACTION: Deduplicate Vault (LIVE Hash/Size) ===")
+        logger.info("\n=== ACTION: Deduplicate Vault (LIVE Hash/Size) ===")
 
         # 1. Physical Deduplication
         all_phys = self.phys_repo.get_all()
         hash_groups: Dict[str, List] = {}
 
-        print(f"Phase 1: Analyzing {len(all_phys)} physical records for duplicates...")
+        logger.info(f"Phase 1: Analyzing {len(all_phys)} physical records for duplicates...")
 
         for pf in all_phys:
             if not pf.file_path:
@@ -226,9 +226,9 @@ class IntegrityManager:
             keep = files[0]
             redundant = files[1:]
 
-            print(f"  [Match] Keep oldest: {keep.uuid} ({key[:10]}...)")
+            logger.info(f"  [Match] Keep oldest: {keep.uuid} ({key[:10]}...)")
             for red in redundant:
-                print(f"    -> Deleting physical duplicate: {red.uuid}")
+                logger.info(f"    -> Deleting physical duplicate: {red.uuid}")
                 if red.file_path and os.path.exists(red.file_path):
                     try:
                         os.remove(red.file_path)
@@ -238,11 +238,11 @@ class IntegrityManager:
                 phys_deleted += 1
 
         # 2. Prune Broken Entities
-        print("\nPhase 2: Pruning entities with broken references...")
+        logger.info("\nPhase 2: Pruning entities with broken references...")
         logic_broken_deleted = self.prune_broken_entity_references()
 
         # 3. Logical Deduplication (Identical Mappings)
-        print("\nPhase 3: Finding logical duplicates (identical document content references)...")
+        logger.info("\nPhase 3: Finding logical duplicates (identical document content references)...")
         all_entities = self.logic_repo.get_all()
         mapping_groups: Dict[str, List] = {}
         for ent in all_entities:
@@ -258,37 +258,37 @@ class IntegrityManager:
                 continue
             ents.sort(key=lambda x: x.created_at if x.created_at else "")
             redundant = ents[1:]
-            print(f"  [Match] Keeping oldest entity: {ents[0].uuid}. Found {len(redundant)} redundant entries.")
+            logger.info(f"  [Match] Keeping oldest entity: {ents[0].uuid}. Found {len(redundant)} redundant entries.")
             for red in redundant:
-                print(f"    -> Deleting redundant entity: {red.uuid}")
+                logger.info(f"    -> Deleting redundant entity: {red.uuid}")
                 self.logic_repo.delete_by_uuid(red.uuid)
                 logic_redundant_deleted += 1
 
-        print("\nDeduplication complete.")
-        print(f"- Physical Duplicates removed: {phys_deleted}")
-        print(f"- Broken Entities removed: {logic_broken_deleted}")
-        print(f"- Redundant Logical Entities removed: {logic_redundant_deleted}")
-        print("========================================================\n")
+        logger.info("\nDeduplication complete.")
+        logger.info(f"- Physical Duplicates removed: {phys_deleted}")
+        logger.info(f"- Broken Entities removed: {logic_broken_deleted}")
+        logger.info(f"- Redundant Logical Entities removed: {logic_redundant_deleted}")
+        logger.info("========================================================\n")
 
 
     def show_orphaned_vault_files(self) -> None:
         """Debug print of orphaned files."""
         report = self.check_integrity()
-        print("\n=== DEBUG: Orphaned Vault Files ===")
+        logger.info("\n=== DEBUG: Orphaned Vault Files ===")
         if not report.ghosts:
-            print("No orphaned files found.")
+            logger.info("No orphaned files found.")
         else:
             for g in report.ghosts:
-                print(f"  - {g.name}")
-        print("====================================\n")
+                logger.info(f"  - {g.name}")
+        logger.info("====================================\n")
 
     def show_broken_entity_references(self) -> None:
         """Debug print of broken entities."""
         report = self.check_integrity()
-        print("\n=== DEBUG: Broken Entity References ===")
+        logger.info("\n=== DEBUG: Broken Entity References ===")
         if not report.orphans:
-            print("No broken entities found.")
+            logger.info("No broken entities found.")
         else:
             for o in report.orphans:
-                print(f"  - Entity {o.uuid}")
-        print("=======================================\n")
+                logger.info(f"  - Entity {o.uuid}")
+        logger.info("=======================================\n")

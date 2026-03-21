@@ -18,6 +18,9 @@ from core.models.physical import PhysicalFile
 
 from .base import BaseRepository
 
+from core.logger import get_logger
+logger = get_logger("repositories.physical")
+
 
 class PhysicalRepository(BaseRepository):
     """
@@ -64,7 +67,7 @@ class PhysicalRepository(BaseRepository):
                 self.conn.execute(sql, values)
             return True
         except Exception as e:
-            print(f"[PhysicalRepo] Save error: {e}")
+            logger.error(f"Save error: {e}")
             return False
 
     def get_by_uuid(self, uuid: str) -> Optional[PhysicalFile]:
@@ -145,5 +148,5 @@ class PhysicalRepository(BaseRepository):
                 self.conn.execute("DELETE FROM physical_files WHERE uuid = ?", (uuid,))
             return True
         except Exception as e:
-            print(f"[PhysicalRepo] Delete error: {e}")
+            logger.error(f"Delete error: {e}")
             return False

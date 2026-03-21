@@ -19,6 +19,8 @@ from core.models.virtual import VirtualDocument
 
 from .base import BaseRepository
 
+from core.logger import get_logger
+logger = get_logger("repositories.logical")
 
 from decimal import Decimal
 from pydantic import BaseModel
@@ -133,7 +135,7 @@ class LogicalRepository(BaseRepository):
                 self.conn.execute(sql, values)
             return True
         except Exception as e:
-            print(f"[LogicalRepo] Save error: {e}")
+            logger.error(f"Save error: {e}")
             return False
 
     def get_by_uuid(self, uuid: str) -> Optional[VirtualDocument]:
@@ -206,7 +208,7 @@ class LogicalRepository(BaseRepository):
                 self.conn.execute("DELETE FROM virtual_documents WHERE uuid = ?", (uuid,))
             return True
         except Exception as e:
-            print(f"[LogicalRepo] Delete error: {e}")
+            logger.error(f"Delete error: {e}")
             return False
 
     def mark_deleted(self, uuid: str, is_deleted: bool = True) -> bool:
@@ -227,7 +229,7 @@ class LogicalRepository(BaseRepository):
                 cursor = self.conn.execute(sql, (int(is_deleted), now, uuid))
                 return cursor.rowcount > 0
         except Exception as e:
-            print(f"[LogicalRepo] mark_deleted error: {e}")
+            logger.error(f"mark_deleted error: {e}")
             return False
 
     def mark_archived(self, uuid: str, is_archived: bool = True) -> bool:
@@ -249,7 +251,7 @@ class LogicalRepository(BaseRepository):
                 cursor = self.conn.execute(sql, (int(is_archived), now, uuid))
                 return cursor.rowcount > 0
         except Exception as e:
-            print(f"[LogicalRepo] mark_archived error: {e}")
+            logger.error(f"mark_archived error: {e}")
             return False
 
     def get_all(self, include_deleted: bool = True) -> List[VirtualDocument]:

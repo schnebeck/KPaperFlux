@@ -19,6 +19,10 @@ from typing import List, Dict, Any, Optional
 
 from core.plugins.base import KPaperFluxPlugin, ApiContext
 
+from core.logger import get_logger
+logger = get_logger("plugins.manager")
+
+
 class PluginManager:
     """
     Handles discovery and loading of KPaperFlux plugins.
@@ -68,12 +72,12 @@ class PluginManager:
             class_name = manifest.get("class_name")
             
             if not class_name:
-                print(f"[PluginManager] Error: manifest.json in {plugin_path} missing 'class_name'.")
+                logger.error(f"manifest.json in {plugin_path} missing 'class_name'.")
                 return
 
             script_path = plugin_path / entry_point
             if not script_path.exists():
-                print(f"[PluginManager] Error: entry point {entry_point} not found in {plugin_path}.")
+                logger.error(f"entry point {entry_point} not found in {plugin_path}.")
                 return
 
             # Dynamic Import
@@ -94,18 +98,18 @@ class PluginManager:
                         l10n_path = plugin_path / "l10n" / lang / "messages.qm"
                         if l10n_path.exists():
                             instance.load_translator(str(l10n_path))
-                            print(f"[PluginManager] Loaded {lang} translations for: {plugin_path.name}")
-                    
+                            logger.info(f"Loaded {lang} translations for: {plugin_path.name}")
+
                     self.plugins.append(instance)
-                    print(f"[PluginManager] Successfully loaded plugin: {manifest.get('name', plugin_path.name)}")
+                    logger.info(f"Successfully loaded plugin: {manifest.get('name', plugin_path.name)}")
                 else:
-                    print(f"[PluginManager] Error: {class_name} in {plugin_path} does not inherit from KPaperFluxPlugin.")
-                    print(f"[PluginManager] Debug: Bases are {[base.__name__ for base in plugin_class.__bases__]}")
+                    logger.error(f"{class_name} in {plugin_path} does not inherit from KPaperFluxPlugin.")
+                    logger.debug(f"Bases are {[base.__name__ for base in plugin_class.__bases__]}")
                     
         except Exception as e:
             error_msg = f"Critical error loading: {e}"
             self.load_errors[str(plugin_path)] = error_msg
-            print(f"[PluginManager] {error_msg} from {plugin_path}")
+            logger.error(f"{error_msg} from {plugin_path}")
 
     def trigger_hook(self, hook: str, data: Any = None) -> List[Any]:
         """
@@ -121,5 +125,5 @@ class PluginManager:
                 if res is not None:
                     results.append(res)
             except Exception as e:
-                print(f"[PluginManager] Error running hook '{hook}' on plugin {plugin.__class__.__name__}: {e}")
+                logger.error(f"Error running hook '{hook}' on plugin {plugin.__class__.__name__}: {e}")
         return results

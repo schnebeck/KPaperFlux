@@ -27,6 +27,10 @@ from reportlab.pdfgen import canvas
 
 from PyQt6.QtCore import QLocale, QDateTime, QCoreApplication, Qt
 
+from core.logger import get_logger
+logger = get_logger("exporters.pdf_report")
+
+
 class PdfReportGenerator:
     """Generates professional PDF reports from KPaperFlux report data."""
 
@@ -178,7 +182,7 @@ class PdfReportGenerator:
                     logo_size = 0.8 * cm
                     canvas.drawImage(self.logo_path, 1.5*cm, 0.6*cm, width=logo_size, height=logo_size, mask='auto', preserveAspectRatio=True)
                 except Exception as e:
-                    print(f"Failed to draw logo in PDF: {e}")
+                    logger.error(f"Failed to draw logo in PDF: {e}")
 
             # 2. Page Number (Center)
             page_text = self.tr("Page {n}").format(n=page_num)
@@ -198,7 +202,7 @@ class PdfReportGenerator:
             try:
                 return ExchangeService.embed_in_pdf(pdf_bytes, metadata_type, metadata)
             except Exception as e:
-                print(f"Failed to use ExchangeService for embedding: {e}")
+                logger.error(f"Failed to use ExchangeService for embedding: {e}")
                 return pdf_bytes
 
         return pdf_bytes

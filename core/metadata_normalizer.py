@@ -18,6 +18,9 @@ from typing import Any, Dict, List, Optional, Generator
 
 from core.models.virtual import VirtualDocument as Document
 
+from core.logger import get_logger
+logger = get_logger("metadata_normalizer")
+
 
 class MetadataNormalizer:
     """
@@ -144,7 +147,7 @@ class MetadataNormalizer:
                     with open(path, "r", encoding="utf-8") as f:
                         cls._config = json.load(f)
                 except (json.JSONDecodeError, IOError) as e:
-                    print(f"Error loading type_definitions: {e}")
+                    logger.error(f"Error loading type_definitions: {e}")
                     cls._config = {"types": {}}
             else:
                 cls._config = {"types": {}}
@@ -354,7 +357,7 @@ class MetadataNormalizer:
             try:
                 doc.semantic_data = SemanticExtraction(**data)
             except Exception as e:
-                print(f"[MetadataNormalizer] Sync back failed: {e}")
+                logger.error(f"Sync back failed: {e}")
                 # Fallback: keep as dict if it's really corrupted, 
                 # but VirtualDocument expect a model. 
                 # Most likely it stays a model anyway.

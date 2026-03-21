@@ -5,6 +5,10 @@ import os
 import fitz  # PyMuPDF
 from pydantic import BaseModel
 
+from core.logger import get_logger
+logger = get_logger("exchange")
+
+
 class ExchangePayload(BaseModel):
     """Universal container for KPaperFlux portable data."""
     version: str = "1.0"
@@ -39,7 +43,7 @@ class ExchangeService:
                 )
                 return doc.tobytes()
         except Exception as e:
-            print(f"ExchangeService: Failed to embed in PDF: {e}")
+            logger.error(f"Failed to embed in PDF: {e}")
             return pdf_bytes
 
     @staticmethod
@@ -53,7 +57,7 @@ class ExchangeService:
                         return ExchangePayload.model_validate_json(data)
                         
         except Exception as e:
-            print(f"ExchangeService: Failed to extract from PDF: {e}")
+            logger.error(f"Failed to extract from PDF: {e}")
         return None
 
     @staticmethod
@@ -73,5 +77,5 @@ class ExchangeService:
             with open(path, "r", encoding="utf-8") as f:
                 return ExchangePayload.model_validate_json(f.read())
         except Exception as e:
-            print(f"ExchangeService: Failed to load from file {path}: {e}")
+            logger.error(f"Failed to load from file {path}: {e}")
         return None

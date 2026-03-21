@@ -16,6 +16,9 @@ from typing import Set
 
 import fitz  # PyMuPDF
 
+from core.logger import get_logger
+logger = get_logger("importer")
+
 
 class PreFlightImporter:
     """
@@ -69,7 +72,7 @@ class PreFlightImporter:
                                     final_doc.insert_pdf(pdf_page)
                                     processed_count += 1
                 except zipfile.BadZipFile:
-                    print(f"[Importer] Error: {input_path} is not a valid ZIP.")
+                    logger.error(f"{input_path} is not a valid ZIP.")
                     return False
 
             # --- CASE B: SINGLE FILE (Image / Multi-Page TIFF) ---
@@ -91,15 +94,15 @@ class PreFlightImporter:
                 # deflate=True: Stream compression
                 final_doc.save(output_path, garbage=4, deflate=True)
                 final_doc.close()
-                print(f"[Importer] Success: {processed_count} pages converted to {output_path}")
+                logger.info(f"Success: {processed_count} pages converted to {output_path}")
                 return True
 
             final_doc.close()
-            print("[Importer] Warning: No convertible images found.")
+            logger.warning("No convertible images found.")
             return False
 
         except Exception as e:
-            print(f"[Importer] Critical Error converting {input_path}: {e}")
+            logger.error(f"Critical Error converting {input_path}: {e}")
             if final_doc:
                 final_doc.close()
             return False

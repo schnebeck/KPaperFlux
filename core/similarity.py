@@ -254,7 +254,7 @@ class SimilarityManager:
                     render_path = Path(temp_path)
                     temp_file = temp_path
         except (ImportError, IOError) as e:
-            print(f"[Similarity] Error stripping stamps for {doc.original_filename}: {e}")
+            logger.error(f"Error stripping stamps for {doc.original_filename}: {e}")
 
         try:
             # Render first 5 pages, low res (grayscale)
@@ -269,7 +269,7 @@ class SimilarityManager:
             return thumbnails
 
         except Exception as e:
-            print(f"[Similarity] Visual Sim Error {doc.original_filename}: {e}")
+            logger.error(f"Visual Sim Error {doc.original_filename}: {e}")
             return []
         finally:
             if temp_file and os.path.exists(temp_file):

@@ -21,6 +21,9 @@ from typing import Any, Dict, List, Optional, Union
 import fitz  # PyMuPDF
 from PIL import Image
 
+from core.logger import get_logger
+logger = get_logger("visual_auditor")
+
 # Audit Modes
 AUDIT_MODE_FULL = "FULL_AUDIT"
 AUDIT_MODE_STAMP = "STAMP_ONLY"
@@ -271,13 +274,13 @@ class VisualAuditor:
             A dictionary containing 'images' (List of labeled PIL images) and 'page1_text'.
         """
         if not os.path.exists(pdf_path):
-            print(f"[VisualAuditor] File not found: {pdf_path}")
+            logger.error(f"File not found: {pdf_path}")
             return {"images": [], "page1_text": ""}
 
         try:
             doc = fitz.open(pdf_path)
         except Exception as e:
-            print(f"[VisualAuditor] Failed to open PDF with fitz: {e}")
+            logger.error(f"Failed to open PDF with fitz: {e}")
             return {"images": [], "page1_text": ""}
 
         total_pages = doc.page_count
@@ -358,7 +361,7 @@ class VisualAuditor:
                     "label": label
                 })
             except Exception as e:
-                print(f"[VisualAuditor] Render error page {idx}: {e}")
+                logger.error(f"Render error page {idx}: {e}")
 
         doc.close()
         return {
@@ -435,7 +438,7 @@ class VisualAuditor:
                     del res_json[k]
             
             if found_illegal:
-                print(f"[VisualAuditor] ⚠️ Stage 1.5 returned ILLEGAL semantic keys: {found_illegal}. Pruned.")
+                logger.warning(f"Stage 1.5 returned ILLEGAL semantic keys: {found_illegal}. Pruned.")
 
             res_json["meta_mode"] = audit_mode
             return res_json

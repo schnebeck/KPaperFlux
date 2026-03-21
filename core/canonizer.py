@@ -35,6 +35,9 @@ from core.workflow import WorkflowRuleRegistry
 if TYPE_CHECKING:
     from core.filter_tree import FilterTree
 
+from core.logger import get_logger
+logger = get_logger("canonizer")
+
 
 class CanonizerService:
     """
@@ -105,7 +108,7 @@ class CanonizerService:
             The number of successfully processed documents.
         """
         if not self.analyzer:
-            print("[Canonizer] No AI Analyzer available.")
+            logger.info("No AI Analyzer available.")
             return 0
 
         cursor = self.db.connection.cursor()
@@ -136,7 +139,7 @@ class CanonizerService:
 
         self.db.connection.commit()
         if uuids:
-            print(f"[Canonizer] Locked {len(uuids)} documents for processing.")
+            logger.info(f"Locked {len(uuids)} documents for processing.")
 
         processed_count = 0
         for uuid_obj in uuids:
@@ -148,11 +151,11 @@ class CanonizerService:
                     if success:
                         processed_count += 1
                 except (NameError, AttributeError, SyntaxError, TypeError, ValueError) as e:
-                    print(f"[Canonizer] CRITICAL ERROR processing {uuid_obj}: {e}")
+                    logger.error(f"CRITICAL ERROR processing {uuid_obj}: {e}")
                     traceback.print_exc()
                     raise e  # Propagate critical coding/logic errors to stop the worker
                 except Exception as e:
-                    print(f"[Canonizer] ERROR processing {uuid_obj}: {e}")
+                    logger.error(f"ERROR processing {uuid_obj}: {e}")
                     traceback.print_exc()
                     # For non-critical exceptions, we might want to release the lock or set a failure status
                     # v_doc.status = 'FAILED'
@@ -197,7 +200,7 @@ class CanonizerService:
         if not self.analyzer:
             return False
 
-        print(f"[Canonizer] Processing {v_doc.uuid}...")
+        logger.info(f"Processing {v_doc.uuid}...")
 
         # Capture original tags to detect manual intervention
         original_tags = getattr(v_doc, "type_tags", [])
@@ -220,16 +223,16 @@ class CanonizerService:
                         is_at_end = True
             
             if is_at_end:
-                print(f"[Canonizer] No text content resolved for {v_doc.uuid} (End-of-File). Purging ADF artifact.")
+                logger.info(f"No text content resolved for {v_doc.uuid} (End-of-File). Purging ADF artifact.")
                 self.logical_repo.delete_by_uuid(v_doc.uuid)
             else:
-                print(f"[Canonizer] No text content resolved for {v_doc.uuid} (Mid-File). Marking as SKIPPED_EMPTY.")
+                logger.info(f"No text content resolved for {v_doc.uuid} (Mid-File). Marking as SKIPPED_EMPTY.")
                 v_doc.status = "SKIPPED_EMPTY"
                 self.logical_repo.save(v_doc)
             return True
 
         v_doc.cached_full_text = full_text
-        print(f"[DEBUG] Canonizer Resolved text ({len(full_text)} chars) for {v_doc.uuid}")
+        logger.debug(f"Canonizer Resolved text ({len(full_text)} chars) for {v_doc.uuid}")
 
         # Reconstruct page list from source_mapping
         pages_text: List[str] = []
@@ -257,7 +260,7 @@ class CanonizerService:
         # split_candidates = [] # Define scope
 
         if is_stage2_resumption:
-            print(f"[AI] Pipeline [RESUME] -> Stage 2 (Status: {status})")
+            logger.info(f"Pipeline [RESUME] -> Stage 2 (Status: {status})")
             split_candidates = [
                 {
                     "types": v_doc.type_tags or ["OTHER"],
@@ -272,18 +275,18 @@ class CanonizerService:
             detected_entities = [{"entity_types": split_candidates[0]["types"]}]
         else:
             # --- START STAGE 1 ---
-            print(f"[AI] Stage 1.1 (Classification) [START] -> Pages: {len(pages_text)}")
+            logger.info(f"Stage 1.1 (Classification) [START] -> Pages: {len(pages_text)}")
             # Gate: Only ONE thread can start the process.
             if status in ["NEW", "READY_FOR_PIPELINE"]:
                 if not self._atomic_transition(v_doc, ["NEW", "READY_FOR_PIPELINE"], "PROCESSING_S1"):
-                    print("[Canonizer] Failed atomic lock for S1. Skipping.")
+                    logger.info("Failed atomic lock for S1. Skipping.")
                     return False
             elif status == "PROCESSING_S1":
                 # Already locked by process_pending_documents
                 pass
             elif status.startswith("PROCESSING_"):
                 # Another worker is already handling this.
-                print(f"[Canonizer] Document {v_doc.uuid[:8]} is already {status}. Skipping to avoid overlap.")
+                logger.info(f"Document {v_doc.uuid[:8]} is already {status}. Skipping to avoid overlap.")
                 return False
 
             # 2. AI Analysis (Stage 1: Classification & Split)
@@ -293,17 +296,17 @@ class CanonizerService:
             bus_id = IdentityProfile.model_validate_json(bus_json) if bus_json else None
 
             struct_res = self.analyzer.run_stage_1_adaptive(pages_text, priv_id, bus_id)
-            print("[AI] Stage 1.1 (Classification) [DONE]")
+            logger.info("Stage 1.1 (Classification) [DONE]")
 
             if struct_res is None:
-                print(f"[Canonizer] Stage 1.1 AI Analysis failed after all retries. Setting STAGE1_HOLD for {v_doc.uuid}.")
+                logger.error(f"Stage 1.1 AI Analysis failed after all retries. Setting STAGE1_HOLD for {v_doc.uuid}.")
                 v_doc.status = "STAGE1_HOLD"
                 self.logical_repo.save(v_doc)
                 return False
 
             # Protection override: Locked documents (Class A/B) cannot be split by AI
             if getattr(v_doc, 'is_immutable', False):
-                print(f"[Canonizer] Document {v_doc.uuid} is PROTECTED. Forcing 1:1 mapping.")
+                logger.info(f"Document {v_doc.uuid} is PROTECTED. Forcing 1:1 mapping.")
                 # We use the classification from AI if available
                 if struct_res.get("detected_entities"):
                     ent = struct_res["detected_entities"][0]
@@ -321,7 +324,7 @@ class CanonizerService:
             is_hybrid = struct_res.get("source_file_summary", {}).get("is_hybrid_document", False)
 
             if not detected_entities:
-                print(f"[Canonizer] Stage 1.1: No entities detected for {v_doc.uuid}.")
+                logger.info(f"Stage 1.1: No entities detected for {v_doc.uuid}.")
                 v_doc.status = "PROCESSED"
                 v_doc.last_processed_at = datetime.now().isoformat()
                 self.logical_repo.save(v_doc)
@@ -337,7 +340,7 @@ class CanonizerService:
             v_doc.type_tags = all_tags
 
             if is_manual:
-                print(f"[Canonizer] Manually edited doc {v_doc.uuid} detected. Skipping auto-split.")
+                logger.info(f"Manually edited doc {v_doc.uuid} detected. Skipping auto-split.")
                 # We still need to proceed to Stage 2 for this manual document.
                 # So we simply set split_candidates to a single entry representing the whole doc.
                 split_candidates = [
@@ -350,11 +353,11 @@ class CanonizerService:
             else:
                 has_clear_boundaries = all(ent.get("page_indices") for ent in detected_entities)
                 if is_hybrid and not has_clear_boundaries:
-                    print("[Canonizer] Stage 1.1 found hybrid but no clear boundaries. Triggering Stage 1.2.")
+                    logger.info("Stage 1.1 found hybrid but no clear boundaries. Triggering Stage 1.2.")
                     split_candidates = self.analyzer.identify_entities(full_text, detected_entities=detected_entities)
 
                     if split_candidates is None:
-                        print("[Canonizer] Stage 1.2 AI Analysis returned None. Aborting.")
+                        logger.error("Stage 1.2 AI Analysis returned None. Aborting.")
                         return False
                 else:
                     split_candidates = []
@@ -442,7 +445,7 @@ class CanonizerService:
                 )
 
                 if audit_res is None and self.visual_auditor.is_ai_enabled():
-                    print(f"[Canonizer] Stage 1.5 AI Failed. Setting STAGE1_5_HOLD for {target_doc.uuid}.")
+                    logger.error(f"Stage 1.5 AI Failed. Setting STAGE1_5_HOLD for {target_doc.uuid}.")
                     target_doc.status = "STAGE1_5_HOLD"
                     self.logical_repo.save(target_doc)
                     return False
@@ -470,7 +473,7 @@ class CanonizerService:
             # Gate: Only transition to PROCESSING_S2 if we are currently in a valid preceding state
             if target_doc.status in ["STAGE2_PENDING", "PROCESSING_S1_5", "PROCESSING_S1"]:
                 if not self._atomic_transition(target_doc, ["STAGE2_PENDING", "PROCESSING_S1_5", "PROCESSING_S1"], "PROCESSING_S2"):
-                    print("[Canonizer] Failed atomic lock for S2. Skipping.")
+                    logger.info("Failed atomic lock for S2. Skipping.")
                     continue
 
             s1_context = {"type_tags": c_types}
@@ -480,7 +483,7 @@ class CanonizerService:
             )
 
             if semantic_extraction is None:
-                print(f"[Canonizer] Stage 2 FAILED for {target_doc.uuid}. Aborting hydration.")
+                logger.error(f"Stage 2 FAILED for {target_doc.uuid}. Aborting hydration.")
                 target_doc.status = "STAGE2_PENDING" # Re-queue for later
                 self.logical_repo.save(target_doc)
                 continue
@@ -509,7 +512,7 @@ class CanonizerService:
                 # Sync first-class DMS fields from semantic result to Document object
                 target_doc.ai_confidence = new_semantic.ai_confidence
             except Exception as e:
-                print(f"[Canonizer] Error hydrating Stage 2 result: {e}")
+                logger.error(f"Error hydrating Stage 2 result: {e}")
                 # Fallback: keep partial data if possible
                 if target_doc.semantic_data is None:
                     target_doc.semantic_data = SemanticExtraction()
@@ -525,14 +528,14 @@ class CanonizerService:
                 pb = self.workflow_registry.find_rule_for_tags(target_doc.type_tags)
                 if pb:
                     target_doc.semantic_data.workflow.rule_id = pb.id
-                    print(f"[Workflow] Assigned rule '{pb.id}' to {target_doc.uuid}")
+                    logger.info(f"Assigned rule '{pb.id}' to {target_doc.uuid}")
 
             target_doc.status = "PROCESSED"
             target_doc.last_processed_at = datetime.now().isoformat()
 
             self.logical_repo.save(target_doc)
             safe_types = [str(t) for t in c_types if t is not None]
-            print(f"[Canonizer] Saved Entity {target_doc.uuid} ({', '.join(safe_types)})")
+            logger.info(f"Saved Entity {target_doc.uuid} ({', '.join(safe_types)})")
 
             # [STAGE 1.6] Auto-Tagging
             if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
@@ -618,7 +621,7 @@ class CanonizerService:
         new_doc.source_mapping = regroup(pages_b)
         self.logical_repo.save(new_doc)
 
-        print(f"[Canonizer] Split {entity_uuid} at idx {split_after_page_index}. New parts: {doc.uuid}, {new_doc.uuid}")
+        logger.info(f"Split {entity_uuid} at idx {split_after_page_index}. New parts: {doc.uuid}, {new_doc.uuid}")
         return (doc.uuid, new_doc.uuid)
 
     def restructure_file_entities(self, file_uuid: str, new_mappings: List[List[Dict[str, Any]]]) -> List[str]:
@@ -636,9 +639,9 @@ class CanonizerService:
         existing_docs = self.logical_repo.get_by_source_file(file_uuid)
 
         if not existing_docs:
-            print(f"[Canonizer] Warning: No existing entities found for file {file_uuid}. Treating as fresh split.")
+            logger.warning(f"No existing entities found for file {file_uuid}. Treating as fresh split.")
 
-        print(f"[Canonizer] RESTRUCTURE TRANSACTION: Deleting {len(existing_docs)} old entities for {file_uuid}...")
+        logger.info(f"RESTRUCTURE TRANSACTION: Deleting {len(existing_docs)} old entities for {file_uuid}...")
 
         for old_doc in existing_docs:
             self.logical_repo.delete_by_uuid(old_doc.uuid)
@@ -683,7 +686,7 @@ class CanonizerService:
             self.logical_repo.save(new_doc)
             new_uuids.append(new_id)
 
-        print(f"[Canonizer] RESTRUCTURE COMMIT: Created {len(new_uuids)} new entities.")
+        logger.info(f"RESTRUCTURE COMMIT: Created {len(new_uuids)} new entities.")
         return new_uuids
 
     # ... Helper methods like _fuzzy_identity_match etc. (Unchanged)

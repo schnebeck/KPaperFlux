@@ -26,9 +26,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from core.utils.forensics import get_pdf_class, PDFClass
 from core.utils.hybrid_handler import prepare_hybrid_container, restore_zugferd_xml
-import logging
+from core.logger import get_logger
 
-logger = logging.getLogger("KPaperFlux.Stamper")
+logger = get_logger("stamper")
 
 
 class DocumentStamper:
@@ -57,20 +57,20 @@ class DocumentStamper:
         try:
             # Phase 1: Preparation for Protected Documents
             if p_class in [PDFClass.SIGNED, PDFClass.SIGNED_ZUGFERD]:
-                print(f"[Stamper] Protected Document detected ({p_class.name}). Preparing Hybrid Envelope...")
+                logger.info(f"Protected Document detected ({p_class.name}). Preparing Hybrid Envelope...")
                 fd, temp_envelope = tempfile.mkstemp(suffix=".pdf", prefix="hybrid_prep_")
                 os.close(fd)
                 if prepare_hybrid_container(input_path, temp_envelope):
                     working_input = temp_envelope
                 else:
-                    print("[Stamper] Warning: Failed to create hybrid envelope. Proceeding with caution.")
+                    logger.warning("Failed to create hybrid envelope. Proceeding with caution.")
             
             # Phase 2: Native Stamping
             self._apply_native_stamp(working_input, output_path, text, position, color, rotation)
             
             # Phase 3: Post-Processing / Restoration
             if p_class == PDFClass.ZUGFERD:
-                print("[Stamper] ZUGFeRD document detected. Restoring XML data...")
+                logger.info("ZUGFeRD document detected. Restoring XML data...")
                 restore_zugferd_xml(input_path, output_path)
                 
         finally:
@@ -94,7 +94,7 @@ class DocumentStamper:
         try:
             target_pdf = pikepdf.Pdf.open(input_path, allow_overwriting_input=True)
             if len(target_pdf.pages) == 0:
-                print("[Stamper] No pages in target PDF")
+                logger.info("No pages in target PDF")
                 return
 
             first_page = target_pdf.pages[0]
@@ -241,7 +241,7 @@ class DocumentStamper:
             stamp_pdf.close()
 
         except Exception as e:
-            print(f"[Stamper] Stamping error: {e}")
+            logger.error(f"Stamping error: {e}")
             raise
 
     def get_stamps(self, file_path: str) -> List[Dict[str, str]]:
@@ -267,7 +267,7 @@ class DocumentStamper:
                                 text = str(xobj.KPaperFlux_Text) if "/KPaperFlux_Text" in xobj else ""
                                 stamps.append({'id': s_id, 'text': text})
         except Exception as e:
-            print(f"[Stamper] Error getting stamps: {e}")
+            logger.error(f"Error getting stamps: {e}")
             raise
         return stamps
 
@@ -357,5 +357,5 @@ class DocumentStamper:
                 return False
 
         except Exception as e:
-            print(f"[Stamper] Error removing stamp: {e}")
+            logger.error(f"Error removing stamp: {e}")
             raise
