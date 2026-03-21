@@ -1202,10 +1202,6 @@ class PdfViewerWidget(QWidget):
             lambda: self.canvas.jump_to_page(self.canvas.current_page_idx + 1)
         )
         
-        self.btn_next.clicked.connect(
-            lambda: self.canvas.jump_to_page(self.canvas.current_page_idx + 1)
-        )
-        
         self.btn_zoom_out = QPushButton("-")
         self.btn_zoom_out.setFixedSize(30, 30)
         self.btn_zoom_out.setStyleSheet(btn_style)
