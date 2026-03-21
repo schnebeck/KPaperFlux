@@ -11,7 +11,6 @@ Description:    High-fidelity PDF report generation using ReportLab.
 """
 
 import io
-import datetime
 from pathlib import Path
 import xml.sax.saxutils as saxutils
 from typing import List, Dict, Any, Optional
@@ -21,8 +20,8 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, LETTER
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfgen import canvas
 
 from PyQt6.QtCore import QLocale, QDateTime, QCoreApplication, Qt
@@ -37,7 +36,7 @@ class PdfReportGenerator:
     def __init__(self):
         self.styles = getSampleStyleSheet()
         self.locale = QLocale()
-        self.logo_path = "/home/schnebeck/Dokumente/Projects/KPaperFlux/resources/icon.png"
+        self.logo_path = str(Path(__file__).parent.parent.parent / "resources" / "icon.png")
         self._setup_custom_styles()
 
     def _setup_custom_styles(self):

@@ -116,7 +116,7 @@ def test_layout_drop_loads_multiple_reports(qtbot, reporting_widget):
     
     with patch("core.exchange.ExchangeService.load_from_file", return_value=mock_payload), \
          patch("gui.reporting.os.path.exists", return_value=True), \
-         patch("gui.utils.show_notification") as mock_notif, \
+         patch("gui.reporting.show_notification") as mock_notif, \
          patch.object(reporting_widget, "_generate_report_for_definition") as mock_run:
         
         event = MagicMock()

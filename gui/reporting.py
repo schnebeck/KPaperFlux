@@ -10,11 +10,10 @@ from core.reporting import ReportGenerator, ReportRegistry
 from core.models.reporting import ReportDefinition, ReportComponent
 from core.exporters.pdf_report import PdfReportGenerator
 from gui.report_editor import ReportEditorWidget
+from gui.utils import show_notification, show_selectable_message_box
 
-from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
 import math
 import os
-import logging
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.reporting")
@@ -649,7 +648,6 @@ class ReportingWidget(QWidget):
 
         if imported_reports > 0 or layouts_loaded > 0:
             self.load_available_reports()
-            from gui.utils import show_notification
             msg = []
             if imported_reports > 0:
                 msg.append(self.tr("Report style imported and displayed."))
@@ -670,11 +668,9 @@ class ReportingWidget(QWidget):
                     icon=QMessageBox.Icon.Information
                 )
             else:
-                from gui.utils import show_selectable_message_box
-                from PyQt6.QtWidgets import QMessageBox
                 show_selectable_message_box(
-                    self, 
-                    self.tr("Import Failed"), 
+                    self,
+                    self.tr("Import Failed"),
                     self.tr("Could not find an embedded report configuration in this PDF."),
                     icon=QMessageBox.Icon.Warning
                 )
@@ -796,8 +792,6 @@ class ReportingWidget(QWidget):
 
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.combo_reports.setEnabled(True)
-        from gui.utils import show_selectable_message_box
-        from PyQt6.QtWidgets import QMessageBox
         show_selectable_message_box(self, self.tr("Report Error"), f"{self.tr('Failed to generate report')}:\n{error_msg}", icon=QMessageBox.Icon.Critical)
 
     def render_report(self, results, definition: ReportDefinition, clear_active_charts=False):

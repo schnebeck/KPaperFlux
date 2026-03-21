@@ -47,6 +47,6 @@ def format_date(val: Any, locale: str = "de") -> str:
                 return dt.strftime("%d.%m.%Y")
             else:
                 return dt.strftime("%Y-%m-%d") # ISO standard for EN
-        except Exception as e:
+        except ValueError as e:
             get_silent_logger().debug(f"Failed to parse date '{val_str}': {e}")
     return val_str
