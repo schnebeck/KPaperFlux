@@ -176,19 +176,21 @@ class LogicalRepository(BaseRepository):
         Returns:
             A list of matching VirtualDocument instances.
         """
-        pattern = f'%"{file_uuid}"%'
         sql = """
-        SELECT 
-            uuid, source_mapping, status, export_filename, last_used, 
-            last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
+        SELECT
+            uuid, source_mapping, status, export_filename, last_used,
+            last_processed_at, is_immutable, thumbnail_path, cached_full_text,
             semantic_data, created_at, deleted, page_count_virt, type_tags,
             tags, deleted_at, locked_at, exported_at, pdf_class,
             archived, storage_location, ai_confidence, process_id
         FROM virtual_documents
-        WHERE source_mapping LIKE ?
+        WHERE EXISTS (
+            SELECT 1 FROM json_each(source_mapping)
+            WHERE json_extract(value, '$.file_uuid') = ?
+        )
         """
         cursor = self.conn.cursor()
-        cursor.execute(sql, (pattern,))
+        cursor.execute(sql, (file_uuid,))
         rows = cursor.fetchall()
 
         return [VirtualDocument.from_row(row) for row in rows]
