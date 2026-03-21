@@ -403,6 +403,24 @@ class ReportingWidget(QWidget):
         self.retranslate_ui()
         self.load_available_reports()
 
+    def _stop_all_workers(self) -> None:
+        """Stops and cleans up all pending report workers."""
+        for worker in list(self.pending_workers):
+            try:
+                worker.finished.disconnect()
+                worker.error.disconnect()
+            except RuntimeError:
+                logger.debug("Signal already disconnected during worker cleanup.")
+            worker.quit()
+            worker.wait(1000)
+            worker.deleteLater()
+        self.pending_workers.clear()
+
+    def hideEvent(self, event) -> None:
+        """Stop workers when the widget becomes hidden to avoid stale updates."""
+        self._stop_all_workers()
+        super().hideEvent(event)
+
     def sizeHint(self) -> QSize:
         return QSize(800, 600)
 
@@ -749,13 +767,16 @@ class ReportingWidget(QWidget):
         worker = ReportWorker(self.repo_gen, self.db_manager, definition)
         worker.finished.connect(lambda res, d=definition, w=worker: self._on_report_finished(res, d, w))
         worker.error.connect(lambda err, w=worker: self._on_report_error(err, w))
+        worker.finished.connect(worker.deleteLater)
         self.pending_workers.append(worker)
         worker.start()
 
     def _on_report_finished(self, results, definition, worker):
         if worker in self.pending_workers:
             self.pending_workers.remove(worker)
-        
+        worker.finished.disconnect()
+        worker.error.disconnect()
+
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.combo_reports.setEnabled(True)
         # Remove placeholder if it's there
@@ -769,7 +790,10 @@ class ReportingWidget(QWidget):
     def _on_report_error(self, error_msg, worker):
         if worker in self.pending_workers:
             self.pending_workers.remove(worker)
-        
+        worker.finished.disconnect()
+        worker.error.disconnect()
+        worker.deleteLater()
+
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.combo_reports.setEnabled(True)
         from gui.utils import show_selectable_message_box
