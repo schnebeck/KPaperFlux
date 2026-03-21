@@ -7,34 +7,27 @@ from PyQt6.QtCore import QLocale, QDate, QDateTime, QTime, Qt
 from PyQt6.QtWidgets import QMessageBox
 
 from core.logger import get_logger
+from core.utils.formatting import format_date as _core_format_date
 
 logger = get_logger("gui.utils")
 
 
 def format_date(d: Optional[str | date | datetime]) -> str:
     """
-    Format a date object (or ISO string) to localized string (e.g. 31.12.2024).
+    Format a date object (or ISO string) to a localized string (e.g. 31.12.2024).
+    Delegates to core.utils.formatting using the Qt system locale.
     """
     if not d:
         return ""
-
-    locale = QLocale.system()
-
-    if isinstance(d, str):
-        try:
-            d = datetime.fromisoformat(d).date()
-        except ValueError:
-            return d  # Return raw if parse fails
-
-    if isinstance(d, (datetime, date)):
-        d = QDate(d.year, d.month, d.day)
-
-    return locale.toString(d, "dd.MM.yyyy")
+    locale_name = QLocale.system().name()  # e.g. "de_DE"
+    val_str = d.isoformat() if isinstance(d, (date, datetime)) else str(d)
+    result = _core_format_date(val_str, locale=locale_name)
+    return "" if result == "---" else result
 
 
 def format_datetime(dt: Optional[str | date | datetime]) -> str:
     """
-    Format a datetime object (or ISO string) to localized string (e.g. 31.12.2024 14:30:00).
+    Format a datetime object (or ISO string) to a localized string (e.g. 31.12.2024 14:30:00).
     """
     if not dt:
         return ""
