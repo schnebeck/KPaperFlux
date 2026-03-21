@@ -87,15 +87,16 @@ class CanonizerService:
         # Note: In production, the path might be different, but for now we use relative
         self.workflow_registry.load_from_directory("resources/workflows")
 
+    def _load_physical(self, fid: str) -> Optional[Any]:
+        """Resolves a physical file UUID to its PhysicalFile record."""
+        return self.physical_repo.get_by_uuid(fid)
+
     def reconstruct_document_text(self, v_doc: VirtualDocument) -> str:
         """
         Public helper to refresh the cached_full_text of a logical document
         based on its current source mapping.
         """
-        def loader(fid: str) -> Optional[Any]:
-            return self.physical_repo.get_by_uuid(fid)
-
-        return v_doc.resolve_content(loader)
+        return v_doc.resolve_content(self._load_physical)
 
     def process_pending_documents(self, limit: int = 10) -> int:
         """
@@ -207,10 +208,7 @@ class CanonizerService:
         is_manual = "MANUAL_EDIT" in original_tags
 
         # 1. Resolve Text Content (Lazy Load)
-        def loader(fid: str) -> Optional[Any]:
-            return self.physical_repo.get_by_uuid(fid)
-
-        full_text = v_doc.resolve_content(loader)
+        full_text = v_doc.resolve_content(self._load_physical)
         if not full_text:
             # Safety Check: Is this document consisting only of pages at the end of the physical file?
             is_at_end = False
