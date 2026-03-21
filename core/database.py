@@ -87,8 +87,7 @@ class DatabaseManager:
             file_size INTEGER,
             raw_ocr_data TEXT, -- JSON page map (page_num -> text)
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            page_count_phys INTEGER,
-            ref_count INTEGER DEFAULT 0
+            page_count_phys INTEGER
         );
         """
 
@@ -139,60 +138,26 @@ class DatabaseManager:
             self.connection.execute(create_virtual_documents_fts)
             self._create_fts_triggers()
             self._create_usage_triggers()
-            self._create_ref_count_triggers()
+            self._migrate_drop_ref_count()
 
-    def _create_ref_count_triggers(self) -> None:
+    def _migrate_drop_ref_count(self) -> None:
         """
-        Maintains 'ref_count' in physical_files based on usage in virtual_documents.
-        This ensures physical files are only deleted when no logical entity refers to them.
+        Migration: removes the legacy ref_count column and its associated triggers
+        from existing databases. ref_count was never used for deletion decisions —
+        physical_cleanup() always queries live data via get_by_source_file() — and
+        the triggers were broken for soft deletes anyway.
         """
-        triggers = [
-            """
-            CREATE TRIGGER IF NOT EXISTS vd_ref_count_insert AFTER INSERT ON virtual_documents
-            BEGIN
-                UPDATE physical_files 
-                SET ref_count = ref_count + 1
-                WHERE uuid IN (
-                    SELECT json_extract(value, '$.file_uuid') 
-                    FROM json_each(new.source_mapping)
-                );
-            END;
-            """,
-            """
-            CREATE TRIGGER IF NOT EXISTS vd_ref_count_delete AFTER DELETE ON virtual_documents
-            BEGIN
-                UPDATE physical_files 
-                SET ref_count = ref_count - 1
-                WHERE uuid IN (
-                    SELECT json_extract(value, '$.file_uuid') 
-                    FROM json_each(old.source_mapping)
-                );
-            END;
-            """,
-            """
-            CREATE TRIGGER IF NOT EXISTS vd_ref_count_update AFTER UPDATE ON virtual_documents
-            WHEN (old.source_mapping IS NOT new.source_mapping)
-            BEGIN
-                -- Decrement old
-                UPDATE physical_files 
-                SET ref_count = ref_count - 1
-                WHERE uuid IN (
-                    SELECT json_extract(value, '$.file_uuid') 
-                    FROM json_each(old.source_mapping)
-                );
-                -- Increment new
-                UPDATE physical_files 
-                SET ref_count = ref_count + 1
-                WHERE uuid IN (
-                    SELECT json_extract(value, '$.file_uuid') 
-                    FROM json_each(new.source_mapping)
-                );
-            END;
-            """
-        ]
-        with self._write() as conn:
-            for trigger_sql in triggers:
-                self.connection.execute(trigger_sql)
+        # Drop obsolete triggers
+        for trigger_name in ("vd_ref_count_insert", "vd_ref_count_delete", "vd_ref_count_update"):
+            self.connection.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
+
+        # Drop column only if it still exists (SQLite 3.35+)
+        cursor = self.connection.cursor()
+        cursor.execute("PRAGMA table_info(physical_files)")
+        columns = [row["name"] for row in cursor.fetchall()]
+        if "ref_count" in columns:
+            self.connection.execute("ALTER TABLE physical_files DROP COLUMN ref_count")
+            logger.info("Migration: dropped legacy ref_count column from physical_files")
 
     def matches_condition(self, entity_uuid: str, query_dict: Dict[str, Any]) -> bool:
         """
@@ -1034,9 +999,13 @@ class DatabaseManager:
         Args:
             source_uuid: The UUID of the physical source.
         """
-        sql = "DELETE FROM virtual_documents WHERE source_mapping LIKE ?"
+        sql = """DELETE FROM virtual_documents
+                 WHERE EXISTS (
+                     SELECT 1 FROM json_each(source_mapping)
+                     WHERE json_extract(value, '$.file_uuid') = ?
+                 )"""
         with self._write() as conn:
-            self.connection.execute(sql, (f'%{source_uuid}%',))
+            self.connection.execute(sql, (source_uuid,))
 
     def restore_document(self, uuid: str) -> bool:
         """
@@ -1147,9 +1116,13 @@ class DatabaseManager:
         Returns:
             List of referencing documents.
         """
-        sql = "SELECT uuid FROM virtual_documents WHERE source_mapping LIKE ?"
+        sql = """SELECT uuid FROM virtual_documents
+                 WHERE EXISTS (
+                     SELECT 1 FROM json_each(source_mapping)
+                     WHERE json_extract(value, '$.file_uuid') = ?
+                 )"""
         cursor = self.connection.cursor()
-        cursor.execute(sql, (f'%{source_uuid}%',))
+        cursor.execute(sql, (source_uuid,))
         uuids = [row[0] for row in cursor.fetchall()]
         
         results = []
@@ -1221,8 +1194,12 @@ class DatabaseManager:
             
         if phys_uuids:
             for p_uuid in phys_uuids:
-                sql_map = "SELECT uuid FROM virtual_documents WHERE source_mapping LIKE ? AND deleted = 0"
-                cursor.execute(sql_map, (f"%{p_uuid}%",))
+                sql_map = """SELECT uuid FROM virtual_documents
+                             WHERE deleted = 0 AND EXISTS (
+                                 SELECT 1 FROM json_each(source_mapping)
+                                 WHERE json_extract(value, '$.file_uuid') = ?
+                             )"""
+                cursor.execute(sql_map, (p_uuid,))
                 for row in cursor.fetchall():
                     found_uuids.add(row[0])
                     

@@ -40,20 +40,18 @@ def test_ingest_physical_file(temp_infra):
     assert doc.original_filename == "dummy.pdf"
     
     # 2. Verify Physical File Store
-    # Column order in physical_files: uuid(0), phash(1), file_path(2), original_filename(3), ...
     cursor = db.connection.cursor()
     phys_rows = cursor.execute("SELECT * FROM physical_files").fetchall()
     assert len(phys_rows) == 1
     p_row = phys_rows[0]
-    assert p_row[3] == "dummy.pdf" # original_filename (Index 3 now)
-    assert p_row[8] == 1 # ref_count (Index 8 now)
+    assert p_row["original_filename"] == "dummy.pdf"
     
     # 3. Verify Logical Entity Store
     v_doc = pipeline.logical_repo.get_by_uuid(doc.uuid)
     assert v_doc is not None
     assert v_doc.uuid == doc.uuid # Fixed entity_uuid -> uuid
     assert len(v_doc.source_mapping) == 1
-    assert v_doc.source_mapping[0].file_uuid == p_row[0] # uuid is Index 0 now
+    assert v_doc.source_mapping[0].file_uuid == p_row["uuid"]
     
     # 4. Verify Database View
     s_doc = db.get_document_by_uuid(doc.uuid)
@@ -82,5 +80,7 @@ def test_deduplication(temp_infra):
     phys_rows = cursor.execute("SELECT * FROM physical_files").fetchall()
     assert len(phys_rows) == 1
     
-    # Verify Ref Count = 2
-    assert phys_rows[0][8] == 2
+    # Verify both virtual docs reference the same physical file
+    p_uuid = phys_rows[0]["uuid"]
+    refs = pipeline.logical_repo.get_by_source_file(p_uuid)
+    assert len(refs) == 2

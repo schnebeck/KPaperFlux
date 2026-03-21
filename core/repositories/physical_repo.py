@@ -40,11 +40,10 @@ class PhysicalRepository(BaseRepository):
         """
         sql = """
         INSERT OR REPLACE INTO physical_files (
-            uuid, phash, file_path, original_filename, 
-            file_size, page_count_phys, raw_ocr_data, created_at,
-            ref_count
+            uuid, phash, file_path, original_filename,
+            file_size, page_count_phys, raw_ocr_data, created_at
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
 
@@ -59,7 +58,6 @@ class PhysicalRepository(BaseRepository):
             file.page_count_phys,
             ocr_json,
             file.created_at,
-            file.ref_count
         )
 
         try:
@@ -81,8 +79,8 @@ class PhysicalRepository(BaseRepository):
             A PhysicalFile instance if found, else None.
         """
         sql = """
-        SELECT uuid, phash, file_path, original_filename, file_size, 
-               raw_ocr_data, created_at, page_count_phys, ref_count
+        SELECT uuid, phash, file_path, original_filename, file_size,
+               raw_ocr_data, created_at, page_count_phys
         FROM physical_files 
         WHERE uuid = ?
         """
@@ -104,8 +102,8 @@ class PhysicalRepository(BaseRepository):
             A PhysicalFile instance if found, else None.
         """
         sql = """
-        SELECT uuid, phash, file_path, original_filename, file_size, 
-               raw_ocr_data, created_at, page_count_phys, ref_count
+        SELECT uuid, phash, file_path, original_filename, file_size,
+               raw_ocr_data, created_at, page_count_phys
         FROM physical_files 
         WHERE phash = ?
         """
@@ -124,8 +122,8 @@ class PhysicalRepository(BaseRepository):
             A list of PhysicalFile instances.
         """
         sql = """
-        SELECT uuid, phash, file_path, original_filename, file_size, 
-               raw_ocr_data, created_at, page_count_phys, ref_count
+        SELECT uuid, phash, file_path, original_filename, file_size,
+               raw_ocr_data, created_at, page_count_phys
         FROM physical_files
         """
         cursor = self.conn.cursor()

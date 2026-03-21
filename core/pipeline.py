@@ -487,9 +487,8 @@ class PipelineProcessor:
                             logger.info(f"[Pipeline] Error removing vault file: {e}")
 
                     # Remove from Database
-                    with self.db.connection:
-                        self.db.connection.execute("DELETE FROM physical_files WHERE uuid = ?", (f_uuid,))
-                        logger.info(f"[Pipeline] Removed record from physical_files: {f_uuid}")
+                    self.physical_repo.delete(f_uuid)
+                    logger.info(f"[Pipeline] Removed record from physical_files: {f_uuid}")
 
     def process_document_with_instructions(self, file_path: str, instructions: List[Dict[str, Any]], move_source: bool = False, entity_callback=None) -> List[str]:
         """
