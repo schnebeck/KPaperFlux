@@ -4,9 +4,31 @@ import uuid
 import logging
 from datetime import datetime, date
 from decimal import Decimal
+from enum import StrEnum
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from core.models.semantic import SemanticExtraction
+
+
+class DocumentStatus(StrEnum):
+    """
+    All valid pipeline status values for a VirtualDocument.
+    Using StrEnum ensures values ARE strings, so SQL queries and legacy
+    string comparisons continue to work without modification.
+    """
+    NEW = "NEW"
+    READY_FOR_PIPELINE = "READY_FOR_PIPELINE"
+    MODIFIED = "MODIFIED"
+    PROCESSING_S1 = "PROCESSING_S1"
+    PROCESSING_S1_5 = "PROCESSING_S1_5"
+    PROCESSING_S2 = "PROCESSING_S2"
+    STAGE1_HOLD = "STAGE1_HOLD"
+    STAGE1_5_HOLD = "STAGE1_5_HOLD"
+    STAGE2_PENDING = "STAGE2_PENDING"
+    STAGE2_HOLD = "STAGE2_HOLD"
+    PROCESSED = "PROCESSED"
+    SKIPPED_EMPTY = "SKIPPED_EMPTY"
+    ERROR_AI = "ERROR_AI"
 
 # --- Central Logging Setup ---
 from core.logger import get_logger, get_silent_logger
@@ -51,7 +73,7 @@ class VirtualDocument(BaseModel):
     uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
     original_filename: Optional[str] = None
     source_mapping: List[SourceReference] = Field(default_factory=list)
-    status: str = "NEW"
+    status: str = DocumentStatus.NEW
     export_filename: Optional[str] = None
     last_used: Optional[str] = None
     is_immutable: bool = False

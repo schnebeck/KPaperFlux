@@ -25,7 +25,7 @@ from core.models.semantic import SemanticExtraction
 from core.models.virtual import VirtualDocument as Document
 from core.models.types import DocType
 from core.models.identity import IdentityProfile
-from core.models.virtual import SourceReference, VirtualDocument
+from core.models.virtual import SourceReference, VirtualDocument, DocumentStatus
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
 from core.rules_engine import RulesEngine
@@ -127,7 +127,7 @@ class CanonizerService:
         uuids: List[str] = []
         for row in rows:
             uuid_val, current = row
-            target = "PROCESSING_S1" if current in ["NEW", "READY_FOR_PIPELINE"] else "PROCESSING_S2"
+            target = DocumentStatus.PROCESSING_S1 if current in [DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE] else DocumentStatus.PROCESSING_S2
 
             # Atomic update to lock this document
             cursor.execute(
@@ -227,7 +227,7 @@ class CanonizerService:
                 self.logical_repo.delete_by_uuid(v_doc.uuid)
             else:
                 logger.info(f"No text content resolved for {v_doc.uuid} (Mid-File). Marking as SKIPPED_EMPTY.")
-                v_doc.status = "SKIPPED_EMPTY"
+                v_doc.status = DocumentStatus.SKIPPED_EMPTY
                 self.logical_repo.save(v_doc)
             return True
 
@@ -254,7 +254,7 @@ class CanonizerService:
 
         # Entrance Gate for Resumption / Start
         status = v_doc.status
-        is_stage2_resumption = status in ["STAGE2_PENDING", "PROCESSING_S1_5", "PROCESSING_S2"]
+        is_stage2_resumption = status in [DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S1_5, DocumentStatus.PROCESSING_S2]
         detected_entities: List[Dict[str, Any]] = []
         # is_hybrid = False # Not used later in same scope if commented? No, it's used.
         # split_candidates = [] # Define scope
@@ -277,11 +277,11 @@ class CanonizerService:
             # --- START STAGE 1 ---
             logger.info(f"Stage 1.1 (Classification) [START] -> Pages: {len(pages_text)}")
             # Gate: Only ONE thread can start the process.
-            if status in ["NEW", "READY_FOR_PIPELINE"]:
-                if not self._atomic_transition(v_doc, ["NEW", "READY_FOR_PIPELINE"], "PROCESSING_S1"):
+            if status in [DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE]:
+                if not self._atomic_transition(v_doc, [DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE], DocumentStatus.PROCESSING_S1):
                     logger.info("Failed atomic lock for S1. Skipping.")
                     return False
-            elif status == "PROCESSING_S1":
+            elif status == DocumentStatus.PROCESSING_S1:
                 # Already locked by process_pending_documents
                 pass
             elif status.startswith("PROCESSING_"):
@@ -300,7 +300,7 @@ class CanonizerService:
 
             if struct_res is None:
                 logger.error(f"Stage 1.1 AI Analysis failed after all retries. Setting STAGE1_HOLD for {v_doc.uuid}.")
-                v_doc.status = "STAGE1_HOLD"
+                v_doc.status = DocumentStatus.STAGE1_HOLD
                 self.logical_repo.save(v_doc)
                 return False
 
@@ -325,7 +325,7 @@ class CanonizerService:
 
             if not detected_entities:
                 logger.info(f"Stage 1.1: No entities detected for {v_doc.uuid}.")
-                v_doc.status = "PROCESSED"
+                v_doc.status = DocumentStatus.PROCESSED
                 v_doc.last_processed_at = datetime.now().isoformat()
                 self.logical_repo.save(v_doc)
                 return True
@@ -397,7 +397,7 @@ class CanonizerService:
                 target_doc = v_doc  # Reuse existing
             else:
                 # Create NEW Split Entity
-                target_doc = VirtualDocument(uuid=str(uuid.uuid4()), status="NEW", created_at=v_doc.created_at, semantic_data=SemanticExtraction())
+                target_doc = VirtualDocument(uuid=str(uuid.uuid4()), status=DocumentStatus.NEW, created_at=v_doc.created_at, semantic_data=SemanticExtraction())
 
 
             candidate_types = candidate.get("types", [])
@@ -426,7 +426,7 @@ class CanonizerService:
 
 
             # Transition to Stage 2 Readiness
-            target_doc.status = "STAGE2_PENDING"
+            target_doc.status = DocumentStatus.STAGE2_PENDING
             self.logical_repo.save(target_doc)
 
             entity_pages = [pages_text[p - 1] for p in c_pages if 0 <= p - 1 < len(pages_text)]
@@ -446,7 +446,7 @@ class CanonizerService:
 
                 if audit_res is None and self.visual_auditor.is_ai_enabled():
                     logger.error(f"Stage 1.5 AI Failed. Setting STAGE1_5_HOLD for {target_doc.uuid}.")
-                    target_doc.status = "STAGE1_5_HOLD"
+                    target_doc.status = DocumentStatus.STAGE1_5_HOLD
                     self.logical_repo.save(target_doc)
                     return False
 
@@ -456,7 +456,7 @@ class CanonizerService:
                     target_doc.semantic_data.visual_audit = audit_res
 
 
-                    target_doc.status = "PROCESSING_S1_5"
+                    target_doc.status = DocumentStatus.PROCESSING_S1_5
                     self.logical_repo.save(target_doc)
 
                     # Arbiter Logic
@@ -471,8 +471,8 @@ class CanonizerService:
 
             # [STAGE 2] Semantic Extraction
             # Gate: Only transition to PROCESSING_S2 if we are currently in a valid preceding state
-            if target_doc.status in ["STAGE2_PENDING", "PROCESSING_S1_5", "PROCESSING_S1"]:
-                if not self._atomic_transition(target_doc, ["STAGE2_PENDING", "PROCESSING_S1_5", "PROCESSING_S1"], "PROCESSING_S2"):
+            if target_doc.status in [DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S1_5, DocumentStatus.PROCESSING_S1]:
+                if not self._atomic_transition(target_doc, [DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S1_5, DocumentStatus.PROCESSING_S1], DocumentStatus.PROCESSING_S2):
                     logger.info("Failed atomic lock for S2. Skipping.")
                     continue
 
@@ -484,7 +484,7 @@ class CanonizerService:
 
             if semantic_extraction is None:
                 logger.error(f"Stage 2 FAILED for {target_doc.uuid}. Aborting hydration.")
-                target_doc.status = "STAGE2_PENDING" # Re-queue for later
+                target_doc.status = DocumentStatus.STAGE2_PENDING # Re-queue for later
                 self.logical_repo.save(target_doc)
                 continue
 
@@ -530,7 +530,7 @@ class CanonizerService:
                     target_doc.semantic_data.workflow.rule_id = pb.id
                     logger.info(f"Assigned rule '{pb.id}' to {target_doc.uuid}")
 
-            target_doc.status = "PROCESSED"
+            target_doc.status = DocumentStatus.PROCESSED
             target_doc.last_processed_at = datetime.now().isoformat()
 
             self.logical_repo.save(target_doc)
@@ -609,13 +609,13 @@ class CanonizerService:
         doc.source_mapping = regroup(pages_a)
         doc.type_tags = ["UNKNOWN"]
         doc.semantic_data = {}
-        doc.status = "NEW"
+        doc.status = DocumentStatus.NEW
         self.logical_repo.save(doc)
 
         new_doc = VirtualDocument(
             uuid=str(uuid.uuid4()),  # Canonical Entity UUID is now uuid field
             created_at=doc.created_at,
-            status="NEW",
+            status=DocumentStatus.NEW,
             type_tags=["SPLIT_RESULT"],
         )
         new_doc.source_mapping = regroup(pages_b)
@@ -679,7 +679,7 @@ class CanonizerService:
                 uuid=new_id,
                 source_mapping=refs,
                 semantic_data={},
-                status="READY_FOR_PIPELINE",
+                status=DocumentStatus.READY_FOR_PIPELINE,
                 created_at=created_at_ts,
                 type_tags=["MANUAL_STRUCTURE"],
             )

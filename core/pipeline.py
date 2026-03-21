@@ -31,7 +31,7 @@ from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
 from core.database import DatabaseManager
 from core.models.physical import PhysicalFile
-from core.models.virtual import VirtualDocument, VirtualDocument as Document, SourceReference
+from core.models.virtual import VirtualDocument, VirtualDocument as Document, SourceReference, DocumentStatus
 from core.repositories import LogicalRepository, PhysicalRepository
 from core.vault import DocumentVault
 from core.vocabulary import VocabularyManager
@@ -184,7 +184,7 @@ class PipelineProcessor:
         v_doc = VirtualDocument(
             uuid=new_uuid,
             created_at=datetime.datetime.now().isoformat(),
-            status="NEW",
+            status=DocumentStatus.NEW,
             original_filename=phys_file.original_filename
         )
 
@@ -331,7 +331,7 @@ class PipelineProcessor:
             return True
 
         v_doc.source_mapping = new_mapping
-        v_doc.status = "MODIFIED"
+        v_doc.status = DocumentStatus.MODIFIED
         v_doc.last_processed_at = datetime.datetime.now().isoformat()
 
         self.logical_repo.save(v_doc)
@@ -405,7 +405,7 @@ class PipelineProcessor:
                 new_doc = VirtualDocument(
                     uuid=str(uuid.uuid4()),
                     source_mapping=mapping,
-                    status="READY_FOR_PIPELINE",
+                    status=DocumentStatus.READY_FOR_PIPELINE,
                     created_at=created_at,
                     last_processed_at=datetime.datetime.now().isoformat(),
                     type_tags=["MANUAL_EDIT"],
@@ -549,7 +549,7 @@ class PipelineProcessor:
             v_doc = VirtualDocument(
                 uuid=str(uuid.uuid4()),
                 source_mapping=mapping,
-                status="READY_FOR_PIPELINE",
+                status=DocumentStatus.READY_FOR_PIPELINE,
                 created_at=datetime.datetime.now().isoformat(),
                 is_immutable=instr.get("locked", False)
             )
@@ -652,7 +652,7 @@ class PipelineProcessor:
                 v_doc = VirtualDocument(
                     uuid=str(uuid.uuid4()),
                     source_mapping=mapping,
-                    status="READY_FOR_PIPELINE",
+                    status=DocumentStatus.READY_FOR_PIPELINE,
                     created_at=datetime.datetime.now().isoformat(),
                     last_processed_at=datetime.datetime.now().isoformat(),
                     is_immutable=instr.get("locked", False),
@@ -701,7 +701,7 @@ class PipelineProcessor:
         merged_doc = VirtualDocument(
             uuid=str(uuid.uuid4()),
             source_mapping=new_mapping,
-            status="READY_FOR_PIPELINE",
+            status=DocumentStatus.READY_FOR_PIPELINE,
             created_at=created_at or datetime.datetime.now().isoformat(),
             last_processed_at=datetime.datetime.now().isoformat(),
             type_tags=["LOGICAL_MERGE"],
