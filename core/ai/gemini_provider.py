@@ -1,4 +1,5 @@
 
+import base64
 import datetime
 import random
 import time
@@ -90,10 +91,13 @@ class GeminiProvider(AIProvider):
 
         contents = [prompt]
         if images:
-            if isinstance(images, list):
-                contents.extend(images)
-            else:
-                contents.append(images)
+            image_list = images if isinstance(images, list) else [images]
+            for img in image_list:
+                if isinstance(img, dict) and "base64" in img:
+                    img_bytes = base64.b64decode(img["base64"])
+                    contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
+                else:
+                    contents.append(img)  # already a types.Part (backwards compat)
 
         # Force JSON via API
         full_payload = {

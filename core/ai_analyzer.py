@@ -42,12 +42,11 @@ class AIAnalyzer:
         self.stage1 = Stage1Processor(self.client, self.config)
         self.stage2 = Stage2Processor(self.client, self.config)
 
-    @classmethod
-    def get_adaptive_delay(cls) -> float:
+    def get_adaptive_delay(self) -> float:
         """
-        Retrieves the current adaptive delay value from AIClient.
+        Retrieves the current adaptive delay value from the active AI provider.
         """
-        return AIClient.get_adaptive_delay()
+        return self.client.get_adaptive_delay()
 
     def list_models(self) -> List[str]:
         """

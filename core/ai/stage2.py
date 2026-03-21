@@ -23,7 +23,6 @@ from core.logger import get_logger
 logger = get_logger("ai.stage2")
 
 import fitz
-from google.genai import types
 from pydantic import ValidationError
 
 from core.ai import prompts
@@ -143,12 +142,8 @@ class Stage2Processor:
         if pdf_path:
             img_data = self.get_page_image_payload(pdf_path, 0)
             if img_data:
-                try:
-                    img_bytes = base64.b64decode(img_data["base64"])
-                    images_payload.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
-                    logger.info("[AI] Stage 2 -> Vision context enabled (Page 1)")
-                except Exception as e:
-                    logger.info(f"[AI] Stage 2 -> Vision prep failed: {e}")
+                images_payload.append(img_data)
+                logger.info("[AI] Stage 2 -> Vision context enabled (Page 1)")
 
         detected_entities = stage_1_result.get("detected_entities", [])
         if not detected_entities:

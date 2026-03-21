@@ -420,7 +420,7 @@ class AppConfig:
 
     def get_anthropic_model(self) -> str:
         """Retrieves the Anthropic model name."""
-        return str(self._get_setting("AI", self.KEY_ANTHROPIC_MODEL, "claude-3-5-sonnet-20240620"))
+        return str(self._get_setting("AI", self.KEY_ANTHROPIC_MODEL, "claude-sonnet-4-6"))
 
     def set_anthropic_model(self, model: str) -> None:
         """Saves the Anthropic model name."""
