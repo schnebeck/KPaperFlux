@@ -3,8 +3,6 @@ import cv2
 import numpy as np
 import fitz
 from typing import Tuple, Optional
-import os
-
 from core.logger import get_logger
 logger = get_logger("utils.hybrid_engine")
 
@@ -15,6 +13,11 @@ class HybridEngine:
     Specifically designed to align a 'Born-Digital' (Native) PDF page 
     with a 'Scanned/Signed' counterpart.
     """
+
+    @staticmethod
+    def to_gray(img: np.ndarray) -> np.ndarray:
+        """Converts a BGR image to grayscale. Returns unchanged if already single-channel."""
+        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
 
     @staticmethod
     def pixmap_to_cv_image(pix: fitz.Pixmap) -> np.ndarray:
@@ -50,8 +53,8 @@ class HybridEngine:
             mat = fitz.Matrix(0.5, 0.5) 
             pix = page.get_pixmap(matrix=mat)
             img = self.pixmap_to_cv_image(pix)
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            
+            gray = HybridEngine.to_gray(img)
+
             bright_pixels = gray[gray > 200]
             if len(bright_pixels) == 0: return False
             
@@ -102,8 +105,8 @@ class HybridEngine:
             if sim_score < 0.50: return 1000000.0
             
             # 3. Ink Recall Analysis
-            gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY)
-            gray_aligned = cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY)
+            gray_native = HybridEngine.to_gray(img_native)
+            gray_aligned = HybridEngine.to_gray(img_scan_aligned)
             
             _, native_text_mask = cv2.threshold(gray_native, 215, 255, cv2.THRESH_BINARY_INV)
             native_ink_count = cv2.countNonZero(native_text_mask)
@@ -154,7 +157,7 @@ class HybridEngine:
     @staticmethod
     def get_orb_features(img: np.ndarray, max_points: int = 1500) -> Tuple[list, np.ndarray]:
         """Precomputes ORB features for an image (Optimized to 1500 points)."""
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
+        gray = HybridEngine.to_gray(img)
         orb = cv2.ORB_create(max_points)
         kp, des = orb.detectAndCompute(gray, None)
         return kp, des
@@ -164,8 +167,8 @@ class HybridEngine:
                                kp_native=None, des_native=None, 
                                kp_scan=None, des_scan=None) -> Tuple[np.ndarray, float]:
         """Base implementation of ORB alignment with optional cached features."""
-        gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY) if len(img_native.shape) == 3 else img_native
-        gray_scan = cv2.cvtColor(img_scan, cv2.COLOR_BGR2GRAY) if len(img_scan.shape) == 3 else img_scan
+        gray_native = HybridEngine.to_gray(img_native)
+        gray_scan = HybridEngine.to_gray(img_scan)
 
         # Use provided features or compute on the fly
         if kp_native is None or des_native is None:
@@ -210,7 +213,7 @@ class HybridEngine:
         s_native = cv2.resize(gray_native, (cmp_res, cmp_res))
         
         # Ensure s_scan is also grayscale for comparison
-        raw_aligned_gray = cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY) if len(img_scan_aligned.shape) == 3 else img_scan_aligned
+        raw_aligned_gray = HybridEngine.to_gray(img_scan_aligned)
         s_scan = cv2.resize(raw_aligned_gray, (cmp_res, cmp_res))
         
         diff = cv2.absdiff(s_native, s_scan)
@@ -278,8 +281,8 @@ class HybridEngine:
         - Cyan: Missing in Scan (Deleted text)
         """
         h, w = img_native.shape[:2]
-        gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY)
-        gray_scan = cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY)
+        gray_native = HybridEngine.to_gray(img_native)
+        gray_scan = HybridEngine.to_gray(img_scan_aligned)
 
         # 1. Prepare Masks with tolerance (Dilate to ignore 1-2px shifts)
         kernel_tol = np.ones((3,3), np.uint8)
@@ -332,8 +335,8 @@ class HybridEngine:
         Returns (rgba_image, pixel_count).
         """
         h, w = img_native.shape[:2]
-        gray_native = cv2.cvtColor(img_native, cv2.COLOR_BGR2GRAY)
-        gray_scan = cv2.cvtColor(img_scan_aligned, cv2.COLOR_BGR2GRAY)
+        gray_native = HybridEngine.to_gray(img_native)
+        gray_scan = HybridEngine.to_gray(img_scan_aligned)
 
         # 1. Native Mask
         _, native_text_mask = cv2.threshold(gray_native, 200, 255, cv2.THRESH_BINARY_INV)

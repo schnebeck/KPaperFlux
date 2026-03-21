@@ -86,7 +86,7 @@ class BackgroundActivityStatusBar(QFrame):
         self.pause_btn.setCheckable(True)
         self.pause_btn.setFixedSize(20, 20)
         self.pause_btn.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_MediaPause))
-        self.pause_btn.setToolTip("Pause Background AI")
+        self.pause_btn.setToolTip(self.tr("Pause Background AI"))
         self.pause_btn.clicked.connect(self._on_pause_clicked)
         layout.addWidget(self.pause_btn)
 
@@ -94,7 +94,7 @@ class BackgroundActivityStatusBar(QFrame):
         self.stop_btn.setObjectName("StopBtn")
         self.stop_btn.setFixedSize(20, 20)
         self.stop_btn.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_MediaStop))
-        self.stop_btn.setToolTip("Stop Background AI")
+        self.stop_btn.setToolTip(self.tr("Stop Background AI"))
         self.stop_btn.clicked.connect(self.stop_requested)
         layout.addWidget(self.stop_btn)
 
