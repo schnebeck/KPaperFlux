@@ -200,6 +200,6 @@ class MaintenanceDialog(QDialog):
             try:
                 self.pipeline.process_document(path_str, move_source=True)
             except Exception as e:
-                print(f"Error importing ghost {path_str}: {e}")
+                logger.error(f"Error importing ghost {path_str}: {e}")
 
         self.scan()

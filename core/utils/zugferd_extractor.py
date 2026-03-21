@@ -1,11 +1,11 @@
 
 import fitz  # PyMuPDF
-import logging
 from typing import Optional, Dict, Any
 from lxml import etree
 import decimal
+from core.logger import get_logger
 
-logger = logging.getLogger("KPaperFlux.Zugferd")
+logger = get_logger("core.utils.zugferd")
 
 class ZugferdExtractor:
     """

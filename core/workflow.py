@@ -1,7 +1,6 @@
 
 import os
 import json
-import logging
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
 
@@ -121,7 +120,8 @@ class WorkflowEngine:
                     return False
         return True
 
-logger = logging.getLogger("KPaperFlux.Workflow")
+from core.logger import get_logger
+logger = get_logger("core.workflow")
 
 class WorkflowRuleRegistry:
     """Singleton registry for managing document workflow rules."""

@@ -1060,7 +1060,7 @@ class AdvancedFilterWidget(QWidget):
 
     def _on_smart_search(self):
         text = self.txt_smart_search.text().strip()
-        print(f"[Search-Debug] Raw Input: '{text}'")
+        logger.debug(f"[Search] Raw Input: '{text}'")
 
         # 1. Validation (Allow empty to clear)
         if text and len(text) < 3:
@@ -1081,17 +1081,17 @@ class AdvancedFilterWidget(QWidget):
 
         # Phase 106: Force Literal Text Search (No semantic interpretation as requested)
         criteria = {"fulltext": text}
-        print(f"[Search-Debug] Literal Search Criteria: {criteria}")
+        logger.debug(f"[Search] Literal Search Criteria: {criteria}")
 
         # Phase 106: Deep Search for fulltext using Raw Data if available
         if criteria.get("fulltext") and self.db_manager:
-             print(f"[Search-Debug] Performing Deep Search for text: '{criteria['fulltext']}'")
+             logger.debug(f"[Search] Performing Deep Search for text: '{criteria['fulltext']}'")
              # Find UUIDs that match the text in RAW or CACHE
              deep_uuids = self.db_manager.get_virtual_uuids_with_text_content(criteria["fulltext"])
              criteria["deep_uuids"] = deep_uuids
-             print(f"[Search-Debug] Deep Search found {len(deep_uuids)} UUIDs")
+             logger.debug(f"[Search] Deep Search found {len(deep_uuids)} UUIDs")
              if len(deep_uuids) > 0:
-                 print(f"[Search-Debug] Sample UUIDs: {deep_uuids[:3]}")
+                 logger.debug(f"[Search] Sample UUIDs: {deep_uuids[:3]}")
 
         # 2. Build Text Query
         text_query = self._criteria_to_query(criteria)
@@ -1110,7 +1110,7 @@ class AdvancedFilterWidget(QWidget):
                 }
                 scope_msg = self.tr("in current view")
 
-        print(f"[Search-Debug] Final Query: {final_query}")
+        logger.debug(f"[Search] Final Query: {final_query}")
 
         # 4. Count & Feedback
         count = 0
@@ -1118,9 +1118,9 @@ class AdvancedFilterWidget(QWidget):
             try:
                 count = self.db_manager.count_documents_advanced(final_query)
             except Exception as e:
-                print(f"[Search] Count failed: {e}")
+                logger.warning(f"[Search] Count failed: {e}")
 
-        print(f"[Search-Debug] Count Result: {count}")
+        logger.debug(f"[Search] Count Result: {count}")
         
         if count == 0:
             status_msg = self.tr("No documents found")
@@ -1182,7 +1182,7 @@ class AdvancedFilterWidget(QWidget):
         """Re-fetch extra keys and tags from DB and refresh UI components."""
         if not self.db_manager: return
 
-        print("[DEBUG] AdvancedFilter: Refreshing dynamic metadata (Stamps/Tags)...")
+        logger.debug("AdvancedFilter: Refreshing dynamic metadata (Stamps/Tags)...")
         self.extra_keys = self.db_manager.get_available_extra_keys()
         if self.db_manager:
             self.available_tags = self.db_manager.get_available_tags(system=False)
@@ -1359,7 +1359,7 @@ class AdvancedFilterWidget(QWidget):
             self.filter_changed.emit({})
             return
 
-        print(f"[DEBUG] AdvancedFilter Emitting: {json.dumps(query, default=str)}")
+        logger.debug(f"AdvancedFilter Emitting: {json.dumps(query, default=str)}")
         self.filter_changed.emit(query)
 
     def get_query_object(self):

@@ -878,7 +878,7 @@ class MetadataEditorWidget(QWidget):
         source = "SYSTEM" if is_auto else "USER"
         comment = self.tr("Auto-transition triggered") if is_auto else self.tr("Action triggered via UI")
         
-        print(f"[Workflow-GUI] Triggering ACTION '{action}' -> '{target_state}' (Auto: {is_auto})")
+        logger.debug(f"Triggering ACTION '{action}' -> '{target_state}' (Auto: {is_auto})")
         
         # 1. Update In-Memory Object
         sd = self.doc.semantic_data
@@ -904,7 +904,7 @@ class MetadataEditorWidget(QWidget):
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
             
-        print(f"[Workflow-GUI] Changing Rule to '{new_rule_id}'")
+        logger.debug(f"Changing Rule to '{new_rule_id}'")
         
         sd = self.doc.semantic_data
         if not sd: return

@@ -1,7 +1,6 @@
 
 import os
 import json
-import logging
 import re
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
@@ -15,8 +14,9 @@ from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, Wor
 from gui.widgets.semantic_selector import SemanticVariableSelector
 from gui.cockpit import StatCard
 from typing import Dict, List, Any, Optional
+from core.logger import get_logger
 
-logger = logging.getLogger("KPaperFlux.Workflow")
+logger = get_logger("gui.workflow_manager")
 
 class WorkflowRuleFormEditor(QWidget):
     """Structured editor for a single Rule."""

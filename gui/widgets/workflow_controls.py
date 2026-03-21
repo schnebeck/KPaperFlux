@@ -1,11 +1,11 @@
-import logging
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QVBoxLayout
 from PyQt6.QtCore import pyqtSignal, Qt
 from core.workflow import WorkflowRuleRegistry, WorkflowEngine, WorkflowState
 from core.semantic_translator import SemanticTranslator
 from typing import Dict, Any, Optional
+from core.logger import get_logger
 
-logger = logging.getLogger("KPaperFlux.WorkflowUI")
+logger = get_logger("gui.widgets.workflow_controls")
 
 class WorkflowControlsWidget(QWidget):
     """Dynamic UI component for document workflow transitions."""

@@ -215,7 +215,7 @@ class SplitterDialog(QDialog):
                          "reason": "Import Aborted by User",
                          "next_steps": ["DELETE_ENTITY", "CLEANUP_FILES"]
                     }
-                    print(f"[DEBUG] Splitter Result: {json.dumps(debug_result, indent=2)}")
+                    logger.debug(f"Splitter Result: {json.dumps(debug_result, indent=2)}")
 
                     self.reject()
                 except Exception as e:

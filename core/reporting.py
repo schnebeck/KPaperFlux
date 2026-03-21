@@ -12,17 +12,16 @@ Description:    Reporting engine for KPaperFlux. Handles financial aggregation,
 
 import csv
 import io
-import logging
+import json
+import os
 from decimal import Decimal
 from typing import Dict, List, Any, Optional
 
 from core.models.virtual import VirtualDocument as Document
 from core.models.reporting import ReportDefinition, Aggregation
+from core.logger import get_logger
 
-import os
-import json
-
-logger = logging.getLogger("KPaperFlux.Reporting")
+logger = get_logger("core.reporting")
 
 class ReportRegistry:
     """Singleton registry for managing report definitions."""

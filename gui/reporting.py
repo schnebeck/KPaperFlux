@@ -632,7 +632,7 @@ class ReportingWidget(QWidget):
                     # Scroll to top to ensure it's visible
                     self.scroll.verticalScrollBar().setValue(0)
                 except Exception as e:
-                    print(f"Failed to auto-run dropped report: {e}")
+                    logger.error(f"Failed to auto-run dropped report: {e}")
 
             elif payload.type == "layout":
                 self.clear_results()
@@ -643,7 +643,7 @@ class ReportingWidget(QWidget):
                         definition = ReportDefinition(**r_data)
                         self._generate_report_for_definition(definition)
                     except Exception as e:
-                        print(f"Failed to load report from dropped layout: {e}")
+                        logger.error(f"Failed to load report from dropped layout: {e}")
                 layouts_loaded += 1
                 self.scroll.verticalScrollBar().setValue(0)
 
@@ -702,7 +702,7 @@ class ReportingWidget(QWidget):
                 f.write(json.dumps(config, indent=2))
             return True
         except Exception as e:
-            print(f"Failed to save report definition: {e}")
+            logger.error(f"Failed to save report definition: {e}")
             return False
 
     def load_available_reports(self):
@@ -1005,7 +1005,7 @@ class ReportingWidget(QWidget):
             with open(path, "w", encoding="utf-8") as f:
                 f.write(definition.model_dump_json(indent=2))
         except Exception as e:
-            print(f"Failed to save report: {e}")
+            logger.error(f"Failed to save report: {e}")
 
     def refresh_data_all(self):
         """Clears and re-renders all currently involve reports."""
@@ -1295,7 +1295,7 @@ class ReportingWidget(QWidget):
                     definition = ReportDefinition(**r_data)
                     self._generate_report_for_definition(definition)
                 except Exception as e:
-                    print(f"Failed to load report in layout: {e}")
+                    logger.error(f"Failed to load report in layout: {e}")
             QMessageBox.information(self, self.tr("Load Layout"), self.tr("Layout loaded successfully."))
         elif payload:
              QMessageBox.warning(self, self.tr("Load Layout"), self.tr("File is not a Layout (Type: %s)") % payload.type)

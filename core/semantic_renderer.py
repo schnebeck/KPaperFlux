@@ -1,12 +1,12 @@
 import os
 import json
-import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional, List
 from core.models.semantic import SemanticExtraction
+from core.logger import get_logger
 
-logger = logging.getLogger("KPaperFlux.Renderer")
+logger = get_logger("core.semantic_renderer")
 
 class SemanticRenderer:
     """

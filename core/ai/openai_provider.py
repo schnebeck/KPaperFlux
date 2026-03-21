@@ -1,11 +1,11 @@
 
 import json
-import logging
 import requests
 from typing import Any, List, Optional
 from core.ai.base import AIProvider
+from core.logger import get_logger
 
-logger = logging.getLogger("KPaperFlux.AI.OpenAI")
+logger = get_logger("ai.openai")
 
 class OpenAIProvider(AIProvider):
     """Client for OpenAI API."""

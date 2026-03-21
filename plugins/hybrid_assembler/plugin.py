@@ -1,5 +1,4 @@
 
-import os
 import cv2
 import fitz
 import numpy as np
@@ -7,6 +6,9 @@ from pathlib import Path
 from core.plugins.base import KPaperFluxPlugin
 from core.utils.hybrid_engine import HybridEngine
 from core.utils.forensics import check_pdf_immutable
+from core.logger import get_logger
+
+logger = get_logger("plugins.hybrid_assembler")
 
 class HybridAssemblerPlugin(KPaperFluxPlugin):
     """
@@ -66,7 +68,7 @@ class HybridAssemblerPlugin(KPaperFluxPlugin):
                 is_valid = True
             elif n_native % 2 != 0 and n_scan == n_native + 1:
                 # Duplex scanner added a blank last page for an odd-paged document
-                print(f"[HybridAssembler] Normalizing duplex scan: Native has {n_native} (odd) pages, Scan has {n_scan}. Ignoring last scanned page.")
+                logger.info(f"Normalizing duplex scan: Native has {n_native} (odd) pages, Scan has {n_scan}. Ignoring last scanned page.")
                 is_valid = True
             
             if not is_valid:
@@ -128,5 +130,5 @@ class HybridAssemblerPlugin(KPaperFluxPlugin):
             # Re-raise to be caught as string in the UI worker
             raise ve
         except Exception as e:
-            print(f"[HybridAssembler] Error: {e}")
+            logger.error(f"HybridAssembler error: {e}")
             raise e

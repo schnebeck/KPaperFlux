@@ -1,9 +1,12 @@
 
 import json
-import os
+from pathlib import Path
 from PyQt6.QtWidgets import QStyledItemDelegate, QStyle
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
+from core.logger import get_logger
+
+logger = get_logger("gui.delegates.tag")
 
 class TagDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -15,12 +18,12 @@ class TagDelegate(QStyledItemDelegate):
 
     def _load_styles(self):
         try:
-            path = os.path.join(os.getcwd(), "resources", "tag_styles.json")
-            if os.path.exists(path):
+            path = Path("resources") / "tag_styles.json"
+            if path.exists():
                 with open(path, "r") as f:
                     return json.load(f)
         except Exception as e:
-            print(f"Error loading tag styles: {e}")
+            logger.warning(f"Error loading tag styles: {e}")
         
         return {
             "styles": {},

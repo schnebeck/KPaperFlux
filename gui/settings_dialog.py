@@ -450,7 +450,7 @@ class SettingsDialog(QDialog):
                 self._update_status_icon(False)
                 show_selectable_message_box(self, self.tr("Error"), msg, icon=QMessageBox.Icon.Critical)
             else:
-                print(f"[AI] Background model refresh failed: {msg}")
+                logger.warning(f"Background model refresh failed: {msg}")
         finally:
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.btn_verify_key.setEnabled(True)

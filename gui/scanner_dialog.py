@@ -7,12 +7,12 @@ from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer, QSettings
 from PyQt6.QtGui import QPixmap, QIcon
 from typing import Optional, List, Tuple
 from core.scanner import get_scanner_driver, ScannerDriver
+from core.logger import get_logger
 import os
 import tempfile
 import pikepdf
-import logging
 
-logger = logging.getLogger("KPaperFlux.Scanner")
+logger = get_logger("gui.scanner")
 
 class DeviceDiscoveryWorker(QThread):
     finished = pyqtSignal(list)

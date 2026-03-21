@@ -138,7 +138,7 @@ class DragPlaceholderWidget(QWidget):
         self.setFixedWidth(value)
 
     def expand(self):
-        print(f"[DEBUG] Placeholder Animation: EXPAND (target={self.target_width})")
+        logger.debug(f"Placeholder Animation: EXPAND (target={self.target_width})")
         self._animation.stop()
         self._animation.setStartValue(self.width())
         self._animation.setEndValue(self.target_width)
@@ -147,13 +147,13 @@ class DragPlaceholderWidget(QWidget):
 
     def expand_instantly(self):
         """Skip animation and set target width immediately."""
-        print(f"[DEBUG] Placeholder: INSTANT EXPAND (width={self.target_width})")
+        logger.debug(f"Placeholder: INSTANT EXPAND (width={self.target_width})")
         self._animation.stop()
         self.setFixedWidth(self.target_width)
         self.show()
 
     def shrink_and_delete(self):
-        print(f"[DEBUG] Placeholder Animation: SHRINK (current={self.width()})")
+        logger.debug(f"Placeholder Animation: SHRINK (current={self.width()})")
         self._animation.stop()
         self._animation.setStartValue(self.width())
         self._animation.setEndValue(0)
@@ -639,7 +639,7 @@ class SplitterStripWidget(QWidget):
              self._populate_strip(flat_pages)
 
         except Exception as e:
-             print(f"Error resolving file context: {e}")
+             logger.error(f"Error resolving file context: {e}")
 
     def load_from_path(self, file_path: str):
         self.current_uuid = "PENDING_IMPORT"
@@ -656,7 +656,7 @@ class SplitterStripWidget(QWidget):
              flat_pages = [{"file_uuid": "RAW", "page": p+1, "rotation": 0, "raw_path": file_path} for p in range(page_count)]
              self._populate_strip(flat_pages)
         except Exception as e:
-            print(f"Error loading raw file: {e}")
+            logger.error(f"Error loading raw file: {e}")
 
     def load_from_paths(self, file_info_list: list) -> None:
         """
@@ -695,7 +695,7 @@ class SplitterStripWidget(QWidget):
                         "pdf_class": p_class
                     })
             except Exception as e:
-                print(f"Error loading {path}: {e}")
+                logger.error(f"Error loading {path}: {e}")
 
         self._populate_strip(all_pages)
 
@@ -1184,7 +1184,7 @@ class SplitterStripWidget(QWidget):
             self._drag_old_state = []
 
         self.on_scroll_changed()
-        print("[DEBUG] Drop Finalized & Normalized.")
+        logger.debug("Drop Finalized & Normalized.")
 
 
     def _rebuild_dividers(self):

@@ -2,6 +2,9 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QSizePoli
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QPixmap, QImage, QTransform
 import fitz
+from core.logger import get_logger
+
+logger = get_logger("gui.widgets.canvas_page")
 
 class ControlsOverlay(QWidget):
     """Floating controls for the CanvasPageWidget."""
@@ -130,7 +133,7 @@ class CanvasPageWidget(QWidget):
             doc.close()
             self.refresh_view()
         except Exception as e:
-            print(f"Error rendering: {e}")
+            logger.error(f"Error rendering: {e}")
             
     def refresh_view(self):
         if not self.original_pixmap: return

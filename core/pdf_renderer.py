@@ -13,7 +13,6 @@ Description:    Highly creative and diverse PDF renderer. Supports multiple
 """
 
 import os
-import logging
 import random
 from datetime import datetime
 from decimal import Decimal
@@ -31,8 +30,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
 
 from core.models.semantic import SemanticExtraction, AddressInfo
+from core.logger import get_logger
 
-logger = logging.getLogger("KPaperFlux.PdfRenderer")
+logger = get_logger("core.pdf_renderer")
 
 class ProfessionalPdfRenderer:
     """

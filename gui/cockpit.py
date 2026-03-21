@@ -20,6 +20,9 @@ from PyQt6.QtGui import QAction, QCursor, QPalette, QPainter, QColor, QFont, QPe
 
 from gui.dialogs.cockpit_entry_dialog import CockpitEntryDialog
 from core.config import AppConfig
+from core.logger import get_logger
+
+logger = get_logger("gui.cockpit")
 
 CELL_WIDTH = 280
 CELL_HEIGHT = 180
@@ -282,7 +285,7 @@ class CockpitWidget(QWidget):
                 }
                 json.dump(data, f, indent=2)
         except Exception as e:
-            print(f"[Error] Failed to save cockpit config: {e}")
+            logger.error(f"Failed to save cockpit config: {e}")
 
     def get_pos_from_cell(self, row, col):
         x = MARGIN + col * (CELL_WIDTH + SPACING)

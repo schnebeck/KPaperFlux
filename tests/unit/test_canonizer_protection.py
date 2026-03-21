@@ -47,8 +47,8 @@ def test_canonizer_forces_1_to_1_for_protected(mock_service):
             # but we only care about the state after Stage 1.
             try:
                 mock_service.process_virtual_document(v_doc)
-            except:
-                pass 
+            except Exception:
+                pass  # Stage 2 is not fully mocked; only Stage 1 state is asserted below
             
             # The v_doc should still have 2 pages and the first type tag
             assert len(v_doc.source_mapping[0].pages) == 2
