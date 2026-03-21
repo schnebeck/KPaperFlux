@@ -707,18 +707,20 @@ class DatabaseManager:
             
         # Dynamic JSON mapping
         if field.startswith("json:") or field.startswith("semantic:"):
-            path = field.split(":", 1)[1]
+            path = field.split(":", 1)[1].replace("'", "''")
             return f"json_extract(semantic_data, '$.{path}')"
-            
+
         # Dynamic Stamp Form Fields
         if field.startswith("stamp_field:"):
-             label = field[12:]
-             return f"(SELECT group_concat(COALESCE(json_extract(f.value, '$.normalized_value'), " \
-                    f"json_extract(f.value, '$.raw_value'))) " \
-                    f" FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), " \
-                    f" json_extract(semantic_data, '$.layer_stamps'))) AS s, " \
-                    f" json_each(json_extract(s.value, '$.form_fields')) AS f " \
-                    f" WHERE json_extract(f.value, '$.label') = '{label}')"
+            label = field[12:].replace("'", "''")
+            return (
+                f"(SELECT group_concat(COALESCE(json_extract(f.value, '$.normalized_value'), "
+                f"json_extract(f.value, '$.raw_value'))) "
+                f" FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), "
+                f" json_extract(semantic_data, '$.layer_stamps'))) AS s, "
+                f" json_each(json_extract(s.value, '$.form_fields')) AS f "
+                f" WHERE json_extract(f.value, '$.label') = '{label}')"
+            )
             
         return field
 
