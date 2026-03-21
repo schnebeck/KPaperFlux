@@ -405,17 +405,17 @@ class PageThumbnailWidget(QWidget):
 
             if not path or not os.path.exists(path): return QPixmap()
 
-            doc = fitz.open(path)
-            # page is 1-based
-            page = doc.load_page(self.page_info["page"] - 1)
-            # Standard render scaling
-            pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
+            with fitz.open(path) as doc:
+                # page is 1-based
+                page = doc.load_page(self.page_info["page"] - 1)
+                # Standard render scaling
+                pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
 
             img_format = QImage.Format.Format_RGB888
             qt_img = QImage(pix.samples, pix.width, pix.height, pix.stride, img_format)
             return QPixmap.fromImage(qt_img)
         except Exception as e:
-            print(f"Render Error p{self._page_num}: {e}")
+            logger.error(f"Render Error p{self._page_num}: {e}")
             return QPixmap()
 
     def rotate_right(self):

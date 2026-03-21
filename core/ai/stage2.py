@@ -110,17 +110,13 @@ class Stage2Processor:
         Renders a PDF page as a Base64 image payload.
         """
         try:
-            doc = fitz.open(pdf_path)
-            if page_index >= doc.page_count:
-                doc.close()
-                return None
-            
-            page = doc.load_page(page_index)
-            pix = page.get_pixmap(dpi=200) 
-            img_bytes = pix.tobytes("png")
+            with fitz.open(pdf_path) as doc:
+                if page_index >= doc.page_count:
+                    return None
+                page = doc.load_page(page_index)
+                pix = page.get_pixmap(dpi=200)
+                img_bytes = pix.tobytes("png")
             b64 = base64.b64encode(img_bytes).decode("utf-8")
-            
-            doc.close()
             return {
                 "base64": b64,
                 "label": "FIRST_PAGE_VISUAL_CONTEXT",

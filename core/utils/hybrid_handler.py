@@ -45,6 +45,8 @@ def _create_envelope(original_path: str, output_path: str, p_class: PDFClass) ->
     """
     Class A/AB: Renders pages as images and embeds the original.
     """
+    doc_orig = None
+    doc_new = None
     try:
         doc_orig = fitz.open(original_path)
         doc_new = fitz.open()
@@ -90,12 +92,15 @@ def _create_envelope(original_path: str, output_path: str, p_class: PDFClass) ->
         doc_new.set_metadata({**meta, "keywords": keywords, "subject": "KPaperFlux Hybrid Container"})
         
         doc_new.save(output_path)
-        doc_new.close()
-        doc_orig.close()
         return True
     except Exception as e:
         logger.error(f"Error creating envelope: {e}")
         return False
+    finally:
+        if doc_new:
+            doc_new.close()
+        if doc_orig:
+            doc_orig.close()
 
 def _create_zugferd_working_copy(original_path: str, output_path: str) -> bool:
     """
@@ -114,6 +119,8 @@ def restore_zugferd_xml(original_source_path: str, target_pdf_path: str) -> bool
     Extracts ZUGFeRD XML from original and re-embeds it into target.
     Used for Class B after stamping.
     """
+    doc_orig = None
+    doc_target = None
     try:
         doc_orig = fitz.open(original_source_path)
         xml_data = None
@@ -128,7 +135,8 @@ def restore_zugferd_xml(original_source_path: str, target_pdf_path: str) -> bool
                 break
         
         doc_orig.close()
-        
+        doc_orig = None
+
         if xml_data:
             doc_target = fitz.open(target_pdf_path)
             # Remove old ones if they exist
@@ -136,13 +144,17 @@ def restore_zugferd_xml(original_source_path: str, target_pdf_path: str) -> bool
                 if doc_target.embfile_info(i)["name"].lower() == xml_name.lower():
                     doc_target.embfile_del(i)
                     break
-            
+
             doc_target.embfile_add(xml_name, xml_data, filename=xml_name, desc="Restored ZUGFeRD Data")
             doc_target.save(target_pdf_path, incremental=True, encryption=0)
-            doc_target.close()
             return True
-            
+
         return False
     except Exception as e:
         logger.error(f"Error restoring ZUGFeRD XML: {e}")
         return False
+    finally:
+        if doc_orig:
+            doc_orig.close()
+        if doc_target:
+            doc_target.close()
