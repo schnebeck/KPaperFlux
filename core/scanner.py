@@ -379,7 +379,7 @@ class SaneScanner(ScannerDriver):
             if "source" in opts:
                 try:
                     sources = opts["source"][8]
-                except:
+                except (KeyError, IndexError, TypeError):
                     sources = ["Flatbed"]
             
             if not sources:

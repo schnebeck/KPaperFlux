@@ -553,7 +553,7 @@ class DatabaseManager:
                 # Basic YYYY-MM-DD parsing
                 d_start = datetime.strptime(min_d[:10], "%Y-%m-%d").date()
                 d_end = datetime.strptime(max_d[:10], "%Y-%m-%d").date()
-            except:
+            except ValueError:
                 d_start = datetime.now().date()
                 d_end = d_start
 

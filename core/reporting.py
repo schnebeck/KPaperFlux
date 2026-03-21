@@ -208,7 +208,7 @@ class ReportGenerator:
         def sort_key(k):
             if " - " in k: # Amount bin
                 try: return float(k.split(" - ")[0])
-                except: return k
+                except ValueError: return k
             return k
 
         sorted_keys = sorted(grouped_data.keys(), key=sort_key)

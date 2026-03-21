@@ -451,7 +451,7 @@ class Stage2Processor:
                 val = d.get(primary, d.get(alias))
                 if val is None or val == "": return None
                 try: return Decimal(str(val))
-                except: return None
+                except (ValueError, ArithmeticError): return None
 
             ms = body.get("monetary_summation", body.get("SpecifiedTradeSettlementMonetarySummation", {}))
             if not isinstance(ms, dict): ms = {}

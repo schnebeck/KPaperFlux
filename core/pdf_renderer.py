@@ -142,7 +142,7 @@ class ProfessionalPdfRenderer:
                                 logo_h = 25*mm
                                 logo_w = logo_h / aspect
                             logo_img = RLImage(self.logo_path, width=logo_w, height=logo_h, mask='auto')
-                    except: logo_img = ""
+                    except (OSError, ValueError, TypeError): logo_img = ""
                 else: logo_img = ""
 
                 # Sender Info as Paragraphs

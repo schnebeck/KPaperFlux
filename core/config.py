@@ -430,7 +430,7 @@ class AppConfig:
         raw = str(self._get_setting("Logging", self.KEY_LOG_COMPONENTS, "{}"))
         try:
             return json.loads(raw)
-        except:
+        except (json.JSONDecodeError, TypeError):
             return {}
 
     def set_log_components(self, components: dict) -> None:
