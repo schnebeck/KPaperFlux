@@ -1075,13 +1075,12 @@ class MainWindow(QMainWindow):
         self.reprocess_worker = ReprocessWorker(self.pipeline, start_uuids, force_ocr=force_ocr)
         self.reprocess_errors = []
 
-        # Connect Signals
-        self.reprocess_worker.progress.connect(
-            lambda i, uid: (
-                progress.setLabelText(self.tr(f"Reprocessing {i+1} of {count}...")),
-                progress.setValue(i)
-            )
-        )
+        # Connect Signals — use a named slot so Qt uses QueuedConnection across threads
+        def _on_reprocess_progress(i: int, uid: str) -> None:
+            progress.setLabelText(self.tr(f"Reprocessing {i+1} of {count}..."))
+            progress.setValue(i)
+
+        self.reprocess_worker.progress.connect(_on_reprocess_progress)
 
         self.reprocess_worker.finished.connect(
             lambda success, total, processed_uuids: self._on_reprocess_finished(success, total, processed_uuids, uuids, progress, uuid_to_restore)
@@ -1232,21 +1231,21 @@ class MainWindow(QMainWindow):
         # Worker Setup
         self.import_worker = ImportWorker(self.pipeline, import_items, move_source=move_source)
 
-        # Signals
-        self.import_worker.progress.connect(
-            lambda i, label: (
-                self.main_status_label.setText(self.tr(f"Importing {i+1}/{count}: {label}")),
-                progress.setValue(i+1)
-            )
-        )
+        # Signals — named slots ensure Qt uses QueuedConnection across threads
+        def _on_import_progress(i: int, label: str) -> None:
+            self.main_status_label.setText(self.tr(f"Importing {i+1}/{count}: {label}"))
+            progress.setValue(i + 1)
+
+        def _on_document_imported(uid: str) -> None:
+            if self.list_widget:
+                self.list_widget.refresh_list()
+            if hasattr(self, "cockpit_widget"):
+                self.cockpit_widget.refresh_stats()
+
+        self.import_worker.progress.connect(_on_import_progress)
 
         # Incremental feedback during long batches
-        self.import_worker.document_imported.connect(
-            lambda uid: (
-                self.list_widget.refresh_list() if self.list_widget else None,
-                self.cockpit_widget.refresh_stats() if hasattr(self, "cockpit_widget") else None
-            )
-        )
+        self.import_worker.document_imported.connect(_on_document_imported)
 
         self.import_worker.finished.connect(
             lambda s, t, uuids, err: self._on_import_finished(s, t, uuids, err, progress, skip_splitter=is_batch)
