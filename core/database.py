@@ -14,11 +14,13 @@ Description:    Central database manager for SQLite persistence. Handles
 
 import json
 import sqlite3
+import threading
 import traceback
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction
@@ -43,6 +45,7 @@ class DatabaseManager:
         """
         self.db_path: str = db_path
         self.connection: Optional[sqlite3.Connection] = None
+        self._lock: threading.RLock = threading.RLock()
         self._connect()
         self.init_db()
         # Source of truth for document selection to avoid index mismatches
@@ -130,7 +133,7 @@ class DatabaseManager:
         if not self.connection:
             return
 
-        with self.connection:
+        with self._write() as conn:
             self.connection.execute(create_physical_files_table)
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_virtual_documents_fts)
@@ -187,7 +190,7 @@ class DatabaseManager:
             END;
             """
         ]
-        with self.connection:
+        with self._write() as conn:
             for trigger_sql in triggers:
                 self.connection.execute(trigger_sql)
 
@@ -288,7 +291,7 @@ class DatabaseManager:
             new_status: The new status string (e.g., 'PROCESSED').
         """
         sql = "UPDATE virtual_documents SET status = ? WHERE uuid = ?"
-        with self.connection:
+        with self._write() as conn:
             self.connection.execute(sql, (new_status, uuid))
 
     def get_document_by_uuid(self, uuid: str) -> Optional[Document]:
@@ -343,7 +346,7 @@ class DatabaseManager:
                 last_processed_at = NULL
             WHERE uuid = ?
         """
-        with self.connection:
+        with self._write() as conn:
             self.connection.execute(sql, (uuid,))
 
     def queue_for_semantic_extraction(self, uuids: List[str]) -> None:
@@ -358,7 +361,7 @@ class DatabaseManager:
             SET status = 'STAGE2_PENDING'
             WHERE uuid = ? AND deleted = 0
         """
-        with self.connection:
+        with self._write() as conn:
             for uid in uuids:
                 self.connection.execute(sql, (uid,))
 
@@ -997,7 +1000,7 @@ class DatabaseManager:
         """
         now = datetime.now().isoformat()
         sql = "UPDATE virtual_documents SET deleted = 1, deleted_at = ? WHERE uuid = ?"
-        with self.connection:
+        with self._write() as conn:
             self.connection.execute(sql, (now, uuid))
             return self.connection.total_changes > 0
 
@@ -1005,7 +1008,7 @@ class DatabaseManager:
         """Soft-deletes multiple documents and records the deletion timestamp."""
         now = datetime.now().isoformat()
         sql = "UPDATE virtual_documents SET deleted = 1, deleted_at = ? WHERE uuid = ?"
-        with self.connection:
+        with self._write() as conn:
             for uid in uuids:
                 self.connection.execute(sql, (now, uid))
 
@@ -1020,7 +1023,7 @@ class DatabaseManager:
             True if successful.
         """
         sql = "DELETE FROM virtual_documents WHERE uuid = ?"
-        with self.connection:
+        with self._write() as conn:
             self.connection.execute(sql, (uuid,))
             return self.connection.total_changes > 0
 
@@ -1032,7 +1035,7 @@ class DatabaseManager:
             source_uuid: The UUID of the physical source.
         """
         sql = "DELETE FROM virtual_documents WHERE source_mapping LIKE ?"
-        with self.connection:
+        with self._write() as conn:
             self.connection.execute(sql, (f'%{source_uuid}%',))
 
     def restore_document(self, uuid: str) -> bool:
@@ -1040,7 +1043,7 @@ class DatabaseManager:
         Restores a document from the trash bin and clears the deletion timestamp.
         """
         sql = "UPDATE virtual_documents SET deleted = 0, deleted_at = NULL WHERE uuid = ?"
-        with self.connection:
+        with self._write() as conn:
             self.connection.execute(sql, (uuid,))
             return self.connection.total_changes > 0
 
@@ -1496,6 +1499,33 @@ class DatabaseManager:
                 
         return results
 
+    @contextmanager
+    def _write(self) -> Generator[sqlite3.Connection, None, None]:
+        """
+        Thread-safe context manager for write operations.
+        Acquires the instance lock before delegating to SQLite's connection
+        context manager (which handles BEGIN/COMMIT/ROLLBACK).
+
+        Usage::
+
+            with self._write() as conn:
+                conn.execute(sql, params)
+        """
+        with self._lock:
+            with self.connection as conn:
+                yield conn
+
+    def get_all_active_uuids(self) -> List[str]:
+        """
+        Returns UUIDs of all non-deleted virtual documents.
+
+        Returns:
+            A list of UUID strings.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT uuid FROM virtual_documents WHERE deleted = 0")
+        return [row[0] for row in cursor.fetchall()]
+
     def execute(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
         """
         Executes a custom SQL query with optional parameters and professional logging.
@@ -1536,7 +1566,7 @@ class DatabaseManager:
             END;
             """
         ]
-        with self.connection:
+        with self._write() as conn:
             for trigger_sql in triggers:
                 self.execute(trigger_sql)
 
@@ -1581,7 +1611,7 @@ class DatabaseManager:
             END;
             """
         ]
-        with self.connection:
+        with self._write() as conn:
             for trigger_sql in triggers:
                 self.execute(trigger_sql)
 
@@ -1592,7 +1622,7 @@ class DatabaseManager:
         cols = ", ".join([f"{k} = ?" for k in updates.keys()])
         sql = f"UPDATE {table} SET {cols} WHERE {pk_col} = ?"
         vals = list(updates.values()) + [pk_val]
-        with self.connection:
+        with self._write() as conn:
             self.execute(sql, tuple(vals))
 
     def rename_tag(self, old_tag: str, new_tag: str) -> int:
@@ -1695,7 +1725,7 @@ class DatabaseManager:
             ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 1, 0, ?, ?, ?, ?, ?)
         """
         try:
-            with self.connection:
+            with self._write() as conn:
                 if isinstance(doc.semantic_data, SemanticExtraction):
                     sd_json = json.dumps(doc.semantic_data.model_dump(mode='json'))
                 else:

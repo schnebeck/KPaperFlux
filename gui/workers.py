@@ -57,9 +57,7 @@ class BatchTaggingWorker(QThread):
         # Fetch UUIDs if not provided
         uuids = self.uuids
         if uuids is None:
-            cursor = self.db.connection.cursor()
-            cursor.execute("SELECT uuid FROM virtual_documents WHERE deleted = 0")
-            uuids = [row[0] for row in cursor.fetchall()]
+            uuids = self.db.get_all_active_uuids()
 
         total = len(uuids)
 
