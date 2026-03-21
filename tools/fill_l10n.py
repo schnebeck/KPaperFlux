@@ -389,7 +389,7 @@ def fill():
             "Search": "Suche",            "Show All": "Alle Dokumente anzeigen",
 
             "Filter": "Filter",
-            "Rules": "Regeln",
+            "Rules": "Sortieren",
             "Save Rule": "Regel speichern",
             "Rule Name:": "Regelname:",
             "Delete Rule": "Regel löschen",
@@ -429,7 +429,7 @@ def fill():
         },
         "WorkflowManagerWidget": {
             "Dashboard": "Dashboard",
-            "Rule Editor": "Regel-Editor",
+            "Rule Editor": "Ablaufeditor",
             "Select Rule:": "Regel wählen:",
             "New Rule": "Neue Regel",
             "Create a new workflow rule": "Neue Workflow-Regel erstellen",
@@ -444,6 +444,10 @@ def fill():
             "Rule deleted.": "Regel gelöscht.",
             "Unsaved Changes": "Ungespeicherte Änderungen",
             "You have unsaved changes. Discard them?": "Es gibt ungespeicherte Änderungen. Verwerfen?",
+            "Rules in Use": "Abläufe in Verwendung",
+        },
+        "FilterWidget": {
+            "Rules...": "Sortieren...",
         },
         "FilterConditionWidget": {
             "Basis": "Basis",
