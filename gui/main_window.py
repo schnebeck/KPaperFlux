@@ -1064,9 +1064,6 @@ class MainWindow(QMainWindow):
         progress.forceShow() # Ensure visibility
         progress.setValue(0)
 
-        # Ensure it paints
-        QCoreApplication.processEvents()
-
         uuid_to_restore = None
         if hasattr(self, 'pdf_viewer') and self.pdf_viewer.current_uuid in start_uuids:
              uuid_to_restore = self.pdf_viewer.current_uuid
@@ -1224,9 +1221,7 @@ class MainWindow(QMainWindow):
         progress.setMinimumDuration(0)
         progress.setValue(0)
 
-        # Force Render
         progress.show()
-        QCoreApplication.processEvents()
 
         # Worker Setup
         self.import_worker = ImportWorker(self.pipeline, import_items, move_source=move_source)
@@ -2160,8 +2155,6 @@ class MainWindow(QMainWindow):
             filter_query = payload
 
         self.central_stack.setCurrentIndex(1) # Explorer
-        QCoreApplication.processEvents()
-
         q_str = json.dumps(filter_query, sort_keys=True)
         target_uuid = self._cockpit_selections.get("DASH:" + q_str)
         self.list_widget.target_uuid_to_restore = target_uuid
