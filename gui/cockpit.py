@@ -265,7 +265,7 @@ class CockpitWidget(QWidget):
                     else:
                         self.cards_config = data.get("cards", [])
                         self.locked = data.get("locked", True)
-            except:
+            except (json.JSONDecodeError, OSError, KeyError):
                 self.cards_config = []
         
         if not self.cards_config:

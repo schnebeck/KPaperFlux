@@ -1809,10 +1809,12 @@ class MetadataEditorWidget(QWidget):
         for r in range(self.stamps_table.rowCount()):
             try:
                 page_val = int(self.stamps_table.item(r, 2).text())
-            except: page_val = 1
+            except (ValueError, AttributeError):
+                page_val = 1
             try:
                 conf_val = float(self.stamps_table.item(r, 3).text())
-            except: conf_val = 1.0
+            except (ValueError, AttributeError):
+                conf_val = 1.0
 
             raw_type = self.stamps_table.item(r, 0).text()
             val = self.stamps_table.item(r, 1).text()

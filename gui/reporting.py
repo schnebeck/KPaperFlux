@@ -1035,7 +1035,7 @@ class ReportingWidget(QWidget):
                 self.set_global_zoom(val)
             else: # Assume percentage
                 self.set_global_zoom(val / 100.0)
-        except:
+        except ValueError:
             # Revert to current
             self.edit_zoom.setText(f"{int(self.zoom_level * 100)}%")
 

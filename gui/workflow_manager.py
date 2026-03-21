@@ -2,6 +2,7 @@
 import os
 import json
 import re
+import time
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QTextEdit, QLabel, QMessageBox, QSplitter, QFrame,
@@ -929,11 +930,10 @@ class WorkflowRuleManagerDialog(QDialog):
                             item = QListWidgetItem(name)
                             item.setData(Qt.ItemDataRole.UserRole, pb_id)
                             self.list_widget.addItem(item)
-                    except:
+                    except (json.JSONDecodeError, OSError):
                         self.list_widget.addItem(f.replace(".json", ""))
 
     def _create_new(self):
-        import time, re
         name, ok = QInputDialog.getText(self, self.tr("New Workflow"), self.tr("Enter display name:"))
         if ok and name:
             name = name.strip()

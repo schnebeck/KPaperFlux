@@ -9,6 +9,7 @@ from typing import Optional, List, Tuple
 from core.scanner import get_scanner_driver, ScannerDriver
 from core.logger import get_logger
 import os
+import json
 import tempfile
 import pikepdf
 
@@ -309,16 +310,14 @@ class ScannerDialog(QDialog):
         self._fetch_device_details(device_id)
 
     def _get_cached_caps(self, device_id):
-        import json
         key = f"caps_{device_id.replace(':', '_').replace('/', '_')}"
         data = self.settings.value(key)
         if data:
             try: return json.loads(data)
-            except: return None
+            except (json.JSONDecodeError, TypeError): return None
         return None
 
     def _save_cached_caps(self, device_id, caps):
-        import json
         key = f"caps_{device_id.replace(':', '_').replace('/', '_')}"
         self.settings.setValue(key, json.dumps(caps))
 

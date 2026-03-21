@@ -1045,7 +1045,7 @@ class DocumentListWidget(QWidget):
                     locale = QLocale.system()
                     txt = locale.toCurrencyString(float(val))
                     target_item.setData(col_idx, Qt.ItemDataRole.UserRole, float(val))
-                except:
+                except (ValueError, TypeError):
                     txt = str(val)
             elif key == "doc_date" and val:
                 txt = str(val)
@@ -1393,7 +1393,7 @@ class DocumentListWidget(QWidget):
                 try:
                     locale = QLocale.system()
                     txt = locale.toCurrencyString(float(val))
-                except:
+                except (ValueError, TypeError):
                     txt = str(val)
             elif val is None:
                 txt = "-"
