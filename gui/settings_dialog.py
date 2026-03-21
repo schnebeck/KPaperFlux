@@ -141,7 +141,7 @@ class SettingsDialog(QDialog):
         self.lbl_model = QLabel("")
         self.combo_model = QComboBox()
         self.combo_model.setEditable(True) 
-        self.combo_model.addItems(self.config._cached_models)
+        self.combo_model.addItems(self.config.get_cached_models())
         add_provider_row("gemini", self.lbl_model, self.combo_model)
 
         # Ollama URL
@@ -293,7 +293,7 @@ class SettingsDialog(QDialog):
         self._update_status_icon(is_verified)
         
         # Auto-refresh if cache is empty but API key is present
-        if not self.config._cached_models and self.edit_api_key.text():
+        if not self.config.get_cached_models() and self.edit_api_key.text():
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(100, lambda: self._refresh_models(silent=True))
 
@@ -418,7 +418,7 @@ class SettingsDialog(QDialog):
                 current_model = self.combo_model.currentText()
                 self.combo_model.clear()
                 self.combo_model.addItems(models)
-                self.config._cached_models = models.copy()
+                self.config.set_cached_models(models)
                 # Recover selection if it was in the new list
                 idx = self.combo_model.findText(current_model)
                 if idx >= 0:

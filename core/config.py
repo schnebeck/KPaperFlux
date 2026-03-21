@@ -53,6 +53,16 @@ class AppConfig:
     _active_profile: Optional[str] = None
     _cached_models: list[str] = []
 
+    @classmethod
+    def get_cached_models(cls) -> list[str]:
+        """Returns the cached list of available AI models."""
+        return cls._cached_models
+
+    @classmethod
+    def set_cached_models(cls, models: list[str]) -> None:
+        """Stores the discovered AI model list in the class-level cache."""
+        cls._cached_models = list(models)
+
     def __init__(self, profile: Optional[str] = None) -> None:
         """
         Initializes the configuration manager.
