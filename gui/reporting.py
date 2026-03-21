@@ -13,7 +13,7 @@ from gui.report_editor import ReportEditorWidget
 from gui.utils import show_notification, show_selectable_message_box
 
 import math
-import os
+from pathlib import Path
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.reporting")
@@ -597,7 +597,7 @@ class ReportingWidget(QWidget):
 
         for url in urls:
             path = url.toLocalFile()
-            if not os.path.exists(path):
+            if not Path(path).exists():
                 continue
 
             payload = ExchangeService.load_from_file(path)
@@ -692,7 +692,7 @@ class ReportingWidget(QWidget):
             rid = rid.replace("default_", "custom_")
             config["id"] = rid
                         
-        out_path = os.path.join(self.report_dir, f"{rid}.json")
+        out_path = Path(self.report_dir) / f"{rid}.json"
         try:
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write(json.dumps(config, indent=2))
@@ -994,7 +994,7 @@ class ReportingWidget(QWidget):
         timer.start(1000)
 
     def _save_report(self, definition):
-        path = os.path.join(self.report_dir, f"{definition.id}.json")
+        path = Path(self.report_dir) / f"{definition.id}.json"
         try:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(definition.model_dump_json(indent=2))
@@ -1243,8 +1243,8 @@ class ReportingWidget(QWidget):
                 try:
                     with zipfile.ZipFile(path, 'w') as zip_f:
                         for doc in docs:
-                            if os.path.exists(doc.path):
-                                arcname = os.path.basename(doc.path)
+                            if Path(doc.path).exists():
+                                arcname = Path(doc.path).name
                                 zip_f.write(doc.path, arcname)
                     QMessageBox.information(self, self.tr("Export ZIP"), self.tr("Successfully created ZIP archive with %d documents.") % len(docs))
                 except Exception as e:

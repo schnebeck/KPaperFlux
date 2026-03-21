@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import datetime
 from typing import Any, Union
 from core.logger import get_silent_logger
 
@@ -41,7 +42,6 @@ def format_date(val: Any, locale: str = "de") -> str:
     
     if "-" in val_str:
         try:
-            from datetime import datetime
             dt = datetime.strptime(val_str.split("T")[0], "%Y-%m-%d")
             if locale_clean == "de":
                 return dt.strftime("%d.%m.%Y")

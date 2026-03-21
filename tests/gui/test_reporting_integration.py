@@ -43,7 +43,7 @@ def test_drop_report_definition_triggers_display_and_selection(qtbot, reporting_
     mock_payload.payload = payload_data
     
     with patch("core.exchange.ExchangeService.load_from_file", return_value=mock_payload), \
-         patch("gui.reporting.os.path.exists", return_value=True), \
+         patch("pathlib.Path.exists", return_value=True), \
          patch.object(reporting_widget, "_save_report_definition", return_value=True), \
          patch.object(reporting_widget, "load_available_reports"), \
          patch.object(reporting_widget, "_generate_report_for_definition") as mock_run:
@@ -115,7 +115,7 @@ def test_layout_drop_loads_multiple_reports(qtbot, reporting_widget):
     mock_payload.payload = layout_payload
     
     with patch("core.exchange.ExchangeService.load_from_file", return_value=mock_payload), \
-         patch("gui.reporting.os.path.exists", return_value=True), \
+         patch("pathlib.Path.exists", return_value=True), \
          patch("gui.reporting.show_notification") as mock_notif, \
          patch.object(reporting_widget, "_generate_report_for_definition") as mock_run:
         
