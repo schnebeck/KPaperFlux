@@ -6215,19 +6215,19 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="696" />
             <location filename="../../../gui/workflow_manager.py" line="618" />
             <source>Select Rule:</source>
-            <translation>Regel wählen:</translation>
+            <translation>Ablauf wählen:</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="698" />
             <location filename="../../../gui/workflow_manager.py" line="626" />
             <source>New Rule</source>
-            <translation>Neue Regel</translation>
+            <translation>Neuer Ablauf</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="699" />
             <location filename="../../../gui/workflow_manager.py" line="627" />
             <source>Create a new workflow rule</source>
-            <translation>Neue Workflow-Regel erstellen</translation>
+            <translation>Neuen Ablauf erstellen</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="700" />
@@ -6245,13 +6245,13 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="702" />
             <location filename="../../../gui/workflow_manager.py" line="637" />
             <source>Save Rule</source>
-            <translation>Regel speichern</translation>
+            <translation>Ablauf speichern</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="703" />
             <location filename="../../../gui/workflow_manager.py" line="639" />
             <source>Save and activate the current rule</source>
-            <translation>Regel speichern und aktivieren</translation>
+            <translation>Ablauf speichern und aktivieren</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="704" />
@@ -6263,7 +6263,7 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="705" />
             <location filename="../../../gui/workflow_manager.py" line="644" />
             <source>Manage rule files (delete, rename, import)</source>
-            <translation>Regel-Dateien verwalten</translation>
+            <translation>Ablauf-Dateien verwalten</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="708" />
@@ -6273,12 +6273,12 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="734" />
             <source>--- Select Rule ---</source>
-            <translation>--- Regel wählen ---</translation>
+            <translation>--- Ablauf wählen ---</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="755" />
             <source>Rule deleted.</source>
-            <translation>Regel gelöscht.</translation>
+            <translation>Ablauf gelöscht.</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="761" />
@@ -6336,13 +6336,13 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/workflow_manager.py" line="166" />
             <location filename="../../../gui/workflow_manager.py" line="54" />
             <source>Enter rule name...</source>
-            <translation>Regelname eingeben...</translation>
+            <translation>Ablaufname eingeben...</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="167" />
             <location filename="../../../gui/workflow_manager.py" line="56" />
             <source>What does this rule do?</source>
-            <translation>Was macht diese Regel?</translation>
+            <translation>Was macht dieser Ablauf?</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="168" />
@@ -6353,7 +6353,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="162" />
             <source>Rule Name:</source>
-            <translation>Name der Regel:</translation>
+            <translation>Name des Ablaufs:</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="163" />
