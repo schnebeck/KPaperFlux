@@ -1910,7 +1910,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """Handle window close."""
-        if hasattr(self, 'ai_worker') and self.ai_worker: self.ai_worker.stop()
+        if hasattr(self, 'ai_worker') and self.ai_worker:
+            self.ai_worker.stop()
+            self.ai_worker.wait(2000)
         # Cancel background workers to kill subprocesses
         if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
             self.main_loop_worker.stop()
@@ -1918,7 +1920,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'import_worker') and self.import_worker:
             self.import_worker.cancel()
             self.import_worker.wait(2000)
-        if hasattr(self, 'batch_worker') and self.batch_worker: self.batch_worker.cancel()
+        if hasattr(self, 'batch_worker') and self.batch_worker:
+            self.batch_worker.cancel()
+            self.batch_worker.wait(2000)
         if hasattr(self, 'reprocess_worker') and self.reprocess_worker:
             self.reprocess_worker.cancel()
             self.reprocess_worker.wait(2000)
@@ -2098,7 +2102,11 @@ class MainWindow(QMainWindow):
         """Initializes and connects the background pipeline worker."""
         if not self.pipeline:
             return
-            
+
+        if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
+            self.main_loop_worker.stop()
+            self.main_loop_worker.wait(2000)
+
         self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
         self.main_loop_worker.documents_processed.connect(self._on_pipeline_documents_processed)
         self.main_loop_worker.status_changed.connect(self._on_ai_status_changed)

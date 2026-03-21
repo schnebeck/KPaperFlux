@@ -51,13 +51,17 @@ def test_main_window_smoke(qapp):
     """Test if MainWindow can be instantiated with mocked dependencies."""
     mock_pipeline = MagicMock()
     mock_db = MagicMock()
-    
+
     # Mock some expected DB calls to avoid init crashes
     mock_db.get_available_extra_keys.return_value = []
     mock_db.get_available_tags.return_value = []
     mock_db.get_all_entities_view.return_value = []
     mock_db.get_document_by_uuid.return_value = None
     mock_db.get_available_stamps.return_value = []
+
+    # Prevent MainLoopWorker from processing — return 0 pending docs so the
+    # worker stays idle and does not spin trying to process MagicMock objects.
+    mock_pipeline.db.get_pending_pipeline_count.return_value = 0
     
     window = MainWindow(pipeline=mock_pipeline, db_manager=mock_db)
     assert window is not None

@@ -1526,6 +1526,20 @@ class DatabaseManager:
         cursor.execute("SELECT uuid FROM virtual_documents WHERE deleted = 0")
         return [row[0] for row in cursor.fetchall()]
 
+    def get_pending_pipeline_count(self) -> int:
+        """
+        Returns the number of documents currently waiting for pipeline processing.
+
+        Returns:
+            Count of documents with status NEW, READY_FOR_PIPELINE, or STAGE2_PENDING.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM virtual_documents "
+            "WHERE status IN ('NEW', 'READY_FOR_PIPELINE', 'STAGE2_PENDING') AND deleted = 0"
+        )
+        return int(cursor.fetchone()[0] or 0)
+
     def execute(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
         """
         Executes a custom SQL query with optional parameters and professional logging.

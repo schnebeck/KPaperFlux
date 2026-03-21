@@ -282,13 +282,7 @@ class MainLoopWorker(QThread):
 
             try:
                 # 1. Count pending items for progress reporting
-                cursor = self.pipeline.db.connection.cursor()
-                cursor.execute("""
-                    SELECT COUNT(*) FROM virtual_documents 
-                    WHERE status IN ('NEW', 'READY_FOR_PIPELINE', 'STAGE2_PENDING') 
-                    AND deleted = 0
-                """)
-                total_pending = int(cursor.fetchone()[0] or 0)
+                total_pending = self.pipeline.db.get_pending_pipeline_count()
 
                 # If nothing to do, wait and continue
                 if total_pending == 0:
