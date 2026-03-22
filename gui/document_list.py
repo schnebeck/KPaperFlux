@@ -452,37 +452,25 @@ class DocumentListWidget(QWidget):
         self.update_headers()
         self.refresh_list()
 
-    def show_trash_bin(self, enable: bool, refresh: bool = True):
-        """Switch between Normal View and Trash View."""
-        self.is_trash_mode = enable
-
-        # Clear filters if entering trash mode to avoid confusion?
+    def _enter_special_mode(self, mode_flag_attr: str, sort_col: int, enable: bool, refresh: bool) -> None:
+        """Switches into or out of a special view mode (trash/archive), clearing filters on entry."""
+        setattr(self, mode_flag_attr, enable)
         if enable:
             self.current_filter = {}
             self.current_filter_text = ""
             self.current_advanced_query = None
-            # Phase 110: Default Sort for Trash (Column 6: Deleted Date)
-            self.tree.sortByColumn(6, Qt.SortOrder.DescendingOrder)
-
+            self.tree.sortByColumn(sort_col, Qt.SortOrder.DescendingOrder)
         if refresh:
             self.refresh_list()
         self.save_state()
+
+    def show_trash_bin(self, enable: bool, refresh: bool = True):
+        """Switch between Normal View and Trash View."""
+        self._enter_special_mode("is_trash_mode", 6, enable, refresh)
 
     def show_archive(self, enable: bool, refresh: bool = True):
         """Switch between Normal View and Archive View."""
-        self.is_archive_mode = enable
-
-        # Clear filters if entering archive mode
-        if enable:
-            self.current_filter = {}
-            self.current_filter_text = ""
-            self.current_advanced_query = None
-            # Phase 110: Default Sort for Archive (Column 9: Exported/Archived Date)
-            self.tree.sortByColumn(9, Qt.SortOrder.DescendingOrder)
-
-        if refresh:
-            self.refresh_list()
-        self.save_state()
+        self._enter_special_mode("is_archive_mode", 9, enable, refresh)
 
     def remove_dynamic_column(self, key: str):
         if key not in self.dynamic_columns:

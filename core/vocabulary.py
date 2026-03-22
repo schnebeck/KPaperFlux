@@ -222,70 +222,28 @@ class VocabularyManager:
 
     # --- Normalization Logic ---
 
-    def normalize_type(self, input_type: Optional[str]) -> str:
-        """
-        Normalizes a document type string using aliasing and case-insensitive matching.
-
-        Args:
-            input_type: The raw string to normalize.
-
-        Returns:
-            The normalized string or original if no mapping exists.
-        """
-        if not input_type:
+    def _normalize(self, input_val: Optional[str], registry: Set[str], aliases: Dict[str, str]) -> str:
+        """Normalizes a string via exact match, alias lookup, and case-insensitive fallback."""
+        if not input_val:
             return ""
-
-        input_type = input_type.strip()
-
-        # 1. Exact Check
-        if input_type in self._types:
-            return input_type
-
-        # 2. Exact Alias Check
-        if input_type in self._type_aliases:
-            return self._type_aliases[input_type]
-
-        # 3. Case-Insensitive Alias Check
-        input_lower = input_type.lower()
-        for alias, target in self._type_aliases.items():
+        input_val = input_val.strip()
+        if input_val in registry:
+            return input_val
+        if input_val in aliases:
+            return aliases[input_val]
+        input_lower = input_val.lower()
+        for alias, target in aliases.items():
             if alias.lower() == input_lower:
                 return target
-
-        # 4. Case-Insensitive Type Check
-        for t in self._types:
+        for t in registry:
             if t.lower() == input_lower:
                 return t
+        return input_val
 
-        return input_type
+    def normalize_type(self, input_type: Optional[str]) -> str:
+        """Normalizes a document type string using aliasing and case-insensitive matching."""
+        return self._normalize(input_type, self._types, self._type_aliases)
 
     def normalize_tag(self, input_tag: Optional[str]) -> str:
-        """
-        Normalizes a user tag string.
-
-        Args:
-            input_tag: The raw tag string to normalize.
-
-        Returns:
-            The normalized tag or original.
-        """
-        if not input_tag:
-            return ""
-
-        input_tag = input_tag.strip()
-
-        if input_tag in self._tags:
-            return input_tag
-
-        if input_tag in self._tag_aliases:
-            return self._tag_aliases[input_tag]
-
-        input_lower = input_tag.lower()
-        for alias, target in self._tag_aliases.items():
-            if alias.lower() == input_lower:
-                return target
-
-        for t in self._tags:
-            if t.lower() == input_lower:
-                return t
-
-        return input_tag
+        """Normalizes a user tag string using aliasing and case-insensitive matching."""
+        return self._normalize(input_tag, self._tags, self._tag_aliases)
