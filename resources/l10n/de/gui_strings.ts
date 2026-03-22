@@ -6503,6 +6503,18 @@ Geschäftsführer: ...</translation>
             <source>Rules in Use</source>
             <translation>Abläufe in Verwendung</translation>
         </message>
+        <message>
+            <source>Show documents</source>
+            <translation>Dokumente anzeigen</translation>
+        </message>
+        <message>
+            <source>Navigate to all documents currently tracked by this workflow</source>
+            <translation>Alle Dokumente anzeigen, die diesem Ablauf zugeordnet sind</translation>
+        </message>
+        <message>
+            <source>Documents in workflow '%1'</source>
+            <translation>Dokumente im Ablauf '%1'</translation>
+        </message>
     </context>
     <context>
         <name>WorkflowRuleFormEditor</name>

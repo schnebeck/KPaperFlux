@@ -467,6 +467,9 @@ def fill():
             "Unsaved Changes": "Ungespeicherte Änderungen",
             "You have unsaved changes. Discard them?": "Es gibt ungespeicherte Änderungen. Verwerfen?",
             "Rules in Use": "Abläufe in Verwendung",
+            "Show documents": "Dokumente anzeigen",
+            "Navigate to all documents currently tracked by this workflow": "Alle Dokumente anzeigen, die diesem Ablauf zugeordnet sind",
+            "Documents in workflow '%1'": "Dokumente im Ablauf '%1'",
         },
         "FilterWidget": {
             "Rules...": "Sortieren...",

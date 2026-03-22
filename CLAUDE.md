@@ -90,6 +90,15 @@ Multi-stage ingestion controlled by `PipelineState`:
 | `gui/document_list.py` | Filterable/searchable document table |
 | `gui/reporting.py` | Dynamic reporting and analytics UI |
 
+### Workflow System
+
+The workflow system is split across two concerns — **definition** and **execution**:
+
+- **Definition** (`gui/workflow_manager.py` → `WorkflowManagerWidget`): The "Ablaufeditor" tab lets the user create/edit state-machine rules (states, transitions, conditions, trigger tags). Rules are persisted as JSON in `resources/workflows/`. The dashboard tab shows live stats per rule.
+- **Execution** (`gui/widgets/workflow_controls.py` → `WorkflowControlsWidget`): Embedded in the MetadataEditor. When a document is opened, if its `type_tags` match a rule's `triggers.type_tags`, the rule is auto-assigned and transition buttons appear. Clicking a button calls `WorkflowInfo.apply_transition()` and saves the new state to `semantic_data.workflow.current_step` in the DB.
+- **Data model**: `core/workflow.py` — `WorkflowRule`, `WorkflowState`, `WorkflowTransition`, `WorkflowEngine`, `WorkflowRuleRegistry` (singleton). `core/models/semantic.py` — `WorkflowInfo` stores `rule_id`, `current_step`, `history`.
+- **Navigation**: `WorkflowManagerWidget.navigation_requested` signal is connected to `main_window.navigate_to_list_filter()`. Emitting `{"query": {...}, "label": "..."}` switches the Explorer to a filtered view.
+
 ### Plugin System
 
 Plugins in `plugins/` implement a defined interface and are loaded at runtime. Each plugin handles specific document workflow automation (e.g., linking orders to delivery notes).

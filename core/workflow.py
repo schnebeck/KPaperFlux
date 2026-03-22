@@ -150,7 +150,7 @@ class WorkflowRuleRegistry:
                         self.rules[rule.id] = rule
                         logger.info(f"Loaded workflow rule: {rule.id}")
                 except Exception as e:
-                    logger.error(f"Failed to load rule from {filename}: {e}")
+                    logger.error(f"Failed to load rule from {full_path}: {e}")
 
     def get_rule(self, rule_id: str) -> Optional[WorkflowRule]:
         return self.rules.get(rule_id)

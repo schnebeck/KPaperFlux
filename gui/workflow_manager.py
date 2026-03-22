@@ -645,6 +645,12 @@ class WorkflowManagerWidget(QWidget):
         self.btn_manage.clicked.connect(self._on_manage_clicked)
         self.top_bar.addWidget(self.btn_manage)
 
+        self.btn_show_docs = QPushButton("🔍 " + self.tr("Show documents"))
+        self.btn_show_docs.setToolTip(self.tr("Navigate to all documents currently tracked by this workflow"))
+        self.btn_show_docs.setEnabled(False)
+        self.btn_show_docs.clicked.connect(self._on_show_workflow_docs)
+        self.top_bar.addWidget(self.btn_show_docs)
+
         self.top_bar.addStretch()
 
         editor_layout.addWidget(self.top_bar_widget)
@@ -703,7 +709,9 @@ class WorkflowManagerWidget(QWidget):
         self.btn_save.setToolTip(self.tr("Save and activate the current rule"))
         self.btn_manage.setText("⚙️ " + self.tr("Manage..."))
         self.btn_manage.setToolTip(self.tr("Manage rule files (delete, rename, import)"))
-        
+        self.btn_show_docs.setText("🔍 " + self.tr("Show documents"))
+        self.btn_show_docs.setToolTip(self.tr("Navigate to all documents currently tracked by this workflow"))
+
         if hasattr(self, 'status_lbl'):
              self.status_lbl.setText(self.tr("Ready"))
 
@@ -768,9 +776,10 @@ class WorkflowManagerWidget(QWidget):
                 return
 
         rule_id = self.combo_rules.currentData()
+        self.btn_show_docs.setEnabled(bool(rule_id))
         if not rule_id:
             return
-            
+
         reg = WorkflowRuleRegistry()
         rule = reg.get_rule(rule_id)
         if rule:
@@ -836,6 +845,19 @@ class WorkflowManagerWidget(QWidget):
                 self.form_editor.load_rule(rule)
         self._clear_dirty()
         
+    def _on_show_workflow_docs(self) -> None:
+        """Navigate the document list to all documents tracked by the currently selected workflow."""
+        rule_id = self.combo_rules.currentData()
+        if not rule_id:
+            return
+        rule_name = self.combo_rules.currentText()
+        query = {"field": "semantic:workflow.rule_id", "op": "equals", "value": rule_id}
+        payload = {
+            "query": query,
+            "label": self.tr("Documents in workflow '%1'").replace("%1", rule_name),
+        }
+        self.navigation_requested.emit(payload)
+
     def _on_manage_clicked(self):
         """Open a management dialog for rules."""
         dlg = WorkflowRuleManagerDialog(self, filter_tree=self.filter_tree)
@@ -847,10 +869,6 @@ class WorkflowManagerWidget(QWidget):
         idx = self.combo_rules.findData(rule_id)
         if idx >= 0:
             self.combo_rules.setCurrentIndex(idx)
-
-    def _on_rule_apply_requested(self):
-        # Placeholder if needed by main window, but currently agents are assigned via Rules tab
-        pass
 
 class WorkflowRuleManagerDialog(QDialog):
     """Simplified management dialog for Rule files."""
@@ -1006,7 +1024,7 @@ class WorkflowRuleManagerDialog(QDialog):
         for item in items:
             pb_id = item.data(Qt.ItemDataRole.UserRole)
             if self.filter_tree:
-                usages = self.filter_tree.find_workflow_usages(pb_id)
+                usages = self.filter_tree.find_rule_usages(pb_id)
                 if usages:
                     in_use.append(item.text())
 
