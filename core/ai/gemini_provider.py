@@ -1,9 +1,11 @@
 
 import base64
 import datetime
-import random
-import time
+import json
 import logging
+import random
+import re
+import time
 from typing import Any, List, Optional, Set, Tuple
 
 from google import genai
@@ -83,9 +85,6 @@ class GeminiProvider(AIProvider):
 
     def _generate_json_raw(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Tuple[Optional[Any], Optional[str]]:
         """Internal helper to call Gemini and perform repair-based parsing."""
-        import json
-        import re
-
         if not self.client:
             return None, "Client inactive"
 

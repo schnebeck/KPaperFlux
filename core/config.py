@@ -11,11 +11,14 @@ Description:    Manages application configuration using QSettings. Standardizes
 ------------------------------------------------------------------------------
 """
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Optional
 
 from PyQt6.QtCore import QSettings, QStandardPaths
+
+from core.logger import get_logger
 
 
 class AppConfig:
@@ -84,7 +87,6 @@ class AppConfig:
             self.active_id = f"{self.APP_ID}-{profile}"
             
         self.settings = QSettings(self.active_id, self.active_id)
-        from core.logger import get_logger
         get_logger("core").debug(f"[Config] Initialized settings from: {self.settings.fileName()} (Profile: {self.profile or 'default'})")
         
         # Run migrations
@@ -206,7 +208,6 @@ class AppConfig:
         Handles automatic migration of configuration values across versions.
         For example, upgrades legacy AI models to current defaults.
         """
-        from core.logger import get_logger
         logger = get_logger("core.config")
         
         # 1. AI Model Migration (Upgrade < 2.5 to 2.5-flash)
@@ -436,7 +437,6 @@ class AppConfig:
 
     def get_log_components(self) -> dict:
         """Retrieves a dictionary of component-specific log levels."""
-        import json
         raw = str(self._get_setting("Logging", self.KEY_LOG_COMPONENTS, "{}"))
         try:
             return json.loads(raw)
@@ -445,7 +445,6 @@ class AppConfig:
 
     def set_log_components(self, components: dict) -> None:
         """Saves a dictionary of component-specific log levels."""
-        import json
         self._set_setting("Logging", self.KEY_LOG_COMPONENTS, json.dumps(components))
 
     def get_log_file_path(self) -> Path:

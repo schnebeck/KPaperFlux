@@ -105,7 +105,7 @@ def test_run_ocr_success(mock_get_ocr, mock_temp_dir, mock_popen, pipeline, tmp_
 
     mock_popen.assert_called()
 
-@patch("core.canonizer.CanonizerService")
+@patch("core.pipeline.CanonizerService")
 def test_pipeline_integration_ai(MockCanonizer, pipeline):
     """Test AI delegation."""
     v_doc = VirtualDocument(uuid="v1", created_at="now")

@@ -196,7 +196,6 @@ class RuleManagerWidget(QWidget):
             if child.name == "Auto-Tagging Rules":
                 return child
         # Not found? Create it
-        from core.filter_tree import NodeType
         folder = FilterNode("Auto-Tagging Rules", NodeType.FOLDER)
         self.filter_tree.root.add_child(folder)
         return folder

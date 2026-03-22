@@ -1,11 +1,13 @@
+import json
+import subprocess
+import sys
+from typing import Optional
+
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
     QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
     QSpinBox, QLayout, QCheckBox
 )
-import json
-import sys
-from typing import Optional
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QEvent, QCoreApplication
 from core.logger import get_logger
 logger = get_logger("gui.settings_dialog")
@@ -13,6 +15,7 @@ logger = get_logger("gui.settings_dialog")
 # Core Imports
 from core.config import AppConfig
 from core.ai_analyzer import AIAnalyzer
+from core.ai.ollama_provider import OllamaProvider
 
 # GUI Imports
 # Hinweis: Falls diese Module fehlen, muss die Dateistruktur entsprechend existieren.
@@ -527,7 +530,6 @@ class SettingsDialog(QDialog):
 
     def _test_ollama_connection(self):
         url = self.edit_ollama_url.text().strip()
-        from core.ai.ollama_provider import OllamaProvider
         provider = OllamaProvider(url)
         
         self.setCursor(Qt.CursorShape.WaitCursor)
@@ -554,7 +556,6 @@ class SettingsDialog(QDialog):
 
     def _open_log_file(self):
         """Attempts to open the log file with the system default viewer."""
-        import subprocess
         log_path = self.config.get_log_file_path()
         if log_path.exists():
             if sys.platform == 'win32':

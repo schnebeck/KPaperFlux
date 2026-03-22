@@ -1,19 +1,23 @@
+import json
+import math
+from pathlib import Path
 from typing import List, Dict, Any, Optional
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QTableWidget, QTableWidgetItem, 
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QPushButton, QTableWidget, QTableWidgetItem,
                              QHeaderView, QFrame, QScrollArea, QComboBox, QSizePolicy,
-                             QMenu, QTextEdit, QToolButton, QFileDialog, QMessageBox, QLineEdit, QInputDialog)
+                             QMenu, QTextEdit, QToolButton, QFileDialog, QMessageBox, QLineEdit,
+                             QInputDialog, QDialog)
 from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer, QThread, QEvent
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush, QIcon
 
 from core.reporting import ReportGenerator, ReportRegistry
 from core.models.reporting import ReportDefinition, ReportComponent
 from core.exporters.pdf_report import PdfReportGenerator
+from core.exchange import ExchangeService
 from gui.report_editor import ReportEditorWidget
 from gui.utils import show_notification, show_selectable_message_box
 
-import math
-from pathlib import Path
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.reporting")
@@ -587,7 +591,6 @@ class ReportingWidget(QWidget):
             event.ignore()
 
     def dropEvent(self, event):
-        from core.exchange import ExchangeService
         urls = event.mimeData().urls()
         if not urls:
             return
@@ -677,7 +680,6 @@ class ReportingWidget(QWidget):
 
     def _import_from_pdf(self, path) -> bool:
         """Extracts report definition from PDF via ExchangeService."""
-        from core.exchange import ExchangeService
         payload = ExchangeService.extract_from_pdf(path)
         if payload and payload.type == "report_definition":
             return self._save_report_definition(payload.payload)
@@ -685,7 +687,6 @@ class ReportingWidget(QWidget):
 
     def _save_report_definition(self, config: Dict[str, Any]) -> bool:
         """Saves a report definition dictionary to the local report directory."""
-        import json
         # Ensure custom ID to avoid overwriting defaults
         rid = config.get("id", "imported")
         if rid.startswith("default_"):
@@ -1119,8 +1120,7 @@ class ReportingWidget(QWidget):
         
         definition = self.registry.get_report(report_id)
         if not definition: return
-        
-        from PyQt6.QtWidgets import QDialog
+
         dlg = QDialog(self)
         dlg.setWindowTitle(self.tr("Edit Report Definition"))
         dlg.setMinimumSize(800, 700)
@@ -1134,7 +1134,6 @@ class ReportingWidget(QWidget):
         dlg.exec()
 
     def create_new_report(self):
-        from PyQt6.QtWidgets import QDialog, QInputDialog
         name, ok = QInputDialog.getText(self, self.tr("New Report"), self.tr("Enter report name:"))
         if ok and name:
             import time
@@ -1159,9 +1158,7 @@ class ReportingWidget(QWidget):
         
         definition = self.registry.get_report(report_id)
         if not definition: return
-        
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
-        
+
         # Get actual documents matching the report filter
         docs = self.db_manager.search_documents_advanced(definition.filter_query)
         if not docs:
@@ -1255,9 +1252,7 @@ class ReportingWidget(QWidget):
         if not self.active_definitions:
             QMessageBox.warning(self, self.tr("Save Layout"), self.tr("Canvas is empty."))
             return
-            
-        from core.exchange import ExchangeService
-        
+
         # Prepare payload: list of current report definitions
         layout_data = {
             "name": "My Layout",
@@ -1277,10 +1272,9 @@ class ReportingWidget(QWidget):
         path, _ = QFileDialog.getOpenFileName(self, self.tr("Load Layout"), "", "KPaperFlux Files (*.kpfx *.json *.pdf)")
         if not path:
             return
-            
-        from core.exchange import ExchangeService
+
         payload = ExchangeService.load_from_file(path)
-            
+
         if payload and payload.type == "layout":
             self.clear_results()
             reports = payload.payload.get("reports", [])

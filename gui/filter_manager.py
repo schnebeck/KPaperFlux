@@ -4,6 +4,7 @@ from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings
 from PyQt6.QtGui import QAction, QIcon, QCloseEvent
 from core.filter_tree import FilterTree, NodeType, FilterNode
+from core.exchange import ExchangeService
 import json
 
 class ManagerTreeWidget(QTreeWidget):
@@ -509,7 +510,6 @@ class FilterManagerDialog(QDialog):
         if not node:
                return
                
-        from core.exchange import ExchangeService
         payload_type = "smart_list" if node.node_type == NodeType.FILTER else "filter_tree"
         
         path, _ = QFileDialog.getSaveFileName(self, self.tr("Export Item"), f"{node.name}.kpfx", "KPaperFlux Exchange (*.kpfx *.json)")

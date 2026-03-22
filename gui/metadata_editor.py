@@ -38,7 +38,8 @@ from gui.widgets.workflow_controls import WorkflowControlsWidget
 from gui.audit_window import AuditWindow
 
 # Core Models
-from core.models.semantic import SemanticExtraction, WorkflowInfo, SubscriptionInfo
+from core.models.semantic import SemanticExtraction, WorkflowInfo, WorkflowLog, SubscriptionInfo
+from core.utils.validation import validate_iban
 from core.workflow import WorkflowRuleRegistry
 
 class NestedTableDialog(QDialog):
@@ -918,7 +919,6 @@ class MetadataEditorWidget(QWidget):
         sd.workflow.current_step = "NEW"
         
         # Log it
-        from core.models.semantic import WorkflowLog
         sd.workflow.history.append(WorkflowLog(
             action=f"RULE_CHANGE: {new_rule_id or 'NONE'}",
             comment="Manual reassignment"
@@ -1657,7 +1657,6 @@ class MetadataEditorWidget(QWidget):
             return
 
         # Phase 125: Strict IBAN Checksum Verification before QR generation
-        from core.utils.validation import validate_iban
         is_valid_iban = validate_iban(iban)
         
         # UI Feedback for IBAN field

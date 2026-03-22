@@ -18,6 +18,7 @@ from core.logger import get_logger
 logger = get_logger("ai.stage1")
 
 from core.models.identity import IdentityProfile
+from core.validators import validate_ai_structure_response
 from core.ai import prompts
 
 
@@ -166,8 +167,6 @@ class Stage1Processor:
         Validates AI response for logical errors and performs AI-backed plausibility checks
         if analytical matching fails.
         """
-        from core.validators import validate_ai_structure_response
-
         errors = []
         entities = result.get("detected_entities", [])
         total_pages = len(ocr_pages)

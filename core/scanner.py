@@ -15,6 +15,7 @@ import glob
 import os
 import subprocess
 import tempfile
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from core.logger import get_logger, get_silent_logger
@@ -286,7 +287,6 @@ class SaneScanner(ScannerDriver):
         Raises:
             Exception: If all attempts fail.
         """
-        import time
         last_error = Exception("Unknown error")
         for i in range(retries):
             try:
@@ -507,8 +507,6 @@ class SaneScanner(ScannerDriver):
                 extra_args.append("--duplex=yes")
 
             try:
-                import time
-
                 time.sleep(0.5)  # Prevent "Device busy" between discovery and scan
                 results = self._scan_via_scanimage(device_name, dpi, color_mode, source, extra_args, progress_callback, page_format)
                 if results:

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, List
 from core.models.semantic import SemanticExtraction
 from core.logger import get_logger
+from core.utils.formatting import format_currency, format_date
 
 logger = get_logger("core.semantic_renderer")
 
@@ -279,8 +280,6 @@ class SemanticRenderer:
         return curr
 
     def _format_value(self, val: Any, fmt: str) -> str:
-        from core.utils.formatting import format_currency, format_date
-        
         if val is None: return "---"
         if fmt == "currency":
             return format_currency(val, currency="EUR", locale=self.locale)

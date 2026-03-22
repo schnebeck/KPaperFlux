@@ -12,6 +12,7 @@ Description:    Highly creative and diverse PDF renderer. Supports multiple
 ------------------------------------------------------------------------------
 """
 
+import json
 import random
 from pathlib import Path
 from datetime import datetime
@@ -23,7 +24,7 @@ from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, 
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
     Frame, PageTemplate, BaseDocTemplate, NextPageTemplate, Image as RLImage
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -31,6 +32,7 @@ from reportlab.pdfgen import canvas
 
 from core.models.semantic import SemanticExtraction, AddressInfo
 from core.logger import get_logger
+from core.utils.formatting import format_currency
 
 logger = get_logger("core.pdf_renderer")
 
@@ -88,7 +90,6 @@ class ProfessionalPdfRenderer:
                 self.styles.add(ParagraphStyle(name=name, parent=self.styles[parent], fontSize=size, leading=leading, fontName=font))
 
     def _load_unit_codes(self) -> dict:
-        import json
         for loc in [self.locale, "en"]:
             path = Path("resources") / "l10n" / loc / "units.json"
             if path.exists():
@@ -286,8 +287,7 @@ class ProfessionalPdfRenderer:
         
         header_row = [Paragraph(labels.get(col, col), self.styles['TableHeading']) for col in self.table_columns]
         table_data = [header_row]
-        
-        from core.utils.formatting import format_currency
+
         for i, item in enumerate(items):
             row = []
             for col in self.table_columns:
@@ -354,7 +354,6 @@ class ProfessionalPdfRenderer:
         fb = data.bodies.get("finance_body")
         ms = getattr(fb, "monetary_summation", None) if fb else None
         if not ms: return []
-        from core.utils.formatting import format_currency
         l_map = {"line_total_amount": "Net", "tax_total_amount": "Tax", "grand_total_amount": "TOTAL"}
         if self.locale=="de": l_map = {"line_total_amount": "Netto", "tax_total_amount": "MwSt", "grand_total_amount": "GESAMT"}
         

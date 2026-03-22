@@ -1,18 +1,21 @@
 import os
 import glob
-import fitz
-import cv2
-import numpy as np
 import json
+from concurrent.futures import ThreadPoolExecutor
+
+import cv2
+import fitz
+import numpy as np
 from core.logger import get_logger, get_silent_logger
 logger = get_logger("HybridPlugin")
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
+    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog,
     QProgressBar, QCheckBox, QMessageBox, QFrame, QWidget
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSettings
 from core.utils.hybrid_engine import HybridEngine
+from gui.comparison_dialog import ComparisonDialog
 
 class MatchWorker(QThread):
     progress = pyqtSignal(int, int)
@@ -57,7 +60,6 @@ class MatchWorker(QThread):
             except Exception as e:
                 get_silent_logger().warning(f"Rendering failed for {p}: {e}")
 
-        from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=4) as executor:
             # Check cancellation before starting heavy load
             if self._is_cancelled: return
@@ -442,7 +444,6 @@ class MatchingDialog(QDialog):
             self.on_import_all()
 
     def on_view(self, res):
-        from gui.comparison_dialog import ComparisonDialog
         if not res["native"] or not res["scan"]:
             return
             
@@ -577,7 +578,6 @@ class MatchingDialog(QDialog):
 
     def on_view_result(self, res):
         """Shows the generated hybrid PDF in the internal viewer."""
-        from gui.comparison_dialog import ComparisonDialog
         path = res.get("output_path")
         if path and os.path.exists(path):
             dlg = ComparisonDialog(self)

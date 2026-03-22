@@ -68,6 +68,8 @@ from gui.utils import (
     show_notification
 )
 from gui.workflow_manager import WorkflowManagerWidget
+from gui.reporting import ReportingWidget
+from gui.audit_window import AuditWindow
 from core.plugins.manager import PluginManager
 from core.plugins.base import ApiContext
 
@@ -179,7 +181,6 @@ class MainWindow(QMainWindow):
         self.central_stack.addWidget(self.workflow_manager)
 
         # --- Page 3: Reporting ---
-        from gui.reporting import ReportingWidget
         self.reporting_widget = ReportingWidget(self.db_manager, filter_tree=self.filter_tree)
         self.reporting_widget.filter_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.reporting_widget)
@@ -2125,7 +2126,6 @@ class MainWindow(QMainWindow):
             show_notification(self, self.tr("Deleted"), self.tr("Permanently deleted %s document(s).") % count)
     def open_debug_audit_window(self, uuid: str):
         """Opens the Audit Window in debug/generic mode with only a Close button."""
-        from gui.audit_window import AuditWindow
         doc = self.db_manager.get_document_by_uuid(uuid)
         if not doc:
             return

@@ -9,10 +9,15 @@ Description:    PyQt6 worker threads for background processing (AI Queue,
                 Import, Reprocessing, Tagging).
 ------------------------------------------------------------------------------
 """
-from typing import Any, Optional, Union, List, Dict
-from PyQt6.QtCore import QThread, pyqtSignal, QTimer, QObject
+import os
+import tempfile
 import traceback
 import time
+from typing import Any, Optional, Union, List, Dict
+
+import cv2
+import fitz
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer, QObject
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.workers")
@@ -396,12 +401,6 @@ class MatchAnalysisWorker(QThread):
         self.is_cancelled = False
 
     def run(self):
-        import fitz
-        import cv2
-        import tempfile
-        import os
-        from PyQt6.QtCore import QThread
-        
         thread_id = int(QThread.currentThreadId())
         logger.info(f"[MatchAnalysisThread-{thread_id}] Started.")
 

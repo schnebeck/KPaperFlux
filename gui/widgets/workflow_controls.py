@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QVBoxLayout, QMenu
 from PyQt6.QtCore import pyqtSignal, Qt
 from core.workflow import WorkflowRuleRegistry, WorkflowEngine, WorkflowState
 from core.semantic_translator import SemanticTranslator
@@ -181,7 +181,6 @@ class WorkflowControlsWidget(QWidget):
         return "#607d8b" # Blue Grey default
 
     def _show_assignment_menu(self):
-        from PyQt6.QtWidgets import QMenu
         menu = QMenu(self)
         
         rules = self.registry.list_rules()

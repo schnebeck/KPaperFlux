@@ -15,6 +15,8 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject
 
+from core.filter_token_registry import FilterTokenRegistry
+
 
 class SemanticTranslator(QObject):
     """
@@ -494,7 +496,6 @@ class SemanticTranslator(QObject):
             clean = clean[6:]
             
         # 2. Check if it's a known token ID
-        from core.filter_token_registry import FilterTokenRegistry
         registry = FilterTokenRegistry.instance()
         token = registry.get_token(clean)
         if token:

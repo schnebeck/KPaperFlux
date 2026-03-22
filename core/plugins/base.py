@@ -33,7 +33,7 @@ class ApiContext:
             self.logical_repo = None
             self.physical_repo = None
 
-from PyQt6.QtCore import QObject, QTranslator
+from PyQt6.QtCore import QCoreApplication, QObject, QTranslator
 
 class KPaperFluxPlugin(QObject):
     """
@@ -49,7 +49,6 @@ class KPaperFluxPlugin(QObject):
         if not Path(qm_path).exists():
             return False
             
-        from PyQt6.QtCore import QCoreApplication
         translator = QTranslator(self)
         if translator.load(qm_path):
             QCoreApplication.installTranslator(translator)

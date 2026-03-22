@@ -35,6 +35,7 @@ from core.models.virtual import VirtualDocument, VirtualDocument as Document, So
 from core.repositories import LogicalRepository, PhysicalRepository
 from core.vault import DocumentVault
 from core.vocabulary import VocabularyManager
+from core.canonizer import CanonizerService
 
 
 class PipelineProcessor:
@@ -197,7 +198,6 @@ class PipelineProcessor:
         v_doc.export_filename = self._generate_export_filename(v_doc)
         
         # 1.5 Populate Search Cache (Early fulltext availability)
-        from core.canonizer import CanonizerService
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
         v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
 
@@ -251,7 +251,6 @@ class PipelineProcessor:
                             logger.info(f"  -> OCR data updated for {pf.uuid}")
                 
                 # Refresh cache after physical update
-                from core.canonizer import CanonizerService
                 canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
                 v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
                 self.logical_repo.save(v_doc)
@@ -283,8 +282,6 @@ class PipelineProcessor:
         Returns:
             A tuple of UUIDs for the two resulting entities.
         """
-        from core.canonizer import CanonizerService
-
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
         return canonizer.split_entity(entity_uuid, split_after_page_index)
 
@@ -299,8 +296,6 @@ class PipelineProcessor:
         Returns:
             A list of new entity UUIDs.
         """
-        from core.canonizer import CanonizerService
-
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
         return canonizer.restructure_file_entities(file_uuid, new_mappings)
 
@@ -553,7 +548,6 @@ class PipelineProcessor:
                 is_immutable=instr.get("locked", False)
             )
             # Reconstruct text for searchability
-            from core.canonizer import CanonizerService
             canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
             v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
             
@@ -658,7 +652,6 @@ class PipelineProcessor:
                     pdf_class=instr.get("pdf_class", "C")
                 )
                 # Reconstruct text for searchability
-                from core.canonizer import CanonizerService
                 canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
                 v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
                 
@@ -887,8 +880,6 @@ class PipelineProcessor:
             doc_obj: The document object to analyze.
             file_path: Optional file path for visual auditing.
         """
-        from core.canonizer import CanonizerService
-
         # Instantiate Canonizer with Repos
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
 

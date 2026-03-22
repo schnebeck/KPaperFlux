@@ -1,6 +1,7 @@
 
 import os
 import json
+import time
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
     QTextEdit, QComboBox, QTableWidget, QTableWidgetItem,
@@ -283,7 +284,6 @@ class ReportEditorWidget(QWidget):
         self._lock_signals = False
 
     def get_report_definition(self) -> ReportDefinition:
-        import time
         pb_id = self.current_report.id if (self.current_report and self.current_report.id) else f"report_{int(time.time())}"
         
         aggs = []

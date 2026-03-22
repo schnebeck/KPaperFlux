@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QComboBox, QLineEdit, QScrollArea, QFrame,
                              QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox,
                              QSizePolicy, QProgressDialog, QStackedWidget, QTabWidget, QDialog,
-                             QToolButton, QButtonGroup)
+                             QToolButton, QButtonGroup, QLayout)
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint, QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
 import json
@@ -53,6 +53,8 @@ except ImportError as e:
         def add_condition(self, d=None): pass
     # ... weitere Mocks ...
     # --- MOCKS END ---
+
+from core.exchange import ExchangeService
 
 try:
     from gui.utils import show_selectable_message_box, show_notification
@@ -109,7 +111,6 @@ class AdvancedFilterWidget(QWidget):
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        from PyQt6.QtWidgets import QLayout
         layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(0)
@@ -184,7 +185,6 @@ class AdvancedFilterWidget(QWidget):
 
         self.stack = QStackedWidget()
         if self.stack.layout():
-            from PyQt6.QtWidgets import QLayout
             self.stack.layout().setSizeConstraint(QLayout.SizeConstraint.SetMinAndMaxSize)
         self.stack.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         layout.addWidget(self.stack)
@@ -197,7 +197,6 @@ class AdvancedFilterWidget(QWidget):
         self.search_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         search_layout = QVBoxLayout(self.search_tab)
         search_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        from PyQt6.QtWidgets import QLayout
         search_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         search_layout.setContentsMargins(0, 5, 0, 5)
         search_layout.setSpacing(8)
@@ -259,7 +258,6 @@ class AdvancedFilterWidget(QWidget):
         self.filter_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         filter_layout = QVBoxLayout(self.filter_tab)
         filter_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        from PyQt6.QtWidgets import QLayout
         filter_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         filter_layout.setContentsMargins(0, 5, 0, 5)
         filter_layout.setSpacing(8)
@@ -375,7 +373,6 @@ class AdvancedFilterWidget(QWidget):
         self.rules_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         rules_layout = QVBoxLayout(self.rules_tab)
         rules_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        from PyQt6.QtWidgets import QLayout
         rules_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         rules_layout.setContentsMargins(0, 5, 0, 5)
         rules_layout.setSpacing(8)
@@ -1696,7 +1693,6 @@ class AdvancedFilterWidget(QWidget):
              QMessageBox.warning(self, self.tr("Export Filter"), self.tr("No conditions to export."))
              return
              
-        from core.exchange import ExchangeService
         name = self.loaded_filter_node.name if self.loaded_filter_node else "CustomFilter"
         
         path, _ = QFileDialog.getSaveFileName(self, self.tr("Export Filter"), f"{name}.kpfx", "KPaperFlux Exchange (*.kpfx *.json)")
@@ -1721,7 +1717,6 @@ class AdvancedFilterWidget(QWidget):
         if not os.path.exists(path):
                return
                
-        from core.exchange import ExchangeService
         payload = ExchangeService.load_from_file(path)
                  
         if payload and payload.type == "smart_list":

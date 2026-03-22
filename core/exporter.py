@@ -18,6 +18,7 @@ from datetime import date as d_date
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
+import fitz
 import pandas as pd
 
 from core.models.virtual import VirtualDocument as Document
@@ -268,7 +269,6 @@ class DocumentExporter:
         Export multiple documents stitched into one single PDF.
         Supports virtual page mapping from vault documents.
         """
-        import fitz
         out_pdf = fitz.open()
 
         for i, doc in enumerate(documents):

@@ -37,6 +37,8 @@ from PyQt6.QtGui import (
 import fitz
 
 from core.models.virtual import SourceReference
+from core.utils.hybrid_engine import HybridEngine
+from gui.workers import MatchAnalysisWorker
 
 class ToastOverlay(QLabel):
     """
@@ -763,8 +765,7 @@ class DualPdfViewerWidget(QWidget):
         pipeline = getattr(parent, 'pipeline', None)
         self.left_viewer = PdfViewerWidget(pipeline=pipeline, controller=self, is_slave=False)
         self.right_viewer = PdfViewerWidget(pipeline=pipeline, controller=self, is_slave=True)
-        
-        from core.utils.hybrid_engine import HybridEngine
+
         self.engine = HybridEngine()
 
         self.splitter.addWidget(self.left_viewer)
@@ -1061,7 +1062,6 @@ class DualPdfViewerWidget(QWidget):
         """Initializes the background process for document comparison."""
         if self._diff_worker or not self._orig_left_path or not self._orig_right_path:
             return
-        from gui.workers import MatchAnalysisWorker
         self._diff_worker = MatchAnalysisWorker(
             str(self._orig_left_path), 
             str(self._orig_right_path), 

@@ -12,17 +12,18 @@ Description:    Central database manager for SQLite persistence. Handles
 ------------------------------------------------------------------------------
 """
 
+import calendar
 import json
 import os
 import shutil
 import sqlite3
 import threading
-from pathlib import Path
 import traceback
 import uuid
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 from core.models.virtual import VirtualDocument as Document
@@ -696,9 +697,6 @@ class DatabaseManager:
         Translates relative date literals (e.g., 'LAST_MONTH') into absolute
         date strings or ranges (tuples).
         """
-        from datetime import datetime, timedelta
-        import calendar
-
         if not isinstance(val, str):
             return val
 

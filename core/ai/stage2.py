@@ -17,6 +17,7 @@ import json
 import re
 import time
 from decimal import Decimal
+from difflib import get_close_matches
 from typing import Any, Dict, List, Optional, Tuple, Union
 from core.logger import get_logger
 
@@ -29,6 +30,7 @@ from core.ai import prompts
 from core.models.types import DocType
 from core.models.identity import IdentityProfile
 from core.models.semantic import SemanticExtraction, FinanceBody, LegalBody
+from core.utils.validation import validate_iban
 
 
 class Stage2Processor:
@@ -338,7 +340,6 @@ class Stage2Processor:
 
     def validate_semantic_extraction(self, extraction: Dict, entity_type: str) -> List[str]:
         """Validates AI extraction for schema compliance, critical fields, and bank info."""
-        from core.utils.validation import validate_iban
         if hasattr(extraction, "model_dump"):
             extraction = extraction.model_dump()
 
@@ -365,7 +366,6 @@ class Stage2Processor:
 
         def find_hallucinated_keys(obj: Any, target_key: str) -> List[str]:
             if not isinstance(obj, dict): return []
-            from difflib import get_close_matches
             matches = get_close_matches(target_key, obj.keys(), n=3, cutoff=0.5)
             return [m for m in matches if m != target_key]
 
