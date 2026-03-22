@@ -13,6 +13,8 @@ Description:    Central database manager for SQLite persistence. Handles
 """
 
 import json
+import os
+import shutil
 import sqlite3
 import threading
 from pathlib import Path
@@ -1323,9 +1325,6 @@ class DatabaseManager:
         DESTRUCTIVE: Deletes database file and clears vault directory.
         Forces a full system reset.
         """
-        import os
-        import shutil
-
         try:
             # 1. Close Connection
             if self.connection:

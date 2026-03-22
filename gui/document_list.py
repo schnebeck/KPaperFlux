@@ -569,7 +569,7 @@ class DocumentListWidget(QWidget):
              show_selectable_message_box(
                  self,
                  self.tr("Locked Documents"),
-                 self.tr(f"{skipped} document(s) are locked and cannot be deleted."),
+                 self.tr("%s document(s) are locked and cannot be deleted.") % skipped,
                  icon=QMessageBox.Icon.Information
              )
 
@@ -758,7 +758,7 @@ class DocumentListWidget(QWidget):
                 confirm = show_selectable_message_box(
                     self,
                     self.tr("Delete Permanently"),
-                    self.tr(f"Are you sure you want to permanently delete {len(uuids)} document(s)?\nThis cannot be undone."),
+                    self.tr("Are you sure you want to permanently delete %s document(s)?\nThis cannot be undone.") % len(uuids),
                     icon=QMessageBox.Icon.Question,
                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )

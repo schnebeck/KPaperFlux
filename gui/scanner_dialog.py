@@ -242,7 +242,7 @@ class ScannerDialog(QDialog):
             self.device_combo.blockSignals(False)
             self.scan_btn.setEnabled(True)
             # We stay in loading view and trigger source fetch
-            self.loading_label.setText(self.tr(f"Verbinde mit {last_dev_label}..."))
+            self.loading_label.setText(self.tr("Verbinde mit %s...") % last_dev_label)
             self._fetch_device_details(last_dev_id)
             
         # Restore other options
@@ -306,7 +306,7 @@ class ScannerDialog(QDialog):
 
         logger.debug(f"No cache for {device_id}, performing initial fetch...")
         self.stack.setCurrentIndex(0)
-        self.loading_label.setText(self.tr(f"Lade Geräteoptionen für {self.device_combo.currentText()}..."))
+        self.loading_label.setText(self.tr("Lade Geräteoptionen für %s...") % self.device_combo.currentText())
         self._fetch_device_details(device_id)
 
     def _get_cached_caps(self, device_id):
@@ -493,10 +493,10 @@ class ScannerDialog(QDialog):
         if total > 0:
             self.scan_progress.setRange(0, total)
             self.scan_progress.setValue(current)
-            self.scan_progress.setFormat(self.tr(f"Scanne Seite {current} von {total}..."))
+            self.scan_progress.setFormat(self.tr("Scanne Seite %s von %s...") % (current, total))
         else:
             self.scan_progress.setRange(0, 0)
-            self.scan_progress.setFormat(self.tr(f"Scanne Seite {current}..."))
+            self.scan_progress.setFormat(self.tr("Scanne Seite %s...") % current)
 
     def on_scan_finished(self, path):
         self.scan_progress.setVisible(False)

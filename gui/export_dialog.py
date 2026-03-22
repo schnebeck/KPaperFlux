@@ -47,7 +47,7 @@ class ExportDialog(QDialog):
         layout = QVBoxLayout(self)
         
         # Info
-        layout.addWidget(QLabel(self.tr(f"Exporting {len(self.documents)} documents.")))
+        layout.addWidget(QLabel(self.tr("Exporting %s documents.") % len(self.documents)))
         
         # Options
         self.chk_pdfs = QCheckBox(self.tr("Include PDF files (in 'documents/' folder)"))
@@ -143,7 +143,7 @@ class ExportDialog(QDialog):
             show_selectable_message_box(self, self.tr("Success"), self.tr("Export completed successfully."), icon=QMessageBox.Icon.Information)
             self.accept()
         else:
-            show_selectable_message_box(self, self.tr("Error"), self.tr(f"Export failed:\n{error_msg}"), icon=QMessageBox.Icon.Critical)
+            show_selectable_message_box(self, self.tr("Error"), self.tr("Export failed:\n%s") % error_msg, icon=QMessageBox.Icon.Critical)
             self.btn_export.setEnabled(True)
             self.btn_transfer.setEnabled(True)
 
@@ -165,7 +165,7 @@ class ExportDialog(QDialog):
         # Check if file exists
         if os.path.exists(self.output_path):
             reply = show_selectable_message_box(self, self.tr("Confirm Overwrite"),
-                                         self.tr(f"File '{filename}' already exists in transfer folder. Overwrite?"),
+                                         self.tr("File '%s' already exists in transfer folder. Overwrite?") % filename,
                                          icon=QMessageBox.Icon.Question,
                                          buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply != QMessageBox.StandardButton.Yes:

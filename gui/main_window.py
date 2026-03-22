@@ -77,7 +77,7 @@ class MergeConfirmDialog(QDialog):
         self.setWindowTitle(self.tr("Confirm Merge"))
         layout = QVBoxLayout(self)
 
-        label = QLabel(self.tr(f"Merge {count} documents into a new combined entry?"))
+        label = QLabel(self.tr("Merge %s documents into a new combined entry?") % count)
         layout.addWidget(label)
 
         self.check_keep = QCheckBox(self.tr("Keep original documents"))
@@ -990,7 +990,7 @@ class MainWindow(QMainWindow):
             return
 
         count = len(uuids)
-        msg = self.tr("Are you sure you want to delete this item?") if count == 1 else self.tr(f"Are you sure you want to delete {count} items?")
+        msg = self.tr("Are you sure you want to delete this item?") if count == 1 else self.tr("Are you sure you want to delete %s items?") % count
 
         reply = show_selectable_message_box(self, self.tr("Confirm Delete"),
                                      msg,
@@ -1037,7 +1037,7 @@ class MainWindow(QMainWindow):
                      self.filter_tree_widget.load_tree()
 
                 if count > 1:
-                    show_notification(self, self.tr("Deleted"), self.tr(f"Deleted {deleted_count} items."))
+                    show_notification(self, self.tr("Deleted"), self.tr("Deleted %s items.") % deleted_count)
 
     def reprocess_document_slot(self, uuids: list, force_ocr: bool = False):
         """Re-run pipeline for list of documents."""
@@ -1074,7 +1074,7 @@ class MainWindow(QMainWindow):
 
         # Connect Signals — use a named slot so Qt uses QueuedConnection across threads
         def _on_reprocess_progress(i: int, uid: str) -> None:
-            progress.setLabelText(self.tr(f"Reprocessing {i+1} of {count}..."))
+            progress.setLabelText(self.tr("Reprocessing %s of %s...") % (i+1, count))
             progress.setValue(i)
 
         self.reprocess_worker.progress.connect(_on_reprocess_progress)
@@ -1127,7 +1127,7 @@ class MainWindow(QMainWindow):
             show_notification(
                 self, 
                 self.tr("Processing Error"), 
-                self.tr(f"{error_count} error(s) occurred during reprocessing. Check logs."),
+                self.tr("%s error(s) occurred during reprocessing. Check logs.") % error_count,
                 duration=5000
             )
             # Clear errors for next run
@@ -1228,7 +1228,7 @@ class MainWindow(QMainWindow):
 
         # Signals — named slots ensure Qt uses QueuedConnection across threads
         def _on_import_progress(i: int, label: str) -> None:
-            self.main_status_label.setText(self.tr(f"Importing {i+1}/{count}: {label}"))
+            self.main_status_label.setText(self.tr("Importing %s/%s: %s") % (i+1, count, label))
             progress.setValue(i + 1)
 
         def _on_document_imported(uid: str) -> None:
@@ -1367,7 +1367,7 @@ class MainWindow(QMainWindow):
             show_notification(self, self.tr("Transfer"), self.tr("No compatible files found in transfer folder."))
             return
 
-        msg = self.tr(f"Found {len(files)} files in transfer folder. Do you want to import them now?")
+        msg = self.tr("Found %s files in transfer folder. Do you want to import them now?") % len(files)
         reply = show_selectable_message_box(self, self.tr("Import from Transfer"), msg, 
                                            icon=QMessageBox.Icon.Question,
                                            buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -1433,7 +1433,7 @@ class MainWindow(QMainWindow):
         if to_full:
             self.reprocess_document_slot(to_full)
 
-        self.main_status_label.setText(self.tr(f"Queued {len(uuids)} docs for extraction."))
+        self.main_status_label.setText(self.tr("Queued %s docs for extraction.") % len(uuids))
 
     def run_stage_2_all_missing_slot(self):
         """Find all documents with empty semantic data and trigger processing."""
@@ -1444,7 +1444,7 @@ class MainWindow(QMainWindow):
 
         uuids = [d.uuid for d in docs]
         confirm = show_selectable_message_box(self, self.tr("Process empty Documents"),
-                                             self.tr(f"Start semantic extraction for {len(uuids)} documents without details?"),
+                                             self.tr("Start semantic extraction for %s documents without details?") % len(uuids),
                                              icon=QMessageBox.Icon.Question,
                                              buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if confirm == QMessageBox.StandardButton.Yes:
@@ -1547,7 +1547,7 @@ class MainWindow(QMainWindow):
                 return
             percent = int((current / total) * 100) if total > 0 else 0
             progress.setValue(percent)
-            progress.setLabelText(self.tr(f"Comparing documents ({current}/{total})..."))
+            progress.setLabelText(self.tr("Comparing documents (%s/%s)...") % (current, total))
 
         def on_finished(duplicates):
             progress.close()
@@ -1704,7 +1704,7 @@ class MainWindow(QMainWindow):
 
              if not error_msg and not splitter_opened:
                   show_notification(self, self.tr("Import Finished"),
-                                    self.tr(f"Imported {len(imported_uuids)} documents.\nBackground processing started."))
+                                    self.tr("Imported %s documents.\nBackground processing started.") % len(imported_uuids))
 
         if hasattr(self, "cockpit_widget"):
              self.cockpit_widget.refresh_stats()
@@ -1767,7 +1767,7 @@ class MainWindow(QMainWindow):
                           src_path = self.pipeline.vault.get_file_path(phys_uuid)
 
         if not src_path or not os.path.exists(src_path):
-            show_selectable_message_box(self, self.tr("Error"), self.tr(f"Could not locate physical file for UUID: {target_uuid}"), icon=QMessageBox.Icon.Warning)
+            show_selectable_message_box(self, self.tr("Error"), self.tr("Could not locate physical file for UUID: %s") % target_uuid, icon=QMessageBox.Icon.Warning)
             return
 
         dialog = StamperDialog(self)
@@ -1819,14 +1819,14 @@ class MainWindow(QMainWindow):
                 if action == "remove":
                      msg = self.tr("Stamp removed.")
                 else:
-                     msg = self.tr(f"Stamp applied to {successful_count} document(s).")
+                     msg = self.tr("Stamp applied to %s document(s).") % successful_count
 
                 show_notification(self, self.tr("Success"), msg)
 
                 self.list_widget.document_selected.emit([target_uuid])
 
             except Exception as e:
-                show_selectable_message_box(self, self.tr("Error"), self.tr(f"Stamping operation failed: {e}"), icon=QMessageBox.Icon.Critical)
+                show_selectable_message_box(self, self.tr("Error"), self.tr("Stamping operation failed: %s") % e, icon=QMessageBox.Icon.Critical)
 
     def manage_tags_slot(self, uuids: list[str]):
         """Open dialog to add/remove tags for selected documents."""
@@ -1880,7 +1880,7 @@ class MainWindow(QMainWindow):
 
             if count > 0:
                 self.list_widget.refresh_list()
-                show_notification(self, self.tr("Tags Updated"), self.tr(f"Updated tags for {count} documents."))
+                show_notification(self, self.tr("Tags Updated"), self.tr("Updated tags for %s documents.") % count)
 
     def toggle_editor_visibility(self, checked: bool):
         """Toggle the visibility of the metadata editor widget."""
@@ -2024,7 +2024,7 @@ class MainWindow(QMainWindow):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
-            show_notification(self, self.tr("Restored"), self.tr(f"Restored {count} document(s)."))
+            show_notification(self, self.tr("Restored"), self.tr("Restored %s document(s).") % count)
 
     def archive_document_slot(self, uuids: list[str], archive: bool = True):
         """Handles archiving or restoring documents from the archive."""
@@ -2122,7 +2122,7 @@ class MainWindow(QMainWindow):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
-            show_notification(self, self.tr("Deleted"), self.tr(f"Permanently deleted {count} document(s)."))
+            show_notification(self, self.tr("Deleted"), self.tr("Permanently deleted %s document(s).") % count)
     def open_debug_audit_window(self, uuid: str):
         """Opens the Audit Window in debug/generic mode with only a Close button."""
         from gui.audit_window import AuditWindow

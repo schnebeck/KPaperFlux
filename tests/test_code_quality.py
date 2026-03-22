@@ -1,5 +1,4 @@
 
-import os
 import ast
 from pathlib import Path
 import pytest
@@ -74,6 +73,56 @@ def test_no_silent_except_pass():
         msg = "\n".join([f"  - {f}:{l} -> Illegal 'except: pass' block found." for f, l in all_violations])
         pytest.fail(f"Quality Gate Failed: Silent exceptions detected!\n{msg}\n\nHint: Replace 'pass' with at least a logger.warning() or logger.debug() call.")
 
+class TrFstringVisitor(ast.NodeVisitor):
+    """Detects self.tr(f"...") calls — f-strings inside tr() are invisible to pylupdate6."""
+
+    def __init__(self, filename: str) -> None:
+        self.filename = filename
+        self.violations: list = []
+
+    def visit_Call(self, node: ast.Call) -> None:
+        # Match self.tr(...) or tr(...)
+        is_tr_call = (
+            isinstance(node.func, ast.Attribute) and node.func.attr == "tr"
+        ) or (
+            isinstance(node.func, ast.Name) and node.func.id == "tr"
+        )
+        if is_tr_call and node.args and isinstance(node.args[0], ast.JoinedStr):
+            self.violations.append((self.filename, node.lineno))
+        self.generic_visit(node)
+
+
+def test_no_fstring_in_tr():
+    """
+    Quality Gate: Fails if any tr(f"...") calls are found.
+    F-strings inside tr() are not extractable by pylupdate6 and break the
+    l10n pipeline — the string will never appear in the .ts file.
+    Use self.tr("Text with %s placeholder") % variable instead.
+    """
+    root_dir = Path(__file__).parent.parent
+    py_files = get_python_files(root_dir)
+
+    all_violations = []
+
+    for py_file in py_files:
+        try:
+            content = py_file.read_text(encoding="utf-8")
+            tree = ast.parse(content)
+            visitor = TrFstringVisitor(str(py_file.relative_to(root_dir)))
+            visitor.visit(tree)
+            all_violations.extend(visitor.violations)
+        except Exception as e:
+            print(f"Skipping {py_file} due to parse error: {e}")
+
+    if all_violations:
+        msg = "\n".join([f"  - {f}:{l} -> tr(f\"...\") found." for f, l in all_violations])
+        pytest.fail(
+            f"Quality Gate Failed: f-strings inside tr() detected!\n{msg}\n\n"
+            "Hint: Replace tr(f\"Text {{var}}\") with tr(\"Text %s\") % var"
+        )
+
+
 if __name__ == "__main__":
     # Allow running this script directly
     test_no_silent_except_pass()
+    test_no_fstring_in_tr()

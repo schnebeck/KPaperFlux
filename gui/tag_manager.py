@@ -138,7 +138,7 @@ class TagManagerDialog(QDialog):
         new_tag, ok = QInputDialog.getText(self, self.tr("Rename Tag"), self.tr("New Name:"), text=old_tag)
         if ok and new_tag and new_tag != old_tag:
             count = self.db_manager.rename_tag(old_tag, new_tag)
-            show_notification(self, self.tr("Result"), self.tr(f"Updated {count} document(s)."))
+            show_notification(self, self.tr("Result"), self.tr("Updated %s document(s).") % count)
             self.refresh_tags()
 
     def merge_selected(self):
@@ -153,7 +153,7 @@ class TagManagerDialog(QDialog):
         target_tag, ok = QInputDialog.getItem(
             self,
             self.tr("Merge Tags"),
-            self.tr(f"Merge {len(tags)} tags into:"),
+            self.tr("Merge %s tags into:") % len(tags),
             tags,
             0,
             True
@@ -161,7 +161,7 @@ class TagManagerDialog(QDialog):
 
         if ok and target_tag:
             count = self.db_manager.merge_tags(tags, target_tag)
-            show_notification(self, self.tr("Result"), self.tr(f"Merged tags. Updated {count} document(s)."))
+            show_notification(self, self.tr("Result"), self.tr("Merged tags. Updated %s document(s).") % count)
             self.refresh_tags()
 
     def delete_selected(self):
@@ -173,7 +173,7 @@ class TagManagerDialog(QDialog):
         confirm = show_selectable_message_box(
             self,
             self.tr("Delete Tags"),
-            self.tr(f"Are you sure you want to remove these {len(tags)} tags from ALL documents?\n\n{', '.join(tags)}"),
+            self.tr("Are you sure you want to remove these %s tags from ALL documents?\n\n%s") % (len(tags), ', '.join(tags)),
             icon=QMessageBox.Icon.Question,
             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -182,7 +182,7 @@ class TagManagerDialog(QDialog):
             total = 0
             for tag in tags:
                 total += self.db_manager.delete_tag(tag)
-            show_notification(self, self.tr("Result"), self.tr(f"Removed tags from {total} document(s)."))
+            show_notification(self, self.tr("Result"), self.tr("Removed tags from %s document(s).") % total)
             self.refresh_tags()
 
     def _get_selected_rows(self):

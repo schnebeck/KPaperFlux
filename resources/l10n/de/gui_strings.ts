@@ -888,6 +888,11 @@
             <translation>Gesperrte Dokumente</translation>
         </message>
         <message>
+            <location filename="../../../gui/document_list.py" line="572" />
+            <source>%s document(s) are locked and cannot be deleted.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/document_list.py" line="594" />
             <source>Merge Selected Documents</source>
             <translation>Dokumente zusammenführen</translation>
@@ -1008,6 +1013,12 @@
             <location filename="../../../gui/document_list.py" line="683" />
             <source>Delete Permanently</source>
             <translation>Endgültig löschen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/document_list.py" line="761" />
+            <source>Are you sure you want to permanently delete %s document(s)?
+This cannot be undone.</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <location filename="../../../gui/document_list.py" line="1511" />
@@ -1183,6 +1194,11 @@
             <translation>Dokumente exportieren</translation>
         </message>
         <message>
+            <location filename="../../../gui/export_dialog.py" line="50" />
+            <source>Exporting %s documents.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/export_dialog.py" line="53" />
             <source>Include PDF files (in 'documents/' folder)</source>
             <translation>PDF-Dateien einschließen</translation>
@@ -1254,9 +1270,20 @@
             <translation>Fehler</translation>
         </message>
         <message>
+            <location filename="../../../gui/export_dialog.py" line="146" />
+            <source>Export failed:
+%s</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/export_dialog.py" line="167" />
             <source>Confirm Overwrite</source>
             <translation>Überschreiben bestätigen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/export_dialog.py" line="168" />
+            <source>File '%s' already exists in transfer folder. Overwrite?</source>
+            <translation type="unfinished" />
         </message>
     </context>
     <context>
@@ -2121,6 +2148,11 @@
             <translation type="unfinished" />
         </message>
         <message>
+            <location filename="../../../gui/main_window.py" line="993" />
+            <source>Are you sure you want to delete %s items?</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/main_window.py" line="995" />
             <source>Confirm Delete</source>
             <translation type="unfinished" />
@@ -2129,6 +2161,11 @@
             <location filename="../../../gui/main_window.py" line="2125" />
             <location filename="../../../gui/main_window.py" line="1040" />
             <source>Deleted</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1040" />
+            <source>Deleted %s items.</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2150,9 +2187,19 @@
             <translation>Abbrechen</translation>
         </message>
         <message>
+            <location filename="../../../gui/main_window.py" line="1077" />
+            <source>Reprocessing %s of %s...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/main_window.py" line="1129" />
             <source>Processing Error</source>
             <translation>Fehler bei der Verarbeitung</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1130" />
+            <source>%s error(s) occurred during reprocessing. Check logs.</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1139" />
@@ -2167,6 +2214,11 @@
         <message>
             <location filename="../../../gui/main_window.py" line="1219" />
             <source>Importing...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1231" />
+            <source>Importing %s/%s: %s</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2198,6 +2250,11 @@
         <message>
             <location filename="../../../gui/main_window.py" line="1367" />
             <source>No compatible files found in transfer folder.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1370" />
+            <source>Found %s files in transfer folder. Do you want to import them now?</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2243,6 +2300,11 @@
             <translation type="unfinished" />
         </message>
         <message>
+            <location filename="../../../gui/main_window.py" line="1436" />
+            <source>Queued %s docs for extraction.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/main_window.py" line="1442" />
             <source>No empty documents found.</source>
             <translation type="unfinished" />
@@ -2252,6 +2314,11 @@
             <location filename="../../../gui/main_window.py" line="1446" />
             <source>Process empty Documents</source>
             <translation>Leere Dokumente verarbeiten</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1447" />
+            <source>Start semantic extraction for %s documents without details?</source>
+            <translation type="unfinished" />
         </message>
         <message numerus="yes">
             <location filename="../../../gui/main_window.py" line="1466" />
@@ -2312,6 +2379,11 @@
             <translation type="unfinished" />
         </message>
         <message>
+            <location filename="../../../gui/main_window.py" line="1550" />
+            <source>Comparing documents (%s/%s)...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/main_window.py" line="1557" />
             <source>No Duplicates</source>
             <translation type="unfinished" />
@@ -2355,6 +2427,12 @@
             <translation type="unfinished" />
         </message>
         <message>
+            <location filename="../../../gui/main_window.py" line="1707" />
+            <source>Imported %s documents.
+Background processing started.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/main_window.py" line="1717" />
             <source>AI: %s</source>
             <translation>KI: %s</translation>
@@ -2367,6 +2445,11 @@
         <message>
             <location filename="../../../gui/main_window.py" line="1739" />
             <source>No documents visible to export.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1770" />
+            <source>Could not locate physical file for UUID: %s</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -2385,14 +2468,29 @@
             <translation type="unfinished" />
         </message>
         <message>
+            <location filename="../../../gui/main_window.py" line="1822" />
+            <source>Stamp applied to %s document(s).</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/main_window.py" line="2088" />
             <location filename="../../../gui/main_window.py" line="1824" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
+            <location filename="../../../gui/main_window.py" line="1829" />
+            <source>Stamping operation failed: %s</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/main_window.py" line="1883" />
             <source>Tags Updated</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1883" />
+            <source>Updated tags for %s documents.</source>
             <translation type="unfinished" />
         </message>
         <message numerus="yes">
@@ -2417,6 +2515,11 @@
             <location filename="../../../gui/main_window.py" line="2027" />
             <source>Restored</source>
             <translation>Wiederhergestellt</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="2027" />
+            <source>Restored %s document(s).</source>
+            <translation type="unfinished" />
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2038" />
@@ -2464,6 +2567,11 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2093" />
             <source>Failed to purge data. Check logs.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="2125" />
+            <source>Permanently deleted %s document(s).</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -3014,6 +3122,11 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="77" />
             <source>Confirm Merge</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="80" />
+            <source>Merge %s documents into a new combined entry?</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -4333,6 +4446,16 @@ Please install 'qrcode' package.</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
+            <location filename="../../../gui/scanner_dialog.py" line="245" />
+            <source>Verbinde mit %s...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/scanner_dialog.py" line="309" />
+            <source>Lade Geräteoptionen für %s...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/scanner_dialog.py" line="438" />
             <source>Keine Geräte gefunden</source>
             <translation type="unfinished" />
@@ -4350,6 +4473,16 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="466" />
             <source>Suche fehlgeschlagen</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/scanner_dialog.py" line="496" />
+            <source>Scanne Seite %s von %s...</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/scanner_dialog.py" line="499" />
+            <source>Scanne Seite %s...</source>
             <translation type="unfinished" />
         </message>
         <message>
@@ -5951,6 +6084,11 @@ Geschäftsführer: ...</translation>
             <translation>Ergebnis</translation>
         </message>
         <message>
+            <location filename="../../../gui/tag_manager.py" line="141" />
+            <source>Updated %s document(s).</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/tag_manager.py" line="147" />
             <source>Merge</source>
             <translation>Zusammenführen</translation>
@@ -5966,9 +6104,31 @@ Geschäftsführer: ...</translation>
             <translation>Tags zusammenführen</translation>
         </message>
         <message>
+            <location filename="../../../gui/tag_manager.py" line="156" />
+            <source>Merge %s tags into:</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/tag_manager.py" line="164" />
+            <source>Merged tags. Updated %s document(s).</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
             <location filename="../../../gui/tag_manager.py" line="175" />
             <source>Delete Tags</source>
             <translation>Tags löschen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/tag_manager.py" line="176" />
+            <source>Are you sure you want to remove these %s tags from ALL documents?
+
+%s</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <location filename="../../../gui/tag_manager.py" line="185" />
+            <source>Removed tags from %s document(s).</source>
+            <translation type="unfinished" />
         </message>
     </context>
     <context>
