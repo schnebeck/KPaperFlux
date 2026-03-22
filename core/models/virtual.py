@@ -157,41 +157,32 @@ class VirtualDocument(BaseModel):
         """Helper to access financial totals across different semantic bodies."""
         return self.total_gross
 
-    @property
-    def sender_name(self) -> Optional[str]:
-        """Human readable sender name/company."""
-        if not self.semantic_data: return None
-        if hasattr(self.semantic_data, "sender_summary"):
-             return self.semantic_data.sender_summary
-        
-        # Fallback for dict
+    def _get_party_name(self, summary_attr: str, meta_key: str) -> Optional[str]:
+        """Resolves a party (sender/recipient) name from semantic data with dict and object fallback."""
+        if not self.semantic_data:
+            return None
+        if hasattr(self.semantic_data, summary_attr):
+            return getattr(self.semantic_data, summary_attr)
         meta = self.semantic_data.get("meta_header", {}) if isinstance(self.semantic_data, dict) else getattr(self.semantic_data, "meta_header", None)
         if meta:
             if isinstance(meta, dict):
-                sender = meta.get("sender", {})
-                return sender.get("company") or sender.get("name")
+                party = meta.get(meta_key, {})
+                return party.get("company") or party.get("name")
             else:
-                s = getattr(meta, "sender", None)
-                if s: return getattr(s, "company", None) or getattr(s, "name", None)
+                p = getattr(meta, meta_key, None)
+                if p:
+                    return getattr(p, "company", None) or getattr(p, "name", None)
         return None
+
+    @property
+    def sender_name(self) -> Optional[str]:
+        """Human readable sender name/company."""
+        return self._get_party_name("sender_summary", "sender")
 
     @property
     def recipient_name(self) -> Optional[str]:
         """Human readable recipient name/company."""
-        if not self.semantic_data: return None
-        if hasattr(self.semantic_data, "recipient_summary"):
-             return self.semantic_data.recipient_summary
-             
-        # Fallback for dict
-        meta = self.semantic_data.get("meta_header", {}) if isinstance(self.semantic_data, dict) else getattr(self.semantic_data, "meta_header", None)
-        if meta:
-            if isinstance(meta, dict):
-                recp = meta.get("recipient", {})
-                return recp.get("company") or recp.get("name")
-            else:
-                r = getattr(meta, "recipient", None)
-                if r: return getattr(r, "company", None) or getattr(r, "name", None)
-        return None
+        return self._get_party_name("recipient_summary", "recipient")
 
     @property
     def doc_date(self) -> Optional[str]:
