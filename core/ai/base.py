@@ -15,7 +15,6 @@ class AIProvider(ABC):
         """Executes a structured JSON fallback request."""
         pass
 
-    @abstractmethod
     def get_adaptive_delay(self) -> float:
-        """Returns current rate-limit delay."""
-        pass
+        """Returns current rate-limit delay. Subclasses may override."""
+        return getattr(self, '_delay', 0.0)

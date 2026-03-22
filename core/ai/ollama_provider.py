@@ -67,5 +67,3 @@ class OllamaProvider(AIProvider):
             
         return None
 
-    def get_adaptive_delay(self) -> float:
-        return self._delay
