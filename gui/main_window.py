@@ -1377,35 +1377,35 @@ class MainWindow(QMainWindow):
 
     # --- Stage 2: Semantic Data Management Slots ---
 
+    def _show_semantic_filter(self, docs: list, empty_msg: str, filter_label: str, status_msg: str) -> None:
+        """Applies a UUID-based filter for a list of flagged documents, or shows a notification if empty."""
+        if not docs:
+            show_notification(self, self.tr("Semantic Data"), empty_msg)
+            return
+        self.central_stack.setCurrentIndex(1)
+        query = {"field": "uuid", "op": "in", "value": [d.uuid for d in docs]}
+        self.list_widget.apply_advanced_filter(query, label=filter_label)
+        self.main_status_label.setText(status_msg)
+
     def list_missing_semantic_data_slot(self):
         """Query DB for documents lacking semantic data and display them."""
         docs = self.db_manager.get_documents_missing_semantic_data()
-        count = len(docs)
-        if count == 0:
-            show_notification(self, self.tr("Semantic Data"), self.tr("All documents have semantic data."))
-            return
-
-        self.central_stack.setCurrentIndex(1) # Explorer View
-
-        uuids = [d.uuid for d in docs]
-        query = {"field": "uuid", "op": "in", "value": uuids}
-        self.list_widget.apply_advanced_filter(query, label="Semantic Data > Missing")
-        self.main_status_label.setText(self.tr(f"Showing {count} docs with missing semantic data."))
+        self._show_semantic_filter(
+            docs,
+            empty_msg=self.tr("All documents have semantic data."),
+            filter_label="Semantic Data > Missing",
+            status_msg=self.tr("Showing %s docs with missing semantic data.") % len(docs),
+        )
 
     def list_mismatched_semantic_data_slot(self):
         """Query DB for documents with mismatched data."""
         docs = self.db_manager.get_documents_mismatched_semantic_data()
-        count = len(docs)
-        if count == 0:
-            show_notification(self, self.tr("Semantic Data"), self.tr("No data mismatches found."))
-            return
-
-        self.central_stack.setCurrentIndex(1) # Explorer View
-
-        uuids = [d.uuid for d in docs]
-        query = {"field": "uuid", "op": "in", "value": uuids}
-        self.list_widget.apply_advanced_filter(query, label="Semantic Data > Mismatched")
-        self.main_status_label.setText(self.tr(f"Showing {count} docs with data mismatches."))
+        self._show_semantic_filter(
+            docs,
+            empty_msg=self.tr("No data mismatches found."),
+            filter_label="Semantic Data > Mismatched",
+            status_msg=self.tr("Showing %s docs with data mismatches.") % len(docs),
+        )
 
     def run_stage_2_selected_slot(self, uuids: list[str] = None):
         """Manually trigger Stage 2 for selected documents."""

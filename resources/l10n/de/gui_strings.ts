@@ -857,7 +857,7 @@
     <context>
         <name>DocumentListWidget</name>
         <message>
-            <location filename="../../../gui/document_list.py" line="1528" />
+            <location filename="../../../gui/document_list.py" line="1502" />
             <location filename="../../../gui/document_list.py" line="177" />
             <source>All Documents</source>
             <translation>Alle Dokumente</translation>
@@ -883,194 +883,194 @@
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="583" />
+            <location filename="../../../gui/document_list.py" line="571" />
             <source>Locked Documents</source>
             <translation>Gesperrte Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="606" />
+            <location filename="../../../gui/document_list.py" line="594" />
             <source>Merge Selected Documents</source>
             <translation>Dokumente zusammenführen</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="613" />
+            <location filename="../../../gui/document_list.py" line="601" />
             <source>Edit Document...</source>
             <translation>Dokument bearbeiten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="615" />
+            <location filename="../../../gui/document_list.py" line="603" />
             <source>Reprocess / Re-Analyze</source>
             <translation>Neu analysieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="616" />
+            <location filename="../../../gui/document_list.py" line="604" />
             <source>Force OCR / Searchable PDF</source>
             <translation>OCR erzwingen / Durchsuchbares PDF</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="622" />
+            <location filename="../../../gui/document_list.py" line="610" />
             <source>Show generic Document</source>
             <translation>Generisches Dokument anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="626" />
+            <location filename="../../../gui/document_list.py" line="614" />
             <source>Semantic Data</source>
             <translation>Semantische Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="627" />
+            <location filename="../../../gui/document_list.py" line="615" />
             <source>Extract from Selection</source>
             <translation>Aus Auswahl extrahieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="628" />
+            <location filename="../../../gui/document_list.py" line="616" />
             <source>Extract from View</source>
             <translation>Aus Ansicht extrahieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="633" />
+            <location filename="../../../gui/document_list.py" line="621" />
             <source>Manage Tags...</source>
             <translation>Tags verwalten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="634" />
+            <location filename="../../../gui/document_list.py" line="622" />
             <source>Stamp...</source>
             <translation>Stempel...</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="638" />
+            <location filename="../../../gui/document_list.py" line="626" />
             <source>Apply Rule...</source>
             <translation>Regel anwenden...</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="647" />
+            <location filename="../../../gui/document_list.py" line="635" />
             <source>No active rules found in Filter Tree.</source>
             <translation>Keine aktiven Regeln gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="650" />
+            <location filename="../../../gui/document_list.py" line="638" />
             <source>Save as List...</source>
             <translation>Als Liste speichern...</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="653" />
+            <location filename="../../../gui/document_list.py" line="641" />
             <source>Export Selected...</source>
             <translation>Auswahl exportieren...</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="654" />
+            <location filename="../../../gui/document_list.py" line="642" />
             <source>Export All Visible...</source>
             <translation>Alle sichtbaren exportieren...</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="679" />
+            <location filename="../../../gui/document_list.py" line="667" />
             <source>Delete Document</source>
             <translation>Dokument löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="680" />
+            <location filename="../../../gui/document_list.py" line="668" />
             <source>Archive Document</source>
             <translation>Dokument archivieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="681" />
+            <location filename="../../../gui/document_list.py" line="669" />
             <source>Restore from Archive</source>
             <translation>Aus Archiv wiederherstellen</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/document_list.py" line="683" />
+            <location filename="../../../gui/document_list.py" line="671" />
             <source>Delete %n Document(s)</source>
             <translation>
                 <numerusform>%n Dokument löschen</numerusform>
             </translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/document_list.py" line="684" />
+            <location filename="../../../gui/document_list.py" line="672" />
             <source>Archive %n Document(s)</source>
             <translation>
                 <numerusform>%n Dokument archivieren</numerusform>
             </translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/document_list.py" line="685" />
+            <location filename="../../../gui/document_list.py" line="673" />
             <source>Restore %n Document(s) from Archive</source>
             <translation>
                 <numerusform>%n Dokument aus Archiv wiederherstellen</numerusform>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="694" />
+            <location filename="../../../gui/document_list.py" line="682" />
             <source>Restore</source>
             <translation>Wiederherstellen</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="772" />
-            <location filename="../../../gui/document_list.py" line="695" />
+            <location filename="../../../gui/document_list.py" line="760" />
+            <location filename="../../../gui/document_list.py" line="683" />
             <source>Delete Permanently</source>
             <translation>Endgültig löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1537" />
-            <location filename="../../../gui/document_list.py" line="1525" />
-            <location filename="../../../gui/document_list.py" line="1247" />
+            <location filename="../../../gui/document_list.py" line="1511" />
+            <location filename="../../../gui/document_list.py" line="1499" />
+            <location filename="../../../gui/document_list.py" line="1221" />
             <source>Trash Bin</source>
             <translation>Mülleimer</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1251" />
+            <location filename="../../../gui/document_list.py" line="1225" />
             <source>Archive</source>
             <translation>Archiv</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1420" />
+            <location filename="../../../gui/document_list.py" line="1394" />
             <source>Digital Original (Signed)</source>
             <translation>Digitales Original (Signiert)</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1421" />
+            <location filename="../../../gui/document_list.py" line="1395" />
             <source>Digital Original (ZUGFeRD/Factur-X)</source>
             <translation>Digitales Original (ZUGFeRD)</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1422" />
+            <location filename="../../../gui/document_list.py" line="1396" />
             <source>Digital Original (Signed &amp; ZUGFeRD)</source>
             <translation>Digitales Original (Signiert &amp;&amp; ZUGFeRD)</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1423" />
+            <location filename="../../../gui/document_list.py" line="1397" />
             <source>Hybrid Container (KPaperFlux Protected)</source>
             <translation>Hybrid-Container (KPaperFlux)</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1492" />
+            <location filename="../../../gui/document_list.py" line="1466" />
             <source>Export</source>
             <translation>Exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1492" />
+            <location filename="../../../gui/document_list.py" line="1466" />
             <source>No documents to export.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1564" />
-            <location filename="../../../gui/document_list.py" line="1521" />
+            <location filename="../../../gui/document_list.py" line="1538" />
+            <location filename="../../../gui/document_list.py" line="1495" />
             <source>Documents</source>
             <translation>Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1544" />
-            <location filename="../../../gui/document_list.py" line="1543" />
-            <location filename="../../../gui/document_list.py" line="1531" />
+            <location filename="../../../gui/document_list.py" line="1518" />
+            <location filename="../../../gui/document_list.py" line="1517" />
+            <location filename="../../../gui/document_list.py" line="1505" />
             <source>Search</source>
             <translation>Suche</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1533" />
+            <location filename="../../../gui/document_list.py" line="1507" />
             <source>Filter</source>
             <translation>Filter</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1535" />
+            <location filename="../../../gui/document_list.py" line="1509" />
             <source>Manual Selection</source>
             <translation type="unfinished" />
         </message>
@@ -2208,20 +2208,29 @@
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1442" />
-            <location filename="../../../gui/main_window.py" line="1400" />
-            <location filename="../../../gui/main_window.py" line="1385" />
+            <location filename="../../../gui/main_window.py" line="1383" />
             <source>Semantic Data</source>
             <translation>Semantische Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1385" />
+            <location filename="../../../gui/main_window.py" line="1395" />
             <source>All documents have semantic data.</source>
-            <translation type="unfinished" />
+            <translation>Alle Dokumente haben semantische Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1400" />
+            <location filename="../../../gui/main_window.py" line="1397" />
+            <source>Showing %s docs with missing semantic data.</source>
+            <translation>%s Dokumente ohne semantische Daten.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1405" />
             <source>No data mismatches found.</source>
-            <translation type="unfinished" />
+            <translation>Keine Datenkonflikte gefunden.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/main_window.py" line="1407" />
+            <source>Showing %s docs with data mismatches.</source>
+            <translation>%s Dokumente mit Datenkonflikten.</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1416" />

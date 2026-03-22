@@ -291,6 +291,10 @@ def fill():
             "Docs: %s/%s": "Doks: %s/%s",
             "AI: %s": "KI: %s",
             "Check Integrity (Orphans/Ghosts)": "Daten prüfen",
+            "All documents have semantic data.": "Alle Dokumente haben semantische Daten.",
+            "No data mismatches found.": "Keine Datenkonflikte gefunden.",
+            "Showing %s docs with missing semantic data.": "%s Dokumente ohne semantische Daten.",
+            "Showing %s docs with data mismatches.": "%s Dokumente mit Datenkonflikten.",
         },
         "MetadataEditorWidget": {
             "Extracted Data": "Extrahierte Daten",
