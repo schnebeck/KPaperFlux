@@ -1202,43 +1202,29 @@ class DocumentListWidget(QWidget):
                  item.setSelected(True)
                  self.tree.scrollToItem(item)
 
+    def _check_query_for_field(self, q: dict, field_name: str) -> bool:
+        """Recursively checks whether a query dict filters on a truthy value for field_name."""
+        if not q:
+            return False
+        if "field" in q and q["field"] == field_name:
+            val = q.get("value")
+            if val is True:
+                return True
+            if isinstance(val, str) and val.lower() in ("true", "1", "yes"):
+                return True
+            if isinstance(val, int) and val == 1:
+                return True
+            return False
+        if "conditions" in q:
+            return any(self._check_query_for_field(c, field_name) for c in q["conditions"])
+        return False
+
     def apply_advanced_filter(self, query: dict, label: Optional[str] = None):
         """Apply advanced search query."""
         logger.info(f"[DEBUG] DocumentList Received Query: {query}")
 
-        # Check if query implies Trash Mode
-        is_trash = False
-        # ... (rest of check_trash logic)
-        # Basic check for single condition or root group
-        # If user explicitly filters for 'deleted', switch mode
-        # Helper usually better, but inline for MVP:
-        def check_trash(q):
-            if not q: return False
-            if "field" in q and q["field"] == "deleted":
-                val = q.get("value")
-                # Robust check for True/true/1
-                if val is True: return True
-                if isinstance(val, str) and val.lower() in ("true", "1", "yes"): return True
-                if isinstance(val, int) and val == 1: return True
-                return False
-            if "conditions" in q:
-                return any(check_trash(c) for c in q["conditions"])
-            return False
-
-        def check_archive(q):
-            if not q: return False
-            if "field" in q and q["field"] == "archived":
-                val = q.get("value")
-                if val is True: return True
-                if isinstance(val, str) and val.lower() in ("true", "1", "yes"): return True
-                if isinstance(val, int) and val == 1: return True
-                return False
-            if "conditions" in q:
-                return any(check_archive(c) for c in q["conditions"])
-            return False
-
-        is_mode_trash = check_trash(query)
-        is_mode_archive = check_archive(query)
+        is_mode_trash = self._check_query_for_field(query, "deleted")
+        is_mode_archive = self._check_query_for_field(query, "archived")
         logger.info(f"[DEBUG] check results: trash={is_mode_trash}, archive={is_mode_archive} for query: {query}")
 
         if is_mode_trash:

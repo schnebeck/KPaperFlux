@@ -213,48 +213,25 @@ class LogicalRepository(BaseRepository):
             logger.error(f"Delete error: {e}")
             return False
 
-    def mark_deleted(self, uuid: str, is_deleted: bool = True) -> bool:
-        """
-        Soft-deletes or restores a virtual document.
-        
-        Args:
-            uuid: The document UUID.
-            is_deleted: True to mark as deleted, False to restore.
-            
-        Returns:
-            True if the operation was successful.
-        """
-        now = datetime.now().isoformat() if is_deleted else None
-        sql = "UPDATE virtual_documents SET deleted = ?, deleted_at = ? WHERE uuid = ?"
+    def _mark_flag(self, uuid: str, flag_col: str, timestamp_col: str, value: bool) -> bool:
+        """Sets a boolean flag column and its corresponding timestamp on a virtual document."""
+        now = datetime.now().isoformat() if value else None
+        sql = f"UPDATE virtual_documents SET {flag_col} = ?, {timestamp_col} = ? WHERE uuid = ?"
         try:
             with self.conn:
-                cursor = self.conn.execute(sql, (int(is_deleted), now, uuid))
+                cursor = self.conn.execute(sql, (int(value), now, uuid))
                 return cursor.rowcount > 0
         except Exception as e:
-            logger.error(f"mark_deleted error: {e}")
+            logger.error(f"mark_{flag_col} error: {e}")
             return False
 
+    def mark_deleted(self, uuid: str, is_deleted: bool = True) -> bool:
+        """Soft-deletes or restores a virtual document."""
+        return self._mark_flag(uuid, "deleted", "deleted_at", is_deleted)
+
     def mark_archived(self, uuid: str, is_archived: bool = True) -> bool:
-        """
-        Soft-archives or restores a virtual document.
-        
-        Args:
-            uuid: The document UUID.
-            is_archived: True to mark as archived, False to restore.
-            
-        Returns:
-            True if the operation was successful.
-        """
-        now = datetime.now().isoformat() if is_archived else None
-        # We use exported_at as a proxy for archived_at if needed, but let's keep it clean
-        sql = "UPDATE virtual_documents SET archived = ?, exported_at = ? WHERE uuid = ?"
-        try:
-            with self.conn:
-                cursor = self.conn.execute(sql, (int(is_archived), now, uuid))
-                return cursor.rowcount > 0
-        except Exception as e:
-            logger.error(f"mark_archived error: {e}")
-            return False
+        """Soft-archives or restores a virtual document."""
+        return self._mark_flag(uuid, "archived", "exported_at", is_archived)
 
     def get_all(self, include_deleted: bool = True) -> List[VirtualDocument]:
         """
