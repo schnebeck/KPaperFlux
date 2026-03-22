@@ -33,8 +33,41 @@ class DocumentExporter:
     """
 
     @staticmethod
+    def _stitch_to_temp(
+        doc: "Document",
+        path_resolver: Optional[Callable[[str], Optional[str]]],
+        temp_dir: str,
+    ) -> Optional[str]:
+        """
+        Stitch a VirtualDocument's source_mapping into a temporary PDF file.
+        Returns the temp file path, or None if no source pages could be resolved.
+        The caller is responsible for deleting the file.
+        """
+        out = fitz.open()
+        for src_ref in doc.source_mapping:
+            pdf_path: Optional[str] = path_resolver(src_ref.file_uuid) if path_resolver else None
+            if not pdf_path:
+                pdf_path = doc.file_path
+            if pdf_path and os.path.exists(pdf_path):
+                rotate = src_ref.rotation or -1
+                with fitz.open(pdf_path) as src:
+                    for p_num in src_ref.pages:
+                        out.insert_pdf(src, from_page=p_num - 1, to_page=p_num - 1, rotate=rotate)
+        if out.page_count == 0:
+            out.close()
+            return None
+        temp_path = os.path.join(temp_dir, f"stitch_{os.urandom(6).hex()}.pdf")
+        out.save(temp_path)
+        out.close()
+        return temp_path
+
+    @staticmethod
     def export_to_zip(
-        documents: List[Document], output_path: str, include_pdfs: bool = True, progress_callback: Optional[Callable[[int], None]] = None
+        documents: List[Document],
+        output_path: str,
+        include_pdfs: bool = True,
+        progress_callback: Optional[Callable[[int], None]] = None,
+        path_resolver: Optional[Callable[[str], Optional[str]]] = None,
     ) -> None:
         """
         Export documents to a ZIP file.
@@ -44,6 +77,9 @@ class DocumentExporter:
             output_path: Destination path for the .zip file.
             include_pdfs: Whether to include PDF files in a 'documents/' subfolder.
             progress_callback: Optional callable(int) for percentage progress.
+            path_resolver: Optional callable(file_uuid) -> file_path for resolving
+                           vault-stored source files by UUID. Required for correct
+                           PDF inclusion of merged or split documents.
         """
 
         # 1. Resolve Unique Filenames
@@ -209,11 +245,25 @@ class DocumentExporter:
 
             # 4. Add PDFs
             if include_pdfs:
+                temp_dir = tempfile.gettempdir()
                 for i, doc in enumerate(documents):
-                    if doc.file_path and os.path.exists(doc.file_path):
-                        # Name inside ZIP
-                        arcname = f"documents/{unique_filenames.get(doc.uuid)}"
-                        zf.write(doc.file_path, arcname)
+                    arcname = f"documents/{unique_filenames.get(doc.uuid)}"
+                    temp_stitched: Optional[str] = None
+                    try:
+                        if doc.file_path and os.path.exists(doc.file_path) and not doc.source_mapping:
+                            # Simple legacy document: add directly
+                            zf.write(doc.file_path, arcname)
+                        elif doc.source_mapping:
+                            # Vault document: stitch selected pages into a temp PDF
+                            temp_stitched = DocumentExporter._stitch_to_temp(doc, path_resolver, temp_dir)
+                            if temp_stitched:
+                                zf.write(temp_stitched, arcname)
+                        elif doc.file_path and os.path.exists(doc.file_path):
+                            # source_mapping absent but file_path present (import fallback)
+                            zf.write(doc.file_path, arcname)
+                    finally:
+                        if temp_stitched and os.path.exists(temp_stitched):
+                            os.remove(temp_stitched)
 
                     if progress_callback and i % 5 == 0:
                         # 30% to 80%

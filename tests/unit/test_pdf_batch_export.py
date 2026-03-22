@@ -2,18 +2,23 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           tests/unit/test_pdf_batch_export.py
-Version:        1.0.0
+Version:        1.1.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Claude Code
-Description:    Tests for export_to_pdf_batch() covering single-file page
-                subsets, multi-file stitching with path_resolver, rotation,
-                and the legacy fallback path (no source_mapping).
+Description:    Tests for export_to_pdf_batch() and export_to_zip() covering
+                single-file page subsets, multi-file stitching with
+                path_resolver, rotation, fallback paths, and ZIP PDF inclusion
+                for vault-stored (source_mapping) documents.
 ------------------------------------------------------------------------------
 """
 
-import pytest
-import fitz
+import os
+import zipfile
 from pathlib import Path
+
+import fitz
+import pytest
+
 from core.exporter import DocumentExporter
 from core.models.virtual import VirtualDocument, SourceReference
 
@@ -219,3 +224,105 @@ def test_export_progress_callback_called(tmp_path):
     assert len(recorded) > 0
     assert recorded[-1] == 100
     assert all(0 < v <= 100 for v in recorded)
+
+
+# ---------------------------------------------------------------------------
+# export_to_zip — PDF inclusion with source_mapping
+# ---------------------------------------------------------------------------
+
+def test_zip_includes_pdf_for_legacy_doc(tmp_path):
+    """Legacy doc (no source_mapping, file_path set) is added directly to ZIP."""
+    src = _make_pdf(tmp_path / "src.pdf", num_pages=2, label="Leg")
+    doc = VirtualDocument(uuid="leg-zip", original_filename="invoice.pdf", file_path=str(src))
+
+    out = tmp_path / "export.zip"
+    DocumentExporter.export_to_zip([doc], str(out), include_pdfs=True)
+
+    with zipfile.ZipFile(out) as zf:
+        assert "documents/invoice.pdf" in zf.namelist()
+        pdf_bytes = zf.read("documents/invoice.pdf")
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as pdf:
+        assert pdf.page_count == 2
+
+
+def test_zip_stitches_vault_doc_into_pdf(tmp_path):
+    """Vault doc with source_mapping is stitched and included in ZIP."""
+    src = _make_pdf(tmp_path / "vault.pdf", num_pages=4, label="V")
+    uuid = "phys-zip-v"
+    ref = SourceReference(file_uuid=uuid, pages=[1, 3])  # only pages 1 and 3
+    doc = VirtualDocument(
+        uuid="virt-zip",
+        original_filename="stitched.pdf",
+        source_mapping=[ref],
+    )
+    resolver = {uuid: str(src)}
+
+    out = tmp_path / "export.zip"
+    DocumentExporter.export_to_zip([doc], str(out), include_pdfs=True, path_resolver=resolver.get)
+
+    with zipfile.ZipFile(out) as zf:
+        assert "documents/stitched.pdf" in zf.namelist()
+        pdf_bytes = zf.read("documents/stitched.pdf")
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as pdf:
+        assert pdf.page_count == 2
+        assert "V 1" in pdf[0].get_text()
+        assert "V 3" in pdf[1].get_text()
+
+
+def test_zip_stitches_multi_source_vault_doc(tmp_path):
+    """Vault doc spanning two physical files is stitched correctly in ZIP."""
+    src_a = _make_pdf(tmp_path / "a.pdf", num_pages=2, label="A")
+    src_b = _make_pdf(tmp_path / "b.pdf", num_pages=2, label="B")
+    uuid_a, uuid_b = "phys-za", "phys-zb"
+
+    refs = [
+        SourceReference(file_uuid=uuid_a, pages=[2]),
+        SourceReference(file_uuid=uuid_b, pages=[1]),
+    ]
+    doc = VirtualDocument(uuid="virt-multi", original_filename="multi.pdf", source_mapping=refs)
+    resolver = {uuid_a: str(src_a), uuid_b: str(src_b)}
+
+    out = tmp_path / "export.zip"
+    DocumentExporter.export_to_zip([doc], str(out), include_pdfs=True, path_resolver=resolver.get)
+
+    with zipfile.ZipFile(out) as zf:
+        pdf_bytes = zf.read("documents/multi.pdf")
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as pdf:
+        assert pdf.page_count == 2
+        assert "A 2" in pdf[0].get_text()
+        assert "B 1" in pdf[1].get_text()
+
+
+def test_zip_skips_pdf_when_no_resolver_and_no_file_path(tmp_path):
+    """Vault doc without resolver and without file_path yields no PDF in ZIP (no crash)."""
+    ref = SourceReference(file_uuid="phys-ghost", pages=[1])
+    doc = VirtualDocument(uuid="ghost", original_filename="ghost.pdf", source_mapping=[ref])
+
+    out = tmp_path / "export.zip"
+    DocumentExporter.export_to_zip([doc], str(out), include_pdfs=True)
+
+    with zipfile.ZipFile(out) as zf:
+        assert "documents/ghost.pdf" not in zf.namelist()
+        assert "manifest.xlsx" in zf.namelist()
+
+
+def test_zip_temp_files_cleaned_up(tmp_path):
+    """No temp stitched PDFs remain on disk after export."""
+    import glob
+    src = _make_pdf(tmp_path / "src.pdf", num_pages=2, label="T")
+    uuid = "phys-tmp"
+    doc = VirtualDocument(
+        uuid="tmp-doc",
+        original_filename="doc.pdf",
+        source_mapping=[SourceReference(file_uuid=uuid, pages=[1, 2])],
+    )
+    resolver = {uuid: str(src)}
+
+    import tempfile
+    before = set(glob.glob(os.path.join(tempfile.gettempdir(), "stitch_*.pdf")))
+
+    out = tmp_path / "export.zip"
+    DocumentExporter.export_to_zip([doc], str(out), include_pdfs=True, path_resolver=resolver.get)
+
+    after = set(glob.glob(os.path.join(tempfile.gettempdir(), "stitch_*.pdf")))
+    assert after == before  # no new stitch_ files left behind

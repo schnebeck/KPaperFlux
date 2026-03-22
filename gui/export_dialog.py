@@ -44,6 +44,7 @@ class ExportWorker(QThread):
                     self.output_path,
                     self.include_pdfs,
                     self.progress.emit,
+                    self.path_resolver,
                 )
             self.finished.emit(True, "")
         except Exception as e:

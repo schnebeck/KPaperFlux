@@ -78,13 +78,6 @@ class ViewManagerDialog(QDialog):
         name, ok = QInputDialog.getText(self, self.tr("Save View"), self.tr("View Name:"))
         if ok and name:
             state = self.current_state_callback()
-            # Save to Tree
-            # Where? Root folder default.
-
-            # TODO: Improve architecture to save via DB Manager properly
-            # Currently we manipulate tree and assume auto-save?
-            # Or call db_manager.save_filter_tree()?
-
             # Create Node
             node = FilterNode(name, NodeType.VIEW, data=state)
             self.filter_tree.root.add_child(node)
