@@ -1478,7 +1478,18 @@ class DocumentListWidget(QWidget):
                     if potential.exists():
                         doc.file_path = str(potential)
 
-        dlg = ExportDialog(self, documents)
+        # Build a path resolver so the exporter can look up vault file paths by UUID
+        path_resolver = None
+        if self.db_manager and self.db_manager.connection:
+            conn = self.db_manager.connection
+
+            def path_resolver(file_uuid: str) -> Optional[str]:
+                cursor = conn.cursor()
+                cursor.execute("SELECT file_path FROM physical_files WHERE uuid = ?", (file_uuid,))
+                row = cursor.fetchone()
+                return row[0] if row else None
+
+        dlg = ExportDialog(self, documents, path_resolver=path_resolver)
         if dlg.exec():
             # Phase 106: Mark documents as exported
             if self.db_manager:

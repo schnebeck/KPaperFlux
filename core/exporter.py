@@ -263,43 +263,49 @@ class DocumentExporter:
 
     @staticmethod
     def export_to_pdf_batch(
-        documents: List[Document], output_path: str, progress_callback: Optional[Callable[[int], None]] = None
+        documents: List[Document],
+        output_path: str,
+        path_resolver: Optional[Callable[[str], Optional[str]]] = None,
+        progress_callback: Optional[Callable[[int], None]] = None,
     ) -> None:
         """
         Export multiple documents stitched into one single PDF.
         Supports virtual page mapping from vault documents.
+
+        Args:
+            documents: List of VirtualDocument objects to export.
+            output_path: Destination path for the merged PDF.
+            path_resolver: Optional callable(file_uuid) -> file_path for resolving
+                           physical source files from their vault UUID. Required for
+                           correct stitching of merged or split documents.
+            progress_callback: Optional callable(int) for percentage progress.
         """
         out_pdf = fitz.open()
 
         for i, doc in enumerate(documents):
-            # A VirtualDocument might map to multiple source pages
-            if not doc.source_mapping:
-                # Fallback to physical file_path if possible (Legacy/Simple)
+            if doc.source_mapping:
+                for src_ref in doc.source_mapping:
+                    # Resolve physical path: prefer vault resolver, fall back to doc.file_path
+                    pdf_path: Optional[str] = None
+                    if path_resolver:
+                        pdf_path = path_resolver(src_ref.file_uuid)
+                    if not pdf_path:
+                        pdf_path = doc.file_path
+
+                    if pdf_path and os.path.exists(pdf_path):
+                        # rotation=0 means "no additional rotation needed"; -1 means "keep page default"
+                        rotate = src_ref.rotation or -1
+                        with fitz.open(pdf_path) as src:
+                            for p_num in src_ref.pages:
+                                out_pdf.insert_pdf(src, from_page=p_num - 1, to_page=p_num - 1, rotate=rotate)
+            else:
+                # Legacy/simple document: copy entire physical file
                 if doc.file_path and os.path.exists(doc.file_path):
                     with fitz.open(doc.file_path) as src:
                         out_pdf.insert_pdf(src)
-            else:
-                # High-Fidelity stitching from vault sources
-                for src_ref in doc.source_mapping:
-                    # We need the physical file path. Assuming we have a way to resolve it.
-                    # In a real app, we'd use the Vault to get the path by file_uuid.
-                    # For now, we assume doc objects might have hint or we rely on some resolution.
-                    # But since this is a static method, we expect paths to be resolved already?
-                    # No, Document objects in KPaperFlux usually have file_path hint if fetched for UI.
-                    
-                    # If file_path is missing, we try to reconstruct it (Vault logic)
-                    pdf_path = doc.file_path # Fallback
-                    
-                    if pdf_path and os.path.exists(pdf_path):
-                        with fitz.open(pdf_path) as src:
-                            # insert_pdf(src, from_page, to_page)
-                            # src_ref.pages is 1-based list
-                            for p_num in src_ref.pages:
-                                out_pdf.insert_pdf(src, from_page=p_num-1, to_page=p_num-1)
 
             if progress_callback:
-                progress = int(((i + 1) / len(documents)) * 100)
-                progress_callback(progress)
+                progress_callback(int(((i + 1) / len(documents)) * 100))
 
         out_pdf.save(output_path)
         out_pdf.close()

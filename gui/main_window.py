@@ -801,45 +801,6 @@ class MainWindow(QMainWindow):
             
         logger.info(f"[DEBUG] MainWindow updated current_search_text to: '{self.current_search_text}'")
 
-    def _resolve_pdf_path(self, doc_uuid: str) -> Optional[str]:
-        """
-        Resolve the filesystem path for the PDF of a Virtual Document.
-        Stage 0/1 Simplified: Returns path of the FIRST source file.
-        TODO: Implement stitching for merged documents.
-        """
-        if not self.db_manager or not self.db_manager.connection:
-            return None
-
-        cursor = self.db_manager.connection.cursor()
-
-        # 1. Get Source Mapping
-        cursor.execute("SELECT source_mapping FROM virtual_documents WHERE uuid = ?", (doc_uuid,))
-        row = cursor.fetchone()
-        if not row or not row[0]:
-            # Fallback: check legacy (uuid.pdf in vault) - but vault path is configurable
-            return None
-
-        try:
-            mapping = json.loads(row[0])
-            if not mapping: return None
-
-            # 2. Get First Source
-            first_seg = mapping[0]
-            file_uuid = first_seg.get("file_uuid")
-            if not file_uuid: return None
-
-            # 3. Get Physical File Path
-            cursor.execute("SELECT file_path FROM physical_files WHERE uuid = ?", (file_uuid,))
-            f_row = cursor.fetchone()
-            if f_row and f_row[0]:
-                path = f_row[0]
-                if os.path.exists(path):
-                    return path
-        except Exception as e:
-            logger.info(f"Error resolving PDF path for {doc_uuid}: {e}")
-
-        return None
-
     def _on_pipeline_documents_processed(self):
         """Unified handler for background pipeline completions."""
         if hasattr(self, 'list_widget'):

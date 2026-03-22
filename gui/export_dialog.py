@@ -1,44 +1,65 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,                              QLabel, QCheckBox, QFileDialog, QProgressBar, QMessageBox)
-from gui.utils import show_selectable_message_box
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from core.exporter import DocumentExporter
+from typing import Callable, Optional
+
+from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel,
+                              QMessageBox, QProgressBar, QPushButton, QVBoxLayout)
+
 from core.config import AppConfig
+from core.exporter import DocumentExporter
+from gui.utils import show_selectable_message_box
 import os
+
 
 class ExportWorker(QThread):
     progress = pyqtSignal(int)
-    finished = pyqtSignal(bool, str) # Success, ErrorMsg
+    finished = pyqtSignal(bool, str)  # Success, ErrorMsg
 
-    def __init__(self, documents, output_path, include_pdfs, mode="ZIP"):
+    def __init__(
+        self,
+        documents: list,
+        output_path: str,
+        include_pdfs: bool,
+        mode: str = "ZIP",
+        path_resolver: Optional[Callable[[str], Optional[str]]] = None,
+    ):
         super().__init__()
         self.documents = documents
         self.output_path = output_path
         self.include_pdfs = include_pdfs
         self.mode = mode
+        self.path_resolver = path_resolver
 
-    def run(self):
+    def run(self) -> None:
         try:
             if self.mode == "PDF_MERGE":
                 DocumentExporter.export_to_pdf_batch(
                     self.documents,
                     self.output_path,
-                    self.progress.emit
+                    self.path_resolver,
+                    self.progress.emit,
                 )
             else:
                 DocumentExporter.export_to_zip(
-                    self.documents, 
-                    self.output_path, 
-                    self.include_pdfs, 
-                    self.progress.emit
+                    self.documents,
+                    self.output_path,
+                    self.include_pdfs,
+                    self.progress.emit,
                 )
             self.finished.emit(True, "")
         except Exception as e:
             self.finished.emit(False, str(e))
 
+
 class ExportDialog(QDialog):
-    def __init__(self, parent=None, documents=None):
+    def __init__(
+        self,
+        parent=None,
+        documents=None,
+        path_resolver: Optional[Callable[[str], Optional[str]]] = None,
+    ):
         super().__init__(parent)
         self.documents = documents or []
+        self.path_resolver = path_resolver
         self.setWindowTitle(self.tr("Export Documents"))
         self.setMinimumWidth(400)
         self.setup_ui()
@@ -128,10 +149,11 @@ class ExportDialog(QDialog):
         self.progress_bar.setValue(0)
         
         self.worker = ExportWorker(
-            self.documents, 
-            self.output_path, 
+            self.documents,
+            self.output_path,
             self.chk_pdfs.isChecked(),
-            mode="PDF_MERGE" if self.chk_merge_pdf.isChecked() else "ZIP"
+            mode="PDF_MERGE" if self.chk_merge_pdf.isChecked() else "ZIP",
+            path_resolver=self.path_resolver,
         )
         self.worker.progress.connect(self.progress_bar.setValue)
         self.worker.finished.connect(self.on_finished)
