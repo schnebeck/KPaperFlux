@@ -262,41 +262,28 @@ class VirtualDocument(BaseModel):
         """Extracted due date for financial documents."""
         return self.semantic_data.get_financial_value("due_date") if self.semantic_data else None
 
-    @property
-    def iban(self) -> Optional[str]:
-        if not self.semantic_data: return None
-        # 1. From Sender
+    def _get_banking_field(self, field: str) -> Optional[str]:
+        """Resolves a banking field (iban/bic/bank_name) from sender, then finance body."""
+        if not self.semantic_data:
+            return None
         sender = self._get_sender_obj()
         if sender:
-            val = sender.get("iban") if isinstance(sender, dict) else getattr(sender, "iban", None)
-            if val: return val
-        
-        # 2. From FinanceBody Payment Accounts
-        return self._get_nested_finance_value("iban")
+            val = sender.get(field) if isinstance(sender, dict) else getattr(sender, field, None)
+            if val:
+                return val
+        return self._get_nested_finance_value(field)
+
+    @property
+    def iban(self) -> Optional[str]:
+        return self._get_banking_field("iban")
 
     @property
     def bic(self) -> Optional[str]:
-        if not self.semantic_data: return None
-        # 1. From Sender
-        sender = self._get_sender_obj()
-        if sender:
-            val = sender.get("bic") if isinstance(sender, dict) else getattr(sender, "bic", None)
-            if val: return val
-            
-        # 2. From FinanceBody Payment Accounts
-        return self._get_nested_finance_value("bic")
+        return self._get_banking_field("bic")
 
     @property
     def bank_name(self) -> Optional[str]:
-        if not self.semantic_data: return None
-        # 1. From Sender
-        sender = self._get_sender_obj()
-        if sender:
-            val = sender.get("bank_name") if isinstance(sender, dict) else getattr(sender, "bank_name", None)
-            if val: return val
-            
-        # 2. From FinanceBody Payment Accounts
-        return self._get_nested_finance_value("bank_name")
+        return self._get_banking_field("bank_name")
 
     def _get_sender_obj(self) -> Any:
         if not self.semantic_data: return None

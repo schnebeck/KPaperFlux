@@ -425,11 +425,7 @@ class DatabaseManager:
             ORDER BY created_at DESC
         """
         
-        cursor = self.connection.cursor()
-        cursor.execute(sql, params)
-        rows = cursor.fetchall()
-        
-        return [self._row_to_doc(row) for row in rows]
+        return self._query_documents(sql, params)
 
     def count_documents_advanced(self, query: Dict[str, Any]) -> int:
         """
@@ -843,11 +839,13 @@ class DatabaseManager:
             WHERE deleted = 0 AND archived = 0
             ORDER BY created_at DESC
         """
+        return self._query_documents(sql)
+
+    def _query_documents(self, sql: str, params: tuple = ()) -> List[Document]:
+        """Executes a SELECT query and returns a list of hydrated Document objects."""
         cursor = self.connection.cursor()
-        cursor.execute(sql)
-        rows = cursor.fetchall()
-        
-        return [self._row_to_doc(row) for row in rows]
+        cursor.execute(sql, params)
+        return [self._row_to_doc(row) for row in cursor.fetchall()]
 
     def _row_to_doc(self, row: Any) -> Document:
         """
@@ -954,11 +952,7 @@ class DatabaseManager:
             WHERE f.cached_full_text MATCH ? AND v.deleted = 0 AND v.archived = 0
             ORDER BY rank
         """
-        cursor = self.connection.cursor()
-        cursor.execute(sql, (search_text,))
-        rows = cursor.fetchall()
-        
-        return [self._row_to_doc(row) for row in rows]
+        return self._query_documents(sql, (search_text,))
 
     def delete_document(self, uuid: str) -> bool:
         """
@@ -1034,10 +1028,7 @@ class DatabaseManager:
                    json_extract(semantic_data, '$.bodies') IS NULL)
             ORDER BY created_at DESC
         """
-        cursor = self.connection.cursor()
-        cursor.execute(sql)
-        rows = cursor.fetchall()
-        return [self._row_to_doc(row) for row in rows]
+        return self._query_documents(sql)
 
     def get_documents_mismatched_semantic_data(self) -> List[Document]:
         """
@@ -1325,10 +1316,7 @@ class DatabaseManager:
             WHERE deleted = 1
             ORDER BY created_at DESC
         """
-        cursor = self.connection.cursor()
-        cursor.execute(sql)
-        rows = cursor.fetchall()
-        return [self._row_to_doc(row) for row in rows]
+        return self._query_documents(sql)
 
     def purge_all_data(self, vault_path: str) -> bool:
         """
