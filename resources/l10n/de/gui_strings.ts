@@ -717,7 +717,7 @@
         <message>
             <location filename="../../../gui/column_manager_dialog.py" line="103" />
             <source>%s (Fixed)</source>
-            <translation type="unfinished" />
+            <translation>%s (Fest)</translation>
         </message>
         <message>
             <location filename="../../../gui/column_manager_dialog.py" line="149" />
@@ -875,7 +875,7 @@
         <message>
             <location filename="../../../gui/document_list.py" line="319" />
             <source>Hide '%1'</source>
-            <translation type="unfinished" />
+            <translation>'%1' ausblenden</translation>
         </message>
         <message>
             <location filename="../../../gui/document_list.py" line="328" />
@@ -890,7 +890,7 @@
         <message>
             <location filename="../../../gui/document_list.py" line="572" />
             <source>%s document(s) are locked and cannot be deleted.</source>
-            <translation type="unfinished" />
+            <translation>%s Dokument(e) sind gesperrt und können nicht gelöscht werden.</translation>
         </message>
         <message>
             <location filename="../../../gui/document_list.py" line="594" />
@@ -1018,7 +1018,8 @@
             <location filename="../../../gui/document_list.py" line="761" />
             <source>Are you sure you want to permanently delete %s document(s)?
 This cannot be undone.</source>
-            <translation type="unfinished" />
+            <translation>%s Dokument(e) wirklich endgültig löschen?
+Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
         </message>
         <message>
             <location filename="../../../gui/document_list.py" line="1511" />
@@ -1196,7 +1197,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/export_dialog.py" line="50" />
             <source>Exporting %s documents.</source>
-            <translation type="unfinished" />
+            <translation>%s Dokumente werden exportiert.</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="53" />
@@ -1273,7 +1274,8 @@ This cannot be undone.</source>
             <location filename="../../../gui/export_dialog.py" line="146" />
             <source>Export failed:
 %s</source>
-            <translation type="unfinished" />
+            <translation>Export fehlgeschlagen:
+%s</translation>
         </message>
         <message>
             <location filename="../../../gui/export_dialog.py" line="167" />
@@ -1283,7 +1285,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/export_dialog.py" line="168" />
             <source>File '%s' already exists in transfer folder. Overwrite?</source>
-            <translation type="unfinished" />
+            <translation>Datei '%s' existiert bereits im Transfer-Ordner. Überschreiben?</translation>
         </message>
     </context>
     <context>
@@ -1720,7 +1722,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/filter_manager.py" line="519" />
             <source>Exported to %s</source>
-            <translation type="unfinished" />
+            <translation>Exportiert nach %s</translation>
         </message>
         <message>
             <location filename="../../../gui/filter_manager.py" line="521" />
@@ -1845,7 +1847,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/plugin.py" line="76" />
             <source>Page count mismatch: Native PDF has %1 pages, but Scan PDF has %2 pages. Please ensure the scan is complete.</source>
-            <translation type="unfinished" />
+            <translation>Seitenanzahl stimmt nicht überein: Natives PDF hat %1 Seiten, Scan-PDF hat %2 Seiten. Bitte sicherstellen, dass der Scan vollständig ist.</translation>
         </message>
     </context>
     <context>
@@ -2150,7 +2152,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="993" />
             <source>Are you sure you want to delete %s items?</source>
-            <translation type="unfinished" />
+            <translation>%s Element(e) wirklich löschen?</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="995" />
@@ -2166,7 +2168,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1040" />
             <source>Deleted %s items.</source>
-            <translation type="unfinished" />
+            <translation>%s Element(e) gelöscht.</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1060" />
@@ -2189,7 +2191,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1077" />
             <source>Reprocessing %s of %s...</source>
-            <translation type="unfinished" />
+            <translation>Verarbeite %s von %s...</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1129" />
@@ -2199,7 +2201,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1130" />
             <source>%s error(s) occurred during reprocessing. Check logs.</source>
-            <translation type="unfinished" />
+            <translation>%s Fehler bei der Verarbeitung. Bitte Protokoll prüfen.</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1139" />
@@ -2219,7 +2221,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1231" />
             <source>Importing %s/%s: %s</source>
-            <translation type="unfinished" />
+            <translation>Importiere %s/%s: %s</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1256" />
@@ -2255,7 +2257,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1370" />
             <source>Found %s files in transfer folder. Do you want to import them now?</source>
-            <translation type="unfinished" />
+            <translation>%s Dateien im Transfer-Ordner gefunden. Jetzt importieren?</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2540" />
@@ -2302,7 +2304,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1436" />
             <source>Queued %s docs for extraction.</source>
-            <translation type="unfinished" />
+            <translation>%s Dokumente für Extraktion vorgemerkt.</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1442" />
@@ -2318,7 +2320,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1447" />
             <source>Start semantic extraction for %s documents without details?</source>
-            <translation type="unfinished" />
+            <translation>Semantische Extraktion für %s Dokumente ohne Details starten?</translation>
         </message>
         <message numerus="yes">
             <location filename="../../../gui/main_window.py" line="1466" />
@@ -2341,7 +2343,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1497" />
             <source>Merge error: %s</source>
-            <translation type="unfinished" />
+            <translation>Zusammenführungsfehler: %s</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1508" />
@@ -2361,7 +2363,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1515" />
             <source>&lt;h3&gt;KPaperFlux v1.0&lt;/h3&gt;&lt;p&gt;A modern document management tool.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;b&gt;Qt Version:&lt;/b&gt; %1&lt;/p&gt;&lt;p&gt;&lt;b&gt;Python:&lt;/b&gt; %2&lt;/p&gt;&lt;p&gt;&lt;b&gt;System:&lt;/b&gt; %3&lt;/p&gt;&lt;p&gt;&lt;b&gt;Desktop Environment:&lt;/b&gt; %4&lt;/p&gt;</source>
-            <translation type="unfinished" />
+            <translation>&lt;h3&gt;KPaperFlux v1.0&lt;/h3&gt;&lt;p&gt;Modernes Dokumentenmanagementsystem.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;b&gt;Qt-Version:&lt;/b&gt; %1&lt;/p&gt;&lt;p&gt;&lt;b&gt;Python:&lt;/b&gt; %2&lt;/p&gt;&lt;p&gt;&lt;b&gt;System:&lt;/b&gt; %3&lt;/p&gt;&lt;p&gt;&lt;b&gt;Desktopumgebung:&lt;/b&gt; %4&lt;/p&gt;</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1525" />
@@ -2381,7 +2383,7 @@ This cannot be undone.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1550" />
             <source>Comparing documents (%s/%s)...</source>
-            <translation type="unfinished" />
+            <translation>Dokumente werden verglichen (%s/%s)...</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1557" />
@@ -2430,7 +2432,8 @@ This cannot be undone.</source>
             <location filename="../../../gui/main_window.py" line="1707" />
             <source>Imported %s documents.
 Background processing started.</source>
-            <translation type="unfinished" />
+            <translation>%s Dokumente importiert.
+Hintergrundverarbeitung gestartet.</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1717" />
@@ -2450,7 +2453,7 @@ Background processing started.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1770" />
             <source>Could not locate physical file for UUID: %s</source>
-            <translation type="unfinished" />
+            <translation>Physische Datei für UUID nicht gefunden: %s</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1787" />
@@ -2470,7 +2473,7 @@ Background processing started.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1822" />
             <source>Stamp applied to %s document(s).</source>
-            <translation type="unfinished" />
+            <translation>Stempel auf %s Dokument(e) angewendet.</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2088" />
@@ -2481,7 +2484,7 @@ Background processing started.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1829" />
             <source>Stamping operation failed: %s</source>
-            <translation type="unfinished" />
+            <translation>Stempel-Operation fehlgeschlagen: %s</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="1883" />
@@ -2491,7 +2494,7 @@ Background processing started.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="1883" />
             <source>Updated tags for %s documents.</source>
-            <translation type="unfinished" />
+            <translation>Tags für %s Dokumente aktualisiert.</translation>
         </message>
         <message numerus="yes">
             <location filename="../../../gui/main_window.py" line="2003" />
@@ -2519,7 +2522,7 @@ Background processing started.</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2027" />
             <source>Restored %s document(s).</source>
-            <translation type="unfinished" />
+            <translation>%s Dokument(e) wiederhergestellt.</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2038" />
@@ -2572,7 +2575,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="2125" />
             <source>Permanently deleted %s document(s).</source>
-            <translation type="unfinished" />
+            <translation>%s Dokument(e) endgültig gelöscht.</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="2236" />
@@ -2864,7 +2867,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/maintenance_dialog.py" line="143" />
             <source>Scan failed: %s</source>
-            <translation type="unfinished" />
+            <translation>Scan fehlgeschlagen: %s</translation>
         </message>
         <message>
             <location filename="../../../gui/maintenance_dialog.py" line="176" />
@@ -2875,12 +2878,12 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/maintenance_dialog.py" line="154" />
             <source>Delete %s database entries?</source>
-            <translation type="unfinished" />
+            <translation>%s Datenbankeinträge löschen?</translation>
         </message>
         <message>
             <location filename="../../../gui/maintenance_dialog.py" line="177" />
             <source>Permanently delete %s files?</source>
-            <translation type="unfinished" />
+            <translation>%s Dateien endgültig löschen?</translation>
         </message>
     </context>
     <context>
@@ -2888,7 +2891,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="36" />
             <source>Analyzing %1 files...</source>
-            <translation type="unfinished" />
+            <translation>%1 Dateien werden analysiert...</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="47" />
@@ -2898,7 +2901,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="66" />
             <source>Matching %1 Scans (Smart Two-Stage)...</source>
-            <translation type="unfinished" />
+            <translation>%1 Scans werden abgeglichen (Smart Two-Stage)...</translation>
         </message>
     </context>
     <context>
@@ -2978,7 +2981,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="332" />
             <source>Analysis complete. Found %1 potential scans.</source>
-            <translation type="unfinished" />
+            <translation>Analyse abgeschlossen. %1 potenzielle Scans gefunden.</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="347" />
@@ -3048,7 +3051,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="494" />
             <source>Creating Hybrid PDF: %1...</source>
-            <translation type="unfinished" />
+            <translation>Hybrid-PDF wird erstellt: %1...</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="508" />
@@ -3073,12 +3076,12 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="547" />
             <source>Merge success: %1</source>
-            <translation type="unfinished" />
+            <translation>Zusammenführung erfolgreich: %1</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="555" />
             <source>Failed to merge: %1</source>
-            <translation type="unfinished" />
+            <translation>Zusammenführung fehlgeschlagen: %1</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="562" />
@@ -3104,7 +3107,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="576" />
             <source>Triggered import for %1 documents.</source>
-            <translation type="unfinished" />
+            <translation>Import für %1 Dokumente angestoßen.</translation>
         </message>
         <message>
             <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="601" />
@@ -3127,7 +3130,7 @@ Are you completely sure you want to reset the system?</source>
         <message>
             <location filename="../../../gui/main_window.py" line="80" />
             <source>Merge %s documents into a new combined entry?</source>
-            <translation type="unfinished" />
+            <translation>%s Dokumente zu einem neuen Eintrag zusammenführen?</translation>
         </message>
         <message>
             <location filename="../../../gui/main_window.py" line="83" />
@@ -3734,17 +3737,17 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../plugins/order_collection_linker/linker.py" line="95" />
             <source>Identified %1 collections</source>
-            <translation type="unfinished" />
+            <translation>%1 Sammlungen identifiziert</translation>
         </message>
         <message>
             <location filename="../../../plugins/order_collection_linker/linker.py" line="96" />
             <source>Established %1 new organic process IDs</source>
-            <translation type="unfinished" />
+            <translation>%1 neue organische Prozess-IDs erstellt</translation>
         </message>
         <message>
             <location filename="../../../plugins/order_collection_linker/linker.py" line="97" />
             <source>Linked %1 documents semantically</source>
-            <translation type="unfinished" />
+            <translation>%1 Dokumente semantisch verknüpft</translation>
         </message>
     </context>
     <context>
@@ -3951,7 +3954,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/report_editor.py" line="334" />
             <source>Report definition '%s' saved.</source>
-            <translation type="unfinished" />
+            <translation>Berichtsdefinition '%s' gespeichert.</translation>
         </message>
         <message>
             <location filename="../../../gui/report_editor.py" line="337" />
@@ -4248,7 +4251,7 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/reporting.py" line="1295" />
             <source>File is not a Layout (Type: %s)</source>
-            <translation type="unfinished" />
+            <translation>Datei ist kein Layout (Typ: %s)</translation>
         </message>
         <message>
             <location filename="../../../gui/reporting.py" line="1297" />
@@ -4448,12 +4451,12 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="245" />
             <source>Verbinde mit %s...</source>
-            <translation type="unfinished" />
+            <translation>Verbinde mit %s...</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="309" />
             <source>Lade Geräteoptionen für %s...</source>
-            <translation type="unfinished" />
+            <translation>Lade Geräteoptionen für %s...</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="438" />
@@ -4478,12 +4481,12 @@ Please install 'qrcode' package.</source>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="496" />
             <source>Scanne Seite %s von %s...</source>
-            <translation type="unfinished" />
+            <translation>Scanne Seite %s von %s...</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="499" />
             <source>Scanne Seite %s...</source>
-            <translation type="unfinished" />
+            <translation>Scanne Seite %s...</translation>
         </message>
         <message>
             <location filename="../../../gui/scanner_dialog.py" line="505" />
@@ -6086,7 +6089,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/tag_manager.py" line="141" />
             <source>Updated %s document(s).</source>
-            <translation type="unfinished" />
+            <translation>%s Dokument(e) aktualisiert.</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="147" />
@@ -6106,12 +6109,12 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/tag_manager.py" line="156" />
             <source>Merge %s tags into:</source>
-            <translation type="unfinished" />
+            <translation>%s Tags zusammenführen in:</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="164" />
             <source>Merged tags. Updated %s document(s).</source>
-            <translation type="unfinished" />
+            <translation>Tags zusammengeführt. %s Dokument(e) aktualisiert.</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="175" />
@@ -6123,12 +6126,14 @@ Geschäftsführer: ...</translation>
             <source>Are you sure you want to remove these %s tags from ALL documents?
 
 %s</source>
-            <translation type="unfinished" />
+            <translation>Diese %s Tags wirklich von ALLEN Dokumenten entfernen?
+
+%s</translation>
         </message>
         <message>
             <location filename="../../../gui/tag_manager.py" line="185" />
             <source>Removed tags from %s document(s).</source>
-            <translation type="unfinished" />
+            <translation>Tags von %s Dokument(e) entfernt.</translation>
         </message>
     </context>
     <context>
@@ -6697,7 +6702,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="944" />
             <source>A workflow with the name '%1' already exists.</source>
-            <translation type="unfinished" />
+            <translation>Ein Ablauf mit dem Namen '%1' existiert bereits.</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="973" />

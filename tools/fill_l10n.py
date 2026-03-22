@@ -295,6 +295,24 @@ def fill():
             "No data mismatches found.": "Keine Datenkonflikte gefunden.",
             "Showing %s docs with missing semantic data.": "%s Dokumente ohne semantische Daten.",
             "Showing %s docs with data mismatches.": "%s Dokumente mit Datenkonflikten.",
+            "Are you sure you want to delete %s items?": "%s Element(e) wirklich löschen?",
+            "Deleted %s items.": "%s Element(e) gelöscht.",
+            "Reprocessing %s of %s...": "Verarbeite %s von %s...",
+            "%s error(s) occurred during reprocessing. Check logs.": "%s Fehler bei der Verarbeitung. Bitte Protokoll prüfen.",
+            "Importing %s/%s: %s": "Importiere %s/%s: %s",
+            "Found %s files in transfer folder. Do you want to import them now?": "%s Dateien im Transfer-Ordner gefunden. Jetzt importieren?",
+            "Queued %s docs for extraction.": "%s Dokumente für Extraktion vorgemerkt.",
+            "Start semantic extraction for %s documents without details?": "Semantische Extraktion für %s Dokumente ohne Details starten?",
+            "Merge error: %s": "Zusammenführungsfehler: %s",
+            "<h3>KPaperFlux v1.0</h3><p>A modern document management tool.</p><hr><p><b>Qt Version:</b> %1</p><p><b>Python:</b> %2</p><p><b>System:</b> %3</p><p><b>Desktop Environment:</b> %4</p>": "<h3>KPaperFlux v1.0</h3><p>Modernes Dokumentenmanagementsystem.</p><hr><p><b>Qt-Version:</b> %1</p><p><b>Python:</b> %2</p><p><b>System:</b> %3</p><p><b>Desktopumgebung:</b> %4</p>",
+            "Comparing documents (%s/%s)...": "Dokumente werden verglichen (%s/%s)...",
+            "Imported %s documents.\nBackground processing started.": "%s Dokumente importiert.\nHintergrundverarbeitung gestartet.",
+            "Could not locate physical file for UUID: %s": "Physische Datei für UUID nicht gefunden: %s",
+            "Stamp applied to %s document(s).": "Stempel auf %s Dokument(e) angewendet.",
+            "Stamping operation failed: %s": "Stempel-Operation fehlgeschlagen: %s",
+            "Updated tags for %s documents.": "Tags für %s Dokumente aktualisiert.",
+            "Restored %s document(s).": "%s Dokument(e) wiederhergestellt.",
+            "Permanently deleted %s document(s).": "%s Dokument(e) endgültig gelöscht.",
         },
         "MetadataEditorWidget": {
             "Extracted Data": "Extrahierte Daten",
@@ -467,11 +485,75 @@ def fill():
             "Show visual differences": "Visuelle Unterschiede anzeigen",
             "Link scroll and zoom": "Scrollen und Zoom koppeln",
             "Split Document": "Dokument teilen",
-        },        "DocumentListWidget": {
-            "Search": "Suche",            "Show All": "Alle Dokumente anzeigen",
-
         },
-    
+        "DocumentListWidget": {
+            "Search": "Suche",
+            "Show All": "Alle Dokumente anzeigen",
+            "Hide '%1'": "'%1' ausblenden",
+            "%s document(s) are locked and cannot be deleted.": "%s Dokument(e) sind gesperrt und können nicht gelöscht werden.",
+            "Are you sure you want to permanently delete %s document(s)?\nThis cannot be undone.": "%s Dokument(e) wirklich endgültig löschen?\nDieser Vorgang kann nicht rückgängig gemacht werden.",
+        },
+        "ColumnManagerDialog": {
+            "%s (Fixed)": "%s (Fest)",
+        },
+        "ExportDialog": {
+            "Exporting %s documents.": "%s Dokumente werden exportiert.",
+            "Export failed:\n%s": "Export fehlgeschlagen:\n%s",
+            "File '%s' already exists in transfer folder. Overwrite?": "Datei '%s' existiert bereits im Transfer-Ordner. Überschreiben?",
+        },
+        "FilterManagerDialog": {
+            "Exported to %s": "Exportiert nach %s",
+        },
+        "HybridAssemblerPlugin": {
+            "Page count mismatch: Native PDF has %1 pages, but Scan PDF has %2 pages. Please ensure the scan is complete.": "Seitenanzahl stimmt nicht überein: Natives PDF hat %1 Seiten, Scan-PDF hat %2 Seiten. Bitte sicherstellen, dass der Scan vollständig ist.",
+        },
+        "MaintenanceDialog": {
+            "Scan failed: %s": "Scan fehlgeschlagen: %s",
+            "Delete %s database entries?": "%s Datenbankeinträge löschen?",
+            "Permanently delete %s files?": "%s Dateien endgültig löschen?",
+        },
+        "MatchWorker": {
+            "Analyzing %1 files...": "%1 Dateien werden analysiert...",
+            "Matching %1 Scans (Smart Two-Stage)...": "%1 Scans werden abgeglichen (Smart Two-Stage)...",
+        },
+        "MatchingDialog": {
+            "Analysis complete. Found %1 potential scans.": "Analyse abgeschlossen. %1 potenzielle Scans gefunden.",
+            "Creating Hybrid PDF: %1...": "Hybrid-PDF wird erstellt: %1...",
+            "Merge success: %1": "Zusammenführung erfolgreich: %1",
+            "Failed to merge: %1": "Zusammenführung fehlgeschlagen: %1",
+            "Triggered import for %1 documents.": "Import für %1 Dokumente angestoßen.",
+        },
+        "MergeConfirmDialog": {
+            "Merge %s documents into a new combined entry?": "%s Dokumente zu einem neuen Eintrag zusammenführen?",
+        },
+        "OrderCollectionLinker": {
+            "Identified %1 collections": "%1 Sammlungen identifiziert",
+            "Established %1 new organic process IDs": "%1 neue organische Prozess-IDs erstellt",
+            "Linked %1 documents semantically": "%1 Dokumente semantisch verknüpft",
+        },
+        "ReportEditorWidget": {
+            "Report definition '%s' saved.": "Berichtsdefinition '%s' gespeichert.",
+        },
+        "ReportingWidget": {
+            "File is not a Layout (Type: %s)": "Datei ist kein Layout (Typ: %s)",
+        },
+        "ScannerDialog": {
+            "Verbinde mit %s...": "Verbinde mit %s...",
+            "Lade Geräteoptionen für %s...": "Lade Geräteoptionen für %s...",
+            "Scanne Seite %s von %s...": "Scanne Seite %s von %s...",
+            "Scanne Seite %s...": "Scanne Seite %s...",
+        },
+        "TagManagerDialog": {
+            "Updated %s document(s).": "%s Dokument(e) aktualisiert.",
+            "Merge %s tags into:": "%s Tags zusammenführen in:",
+            "Merged tags. Updated %s document(s).": "Tags zusammengeführt. %s Dokument(e) aktualisiert.",
+            "Are you sure you want to remove these %s tags from ALL documents?\n\n%s": "Diese %s Tags wirklich von ALLEN Dokumenten entfernen?\n\n%s",
+            "Removed tags from %s document(s).": "Tags von %s Dokument(e) entfernt.",
+        },
+        "WorkflowRuleManagerDialog": {
+            "A workflow with the name '%1' already exists.": "Ein Ablauf mit dem Namen '%1' existiert bereits.",
+        },
+
     }
 
     # DELTA LOGIC: Work on a single tree instance
