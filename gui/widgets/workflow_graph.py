@@ -756,9 +756,12 @@ class WorkflowGraphWidget(QWidget):
     # ── View helpers ──────────────────────────────────────────────────────────
 
     def _fit_view(self) -> None:
-        if self._scene.itemsBoundingRect().isNull():
+        r = self._scene.itemsBoundingRect()
+        if r.isNull():
             return
-        self._view.fitInView(self._scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        # Pad 24px on all sides so nodes at the edge aren't clipped
+        padded = r.adjusted(-24, -24, 24, 24)
+        self._view.fitInView(padded, Qt.AspectRatioMode.KeepAspectRatio)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

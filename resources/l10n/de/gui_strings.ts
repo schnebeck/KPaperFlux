@@ -1,425 +1,468 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="de">
     <context>
+        <name>AddTransitionDialog</name>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="432" />
+            <source>Add Transition</source>
+            <translation>Übergang hinzufügen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="440" />
+            <source>From State:</source>
+            <translation>Von Status:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="443" />
+            <source>e.g. verify, approve, reject</source>
+            <translation>z.B. prüfen, genehmigen, ablehnen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="444" />
+            <source>Action:</source>
+            <translation>Aktion:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="448" />
+            <source>To State:</source>
+            <translation>Nach Status:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="450" />
+            <source>Auto-transition (no user interaction)</source>
+            <translation>Automatischer Übergang (ohne Nutzeraktion)</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="454" />
+            <source>iban, total_gross, …  (comma-separated)</source>
+            <translation>iban, brutto_gesamt, … (kommagetrennt)</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="455" />
+            <source>Required Fields:</source>
+            <translation>Pflichtfelder:</translation>
+        </message>
+    </context>
+    <context>
         <name>AdvancedFilterWidget</name>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="421" />
-            <location filename="../../../gui/advanced_filter.py" line="312" />
+            <location filename="../../../gui/advanced_filter.py" line="418" />
+            <location filename="../../../gui/advanced_filter.py" line="310" />
             <source>Show/Hide Editor</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="539" />
+            <location filename="../../../gui/advanced_filter.py" line="536" />
             <source>--- No Change ---</source>
             <translation>--- Keine Änderung ---</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="549" />
+            <location filename="../../../gui/advanced_filter.py" line="546" />
             <source>--- Saved Rule ---</source>
             <translation>--- Gespeicherte Regeln ---</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1886" />
-            <location filename="../../../gui/advanced_filter.py" line="813" />
-            <location filename="../../../gui/advanced_filter.py" line="806" />
+            <location filename="../../../gui/advanced_filter.py" line="1881" />
+            <location filename="../../../gui/advanced_filter.py" line="810" />
+            <location filename="../../../gui/advanced_filter.py" line="803" />
             <source>Create View-filter</source>
             <translation>Ansicht-Filter erstellen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="806" />
+            <location filename="../../../gui/advanced_filter.py" line="803" />
             <source>No 'Add Tags' defined. Cannot create a filter for nothing.</source>
             <translation>Keine Tags zum Hinzufügen definiert. Filter kann nicht erstellt werden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1747" />
-            <location filename="../../../gui/advanced_filter.py" line="814" />
+            <location filename="../../../gui/advanced_filter.py" line="1742" />
+            <location filename="../../../gui/advanced_filter.py" line="811" />
             <source>Filter Name:</source>
             <translation>Filtername:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="842" />
+            <location filename="../../../gui/advanced_filter.py" line="839" />
             <source>Filter Created</source>
             <translation>Filter erstellt</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="843" />
+            <location filename="../../../gui/advanced_filter.py" line="840" />
             <source>A new view filter '%s' has been created in the 'Views' folder.</source>
             <translation>Ein neuer Ansichts-Filter '%s' wurde im Ordner 'Ansichten' erstellt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="853" />
+            <location filename="../../../gui/advanced_filter.py" line="850" />
             <source>Save Rule</source>
             <translation>Regel speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="853" />
+            <location filename="../../../gui/advanced_filter.py" line="850" />
             <source>Rule Name:</source>
             <translation>Regelname:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="902" />
+            <location filename="../../../gui/advanced_filter.py" line="899" />
             <source>Delete Rule</source>
             <translation>Regel löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="903" />
+            <location filename="../../../gui/advanced_filter.py" line="900" />
             <source>Are you sure you want to delete this rule?</source>
             <translation>Sind Sie sicher, dass Sie diese Regel löschen möchten?</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="931" />
+            <location filename="../../../gui/advanced_filter.py" line="928" />
             <source>Apply to ALL documents</source>
             <translation>Auf ALLE Dokumente anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="935" />
+            <location filename="../../../gui/advanced_filter.py" line="932" />
             <source>Apply to current List View (Filtered)</source>
             <translation>Auf aktuelle Ansicht anwendung (gefiltert)</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="939" />
+            <location filename="../../../gui/advanced_filter.py" line="936" />
             <source>Apply to SELECTED documents only</source>
             <translation>Nur auf AUSGEWÄHLTE Dokumente anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="952" />
+            <location filename="../../../gui/advanced_filter.py" line="949" />
             <source>all documents</source>
             <translation>alle Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="952" />
+            <location filename="../../../gui/advanced_filter.py" line="949" />
             <source>%d selected/filtered documents</source>
             <translation>%d ausgewählte/gefilterte Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="954" />
+            <location filename="../../../gui/advanced_filter.py" line="951" />
             <source>Apply Rule</source>
             <translation>Regel anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="955" />
+            <location filename="../../../gui/advanced_filter.py" line="952" />
             <source>Apply rule '%s' to %s? This cannot be undone automatically.</source>
             <translation>Regel '%s' auf %s anwenden? Dies kann nicht automatisch rückgängig gemacht werden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="960" />
+            <location filename="../../../gui/advanced_filter.py" line="957" />
             <source>Applying rule...</source>
             <translation>Regel wird angewendet...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1761" />
-            <location filename="../../../gui/advanced_filter.py" line="960" />
+            <location filename="../../../gui/advanced_filter.py" line="1756" />
+            <location filename="../../../gui/advanced_filter.py" line="957" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="973" />
+            <location filename="../../../gui/advanced_filter.py" line="970" />
             <source>Complete</source>
             <translation>Abgeschlossen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="974" />
+            <location filename="../../../gui/advanced_filter.py" line="971" />
             <source>Rule applied. %d documents modified.</source>
             <translation>Regel angewendet. %d Dokumente geändert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1839" />
-            <location filename="../../../gui/advanced_filter.py" line="1000" />
+            <location filename="../../../gui/advanced_filter.py" line="1834" />
+            <location filename="../../../gui/advanced_filter.py" line="997" />
             <source>Filter</source>
             <translation>Filter</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1067" />
+            <location filename="../../../gui/advanced_filter.py" line="1064" />
             <source>Search string too short (min 3 chars)</source>
             <translation>Suchbegriff zu kurz (min. 3 Zeichen)</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1077" />
+            <location filename="../../../gui/advanced_filter.py" line="1074" />
             <source>Searching...</source>
             <translation>Suche...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1101" />
+            <location filename="../../../gui/advanced_filter.py" line="1098" />
             <source>in all documents</source>
             <translation>in allen Dokumenten</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1111" />
+            <location filename="../../../gui/advanced_filter.py" line="1108" />
             <source>in current view</source>
             <translation>in aktueller Ansicht</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1126" />
+            <location filename="../../../gui/advanced_filter.py" line="1123" />
             <source>No documents found</source>
             <translation>Keine Dokumente gefunden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1129" />
+            <location filename="../../../gui/advanced_filter.py" line="1126" />
             <source>%1 documents found</source>
             <translation>%1 Dokumente gefunden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1136" />
+            <location filename="../../../gui/advanced_filter.py" line="1133" />
             <source>%1 documents found (%2 occurrences)</source>
             <translation>%1 Dokumente gefunden (%2 Treffer)</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1375" />
+            <location filename="../../../gui/advanced_filter.py" line="1372" />
             <source>--- Saved Filter ---</source>
             <translation>--- Gespeicherte Filter ---</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1424" />
+            <location filename="../../../gui/advanced_filter.py" line="1421" />
             <source>Browse All...</source>
             <translation>Alle durchsuchen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1744" />
-            <location filename="../../../gui/advanced_filter.py" line="1636" />
+            <location filename="../../../gui/advanced_filter.py" line="1739" />
+            <location filename="../../../gui/advanced_filter.py" line="1633" />
             <source>Save Filter</source>
             <translation>Filter speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1636" />
+            <location filename="../../../gui/advanced_filter.py" line="1633" />
             <source>No conditions to save.</source>
             <translation>Keine Bedingungen zum Speichern.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1702" />
-            <location filename="../../../gui/advanced_filter.py" line="1696" />
+            <location filename="../../../gui/advanced_filter.py" line="1698" />
+            <location filename="../../../gui/advanced_filter.py" line="1693" />
             <source>Export Filter</source>
             <translation>Filter exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1696" />
+            <location filename="../../../gui/advanced_filter.py" line="1693" />
             <source>No conditions to export.</source>
             <translation>Keine Bedingungen zum Exportieren.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1707" />
+            <location filename="../../../gui/advanced_filter.py" line="1703" />
             <source>Export Successful</source>
             <translation>Export erfolgreich</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1707" />
+            <location filename="../../../gui/advanced_filter.py" line="1703" />
             <source>Filter exported to %s</source>
             <translation>Filter exportiert nach %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1709" />
+            <location filename="../../../gui/advanced_filter.py" line="1705" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1733" />
+            <location filename="../../../gui/advanced_filter.py" line="1728" />
             <source>Filter Imported</source>
             <translation>Filter importiert</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1733" />
+            <location filename="../../../gui/advanced_filter.py" line="1728" />
             <source>Loaded filter: %s</source>
             <translation>Filter geladen: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1736" />
+            <location filename="../../../gui/advanced_filter.py" line="1731" />
             <source>Import Failed</source>
             <translation>Import fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1736" />
+            <location filename="../../../gui/advanced_filter.py" line="1731" />
             <source>File is of type '%s', expected 'smart_list'.</source>
             <translation>Datei ist Typ '%s', erwartet 'smart_list'.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1752" />
+            <location filename="../../../gui/advanced_filter.py" line="1747" />
             <source>Description:</source>
             <translation>Beschreibung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1864" />
-            <location filename="../../../gui/advanced_filter.py" line="1758" />
+            <location filename="../../../gui/advanced_filter.py" line="1859" />
+            <location filename="../../../gui/advanced_filter.py" line="1753" />
             <source>Save</source>
             <translation>Speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1782" />
+            <location filename="../../../gui/advanced_filter.py" line="1777" />
             <source>Delete '%1'</source>
             <translation>Lösche '%1'</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1795" />
+            <location filename="../../../gui/advanced_filter.py" line="1790" />
             <source>Delete Filter</source>
             <translation>Filter löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1796" />
+            <location filename="../../../gui/advanced_filter.py" line="1791" />
             <source>Are you sure you want to delete '%s'?</source>
             <translation>Sicher, dass '%s' gelöscht werden soll?</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1838" />
+            <location filename="../../../gui/advanced_filter.py" line="1833" />
             <source>Search</source>
             <translation>Suche</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1840" />
+            <location filename="../../../gui/advanced_filter.py" line="1835" />
             <source>Rules</source>
             <translation>Sortieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1843" />
+            <location filename="../../../gui/advanced_filter.py" line="1838" />
             <source>Query:</source>
             <translation>Abfrage:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1846" />
+            <location filename="../../../gui/advanced_filter.py" line="1841" />
             <source>e.g. Amazon 2024 Invoice...</source>
             <translation>z.B. Amazon 2024 Rechnung...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1848" />
+            <location filename="../../../gui/advanced_filter.py" line="1843" />
             <source>Search in current view only</source>
             <translation>Nur in aktueller Ansicht suchen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1849" />
+            <location filename="../../../gui/advanced_filter.py" line="1844" />
             <source>If checked, combines the search with the active filters from 'Filter View'.</source>
             <translation>Kombiniert die Suche mit den aktiven Filtern der Ansicht.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1870" />
-            <location filename="../../../gui/advanced_filter.py" line="1852" />
+            <location filename="../../../gui/advanced_filter.py" line="1865" />
+            <location filename="../../../gui/advanced_filter.py" line="1847" />
             <source>Select:</source>
             <translation>Auswahl:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1871" />
-            <location filename="../../../gui/advanced_filter.py" line="1853" />
+            <location filename="../../../gui/advanced_filter.py" line="1866" />
+            <location filename="../../../gui/advanced_filter.py" line="1848" />
             <source>Load</source>
             <translation>Laden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1872" />
-            <location filename="../../../gui/advanced_filter.py" line="1854" />
+            <location filename="../../../gui/advanced_filter.py" line="1867" />
+            <location filename="../../../gui/advanced_filter.py" line="1849" />
             <source>New</source>
             <translation>Neu</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1873" />
-            <location filename="../../../gui/advanced_filter.py" line="1855" />
+            <location filename="../../../gui/advanced_filter.py" line="1868" />
+            <location filename="../../../gui/advanced_filter.py" line="1850" />
             <source>Manage</source>
             <translation>Verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1856" />
+            <location filename="../../../gui/advanced_filter.py" line="1851" />
             <source>Manage Filters</source>
             <translation>Filter verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1857" />
+            <location filename="../../../gui/advanced_filter.py" line="1852" />
             <source>Filter Active</source>
             <translation>Filter aktiv</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1858" />
+            <location filename="../../../gui/advanced_filter.py" line="1853" />
             <source>Export</source>
             <translation>Exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1859" />
+            <location filename="../../../gui/advanced_filter.py" line="1854" />
             <source>Export filter</source>
             <translation>Filter exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1882" />
-            <location filename="../../../gui/advanced_filter.py" line="1861" />
+            <location filename="../../../gui/advanced_filter.py" line="1877" />
+            <location filename="../../../gui/advanced_filter.py" line="1856" />
             <source>Changes:</source>
             <translation>Änderungen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1883" />
-            <location filename="../../../gui/advanced_filter.py" line="1862" />
+            <location filename="../../../gui/advanced_filter.py" line="1878" />
+            <location filename="../../../gui/advanced_filter.py" line="1857" />
             <source>Discard</source>
             <translation>Verwerfen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1863" />
+            <location filename="../../../gui/advanced_filter.py" line="1858" />
             <source>Revert Changes</source>
             <translation>Änderungen verwerfen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1885" />
-            <location filename="../../../gui/advanced_filter.py" line="1865" />
+            <location filename="../../../gui/advanced_filter.py" line="1880" />
+            <location filename="../../../gui/advanced_filter.py" line="1860" />
             <source>Clear All</source>
             <translation>Alles leeren</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1866" />
+            <location filename="../../../gui/advanced_filter.py" line="1861" />
             <source>Apply</source>
             <translation>Anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1867" />
+            <location filename="../../../gui/advanced_filter.py" line="1862" />
             <source>Changes are applied automatically when 'Filter active' is checked.</source>
             <translation>Änderungen werden automatisch angewendet, wenn 'Filter aktiv' aktiviert ist.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1874" />
+            <location filename="../../../gui/advanced_filter.py" line="1869" />
             <source>Active</source>
             <translation>Aktiv</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1876" />
+            <location filename="../../../gui/advanced_filter.py" line="1871" />
             <source>Add Tags:</source>
             <translation>Tags hinzufügen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1877" />
+            <location filename="../../../gui/advanced_filter.py" line="1872" />
             <source>Remove Tags:</source>
             <translation>Tags entfernen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1878" />
+            <location filename="../../../gui/advanced_filter.py" line="1873" />
             <source>Enter tags to add. Press comma or Enter to confirm (e.g. INVOICE, TELEKOM)</source>
             <translation>Tags zum Hinzufügen. Komma oder Enter zum Bestätigen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1879" />
+            <location filename="../../../gui/advanced_filter.py" line="1874" />
             <source>Enter tags to remove. Press comma or Enter to confirm (e.g. DRAFT, REVIEW)</source>
             <translation>Tags zum Entfernen. Komma oder Enter zum Bestätigen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1880" />
+            <location filename="../../../gui/advanced_filter.py" line="1875" />
             <source>Assign Workflow:</source>
             <translation>Ablauf zuweisen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1884" />
+            <location filename="../../../gui/advanced_filter.py" line="1879" />
             <source>Save...</source>
             <translation>Speichern...</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1887" />
+            <location filename="../../../gui/advanced_filter.py" line="1882" />
             <source>Create a search-view that filters for the tags this rule adds</source>
             <translation>Erstellt eine Ansicht, die nach den Tags dieser Regel filtert</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1888" />
+            <location filename="../../../gui/advanced_filter.py" line="1883" />
             <source>Apply to View</source>
             <translation>Auf Ansicht anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1889" />
+            <location filename="../../../gui/advanced_filter.py" line="1884" />
             <source>Apply to all</source>
             <translation>Auf alle anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1890" />
+            <location filename="../../../gui/advanced_filter.py" line="1885" />
             <source>Run on Import</source>
             <translation>Bei Import ausführen</translation>
         </message>
         <message>
-            <location filename="../../../gui/advanced_filter.py" line="1891" />
+            <location filename="../../../gui/advanced_filter.py" line="1886" />
             <source>Automatically apply this rule to new documents during import/analysis</source>
             <translation>Diese Regel automatisch bei Import/Analyse auf neue Dokumente anwenden</translation>
         </message>
@@ -439,24 +482,24 @@
     <context>
         <name>AuditWindow</name>
         <message>
-            <location filename="../../../gui/audit_window.py" line="156" />
+            <location filename="../../../gui/audit_window.py" line="160" />
             <location filename="../../../gui/audit_window.py" line="39" />
             <source>KPaperFlux - Audit and Verification</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/audit_window.py" line="157" />
+            <location filename="../../../gui/audit_window.py" line="161" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../../gui/audit_window.py" line="158" />
+            <location filename="../../../gui/audit_window.py" line="162" />
             <source>Generating comparison document...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/audit_window.py" line="195" />
-            <location filename="../../../gui/audit_window.py" line="160" />
+            <location filename="../../../gui/audit_window.py" line="199" />
+            <location filename="../../../gui/audit_window.py" line="164" />
             <source>No document selected.</source>
             <translation>Kein Dokument ausgewählt.</translation>
         </message>
@@ -603,61 +646,61 @@
     <context>
         <name>CockpitWidget</name>
         <message>
-            <location filename="../../../gui/cockpit.py" line="325" />
-            <location filename="../../../gui/cockpit.py" line="273" />
+            <location filename="../../../gui/cockpit.py" line="327" />
+            <location filename="../../../gui/cockpit.py" line="275" />
             <source>Inbox</source>
             <translation>Unbearbeitete Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="333" />
-            <location filename="../../../gui/cockpit.py" line="274" />
+            <location filename="../../../gui/cockpit.py" line="335" />
+            <location filename="../../../gui/cockpit.py" line="276" />
             <source>Urgent</source>
             <translation>Dringend</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="329" />
-            <location filename="../../../gui/cockpit.py" line="275" />
+            <location filename="../../../gui/cockpit.py" line="331" />
+            <location filename="../../../gui/cockpit.py" line="277" />
             <source>Total Documents</source>
             <translation>Belege gesamt</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="331" />
-            <location filename="../../../gui/cockpit.py" line="276" />
+            <location filename="../../../gui/cockpit.py" line="333" />
+            <location filename="../../../gui/cockpit.py" line="278" />
             <source>Total Invoiced</source>
             <translation>Gesamtsumme</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="327" />
+            <location filename="../../../gui/cockpit.py" line="329" />
             <source>Processed</source>
             <translation>Verarbeitet</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="335" />
+            <location filename="../../../gui/cockpit.py" line="337" />
             <source>Review</source>
             <translation>Prüfung</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="517" />
+            <location filename="../../../gui/cockpit.py" line="519" />
             <source>Unlock Layout (Enable Dragging)</source>
             <translation>Bearbeitungsmodus ein</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="517" />
+            <location filename="../../../gui/cockpit.py" line="519" />
             <source>Lock Layout (Prevent Dragging)</source>
             <translation>Bearbeitungsmodus aus</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="523" />
+            <location filename="../../../gui/cockpit.py" line="525" />
             <source>Add New Filter View...</source>
             <translation>Neue Filter-Ansicht hinzufügen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="558" />
+            <location filename="../../../gui/cockpit.py" line="560" />
             <source>Rename View</source>
             <translation>Kachel umbenennen</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="558" />
+            <location filename="../../../gui/cockpit.py" line="560" />
             <source>New Title:</source>
             <translation>Neuer Titel:</translation>
         </message>
@@ -799,57 +842,57 @@
     <context>
         <name>DocumentExporter</name>
         <message>
-            <location filename="../../../core/exporter.py" line="176" />
+            <location filename="../../../core/exporter.py" line="213" />
             <source>Date</source>
             <translation>Datum</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="177" />
+            <location filename="../../../core/exporter.py" line="214" />
             <source>Sender</source>
             <translation>Absender</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="178" />
+            <location filename="../../../core/exporter.py" line="215" />
             <source>Content</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="179" />
+            <location filename="../../../core/exporter.py" line="216" />
             <source>Net Amount</source>
             <translation>Nettobetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="180" />
+            <location filename="../../../core/exporter.py" line="217" />
             <source>Tax Rate</source>
             <translation>Steuersatz</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="181" />
+            <location filename="../../../core/exporter.py" line="218" />
             <source>Gross Amount</source>
             <translation>Bruttobetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="182" />
+            <location filename="../../../core/exporter.py" line="219" />
             <source>Currency</source>
             <translation>Währung</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="183" />
+            <location filename="../../../core/exporter.py" line="220" />
             <source>Recipient</source>
             <translation>Empfänger</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="184" />
+            <location filename="../../../core/exporter.py" line="221" />
             <source>IBAN</source>
             <translation>IBAN</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="185" />
+            <location filename="../../../core/exporter.py" line="222" />
             <source>Filename</source>
             <translation>Dateiname</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="187" />
+            <location filename="../../../core/exporter.py" line="224" />
             <source>File Link</source>
             <translation type="unfinished" />
         </message>
@@ -857,7 +900,7 @@
     <context>
         <name>DocumentListWidget</name>
         <message>
-            <location filename="../../../gui/document_list.py" line="1502" />
+            <location filename="../../../gui/document_list.py" line="1513" />
             <location filename="../../../gui/document_list.py" line="177" />
             <source>All Documents</source>
             <translation>Alle Dokumente</translation>
@@ -1022,8 +1065,8 @@ This cannot be undone.</source>
 Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1511" />
-            <location filename="../../../gui/document_list.py" line="1499" />
+            <location filename="../../../gui/document_list.py" line="1522" />
+            <location filename="../../../gui/document_list.py" line="1510" />
             <location filename="../../../gui/document_list.py" line="1221" />
             <source>Trash Bin</source>
             <translation>Mülleimer</translation>
@@ -1064,25 +1107,25 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1538" />
-            <location filename="../../../gui/document_list.py" line="1495" />
+            <location filename="../../../gui/document_list.py" line="1549" />
+            <location filename="../../../gui/document_list.py" line="1506" />
             <source>Documents</source>
             <translation>Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1518" />
-            <location filename="../../../gui/document_list.py" line="1517" />
-            <location filename="../../../gui/document_list.py" line="1505" />
+            <location filename="../../../gui/document_list.py" line="1529" />
+            <location filename="../../../gui/document_list.py" line="1528" />
+            <location filename="../../../gui/document_list.py" line="1516" />
             <source>Search</source>
             <translation>Suche</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1507" />
+            <location filename="../../../gui/document_list.py" line="1518" />
             <source>Filter</source>
             <translation>Filter</translation>
         </message>
         <message>
-            <location filename="../../../gui/document_list.py" line="1509" />
+            <location filename="../../../gui/document_list.py" line="1520" />
             <source>Manual Selection</source>
             <translation type="unfinished" />
         </message>
@@ -1090,17 +1133,17 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
     <context>
         <name>DualPdfViewerWidget</name>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="801" />
+            <location filename="../../../gui/pdf_viewer.py" line="802" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="802" />
+            <location filename="../../../gui/pdf_viewer.py" line="803" />
             <source>Link scroll and zoom</source>
             <translation>Scrollen und Zoom koppeln</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="803" />
+            <location filename="../../../gui/pdf_viewer.py" line="804" />
             <source>Show visual differences</source>
             <translation>Visuelle Unterschiede anzeigen</translation>
         </message>
@@ -1190,100 +1233,100 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
     <context>
         <name>ExportDialog</name>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="42" />
+            <location filename="../../../gui/export_dialog.py" line="64" />
             <source>Export Documents</source>
             <translation>Dokumente exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="50" />
+            <location filename="../../../gui/export_dialog.py" line="72" />
             <source>Exporting %s documents.</source>
             <translation>%s Dokumente werden exportiert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="53" />
+            <location filename="../../../gui/export_dialog.py" line="75" />
             <source>Include PDF files (in 'documents/' folder)</source>
             <translation>PDF-Dateien einschließen</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="57" />
+            <location filename="../../../gui/export_dialog.py" line="79" />
             <source>Export as single MERGED PDF file</source>
             <translation>Als zusammengeführte PDF exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="154" />
-            <location filename="../../../gui/export_dialog.py" line="63" />
+            <location filename="../../../gui/export_dialog.py" line="177" />
+            <location filename="../../../gui/export_dialog.py" line="85" />
             <source>No file selected</source>
             <translation>Keine Datei gewählt</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="66" />
+            <location filename="../../../gui/export_dialog.py" line="88" />
             <source>Browse...</source>
             <translation>Durchsuchen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="82" />
+            <location filename="../../../gui/export_dialog.py" line="104" />
             <source>Export</source>
             <translation>Exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="88" />
+            <location filename="../../../gui/export_dialog.py" line="110" />
             <source>Export to Transfer</source>
             <translation>In Transfer exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="95" />
+            <location filename="../../../gui/export_dialog.py" line="117" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="103" />
+            <location filename="../../../gui/export_dialog.py" line="125" />
             <source>Save Merged PDF</source>
             <translation>Zusammengeführte PDF speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="105" />
+            <location filename="../../../gui/export_dialog.py" line="127" />
             <source>PDF Document (*.pdf)</source>
             <translation>PDF Dokument (*.pdf)</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="107" />
+            <location filename="../../../gui/export_dialog.py" line="129" />
             <source>Save Export Archive</source>
             <translation>Export-Archiv speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="109" />
+            <location filename="../../../gui/export_dialog.py" line="131" />
             <source>ZIP Archive (*.zip)</source>
             <translation>ZIP Archiv (*.zip)</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="143" />
+            <location filename="../../../gui/export_dialog.py" line="166" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="143" />
+            <location filename="../../../gui/export_dialog.py" line="166" />
             <source>Export completed successfully.</source>
             <translation>Export erfolgreich abgeschlossen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="146" />
+            <location filename="../../../gui/export_dialog.py" line="169" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="146" />
+            <location filename="../../../gui/export_dialog.py" line="169" />
             <source>Export failed:
 %s</source>
             <translation>Export fehlgeschlagen:
 %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="167" />
+            <location filename="../../../gui/export_dialog.py" line="190" />
             <source>Confirm Overwrite</source>
             <translation>Überschreiben bestätigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/export_dialog.py" line="168" />
+            <location filename="../../../gui/export_dialog.py" line="191" />
             <source>File '%s' already exists in transfer folder. Overwrite?</source>
             <translation>Datei '%s' existiert bereits im Transfer-Ordner. Überschreiben?</translation>
         </message>
@@ -1431,281 +1474,281 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
     <context>
         <name>FilterManagerDialog</name>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="146" />
+            <location filename="../../../gui/filter_manager.py" line="147" />
             <source>Management for Filters and Rules</source>
             <translation>Verwaltung für Filter und Regeln</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="147" />
+            <location filename="../../../gui/filter_manager.py" line="148" />
             <source>Search filters...</source>
             <translation>Suche...</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="151" />
+            <location filename="../../../gui/filter_manager.py" line="152" />
             <source>&lt;b&gt;Select an item&lt;/b&gt; to view details</source>
             <translation>&lt;b&gt;Wähle ein Element&lt;/b&gt; für Details</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="444" />
-            <location filename="../../../gui/filter_manager.py" line="159" />
+            <location filename="../../../gui/filter_manager.py" line="445" />
+            <location filename="../../../gui/filter_manager.py" line="160" />
             <source>New Folder</source>
             <translation>Neuer Ordner</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="503" />
-            <location filename="../../../gui/filter_manager.py" line="478" />
-            <location filename="../../../gui/filter_manager.py" line="160" />
+            <location filename="../../../gui/filter_manager.py" line="504" />
+            <location filename="../../../gui/filter_manager.py" line="479" />
+            <location filename="../../../gui/filter_manager.py" line="161" />
             <source>Delete</source>
             <translation>Löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="161" />
+            <location filename="../../../gui/filter_manager.py" line="162" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="297" />
-            <location filename="../../../gui/filter_manager.py" line="186" />
+            <location filename="../../../gui/filter_manager.py" line="298" />
+            <location filename="../../../gui/filter_manager.py" line="187" />
             <source>Trash</source>
             <translation>Papierkorb</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="302" />
-            <location filename="../../../gui/filter_manager.py" line="188" />
+            <location filename="../../../gui/filter_manager.py" line="303" />
+            <location filename="../../../gui/filter_manager.py" line="189" />
             <source>Archive</source>
             <translation>Archiv</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="289" />
+            <location filename="../../../gui/filter_manager.py" line="290" />
             <source>Folder</source>
             <translation>Ordner</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/filter_manager.py" line="290" />
+            <location filename="../../../gui/filter_manager.py" line="291" />
             <source>Contains %n item(s).</source>
             <translation>
                 <numerusform>%n Element enthalten.</numerusform>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="298" />
+            <location filename="../../../gui/filter_manager.py" line="299" />
             <source>Deleted documents live here.</source>
             <translation>Hier liegen gelöschte Dokumente.</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="298" />
+            <location filename="../../../gui/filter_manager.py" line="299" />
             <source>Select this filter to restore or permanently delete files.</source>
             <translation>Wähle diesen Filter, um Dateien wiederherzustellen oder endgültig zu löschen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="303" />
+            <location filename="../../../gui/filter_manager.py" line="304" />
             <source>Your long-term document storage.</source>
             <translation>Dein Langzeit-Archiv.</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="303" />
+            <location filename="../../../gui/filter_manager.py" line="304" />
             <source>This filter shows all documents marked as Archive.</source>
             <translation>Dieser Filter zeigt alle als Archiv markierten Dokumente.</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="318" />
+            <location filename="../../../gui/filter_manager.py" line="319" />
             <source>Static List</source>
             <translation>Statische Liste</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/filter_manager.py" line="320" />
+            <location filename="../../../gui/filter_manager.py" line="321" />
             <source>Contains &lt;b&gt;%n&lt;/b&gt; documents.</source>
             <translation>
                 <numerusform>Enthält &lt;b&gt;%n&lt;/b&gt; Dokument.</numerusform>
             </translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/filter_manager.py" line="344" />
+            <location filename="../../../gui/filter_manager.py" line="345" />
             <source>and %n more.</source>
             <translation>
                 <numerusform>und %n weiteres.</numerusform>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="357" />
+            <location filename="../../../gui/filter_manager.py" line="358" />
             <source>AI Direction</source>
             <translation>KI - Richtung</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="358" />
+            <location filename="../../../gui/filter_manager.py" line="359" />
             <source>AI Context</source>
             <translation>KI - Kontext</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="359" />
+            <location filename="../../../gui/filter_manager.py" line="360" />
             <source>AI Confidence</source>
             <translation>KI - Vertrauen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="360" />
+            <location filename="../../../gui/filter_manager.py" line="361" />
             <source>AI Reasoning</source>
             <translation>KI - Begründung</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="361" />
+            <location filename="../../../gui/filter_manager.py" line="362" />
             <source>Type Tags</source>
             <translation>Typ - Tags</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="362" />
+            <location filename="../../../gui/filter_manager.py" line="363" />
             <source>Visual Audit</source>
             <translation>Visuelle Prüfung</translation>
         </message>
         <message>
+            <location filename="../../../gui/filter_manager.py" line="365" />
             <location filename="../../../gui/filter_manager.py" line="364" />
-            <location filename="../../../gui/filter_manager.py" line="363" />
             <source>Filename</source>
             <translation>Dateiname</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="365" />
+            <location filename="../../../gui/filter_manager.py" line="366" />
             <source>Created At</source>
             <translation>Erstellt am</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="366" />
+            <location filename="../../../gui/filter_manager.py" line="367" />
             <source>Last Processed</source>
             <translation>Zuletzt verarbeitet</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="367" />
+            <location filename="../../../gui/filter_manager.py" line="368" />
             <source>Pages</source>
             <translation>Seiten</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="368" />
+            <location filename="../../../gui/filter_manager.py" line="369" />
             <source>Text Content</source>
             <translation>Textinhalt</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="373" />
+            <location filename="../../../gui/filter_manager.py" line="374" />
             <source>equals</source>
             <translation>ist gleich</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="374" />
+            <location filename="../../../gui/filter_manager.py" line="375" />
             <source>contains</source>
             <translation>enthält</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="375" />
+            <location filename="../../../gui/filter_manager.py" line="376" />
             <source>starts with</source>
             <translation>beginnt mit</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="376" />
+            <location filename="../../../gui/filter_manager.py" line="377" />
             <source>ends with</source>
             <translation>endet mit</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="377" />
+            <location filename="../../../gui/filter_manager.py" line="378" />
             <source>greater than</source>
             <translation>größer als</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="378" />
+            <location filename="../../../gui/filter_manager.py" line="379" />
             <source>less than</source>
             <translation>kleiner als</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="379" />
+            <location filename="../../../gui/filter_manager.py" line="380" />
             <source>in list</source>
             <translation>in Liste</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="380" />
+            <location filename="../../../gui/filter_manager.py" line="381" />
             <source>between</source>
             <translation>zwischen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="381" />
+            <location filename="../../../gui/filter_manager.py" line="382" />
             <source>matches</source>
             <translation>regulärer Ausdruck</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="384" />
+            <location filename="../../../gui/filter_manager.py" line="385" />
             <source>Filter Rule</source>
             <translation>Filter - Regel</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="394" />
+            <location filename="../../../gui/filter_manager.py" line="395" />
             <source>Tagging Actions</source>
             <translation>Tagging - Aktionen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="397" />
+            <location filename="../../../gui/filter_manager.py" line="398" />
             <source>Add</source>
             <translation>Hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="399" />
+            <location filename="../../../gui/filter_manager.py" line="400" />
             <source>Remove</source>
             <translation>Entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="402" />
+            <location filename="../../../gui/filter_manager.py" line="403" />
             <source>Active</source>
             <translation>Aktiv</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="403" />
+            <location filename="../../../gui/filter_manager.py" line="404" />
             <source>Inactive</source>
             <translation>Inaktiv</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="405" />
+            <location filename="../../../gui/filter_manager.py" line="406" />
             <source>Run on Import</source>
             <translation>Bei Import ausführen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="407" />
+            <location filename="../../../gui/filter_manager.py" line="408" />
             <source>Settings</source>
             <translation>Einstellungen</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="413" />
+            <location filename="../../../gui/filter_manager.py" line="414" />
             <source>AND</source>
             <translation>UND</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="413" />
+            <location filename="../../../gui/filter_manager.py" line="414" />
             <source>OR</source>
             <translation>ODER</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="414" />
+            <location filename="../../../gui/filter_manager.py" line="415" />
             <source>Filtering Logic</source>
             <translation>Filter - Logik</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="429" />
+            <location filename="../../../gui/filter_manager.py" line="430" />
             <source>NOT</source>
             <translation>NICHT</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="444" />
+            <location filename="../../../gui/filter_manager.py" line="445" />
             <source>Folder Name:</source>
             <translation>Ordnername:</translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="474" />
+            <location filename="../../../gui/filter_manager.py" line="475" />
             <source>Delete '%1'?</source>
             <translation>'%1' löschen?</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/filter_manager.py" line="476" />
+            <location filename="../../../gui/filter_manager.py" line="477" />
             <source>Delete %n selected item(s)?</source>
             <translation>
                 <numerusform>%n ausgewähltes Element löschen?</numerusform>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/filter_manager.py" line="501" />
+            <location filename="../../../gui/filter_manager.py" line="502" />
             <source>Export to Exchange...</source>
             <translation>Filter exportieren</translation>
         </message>
@@ -1830,22 +1873,22 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
     <context>
         <name>HybridAssemblerPlugin</name>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/plugin.py" line="25" />
+            <location filename="../../../plugins/hybrid_assembler/plugin.py" line="27" />
             <source>Hybrid Assembler</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/plugin.py" line="28" />
+            <location filename="../../../plugins/hybrid_assembler/plugin.py" line="30" />
             <source>Assembles hybrid PDFs from native and scanned versions.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/plugin.py" line="32" />
+            <location filename="../../../plugins/hybrid_assembler/plugin.py" line="33" />
             <source>Assemble Hybrid PDFs...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/plugin.py" line="76" />
+            <location filename="../../../plugins/hybrid_assembler/plugin.py" line="77" />
             <source>Page count mismatch: Native PDF has %1 pages, but Scan PDF has %2 pages. Please ensure the scan is complete.</source>
             <translation>Seitenanzahl stimmt nicht überein: Natives PDF hat %1 Seiten, Scan-PDF hat %2 Seiten. Bitte sicherstellen, dass der Scan vollständig ist.</translation>
         </message>
@@ -2082,248 +2125,248 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
     <context>
         <name>MainWindow</name>
         <message>
-            <location filename="../../../gui/main_window.py" line="121" />
+            <location filename="../../../gui/main_window.py" line="123" />
             <source>KPaperFlux</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2018" />
-            <location filename="../../../gui/main_window.py" line="2010" />
-            <location filename="../../../gui/main_window.py" line="311" />
+            <location filename="../../../gui/main_window.py" line="1980" />
+            <location filename="../../../gui/main_window.py" line="1972" />
+            <location filename="../../../gui/main_window.py" line="312" />
             <source>Ready</source>
             <translation>Bereit</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="390" />
-            <location filename="../../../gui/main_window.py" line="385" />
+            <location filename="../../../gui/main_window.py" line="391" />
+            <location filename="../../../gui/main_window.py" line="386" />
             <source>Apply Rule</source>
             <translation>Regel anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="385" />
+            <location filename="../../../gui/main_window.py" line="386" />
             <source>No documents selected.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="390" />
+            <location filename="../../../gui/main_window.py" line="391" />
             <source>Current list is empty.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="741" />
+            <location filename="../../../gui/main_window.py" line="742" />
             <source>Plugin Loading Errors...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="743" />
+            <location filename="../../../gui/main_window.py" line="744" />
             <source>Details</source>
             <translation>Details</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="747" />
+            <location filename="../../../gui/main_window.py" line="748" />
             <source>No plugin actions</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="877" />
+            <location filename="../../../gui/main_window.py" line="839" />
             <source>Docs: %s/%s</source>
             <translation>Doks: %s/%s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="882" />
+            <location filename="../../../gui/main_window.py" line="844" />
             <source>Selection Gross (total): %s EUR</source>
             <translation>Auswahl Brutto (gesamt): %s EUR</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="979" />
+            <location filename="../../../gui/main_window.py" line="941" />
             <source>Info</source>
             <translation>Info</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="979" />
+            <location filename="../../../gui/main_window.py" line="941" />
             <source>Please select documents to delete.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="993" />
+            <location filename="../../../gui/main_window.py" line="955" />
             <source>Are you sure you want to delete this item?</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="993" />
+            <location filename="../../../gui/main_window.py" line="955" />
             <source>Are you sure you want to delete %s items?</source>
             <translation>%s Element(e) wirklich löschen?</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="995" />
+            <location filename="../../../gui/main_window.py" line="957" />
             <source>Confirm Delete</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2125" />
-            <location filename="../../../gui/main_window.py" line="1040" />
+            <location filename="../../../gui/main_window.py" line="2087" />
+            <location filename="../../../gui/main_window.py" line="1002" />
             <source>Deleted</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1040" />
+            <location filename="../../../gui/main_window.py" line="1002" />
             <source>Deleted %s items.</source>
             <translation>%s Element(e) gelöscht.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1060" />
+            <location filename="../../../gui/main_window.py" line="1022" />
             <source>Reprocessing...</source>
             <translation>Wird neu verarbeitet...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1060" />
+            <location filename="../../../gui/main_window.py" line="1022" />
             <source>Running OCR...</source>
             <translation>OCR wird ausgeführt...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1660" />
-            <location filename="../../../gui/main_window.py" line="1532" />
-            <location filename="../../../gui/main_window.py" line="1218" />
-            <location filename="../../../gui/main_window.py" line="1061" />
+            <location filename="../../../gui/main_window.py" line="1622" />
+            <location filename="../../../gui/main_window.py" line="1494" />
+            <location filename="../../../gui/main_window.py" line="1180" />
+            <location filename="../../../gui/main_window.py" line="1023" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1077" />
+            <location filename="../../../gui/main_window.py" line="1039" />
             <source>Reprocessing %s of %s...</source>
             <translation>Verarbeite %s von %s...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1129" />
+            <location filename="../../../gui/main_window.py" line="1091" />
             <source>Processing Error</source>
             <translation>Fehler bei der Verarbeitung</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1130" />
+            <location filename="../../../gui/main_window.py" line="1092" />
             <source>%s error(s) occurred during reprocessing. Check logs.</source>
             <translation>%s Fehler bei der Verarbeitung. Bitte Protokoll prüfen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1139" />
+            <location filename="../../../gui/main_window.py" line="1101" />
             <source>Reprocessed</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1218" />
+            <location filename="../../../gui/main_window.py" line="1180" />
             <source>Initializing Import...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1219" />
+            <location filename="../../../gui/main_window.py" line="1181" />
             <source>Importing...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1231" />
+            <location filename="../../../gui/main_window.py" line="1193" />
             <source>Importing %s/%s: %s</source>
             <translation>Importiere %s/%s: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1256" />
+            <location filename="../../../gui/main_window.py" line="1218" />
             <source>Select Documents</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1256" />
+            <location filename="../../../gui/main_window.py" line="1218" />
             <source>PDF Files (*.pdf);;All Files (*)</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2266" />
-            <location filename="../../../gui/main_window.py" line="2093" />
-            <location filename="../../../gui/main_window.py" line="1829" />
-            <location filename="../../../gui/main_window.py" line="1770" />
-            <location filename="../../../gui/main_window.py" line="1496" />
-            <location filename="../../../gui/main_window.py" line="1489" />
-            <location filename="../../../gui/main_window.py" line="1363" />
+            <location filename="../../../gui/main_window.py" line="2227" />
+            <location filename="../../../gui/main_window.py" line="2055" />
+            <location filename="../../../gui/main_window.py" line="1791" />
+            <location filename="../../../gui/main_window.py" line="1732" />
+            <location filename="../../../gui/main_window.py" line="1458" />
+            <location filename="../../../gui/main_window.py" line="1451" />
+            <location filename="../../../gui/main_window.py" line="1325" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1367" />
+            <location filename="../../../gui/main_window.py" line="1329" />
             <source>Transfer</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1367" />
+            <location filename="../../../gui/main_window.py" line="1329" />
             <source>No compatible files found in transfer folder.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1370" />
+            <location filename="../../../gui/main_window.py" line="1332" />
             <source>Found %s files in transfer folder. Do you want to import them now?</source>
             <translation>%s Dateien im Transfer-Ordner gefunden. Jetzt importieren?</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2540" />
-            <location filename="../../../gui/main_window.py" line="1371" />
+            <location filename="../../../gui/main_window.py" line="2501" />
+            <location filename="../../../gui/main_window.py" line="1333" />
             <source>Import from Transfer</source>
             <translation>Aus Transfer importieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1442" />
-            <location filename="../../../gui/main_window.py" line="1383" />
+            <location filename="../../../gui/main_window.py" line="1404" />
+            <location filename="../../../gui/main_window.py" line="1345" />
             <source>Semantic Data</source>
             <translation>Semantische Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1395" />
+            <location filename="../../../gui/main_window.py" line="1357" />
             <source>All documents have semantic data.</source>
             <translation>Alle Dokumente haben semantische Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1397" />
+            <location filename="../../../gui/main_window.py" line="1359" />
             <source>Showing %s docs with missing semantic data.</source>
             <translation>%s Dokumente ohne semantische Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1405" />
+            <location filename="../../../gui/main_window.py" line="1367" />
             <source>No data mismatches found.</source>
             <translation>Keine Datenkonflikte gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1407" />
+            <location filename="../../../gui/main_window.py" line="1369" />
             <source>Showing %s docs with data mismatches.</source>
             <translation>%s Dokumente mit Datenkonflikten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1416" />
+            <location filename="../../../gui/main_window.py" line="1378" />
             <source>Action required</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1416" />
+            <location filename="../../../gui/main_window.py" line="1378" />
             <source>Please select at least one document.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1436" />
+            <location filename="../../../gui/main_window.py" line="1398" />
             <source>Queued %s docs for extraction.</source>
             <translation>%s Dokumente für Extraktion vorgemerkt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1442" />
+            <location filename="../../../gui/main_window.py" line="1404" />
             <source>No empty documents found.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2575" />
-            <location filename="../../../gui/main_window.py" line="1446" />
+            <location filename="../../../gui/main_window.py" line="2536" />
+            <location filename="../../../gui/main_window.py" line="1408" />
             <source>Process empty Documents</source>
             <translation>Leere Dokumente verarbeiten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1447" />
+            <location filename="../../../gui/main_window.py" line="1409" />
             <source>Start semantic extraction for %s documents without details?</source>
             <translation>Semantische Extraktion für %s Dokumente ohne Details starten?</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1466" />
+            <location filename="../../../gui/main_window.py" line="1428" />
             <source>Queued %n doc(s) for background extraction.</source>
             <translation>
                 <numerusform>%n Dokument(e) für Hintergrund-Extraktion eingereiht.</numerusform>
@@ -2331,77 +2374,77 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1486" />
+            <location filename="../../../gui/main_window.py" line="1448" />
             <source>Documents merged successfully.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1489" />
+            <location filename="../../../gui/main_window.py" line="1451" />
             <source>Merge failed.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1497" />
+            <location filename="../../../gui/main_window.py" line="1459" />
             <source>Merge error: %s</source>
             <translation>Zusammenführungsfehler: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1508" />
+            <location filename="../../../gui/main_window.py" line="1470" />
             <source>Unknown</source>
             <translation>Unbekannt</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1511" />
+            <location filename="../../../gui/main_window.py" line="1473" />
             <source>KDE Plasma (Detected)</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1513" />
+            <location filename="../../../gui/main_window.py" line="1475" />
             <source>Not Detected</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1515" />
+            <location filename="../../../gui/main_window.py" line="1477" />
             <source>&lt;h3&gt;KPaperFlux v1.0&lt;/h3&gt;&lt;p&gt;A modern document management tool.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;b&gt;Qt Version:&lt;/b&gt; %1&lt;/p&gt;&lt;p&gt;&lt;b&gt;Python:&lt;/b&gt; %2&lt;/p&gt;&lt;p&gt;&lt;b&gt;System:&lt;/b&gt; %3&lt;/p&gt;&lt;p&gt;&lt;b&gt;Desktop Environment:&lt;/b&gt; %4&lt;/p&gt;</source>
             <translation>&lt;h3&gt;KPaperFlux v1.0&lt;/h3&gt;&lt;p&gt;Modernes Dokumentenmanagementsystem.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;b&gt;Qt-Version:&lt;/b&gt; %1&lt;/p&gt;&lt;p&gt;&lt;b&gt;Python:&lt;/b&gt; %2&lt;/p&gt;&lt;p&gt;&lt;b&gt;System:&lt;/b&gt; %3&lt;/p&gt;&lt;p&gt;&lt;b&gt;Desktopumgebung:&lt;/b&gt; %4&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1525" />
+            <location filename="../../../gui/main_window.py" line="1487" />
             <source>About KPaperFlux</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1532" />
+            <location filename="../../../gui/main_window.py" line="1494" />
             <source>Searching for duplicates...</source>
             <translation>Suche nach Duplikaten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1533" />
+            <location filename="../../../gui/main_window.py" line="1495" />
             <source>Please Wait</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1550" />
+            <location filename="../../../gui/main_window.py" line="1512" />
             <source>Comparing documents (%s/%s)...</source>
             <translation>Dokumente werden verglichen (%s/%s)...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1557" />
+            <location filename="../../../gui/main_window.py" line="1519" />
             <source>No Duplicates</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1557" />
+            <location filename="../../../gui/main_window.py" line="1519" />
             <source>No duplicates found with current threshold.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1645" />
+            <location filename="../../../gui/main_window.py" line="1607" />
             <source>Import Dropped Files</source>
             <translation type="unfinished" />
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1651" />
+            <location filename="../../../gui/main_window.py" line="1613" />
             <source>Import %n file(s) into KPaperFlux?</source>
             <translation>
                 <numerusform>%n Datei(en) in KPaperFlux importieren?</numerusform>
@@ -2409,95 +2452,95 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1654" />
+            <location filename="../../../gui/main_window.py" line="1616" />
             <source>Delete source files after import</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1659" />
+            <location filename="../../../gui/main_window.py" line="1621" />
             <source>OK</source>
             <translation>OK</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1680" />
+            <location filename="../../../gui/main_window.py" line="1642" />
             <source>Import Error</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1706" />
+            <location filename="../../../gui/main_window.py" line="1668" />
             <source>Import Finished</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1707" />
+            <location filename="../../../gui/main_window.py" line="1669" />
             <source>Imported %s documents.
 Background processing started.</source>
             <translation>%s Dokumente importiert.
 Hintergrundverarbeitung gestartet.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1717" />
+            <location filename="../../../gui/main_window.py" line="1679" />
             <source>AI: %s</source>
             <translation>KI: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1739" />
+            <location filename="../../../gui/main_window.py" line="1701" />
             <source>Export</source>
             <translation>Exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1739" />
+            <location filename="../../../gui/main_window.py" line="1701" />
             <source>No documents visible to export.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1770" />
+            <location filename="../../../gui/main_window.py" line="1732" />
             <source>Could not locate physical file for UUID: %s</source>
             <translation>Physische Datei für UUID nicht gefunden: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1787" />
+            <location filename="../../../gui/main_window.py" line="1749" />
             <source>Batch Operation</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1787" />
+            <location filename="../../../gui/main_window.py" line="1749" />
             <source>Removing stamps is only supported for single documents.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1820" />
+            <location filename="../../../gui/main_window.py" line="1782" />
             <source>Stamp removed.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1822" />
+            <location filename="../../../gui/main_window.py" line="1784" />
             <source>Stamp applied to %s document(s).</source>
             <translation>Stempel auf %s Dokument(e) angewendet.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2088" />
-            <location filename="../../../gui/main_window.py" line="1824" />
+            <location filename="../../../gui/main_window.py" line="2050" />
+            <location filename="../../../gui/main_window.py" line="1786" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1829" />
+            <location filename="../../../gui/main_window.py" line="1791" />
             <source>Stamping operation failed: %s</source>
             <translation>Stempel-Operation fehlgeschlagen: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1883" />
+            <location filename="../../../gui/main_window.py" line="1845" />
             <source>Tags Updated</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1883" />
+            <location filename="../../../gui/main_window.py" line="1845" />
             <source>Updated tags for %s documents.</source>
             <translation>Tags für %s Dokumente aktualisiert.</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="2003" />
+            <location filename="../../../gui/main_window.py" line="1965" />
             <source>List '%s' saved with %n item(s).</source>
             <translation>
                 <numerusform>Liste '%s' mit %n Eintrag/Einträgen gespeichert.</numerusform>
@@ -2505,56 +2548,56 @@ Hintergrundverarbeitung gestartet.</translation>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2008" />
+            <location filename="../../../gui/main_window.py" line="1970" />
             <source>Viewing Trash Bin</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2016" />
+            <location filename="../../../gui/main_window.py" line="1978" />
             <source>Viewing Archive</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2027" />
+            <location filename="../../../gui/main_window.py" line="1989" />
             <source>Restored</source>
             <translation>Wiederhergestellt</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2027" />
+            <location filename="../../../gui/main_window.py" line="1989" />
             <source>Restored %s document(s).</source>
             <translation>%s Dokument(e) wiederhergestellt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2038" />
+            <location filename="../../../gui/main_window.py" line="2000" />
             <source>Archived</source>
             <translation>Archiviert</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2038" />
+            <location filename="../../../gui/main_window.py" line="2000" />
             <source>Restored from Archive</source>
             <translation>Aus Archiv wiederhergestellt</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="2040" />
+            <location filename="../../../gui/main_window.py" line="2002" />
             <source>Archived %n document(s)</source>
             <translation>
                 <numerusform>%n Dokument archiviert</numerusform>
             </translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="2042" />
+            <location filename="../../../gui/main_window.py" line="2004" />
             <source>Restored %n document(s) from Archive</source>
             <translation>
                 <numerusform>%n Dokument aus Archiv wiederhergestellt</numerusform>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2051" />
+            <location filename="../../../gui/main_window.py" line="2013" />
             <source>Confirm Global Purge</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2052" />
+            <location filename="../../../gui/main_window.py" line="2014" />
             <source>DANGER: This will delete ALL documents, files, and database entries.
 
 This action cannot be undone.
@@ -2563,37 +2606,37 @@ Are you completely sure you want to reset the system?</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2088" />
+            <location filename="../../../gui/main_window.py" line="2050" />
             <source>System has been reset.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2093" />
+            <location filename="../../../gui/main_window.py" line="2055" />
             <source>Failed to purge data. Check logs.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2125" />
+            <location filename="../../../gui/main_window.py" line="2087" />
             <source>Permanently deleted %s document(s).</source>
             <translation>%s Dokument(e) endgültig gelöscht.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2236" />
+            <location filename="../../../gui/main_window.py" line="2197" />
             <source>Document Protected</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2237" />
+            <location filename="../../../gui/main_window.py" line="2198" />
             <source>This document is a digital original and cannot be restructured.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2250" />
+            <location filename="../../../gui/main_window.py" line="2211" />
             <source>Document deleted (empty structure).</source>
             <translation type="unfinished" />
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="2253" />
+            <location filename="../../../gui/main_window.py" line="2214" />
             <source>Document updated (%n part(s)).</source>
             <translation>
                 <numerusform>Dokument aktualisiert (%n Teil(e)).</numerusform>
@@ -2601,198 +2644,198 @@ Are you completely sure you want to reset the system?</source>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2522" />
+            <location filename="../../../gui/main_window.py" line="2483" />
             <source>Pipeline STOPPED due to fatal error.</source>
             <translation type="unfinished" />
         </message>
         <message>
             <location filename="../../../tests/gui/test_localization.py" line="40" />
-            <location filename="../../../gui/main_window.py" line="2538" />
+            <location filename="../../../gui/main_window.py" line="2499" />
             <source>&amp;File</source>
             <translation>&amp;Datei</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2539" />
+            <location filename="../../../gui/main_window.py" line="2500" />
             <source>&amp;Import Document</source>
             <translation>Dokument &amp;importieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2541" />
+            <location filename="../../../gui/main_window.py" line="2502" />
             <source>&amp;Scan...</source>
             <translation>&amp;Scannen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2542" />
+            <location filename="../../../gui/main_window.py" line="2503" />
             <source>&amp;Print</source>
             <translation>Dr&amp;ucken</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2543" />
+            <location filename="../../../gui/main_window.py" line="2504" />
             <source>&amp;Delete Selected</source>
             <translation>Auswahl &amp;löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2544" />
+            <location filename="../../../gui/main_window.py" line="2505" />
             <source>Export shown List...</source>
             <translation>Sichtbare Liste exportieren...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2545" />
+            <location filename="../../../gui/main_window.py" line="2506" />
             <source>E&amp;xit</source>
             <translation>Be&amp;enden</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2547" />
+            <location filename="../../../gui/main_window.py" line="2508" />
             <source>&amp;View</source>
             <translation>&amp;Ansicht</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2548" />
+            <location filename="../../../gui/main_window.py" line="2509" />
             <source>&amp;Refresh List</source>
             <translation>Liste &amp;neu laden</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2549" />
+            <location filename="../../../gui/main_window.py" line="2510" />
             <source>Show Extra Data</source>
             <translation>Zusatzdaten anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2550" />
+            <location filename="../../../gui/main_window.py" line="2511" />
             <source>Filter Panel</source>
             <translation>Filter-&amp;Panel</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2552" />
+            <location filename="../../../gui/main_window.py" line="2513" />
             <source>&amp;Maintenance</source>
             <translation>&amp;Wartung</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2553" />
+            <location filename="../../../gui/main_window.py" line="2514" />
             <source>Check Integrity (Orphans/Ghosts)</source>
             <translation>Daten prüfen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2554" />
+            <location filename="../../../gui/main_window.py" line="2515" />
             <source>Find Duplicates</source>
             <translation>Duplikate finden</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2555" />
+            <location filename="../../../gui/main_window.py" line="2516" />
             <source>Manage Tags</source>
             <translation>Tags verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2557" />
+            <location filename="../../../gui/main_window.py" line="2518" />
             <source>&amp;Tools</source>
             <translation>Werk&amp;zeuge</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2558" />
+            <location filename="../../../gui/main_window.py" line="2519" />
             <source>Purge All Data (Reset)</source>
             <translation>alle Daten zurücksetzen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2559" />
+            <location filename="../../../gui/main_window.py" line="2520" />
             <source>External Plugins</source>
             <translation>Externe Plugins</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2561" />
+            <location filename="../../../gui/main_window.py" line="2522" />
             <source>&amp;Debug</source>
             <translation>Debu&amp;g</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2562" />
+            <location filename="../../../gui/main_window.py" line="2523" />
             <source>Show Orphaned Vault Files</source>
             <translation>Verwaiste Dateien anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2563" />
+            <location filename="../../../gui/main_window.py" line="2524" />
             <source>Prune Orphaned Vault Files (Console)</source>
             <translation>verwaiste Dateien löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2564" />
+            <location filename="../../../gui/main_window.py" line="2525" />
             <source>Show Broken Entity References</source>
             <translation>Defekte Entitäts-Referenzen anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2565" />
+            <location filename="../../../gui/main_window.py" line="2526" />
             <source>Prune Broken Entity References (Console)</source>
             <translation>defekte Referenzen löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2566" />
+            <location filename="../../../gui/main_window.py" line="2527" />
             <source>Deduplicate Vault (Inhaltsbasiert)</source>
             <translation>Duplikate löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2568" />
+            <location filename="../../../gui/main_window.py" line="2529" />
             <source>&amp;Config</source>
             <translation>&amp;Konfiguration</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2569" />
+            <location filename="../../../gui/main_window.py" line="2530" />
             <source>&amp;Settings...</source>
             <translation>Eins&amp;tellungen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2571" />
+            <location filename="../../../gui/main_window.py" line="2532" />
             <source>&amp;Semantic Data</source>
             <translation>Se&amp;mantische Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2572" />
+            <location filename="../../../gui/main_window.py" line="2533" />
             <source>List Missing</source>
             <translation>Fehlende auflisten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2573" />
+            <location filename="../../../gui/main_window.py" line="2534" />
             <source>List Mismatched</source>
             <translation>Differenzen auflisten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2574" />
+            <location filename="../../../gui/main_window.py" line="2535" />
             <source>Run Extraction (Selected)</source>
             <translation>KI-Analyse starten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2577" />
+            <location filename="../../../gui/main_window.py" line="2538" />
             <source>&amp;Help</source>
             <translation>&amp;Hilfe</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2578" />
+            <location filename="../../../gui/main_window.py" line="2539" />
             <source>&amp;About</source>
             <translation>&amp;Über</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2581" />
+            <location filename="../../../gui/main_window.py" line="2542" />
             <source>Cockpit</source>
             <translation>Cockpit</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2582" />
+            <location filename="../../../gui/main_window.py" line="2543" />
             <source>Main overview and statistics</source>
             <translation>Hauptübersicht und Statistiken</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2583" />
+            <location filename="../../../gui/main_window.py" line="2544" />
             <source>Documents</source>
             <translation>Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2584" />
+            <location filename="../../../gui/main_window.py" line="2545" />
             <source>Browse and manage document list</source>
             <translation>Dokumentenliste durchsuchen und verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2585" />
+            <location filename="../../../gui/main_window.py" line="2546" />
             <source>Workflows</source>
             <translation>Abläufe</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="2586" />
+            <location filename="../../../gui/main_window.py" line="2547" />
             <source>Reports</source>
             <translation>Berichte</translation>
         </message>
@@ -2889,17 +2932,17 @@ Are you completely sure you want to reset the system?</source>
     <context>
         <name>MatchWorker</name>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="36" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="39" />
             <source>Analyzing %1 files...</source>
             <translation>%1 Dateien werden analysiert...</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="47" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="50" />
             <source>Two-Stage Data Preparation (100/150 DPI)...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="66" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="68" />
             <source>Matching %1 Scans (Smart Two-Stage)...</source>
             <translation>%1 Scans werden abgeglichen (Smart Two-Stage)...</translation>
         </message>
@@ -2907,205 +2950,205 @@ Are you completely sure you want to reset the system?</source>
     <context>
         <name>MatchingDialog</name>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="175" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="177" />
             <source>Hybrid Matching-Dialog</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="235" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="237" />
             <source>&lt;b&gt;Hybrid Matching-Dialog&lt;/b&gt;&lt;br&gt;Finds pairs of scanned and native PDFs in a folder to merge them.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="241" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="243" />
             <source>No folder selected.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="242" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="244" />
             <source>Browse Folder...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="250" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="252" />
             <source>Delete original files after successful merge</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="265" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="267" />
             <source>Scan File</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="265" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="267" />
             <source>Best Native Match</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="265" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="267" />
             <source>Status</source>
             <translation>Status</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="265" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="267" />
             <source>Actions</source>
             <translation>Aktionen</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="431" />
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="274" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="433" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="276" />
             <source>Start Analysis</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="275" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="277" />
             <source>Start scanning folder or process results</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="281" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="283" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="555" />
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="305" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="556" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="307" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="305" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="307" />
             <source>Please select a valid folder first.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="332" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="334" />
             <source>Analysis complete. Found %1 potential scans.</source>
             <translation>Analyse abgeschlossen. %1 potenzielle Scans gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="347" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="349" />
             <source>Assembled</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="362" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="364" />
             <source>Match</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="365" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="367" />
             <source>Unsure</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="368" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="370" />
             <source>Mismatch</source>
             <translation>Fehlmatch</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="382" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="384" />
             <source>View</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="385" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="387" />
             <source>Import</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="392" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="394" />
             <source>Imported ✓</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="396" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="398" />
             <source>Verify</source>
             <translation>Prüfen</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="398" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="400" />
             <source>Side-by-side comparison and verification</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="401" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="403" />
             <source>Merge</source>
             <translation>Zusammenführen</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="415" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="417" />
             <source>Analyzing...</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="423" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="425" />
             <source>Merge Matched</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="427" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="429" />
             <source>Import Merged</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="494" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="495" />
             <source>Creating Hybrid PDF: %1...</source>
             <translation>Hybrid-PDF wird erstellt: %1...</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="508" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="509" />
             <source>Batch Merge</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="508" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="509" />
             <source>No pending matches found to merge.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="513" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="514" />
             <source>Select Output Folder for Hybrid PDFs</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="532" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="533" />
             <source>Batch merge complete.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="547" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="548" />
             <source>Merge success: %1</source>
             <translation>Zusammenführung erfolgreich: %1</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="555" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="556" />
             <source>Failed to merge: %1</source>
             <translation>Zusammenführung fehlgeschlagen: %1</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="562" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="563" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="562" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="563" />
             <source>Hybrid PDF created:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="576" />
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="568" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="577" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="569" />
             <source>Import All</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="568" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="569" />
             <source>No assembled documents found to import.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="576" />
+            <location filename="../../../plugins/hybrid_assembler/matching_dialog.py" line="577" />
             <source>Triggered import for %1 documents.</source>
             <translation>Import für %1 Dokumente angestoßen.</translation>
         </message>
@@ -3123,17 +3166,17 @@ Are you completely sure you want to reset the system?</source>
     <context>
         <name>MergeConfirmDialog</name>
         <message>
-            <location filename="../../../gui/main_window.py" line="77" />
+            <location filename="../../../gui/main_window.py" line="79" />
             <source>Confirm Merge</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="80" />
+            <location filename="../../../gui/main_window.py" line="82" />
             <source>Merge %s documents into a new combined entry?</source>
             <translation>%s Dokumente zu einem neuen Eintrag zusammenführen?</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="83" />
+            <location filename="../../../gui/main_window.py" line="85" />
             <source>Keep original documents</source>
             <translation type="unfinished" />
         </message>
@@ -3141,439 +3184,444 @@ Are you completely sure you want to reset the system?</source>
     <context>
         <name>MetadataEditorWidget</name>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="239" />
+            <location filename="../../../gui/metadata_editor.py" line="241" />
             <source>Locked (Immutable)</source>
             <translation>Dokument ist schreibgeschützt</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="240" />
+            <location filename="../../../gui/metadata_editor.py" line="242" />
             <source>🔍 Audit</source>
             <translation>🔍 Prüfung</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="241" />
+            <location filename="../../../gui/metadata_editor.py" line="243" />
             <source>Open side-by-side verification window</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="244" />
+            <location filename="../../../gui/metadata_editor.py" line="246" />
             <source>Eligible for PKV Reimbursement</source>
             <translation>PKV-relevant</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="245" />
+            <location filename="../../../gui/metadata_editor.py" line="247" />
             <source>UUID:</source>
             <translation>UUID:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="246" />
+            <location filename="../../../gui/metadata_editor.py" line="248" />
             <source>Created At:</source>
             <translation>Erstellt am:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="247" />
+            <location filename="../../../gui/metadata_editor.py" line="249" />
             <source>Pages:</source>
             <translation>Seiten:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="248" />
+            <location filename="../../../gui/metadata_editor.py" line="250" />
             <source>Status:</source>
             <translation>Status:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="249" />
+            <location filename="../../../gui/metadata_editor.py" line="251" />
             <source>Export Name:</source>
             <translation>Export-Name:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="250" />
+            <location filename="../../../gui/metadata_editor.py" line="252" />
             <source>Tags:</source>
             <translation>Tags:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="251" />
+            <location filename="../../../gui/metadata_editor.py" line="253" />
             <source>Custom Tags: Enter keywords, separated by commas or Enter.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="252" />
+            <location filename="../../../gui/metadata_editor.py" line="254" />
             <source>Archived</source>
             <translation>Archiviert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="253" />
+            <location filename="../../../gui/metadata_editor.py" line="255" />
             <source>Storage Location:</source>
             <translation>Lagerort:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="266" />
+            <location filename="../../../gui/metadata_editor.py" line="268" />
             <source>Document Types:</source>
             <translation>Dokumenttypen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="267" />
+            <location filename="../../../gui/metadata_editor.py" line="269" />
             <source>Direction:</source>
             <translation>Richtung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="268" />
+            <location filename="../../../gui/metadata_editor.py" line="270" />
             <source>Tenant Context:</source>
             <translation>Mandantenkontext:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="269" />
+            <location filename="../../../gui/metadata_editor.py" line="271" />
             <source>Extracted Data</source>
             <translation>Extrahierte Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="270" />
+            <location filename="../../../gui/metadata_editor.py" line="272" />
             <source>Sender:</source>
             <translation>Absender:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="271" />
+            <location filename="../../../gui/metadata_editor.py" line="273" />
             <source>Document Date:</source>
             <translation>Belegdatum:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="293" />
+            <location filename="../../../gui/metadata_editor.py" line="295" />
             <source>Recipient:</source>
             <translation>Empfänger:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="294" />
+            <location filename="../../../gui/metadata_editor.py" line="296" />
             <source>IBAN:</source>
             <translation>IBAN:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="295" />
+            <location filename="../../../gui/metadata_editor.py" line="297" />
             <source>BIC:</source>
             <translation>BIC:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="296" />
+            <location filename="../../../gui/metadata_editor.py" line="298" />
             <source>Amount:</source>
             <translation>Betrag:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="297" />
+            <location filename="../../../gui/metadata_editor.py" line="299" />
             <source>Purpose:</source>
             <translation>Verwendungszweck:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="298" />
+            <location filename="../../../gui/metadata_editor.py" line="300" />
             <source>GiroCode (EPC)</source>
             <translation>GiroCode (EPC)</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="299" />
+            <location filename="../../../gui/metadata_editor.py" line="301" />
             <source>Standardized QR code for SEPA transfers (EPC-QR).</source>
             <translation>Standardiesierter QR-Code für SEPA-Überweisungen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="300" />
+            <location filename="../../../gui/metadata_editor.py" line="302" />
             <source>Copy Payload</source>
             <translation>Daten kopieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="301" />
+            <location filename="../../../gui/metadata_editor.py" line="303" />
             <source>Copy the raw GiroCode data for banking apps</source>
             <translation>Raw-GiroCode-Daten kopieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="351" />
-            <location filename="../../../gui/metadata_editor.py" line="304" />
+            <location filename="../../../gui/metadata_editor.py" line="354" />
+            <location filename="../../../gui/metadata_editor.py" line="306" />
             <source>Subscription / Recurring</source>
             <translation>Abonnement / Wiederkehrend</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="352" />
-            <location filename="../../../gui/metadata_editor.py" line="305" />
+            <location filename="../../../gui/metadata_editor.py" line="355" />
+            <location filename="../../../gui/metadata_editor.py" line="307" />
             <source>Recurring Payment / Subscription</source>
             <translation>Wiederkehrende Zahlung / Abonnement</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="353" />
-            <location filename="../../../gui/metadata_editor.py" line="306" />
+            <location filename="../../../gui/metadata_editor.py" line="356" />
+            <location filename="../../../gui/metadata_editor.py" line="308" />
             <source>Frequency:</source>
             <translation>Intervall:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="307" />
+            <location filename="../../../gui/metadata_editor.py" line="309" />
             <source>Service Start:</source>
             <translation>Leistungsbeginn:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="308" />
+            <location filename="../../../gui/metadata_editor.py" line="310" />
             <source>Service End:</source>
             <translation>Leistungsende:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="354" />
-            <location filename="../../../gui/metadata_editor.py" line="309" />
+            <location filename="../../../gui/metadata_editor.py" line="357" />
+            <location filename="../../../gui/metadata_editor.py" line="311" />
             <source>Next Billing:</source>
             <translation>Nächste Abrechnung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="322" />
+            <location filename="../../../gui/metadata_editor.py" line="324" />
             <source>Type</source>
             <translation>Typ</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="322" />
+            <location filename="../../../gui/metadata_editor.py" line="324" />
             <source>Text</source>
             <translation>Text</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="322" />
+            <location filename="../../../gui/metadata_editor.py" line="324" />
             <source>Page</source>
             <translation>Seite</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="322" />
+            <location filename="../../../gui/metadata_editor.py" line="324" />
             <source>Confidence</source>
             <translation>Konfidenz</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="324" />
+            <location filename="../../../gui/metadata_editor.py" line="326" />
             <source>Add Stamp</source>
             <translation>Stempel hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="332" />
-            <location filename="../../../gui/metadata_editor.py" line="325" />
+            <location filename="../../../gui/metadata_editor.py" line="334" />
+            <location filename="../../../gui/metadata_editor.py" line="327" />
             <source>Remove Selected</source>
             <translation>Auswahl entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="329" />
+            <location filename="../../../gui/metadata_editor.py" line="331" />
             <source>Section</source>
             <translation>Kategorie</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="329" />
+            <location filename="../../../gui/metadata_editor.py" line="331" />
             <source>Field</source>
             <translation>Feld</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="329" />
+            <location filename="../../../gui/metadata_editor.py" line="331" />
             <source>Value</source>
             <translation>Wert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="331" />
+            <location filename="../../../gui/metadata_editor.py" line="333" />
             <source>Add Entry</source>
             <translation>Eintrag hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="336" />
+            <location filename="../../../gui/metadata_editor.py" line="338" />
             <source>Time</source>
             <translation>Zeit</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="336" />
+            <location filename="../../../gui/metadata_editor.py" line="338" />
             <source>Action</source>
             <translation>Aktion</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="336" />
+            <location filename="../../../gui/metadata_editor.py" line="338" />
             <source>User</source>
             <translation>Benutzer</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="336" />
+            <location filename="../../../gui/metadata_editor.py" line="338" />
             <source>Comment</source>
             <translation>Kommentar</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="340" />
+            <location filename="../../../gui/metadata_editor.py" line="342" />
             <source>General</source>
             <translation>Allgemein</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="341" />
+            <location filename="../../../gui/metadata_editor.py" line="343" />
             <source>Analysis</source>
             <translation>Analyse</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="342" />
+            <location filename="../../../gui/metadata_editor.py" line="344" />
             <source>Payment</source>
             <translation>Zahlung</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="343" />
+            <location filename="../../../gui/metadata_editor.py" line="345" />
             <source>Subscriptions &amp; Contracts</source>
             <translation>Abos &amp;&amp; Verträge</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="344" />
+            <location filename="../../../gui/metadata_editor.py" line="346" />
             <source>Stamps</source>
             <translation>Stempel</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="345" />
+            <location filename="../../../gui/metadata_editor.py" line="347" />
             <source>Semantic Data</source>
             <translation>Semantische Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="346" />
+            <location filename="../../../gui/metadata_editor.py" line="348" />
             <source>Source Mapping</source>
             <translation>Quell-Komponenten</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="347" />
+            <location filename="../../../gui/metadata_editor.py" line="349" />
             <source>Debug Data</source>
             <translation>Debug-Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="348" />
+            <location filename="../../../gui/metadata_editor.py" line="350" />
             <source>History</source>
             <translation>Historie</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="355" />
+            <location filename="../../../gui/metadata_editor.py" line="351" />
+            <source>Workflows</source>
+            <translation>Abläufe</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/metadata_editor.py" line="358" />
             <source>Service Period Start:</source>
             <translation>Leistungsbeginn:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="356" />
+            <location filename="../../../gui/metadata_editor.py" line="359" />
             <source>Service Period End:</source>
             <translation>Leistungsende:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="358" />
+            <location filename="../../../gui/metadata_editor.py" line="361" />
             <source>Contract Details</source>
             <translation>Vertragsdetails</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="359" />
+            <location filename="../../../gui/metadata_editor.py" line="362" />
             <source>Contract ID:</source>
             <translation>Vertragsnummer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="360" />
+            <location filename="../../../gui/metadata_editor.py" line="363" />
             <source>Effective Date:</source>
             <translation>Vertragsbeginn:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="361" />
+            <location filename="../../../gui/metadata_editor.py" line="364" />
             <source>Valid Until:</source>
             <translation>Gültig bis:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="362" />
+            <location filename="../../../gui/metadata_editor.py" line="365" />
             <source>Renewal Clause:</source>
             <translation>Verlängerung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="364" />
+            <location filename="../../../gui/metadata_editor.py" line="367" />
             <source>Notice Period</source>
             <translation>Kündigungsfrist</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="365" />
+            <location filename="../../../gui/metadata_editor.py" line="368" />
             <source>Value:</source>
             <translation>Wert:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="366" />
+            <location filename="../../../gui/metadata_editor.py" line="369" />
             <source>Unit:</source>
             <translation>Einheit:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="367" />
+            <location filename="../../../gui/metadata_editor.py" line="370" />
             <source>Anchor:</source>
             <translation>Anker:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="368" />
+            <location filename="../../../gui/metadata_editor.py" line="371" />
             <source>Original Text:</source>
             <translation>Originaltext:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="933" />
-            <location filename="../../../gui/metadata_editor.py" line="382" />
+            <location filename="../../../gui/metadata_editor.py" line="935" />
+            <location filename="../../../gui/metadata_editor.py" line="385" />
             <source>None</source>
             <translation>Keine</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="383" />
+            <location filename="../../../gui/metadata_editor.py" line="386" />
             <source>Days</source>
             <translation>Tage</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="384" />
+            <location filename="../../../gui/metadata_editor.py" line="387" />
             <source>Weeks</source>
             <translation>Wochen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="385" />
+            <location filename="../../../gui/metadata_editor.py" line="388" />
             <source>Months</source>
             <translation>Monate</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="386" />
+            <location filename="../../../gui/metadata_editor.py" line="389" />
             <source>Years</source>
             <translation>Jahre</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="391" />
+            <location filename="../../../gui/metadata_editor.py" line="394" />
             <source>Physical Source Components:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="392" />
+            <location filename="../../../gui/metadata_editor.py" line="395" />
             <source>Raw Virtual Document Storage:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="393" />
+            <location filename="../../../gui/metadata_editor.py" line="396" />
             <source>Cached Full Text:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="394" />
+            <location filename="../../../gui/metadata_editor.py" line="397" />
             <source>Save Changes</source>
             <translation>Änderungen speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="879" />
+            <location filename="../../../gui/metadata_editor.py" line="889" />
             <source>Auto-transition triggered</source>
-            <translation type="unfinished" />
+            <translation>Automatischer Übergang ausgelöst</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="879" />
+            <location filename="../../../gui/metadata_editor.py" line="889" />
             <source>Action triggered via UI</source>
-            <translation type="unfinished" />
+            <translation>Aktion per Oberfläche ausgelöst</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="933" />
-            <location filename="../../../gui/metadata_editor.py" line="900" />
+            <location filename="../../../gui/metadata_editor.py" line="935" />
+            <location filename="../../../gui/metadata_editor.py" line="905" />
             <source>Workflow Updated</source>
             <translation>Ablauf aktualisiert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="900" />
+            <location filename="../../../gui/metadata_editor.py" line="905" />
             <source>State transitioned to %1</source>
             <translation>Status gewechselt zu %1</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="933" />
+            <location filename="../../../gui/metadata_editor.py" line="935" />
             <source>Rule assigned: %1</source>
             <translation>Regel zugewiesen: %1</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="942" />
+            <location filename="../../../gui/metadata_editor.py" line="944" />
             <source>Audit</source>
             <translation>Prüfung</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="942" />
+            <location filename="../../../gui/metadata_editor.py" line="944" />
             <source>Please select a document first.</source>
             <translation>Bitte wählen Sie zuerst ein Dokument aus.</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/metadata_editor.py" line="1097" />
+            <location filename="../../../gui/metadata_editor.py" line="1100" />
             <source>%n document(s) selected.</source>
             <translation>
                 <numerusform>%n Dokument(e) ausgewählt.</numerusform>
@@ -3581,75 +3629,75 @@ Are you completely sure you want to reset the system?</source>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1360" />
+            <location filename="../../../gui/metadata_editor.py" line="1397" />
             <source>No source mapping available.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1651" />
+            <location filename="../../../gui/metadata_editor.py" line="1700" />
             <source>Recipient</source>
             <translation>Empfänger</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1652" />
+            <location filename="../../../gui/metadata_editor.py" line="1701" />
             <source>IBAN</source>
             <translation>IBAN</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1653" />
+            <location filename="../../../gui/metadata_editor.py" line="1702" />
             <source>Amount</source>
             <translation>Betrag</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1655" />
+            <location filename="../../../gui/metadata_editor.py" line="1704" />
             <source>Incomplete data for GiroCode:
 Missing</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1670" />
+            <location filename="../../../gui/metadata_editor.py" line="1718" />
             <source>Invalid IBAN Checksum!
 Cannot generate Payment Code.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1694" />
+            <location filename="../../../gui/metadata_editor.py" line="1742" />
             <source>QR Library not installed.
 Please install 'qrcode' package.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1697" />
+            <location filename="../../../gui/metadata_editor.py" line="1745" />
             <source>Invalid Amount format.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1700" />
+            <location filename="../../../gui/metadata_editor.py" line="1748" />
             <source>Error generating QR:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1710" />
+            <location filename="../../../gui/metadata_editor.py" line="1758" />
             <source>Cannot copy: Incomplete GiroCode data.</source>
             <translation>Kopieren fehlgeschlagen: Unvollständige GiroCode-Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1723" />
+            <location filename="../../../gui/metadata_editor.py" line="1771" />
             <source>GiroCode payload copied to clipboard.</source>
             <translation>GiroCode-Daten in die Zwischenablage kopiert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1725" />
+            <location filename="../../../gui/metadata_editor.py" line="1773" />
             <source>Copy Error</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="2012" />
+            <location filename="../../../gui/metadata_editor.py" line="2059" />
             <source>Saved</source>
             <translation>Gespeichert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="2012" />
+            <location filename="../../../gui/metadata_editor.py" line="2059" />
             <source>Changes saved to Database.</source>
             <translation>Änderungen in Datenbank gespeichert.</translation>
         </message>
@@ -3681,27 +3729,27 @@ Please install 'qrcode' package.</source>
     <context>
         <name>NestedTableDialog</name>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="90" />
+            <location filename="../../../gui/metadata_editor.py" line="92" />
             <source>Add Row</source>
             <translation>Zeile hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="92" />
+            <location filename="../../../gui/metadata_editor.py" line="94" />
             <source>Remove Row</source>
             <translation>Zeile entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="95" />
+            <location filename="../../../gui/metadata_editor.py" line="97" />
             <source>Save / Apply</source>
             <translation>Speichern / Anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="98" />
+            <location filename="../../../gui/metadata_editor.py" line="100" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="111" />
+            <location filename="../../../gui/metadata_editor.py" line="113" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
@@ -3766,7 +3814,7 @@ Please install 'qrcode' package.</source>
     <context>
         <name>PdfCanvas</name>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="352" />
+            <location filename="../../../gui/pdf_viewer.py" line="354" />
             <source>Copied!</source>
             <translation>Kopiert!</translation>
         </message>
@@ -3844,7 +3892,7 @@ Please install 'qrcode' package.</source>
     <context>
         <name>PieChartWidget</name>
         <message>
-            <location filename="../../../gui/reporting.py" line="202" />
+            <location filename="../../../gui/reporting.py" line="206" />
             <source>Others</source>
             <translation type="unfinished" />
         </message>
@@ -3852,97 +3900,97 @@ Please install 'qrcode' package.</source>
     <context>
         <name>ReportEditorWidget</name>
         <message>
-            <location filename="../../../gui/report_editor.py" line="49" />
+            <location filename="../../../gui/report_editor.py" line="50" />
             <source>Report Name:</source>
             <translation>Berichtsname:</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="50" />
+            <location filename="../../../gui/report_editor.py" line="51" />
             <source>Description:</source>
             <translation>Beschreibung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="51" />
+            <location filename="../../../gui/report_editor.py" line="52" />
             <source>Group By:</source>
             <translation>Gruppieren nach:</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="52" />
+            <location filename="../../../gui/report_editor.py" line="53" />
             <source>Aggregations:</source>
             <translation>Berechnungen(Aggregat):</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="53" />
+            <location filename="../../../gui/report_editor.py" line="54" />
             <source>Data Source (Filter):</source>
             <translation>Datenquelle (Filter):</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="54" />
+            <location filename="../../../gui/report_editor.py" line="55" />
             <source>Show as:</source>
             <translation>Darstellung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="56" />
+            <location filename="../../../gui/report_editor.py" line="57" />
             <source>Add Aggregation</source>
             <translation>Berechnung hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="57" />
+            <location filename="../../../gui/report_editor.py" line="58" />
             <source>Remove Selected</source>
             <translation>Auswahl entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="58" />
+            <location filename="../../../gui/report_editor.py" line="59" />
             <source>Save Report Definition</source>
             <translation>Berichtsdefinition speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="59" />
+            <location filename="../../../gui/report_editor.py" line="60" />
             <source>Numeric Step:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="61" />
+            <location filename="../../../gui/report_editor.py" line="62" />
             <source>Table</source>
             <translation>Tabelle</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="62" />
+            <location filename="../../../gui/report_editor.py" line="63" />
             <source>Bar Chart</source>
             <translation>Balkendiagramm</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="63" />
+            <location filename="../../../gui/report_editor.py" line="64" />
             <source>Pie Chart</source>
             <translation>Tortendiagramm</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="64" />
+            <location filename="../../../gui/report_editor.py" line="65" />
             <source>Trend</source>
             <translation>Trend</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="65" />
+            <location filename="../../../gui/report_editor.py" line="66" />
             <source>CSV Export</source>
             <translation>CSV Export</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="69" />
+            <location filename="../../../gui/report_editor.py" line="70" />
             <source>Import from Saved Filter</source>
             <translation>Aus gespeichertem Filter laden</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="72" />
+            <location filename="../../../gui/report_editor.py" line="73" />
             <source>Select 'amount:X' for histogram view (grouping by price ranges).</source>
             <translation>Nutzen Sie 'amount:X' für Histogramme (Preisbereiche).</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="75" />
+            <location filename="../../../gui/report_editor.py" line="76" />
             <source>Field</source>
             <translation>Feld</translation>
         </message>
         <message>
-            <location filename="../../../gui/report_editor.py" line="75" />
+            <location filename="../../../gui/report_editor.py" line="76" />
             <source>Operation</source>
             <translation>Operation</translation>
         </message>
@@ -3970,212 +4018,212 @@ Please install 'qrcode' package.</source>
     <context>
         <name>ReportingWidget</name>
         <message>
-            <location filename="../../../gui/reporting.py" line="435" />
+            <location filename="../../../gui/reporting.py" line="439" />
             <source>Select Report:</source>
             <translation>Zusammenfassung wählen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="438" />
+            <location filename="../../../gui/reporting.py" line="442" />
             <source>Add Comment</source>
             <translation>Kommentar hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="439" />
+            <location filename="../../../gui/reporting.py" line="443" />
             <source>Add a text block to the current report</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1138" />
-            <location filename="../../../gui/reporting.py" line="441" />
+            <location filename="../../../gui/reporting.py" line="1137" />
+            <location filename="../../../gui/reporting.py" line="445" />
             <source>New Report</source>
             <translation>Neue Zusammenfassung</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="442" />
+            <location filename="../../../gui/reporting.py" line="446" />
             <source>Create a new report</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="444" />
+            <location filename="../../../gui/reporting.py" line="448" />
             <source>Import from PDF</source>
             <translation>Aus PDF importieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="445" />
+            <location filename="../../../gui/reporting.py" line="449" />
             <source>Import report style from an exported PDF file</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="447" />
+            <location filename="../../../gui/reporting.py" line="451" />
             <source>Clear</source>
             <translation>Leeren</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1271" />
-            <location filename="../../../gui/reporting.py" line="1267" />
-            <location filename="../../../gui/reporting.py" line="1256" />
-            <location filename="../../../gui/reporting.py" line="449" />
+            <location filename="../../../gui/reporting.py" line="1266" />
+            <location filename="../../../gui/reporting.py" line="1262" />
+            <location filename="../../../gui/reporting.py" line="1253" />
+            <location filename="../../../gui/reporting.py" line="453" />
             <source>Save Layout</source>
             <translation>Layout speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="450" />
+            <location filename="../../../gui/reporting.py" line="454" />
             <source>Save the current canvas arrangement</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1297" />
-            <location filename="../../../gui/reporting.py" line="1295" />
-            <location filename="../../../gui/reporting.py" line="1293" />
-            <location filename="../../../gui/reporting.py" line="1277" />
-            <location filename="../../../gui/reporting.py" line="452" />
+            <location filename="../../../gui/reporting.py" line="1291" />
+            <location filename="../../../gui/reporting.py" line="1289" />
+            <location filename="../../../gui/reporting.py" line="1287" />
+            <location filename="../../../gui/reporting.py" line="1272" />
+            <location filename="../../../gui/reporting.py" line="456" />
             <source>Load Layout</source>
             <translation>Layout laden</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="453" />
+            <location filename="../../../gui/reporting.py" line="457" />
             <source>Load a saved canvas arrangement</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="455" />
+            <location filename="../../../gui/reporting.py" line="459" />
             <source>Fit</source>
             <translation>Einpassen</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1168" />
-            <location filename="../../../gui/reporting.py" line="456" />
+            <location filename="../../../gui/reporting.py" line="1165" />
+            <location filename="../../../gui/reporting.py" line="460" />
             <source>Export</source>
             <translation>Exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="459" />
+            <location filename="../../../gui/reporting.py" line="463" />
             <source>Export as CSV (Data)</source>
             <translation>CSV-Datenexport</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="460" />
+            <location filename="../../../gui/reporting.py" line="464" />
             <source>Export as PDF (Report)</source>
             <translation>PDF-Berichtsexport</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="461" />
+            <location filename="../../../gui/reporting.py" line="465" />
             <source>Export as ZIP (Documents)</source>
             <translation>ZIP-Archiv</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="528" />
+            <location filename="../../../gui/reporting.py" line="532" />
             <source>Zoom Level (e.g. 100%)</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="653" />
+            <location filename="../../../gui/reporting.py" line="656" />
             <source>Report style imported and displayed.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="655" />
+            <location filename="../../../gui/reporting.py" line="658" />
             <source>Layout loaded.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="666" />
-            <location filename="../../../gui/reporting.py" line="657" />
+            <location filename="../../../gui/reporting.py" line="669" />
+            <location filename="../../../gui/reporting.py" line="660" />
             <source>Import Successful</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="660" />
+            <location filename="../../../gui/reporting.py" line="663" />
             <source>Import Report Style</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="667" />
+            <location filename="../../../gui/reporting.py" line="670" />
             <source>The report style was successfully imported and added to your library.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="673" />
+            <location filename="../../../gui/reporting.py" line="676" />
             <source>Import Failed</source>
             <translation>Import fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="674" />
+            <location filename="../../../gui/reporting.py" line="677" />
             <source>Could not find an embedded report configuration in this PDF.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="708" />
+            <location filename="../../../gui/reporting.py" line="709" />
             <source>Select a Report</source>
             <translation>Bericht auswählen</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="725" />
+            <location filename="../../../gui/reporting.py" line="726" />
             <source>Please select a report to display data.</source>
             <translation>Bitte wählen Sie einen Bericht aus.</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="781" />
+            <location filename="../../../gui/reporting.py" line="782" />
             <source>Please select</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="795" />
+            <location filename="../../../gui/reporting.py" line="796" />
             <source>Report Error</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="795" />
+            <location filename="../../../gui/reporting.py" line="796" />
             <source>Failed to generate report</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="850" />
+            <location filename="../../../gui/reporting.py" line="851" />
             <source>Bar Chart</source>
             <translation>Balkendiagramm</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="858" />
+            <location filename="../../../gui/reporting.py" line="859" />
             <source>Vendor Distribution</source>
             <translation>Verteilung nach Absender</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="866" />
+            <location filename="../../../gui/reporting.py" line="867" />
             <source>Trend Analysis</source>
             <translation>Trendanalyse</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="889" />
+            <location filename="../../../gui/reporting.py" line="890" />
             <source>Detailed Data</source>
             <translation>Detaildaten</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="891" />
+            <location filename="../../../gui/reporting.py" line="892" />
             <source>No data for table.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="895" />
+            <location filename="../../../gui/reporting.py" line="896" />
             <source>Enter your comments or summary here...</source>
             <translation>Hier Kommentare oder Zusammenfassung eingeben...</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="906" />
+            <location filename="../../../gui/reporting.py" line="907" />
             <source>Annotation / Comment</source>
             <translation>Anmerkung / Kommentar</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="939" />
+            <location filename="../../../gui/reporting.py" line="940" />
             <source>Move Up</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="945" />
+            <location filename="../../../gui/reporting.py" line="946" />
             <source>Move Down</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="951" />
+            <location filename="../../../gui/reporting.py" line="952" />
             <source>Delete Component</source>
             <translation type="unfinished" />
         </message>
@@ -4185,76 +4233,76 @@ Please install 'qrcode' package.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1138" />
+            <location filename="../../../gui/reporting.py" line="1137" />
             <source>Enter report name:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1146" />
+            <location filename="../../../gui/reporting.py" line="1145" />
             <source>Create Report Definition</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1168" />
+            <location filename="../../../gui/reporting.py" line="1165" />
             <source>No documents found for this report.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1173" />
+            <location filename="../../../gui/reporting.py" line="1170" />
             <source>Export CSV</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1232" />
-            <location filename="../../../gui/reporting.py" line="1228" />
+            <location filename="../../../gui/reporting.py" line="1229" />
+            <location filename="../../../gui/reporting.py" line="1225" />
             <source>Export PDF</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1232" />
+            <location filename="../../../gui/reporting.py" line="1229" />
             <source>Successfully exported report to PDF.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1273" />
-            <location filename="../../../gui/reporting.py" line="1251" />
-            <location filename="../../../gui/reporting.py" line="1236" />
+            <location filename="../../../gui/reporting.py" line="1268" />
+            <location filename="../../../gui/reporting.py" line="1248" />
+            <location filename="../../../gui/reporting.py" line="1233" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1249" />
-            <location filename="../../../gui/reporting.py" line="1240" />
+            <location filename="../../../gui/reporting.py" line="1246" />
+            <location filename="../../../gui/reporting.py" line="1237" />
             <source>Export ZIP</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1249" />
+            <location filename="../../../gui/reporting.py" line="1246" />
             <source>Successfully created ZIP archive with %d documents.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1256" />
+            <location filename="../../../gui/reporting.py" line="1253" />
             <source>Canvas is empty.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1271" />
+            <location filename="../../../gui/reporting.py" line="1266" />
             <source>Layout saved successfully.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1293" />
+            <location filename="../../../gui/reporting.py" line="1287" />
             <source>Layout loaded successfully.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1295" />
+            <location filename="../../../gui/reporting.py" line="1289" />
             <source>File is not a Layout (Type: %s)</source>
             <translation>Datei ist kein Layout (Typ: %s)</translation>
         </message>
         <message>
-            <location filename="../../../gui/reporting.py" line="1297" />
+            <location filename="../../../gui/reporting.py" line="1291" />
             <source>No valid KPaperFlux payload found.</source>
             <translation type="unfinished" />
         </message>
@@ -4502,902 +4550,902 @@ Please install 'qrcode' package.</source>
     <context>
         <name>SemanticTranslator</name>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="58" />
+            <location filename="../../../core/semantic_translator.py" line="60" />
             <source>Invoice</source>
             <translation>Rechnung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="60" />
+            <location filename="../../../core/semantic_translator.py" line="62" />
             <source>Contract</source>
             <translation>Vertrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="62" />
+            <location filename="../../../core/semantic_translator.py" line="64" />
             <source>Letter</source>
             <translation>Brief</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="378" />
-            <location filename="../../../core/semantic_translator.py" line="66" />
+            <location filename="../../../core/semantic_translator.py" line="380" />
+            <location filename="../../../core/semantic_translator.py" line="68" />
             <source>Invoice Number</source>
             <translation>Rechnungsnummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="380" />
-            <location filename="../../../core/semantic_translator.py" line="68" />
+            <location filename="../../../core/semantic_translator.py" line="382" />
+            <location filename="../../../core/semantic_translator.py" line="70" />
             <source>Invoice Date</source>
             <translation>Rechnungsdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="382" />
-            <location filename="../../../core/semantic_translator.py" line="70" />
+            <location filename="../../../core/semantic_translator.py" line="384" />
+            <location filename="../../../core/semantic_translator.py" line="72" />
             <source>Due Date</source>
             <translation>Fälligkeitsdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="392" />
-            <location filename="../../../core/semantic_translator.py" line="72" />
+            <location filename="../../../core/semantic_translator.py" line="394" />
+            <location filename="../../../core/semantic_translator.py" line="74" />
             <source>Customer ID</source>
             <translation>Kundennummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="74" />
+            <location filename="../../../core/semantic_translator.py" line="76" />
             <source>Order ID</source>
             <translation>Bestellnummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="448" />
-            <location filename="../../../core/semantic_translator.py" line="78" />
+            <location filename="../../../core/semantic_translator.py" line="450" />
+            <location filename="../../../core/semantic_translator.py" line="80" />
             <source>Contract ID</source>
             <translation>Vertragsnummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="80" />
+            <location filename="../../../core/semantic_translator.py" line="82" />
             <source>Start Date</source>
             <translation>Vertragsbeginn</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="82" />
+            <location filename="../../../core/semantic_translator.py" line="84" />
             <source>End Date</source>
             <translation>Vertragsende</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="84" />
+            <location filename="../../../core/semantic_translator.py" line="86" />
             <source>Cancellation Period</source>
             <translation>Kündigungsfrist</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="88" />
+            <location filename="../../../core/semantic_translator.py" line="90" />
             <source>Subject</source>
             <translation>Betreff</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="90" />
+            <location filename="../../../core/semantic_translator.py" line="92" />
             <source>Our Reference</source>
             <translation>Unser Zeichen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="524" />
-            <location filename="../../../core/semantic_translator.py" line="426" />
-            <location filename="../../../core/semantic_translator.py" line="94" />
+            <location filename="../../../core/semantic_translator.py" line="525" />
+            <location filename="../../../core/semantic_translator.py" line="428" />
+            <location filename="../../../core/semantic_translator.py" line="96" />
             <source>Tax Amount</source>
             <translation>Steuerbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="525" />
-            <location filename="../../../core/semantic_translator.py" line="178" />
-            <location filename="../../../core/semantic_translator.py" line="96" />
+            <location filename="../../../core/semantic_translator.py" line="526" />
+            <location filename="../../../core/semantic_translator.py" line="180" />
+            <location filename="../../../core/semantic_translator.py" line="98" />
             <source>Tax Rate</source>
             <translation>Steuersatz</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="186" />
-            <location filename="../../../core/semantic_translator.py" line="98" />
+            <location filename="../../../core/semantic_translator.py" line="188" />
+            <location filename="../../../core/semantic_translator.py" line="100" />
             <source>IBAN</source>
             <translation>IBAN</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="100" />
+            <location filename="../../../core/semantic_translator.py" line="102" />
             <source>Cost Center</source>
             <translation>Kostenstelle</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="102" />
+            <location filename="../../../core/semantic_translator.py" line="104" />
             <source>Project ID</source>
             <translation>Projekt-ID</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="104" />
+            <location filename="../../../core/semantic_translator.py" line="106" />
             <source>Incoterms</source>
             <translation>Incoterms</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="106" />
+            <location filename="../../../core/semantic_translator.py" line="108" />
             <source>Delivery Date</source>
             <translation>Lieferdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="198" />
-            <location filename="../../../core/semantic_translator.py" line="170" />
-            <location filename="../../../core/semantic_translator.py" line="110" />
+            <location filename="../../../core/semantic_translator.py" line="200" />
+            <location filename="../../../core/semantic_translator.py" line="172" />
+            <location filename="../../../core/semantic_translator.py" line="112" />
             <source>Date</source>
             <translation>Datum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="112" />
+            <location filename="../../../core/semantic_translator.py" line="114" />
             <source>Classification</source>
             <translation>Klassifizierung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="114" />
+            <location filename="../../../core/semantic_translator.py" line="116" />
             <source>Status</source>
             <translation>Status</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="116" />
+            <location filename="../../../core/semantic_translator.py" line="118" />
             <source>Tags</source>
             <translation>Tags</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="118" />
+            <location filename="../../../core/semantic_translator.py" line="120" />
             <source>System Tags</source>
             <translation>Typ - Tags</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="120" />
+            <location filename="../../../core/semantic_translator.py" line="122" />
             <source>Workflow Step</source>
             <translation>Ablauf - Schritt</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="122" />
+            <location filename="../../../core/semantic_translator.py" line="124" />
             <source>Full Text</source>
             <translation>Volltext</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="126" />
+            <location filename="../../../core/semantic_translator.py" line="128" />
             <source>Direction</source>
             <translation>KI - Richtung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="128" />
+            <location filename="../../../core/semantic_translator.py" line="130" />
             <source>Context</source>
             <translation>KI - Kontext</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="130" />
+            <location filename="../../../core/semantic_translator.py" line="132" />
             <source>AI Confidence</source>
             <translation>KI - Vertrauen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="132" />
+            <location filename="../../../core/semantic_translator.py" line="134" />
             <source>AI Reasoning</source>
             <translation>KI - Begründung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="136" />
+            <location filename="../../../core/semantic_translator.py" line="138" />
             <source>Stamp Text (Total)</source>
             <translation>Stempeltext (Gesamt)</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="138" />
+            <location filename="../../../core/semantic_translator.py" line="140" />
             <source>Stamp Type</source>
             <translation>Stempel - Typ</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="350" />
-            <location filename="../../../core/semantic_translator.py" line="140" />
+            <location filename="../../../core/semantic_translator.py" line="352" />
+            <location filename="../../../core/semantic_translator.py" line="142" />
             <source>Audit Mode</source>
             <translation>Prüfmodus</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="188" />
-            <location filename="../../../core/semantic_translator.py" line="144" />
+            <location filename="../../../core/semantic_translator.py" line="190" />
+            <location filename="../../../core/semantic_translator.py" line="146" />
             <source>Filename</source>
             <translation>Dateiname</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="146" />
+            <location filename="../../../core/semantic_translator.py" line="148" />
             <source>Pages</source>
             <translation>Seiten</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="148" />
+            <location filename="../../../core/semantic_translator.py" line="150" />
             <source>ID</source>
             <translation>ID</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="150" />
+            <location filename="../../../core/semantic_translator.py" line="152" />
             <source>Imported Date</source>
             <translation>Importdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="152" />
+            <location filename="../../../core/semantic_translator.py" line="154" />
             <source>Autoprocessed Date</source>
             <translation>Auto-Verarbeitungsdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="154" />
+            <location filename="../../../core/semantic_translator.py" line="156" />
             <source>Used Date</source>
             <translation>Nutzungsdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="156" />
+            <location filename="../../../core/semantic_translator.py" line="158" />
             <source>Deleted Date</source>
             <translation>Löschdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="158" />
+            <location filename="../../../core/semantic_translator.py" line="160" />
             <source>Locked Date</source>
             <translation>Sperrdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="160" />
+            <location filename="../../../core/semantic_translator.py" line="162" />
             <source>Exported Date</source>
             <translation>Exportdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="162" />
+            <location filename="../../../core/semantic_translator.py" line="164" />
             <source>In Trash</source>
             <translation>Im Papierkorb</translation>
         </message>
         <message>
+            <location filename="../../../core/semantic_translator.py" line="168" />
             <location filename="../../../core/semantic_translator.py" line="166" />
-            <location filename="../../../core/semantic_translator.py" line="164" />
             <source>Archived</source>
             <translation>Archiviert</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="194" />
-            <location filename="../../../core/semantic_translator.py" line="172" />
+            <location filename="../../../core/semantic_translator.py" line="196" />
+            <location filename="../../../core/semantic_translator.py" line="174" />
             <source>Sender</source>
             <translation>Absender</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="174" />
+            <location filename="../../../core/semantic_translator.py" line="176" />
             <source>Content</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="176" />
+            <location filename="../../../core/semantic_translator.py" line="178" />
             <source>Net Amount</source>
             <translation>Nettobetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="180" />
+            <location filename="../../../core/semantic_translator.py" line="182" />
             <source>Gross Amount</source>
             <translation>Bruttobetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="527" />
-            <location filename="../../../core/semantic_translator.py" line="182" />
+            <location filename="../../../core/semantic_translator.py" line="528" />
+            <location filename="../../../core/semantic_translator.py" line="184" />
             <source>Currency</source>
             <translation>Währung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="196" />
-            <location filename="../../../core/semantic_translator.py" line="184" />
+            <location filename="../../../core/semantic_translator.py" line="198" />
+            <location filename="../../../core/semantic_translator.py" line="186" />
             <source>Recipient</source>
             <translation>Empfänger</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="190" />
+            <location filename="../../../core/semantic_translator.py" line="192" />
             <source>File Link</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="200" />
+            <location filename="../../../core/semantic_translator.py" line="202" />
             <source>Doc Number</source>
             <translation>Belegnummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="202" />
+            <location filename="../../../core/semantic_translator.py" line="204" />
             <source>Language</source>
             <translation>Sprache</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="204" />
+            <location filename="../../../core/semantic_translator.py" line="206" />
             <source>References</source>
             <translation>Referenzen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="514" />
-            <location filename="../../../core/semantic_translator.py" line="208" />
+            <location filename="../../../core/semantic_translator.py" line="515" />
+            <location filename="../../../core/semantic_translator.py" line="210" />
             <source>Contents</source>
             <translation>Inhalte</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="517" />
-            <location filename="../../../core/semantic_translator.py" line="210" />
+            <location filename="../../../core/semantic_translator.py" line="518" />
+            <location filename="../../../core/semantic_translator.py" line="212" />
             <source>Meta Header</source>
             <translation>Kopfdaten</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="515" />
-            <location filename="../../../core/semantic_translator.py" line="212" />
+            <location filename="../../../core/semantic_translator.py" line="516" />
+            <location filename="../../../core/semantic_translator.py" line="214" />
             <source>Financial Data</source>
             <translation>Finanzdaten</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="516" />
-            <location filename="../../../core/semantic_translator.py" line="214" />
+            <location filename="../../../core/semantic_translator.py" line="517" />
+            <location filename="../../../core/semantic_translator.py" line="216" />
             <source>Legal Data</source>
             <translation>Rechtliche Daten</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="518" />
-            <location filename="../../../core/semantic_translator.py" line="216" />
+            <location filename="../../../core/semantic_translator.py" line="519" />
+            <location filename="../../../core/semantic_translator.py" line="218" />
             <source>Repaired Text</source>
             <translation>Reparierter Text</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="519" />
-            <location filename="../../../core/semantic_translator.py" line="218" />
+            <location filename="../../../core/semantic_translator.py" line="520" />
+            <location filename="../../../core/semantic_translator.py" line="220" />
             <source>Visual Audit</source>
             <translation>Visuelle Prüfung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="520" />
-            <location filename="../../../core/semantic_translator.py" line="220" />
+            <location filename="../../../core/semantic_translator.py" line="521" />
+            <location filename="../../../core/semantic_translator.py" line="222" />
             <source>Workflow</source>
             <translation>Ablauf</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="224" />
+            <location filename="../../../core/semantic_translator.py" line="226" />
             <source>Current Step</source>
             <translation>Aktueller Schritt</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="226" />
+            <location filename="../../../core/semantic_translator.py" line="228" />
             <source>History</source>
             <translation>Historie</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="228" />
+            <location filename="../../../core/semantic_translator.py" line="230" />
             <source>Is Verified</source>
             <translation>Verifiziert</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="230" />
+            <location filename="../../../core/semantic_translator.py" line="232" />
             <source>Pkv Eligible</source>
             <translation>PKV-relevant</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="232" />
+            <location filename="../../../core/semantic_translator.py" line="234" />
             <source>Pkv Status</source>
             <translation>PKV-Status</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="234" />
+            <location filename="../../../core/semantic_translator.py" line="236" />
             <source>Rule Id</source>
             <translation>Regel-ID</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="236" />
+            <location filename="../../../core/semantic_translator.py" line="238" />
             <source>Signature Detected</source>
             <translation>Signatur erkannt</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="238" />
+            <location filename="../../../core/semantic_translator.py" line="240" />
             <source>Verified At</source>
             <translation>Verifiziert am</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="240" />
+            <location filename="../../../core/semantic_translator.py" line="242" />
             <source>Verified By</source>
             <translation>Verifiziert durch</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="244" />
+            <location filename="../../../core/semantic_translator.py" line="246" />
             <source>Incoming Invoice</source>
             <translation>Rechnungseingang</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="246" />
+            <location filename="../../../core/semantic_translator.py" line="248" />
             <source>Ready for Payment</source>
             <translation>Zahlung bereit</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="248" />
+            <location filename="../../../core/semantic_translator.py" line="250" />
             <source>Paid &amp; Archived</source>
             <translation>Bezahlt &amp;&amp; Archiv</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="250" />
+            <location filename="../../../core/semantic_translator.py" line="252" />
             <source>Rejected / Spam</source>
             <translation>Abgelehnt / Spam</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="252" />
+            <location filename="../../../core/semantic_translator.py" line="254" />
             <source>Posteingang</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="254" />
+            <location filename="../../../core/semantic_translator.py" line="256" />
             <source>Warten auf Zahlung</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="256" />
+            <location filename="../../../core/semantic_translator.py" line="258" />
             <source>1. Mahnstufe</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="258" />
+            <location filename="../../../core/semantic_translator.py" line="260" />
             <source>Abgeschlossen</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="260" />
+            <location filename="../../../core/semantic_translator.py" line="262" />
             <source>Inkasso / Recht</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="263" />
+            <location filename="../../../core/semantic_translator.py" line="265" />
             <source>Verify</source>
             <translation>Prüfen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="265" />
+            <location filename="../../../core/semantic_translator.py" line="267" />
             <source>Reject</source>
             <translation>Ablehnen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="267" />
+            <location filename="../../../core/semantic_translator.py" line="269" />
             <source>Mark as paid</source>
             <translation>Als bezahlt markieren</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="269" />
+            <location filename="../../../core/semantic_translator.py" line="271" />
             <source>Reset</source>
             <translation>Zurücksetzen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="271" />
+            <location filename="../../../core/semantic_translator.py" line="273" />
             <source>Apply</source>
             <translation>Anwenden</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="275" />
+            <location filename="../../../core/semantic_translator.py" line="277" />
             <source>Barcode Value</source>
             <translation>Barcode-Wert</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="277" />
+            <location filename="../../../core/semantic_translator.py" line="279" />
             <source>Code</source>
             <translation>Code</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="279" />
+            <location filename="../../../core/semantic_translator.py" line="281" />
             <source>Date Code</source>
             <translation>Datum-Code</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="281" />
+            <location filename="../../../core/semantic_translator.py" line="283" />
             <source>Number</source>
             <translation>Nummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="283" />
+            <location filename="../../../core/semantic_translator.py" line="285" />
             <source>QR Code Data</source>
             <translation>QR-Code-Daten</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="285" />
+            <location filename="../../../core/semantic_translator.py" line="287" />
             <source>QR Code Type</source>
             <translation>QR-Code-Typ</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="287" />
+            <location filename="../../../core/semantic_translator.py" line="289" />
             <source>Signature</source>
             <translation>Signatur</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="289" />
+            <location filename="../../../core/semantic_translator.py" line="291" />
             <source>Text</source>
             <translation>Text</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="291" />
+            <location filename="../../../core/semantic_translator.py" line="293" />
             <source>Time</source>
             <translation>Zeit</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="295" />
+            <location filename="../../../core/semantic_translator.py" line="297" />
             <source>Action</source>
             <translation>Aktion</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="297" />
+            <location filename="../../../core/semantic_translator.py" line="299" />
             <source>Comment</source>
             <translation>Kommentar</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="299" />
+            <location filename="../../../core/semantic_translator.py" line="301" />
             <source>Timestamp</source>
             <translation>Zeitstempel</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="301" />
+            <location filename="../../../core/semantic_translator.py" line="303" />
             <source>User</source>
             <translation>Benutzer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="305" />
+            <location filename="../../../core/semantic_translator.py" line="307" />
             <source>Audit Summary</source>
             <translation>Prüfbericht</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="307" />
+            <location filename="../../../core/semantic_translator.py" line="309" />
             <source>Stamp Interference</source>
             <translation>Stempel-Interferenz</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="309" />
+            <location filename="../../../core/semantic_translator.py" line="311" />
             <source>Has Handwriting</source>
             <translation>Handschrift erkannt</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="312" />
+            <location filename="../../../core/semantic_translator.py" line="314" />
             <source>Layer Stamps</source>
             <translation>Ebenen-Stempel</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="314" />
+            <location filename="../../../core/semantic_translator.py" line="316" />
             <source>Location</source>
             <translation>Position</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="316" />
+            <location filename="../../../core/semantic_translator.py" line="318" />
             <source>Form Fields</source>
             <translation>Formularfelder</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="318" />
+            <location filename="../../../core/semantic_translator.py" line="320" />
             <source>Label</source>
             <translation>Bezeichnung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="320" />
+            <location filename="../../../core/semantic_translator.py" line="322" />
             <source>Raw Value</source>
             <translation>Rohwert</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="322" />
+            <location filename="../../../core/semantic_translator.py" line="324" />
             <source>Value Type</source>
             <translation>Datentyp</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="325" />
+            <location filename="../../../core/semantic_translator.py" line="327" />
             <source>Signatures</source>
             <translation>Signaturen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="327" />
+            <location filename="../../../core/semantic_translator.py" line="329" />
             <source>Has Signature</source>
             <translation>Signatur vorhanden</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="329" />
+            <location filename="../../../core/semantic_translator.py" line="331" />
             <source>Count</source>
             <translation>Anzahl</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="331" />
+            <location filename="../../../core/semantic_translator.py" line="333" />
             <source>Details</source>
             <translation>Details</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="334" />
+            <location filename="../../../core/semantic_translator.py" line="336" />
             <source>Integrity</source>
             <translation>Integrität</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="336" />
+            <location filename="../../../core/semantic_translator.py" line="338" />
             <source>Type Match</source>
             <translation>Typ-Übereinstimmung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="338" />
+            <location filename="../../../core/semantic_translator.py" line="340" />
             <source>Suggested Types</source>
             <translation>Vorgeschlagene Typen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="341" />
+            <location filename="../../../core/semantic_translator.py" line="343" />
             <source>Decision</source>
             <translation>Entscheidung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="343" />
+            <location filename="../../../core/semantic_translator.py" line="345" />
             <source>Raw OCR Quality Score</source>
             <translation>OCR-Rohdatenqualität</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="345" />
+            <location filename="../../../core/semantic_translator.py" line="347" />
             <source>AI Vision Quality Score</source>
             <translation>KI-Visionsqualität</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="347" />
+            <location filename="../../../core/semantic_translator.py" line="349" />
             <source>Primary Source Recommendation</source>
             <translation>Hauptquellen-Empfehlung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="352" />
+            <location filename="../../../core/semantic_translator.py" line="354" />
             <source>Raw Content</source>
             <translation>Rohinhalt</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="354" />
+            <location filename="../../../core/semantic_translator.py" line="356" />
             <source>Normalized Value</source>
             <translation>Normalisierter Wert</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="358" />
+            <location filename="../../../core/semantic_translator.py" line="360" />
             <source>Company</source>
             <translation>Firma</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="360" />
+            <location filename="../../../core/semantic_translator.py" line="362" />
             <source>Name</source>
             <translation>Name</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="362" />
+            <location filename="../../../core/semantic_translator.py" line="364" />
             <source>Street</source>
             <translation>Straße</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="364" />
+            <location filename="../../../core/semantic_translator.py" line="366" />
             <source>House Number</source>
             <translation>Hausnummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="366" />
+            <location filename="../../../core/semantic_translator.py" line="368" />
             <source>ZIP Code</source>
             <translation>PLZ</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="368" />
+            <location filename="../../../core/semantic_translator.py" line="370" />
             <source>City</source>
             <translation>Stadt</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="370" />
+            <location filename="../../../core/semantic_translator.py" line="372" />
             <source>Country</source>
             <translation>Land</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="372" />
+            <location filename="../../../core/semantic_translator.py" line="374" />
             <source>Phone</source>
             <translation>Telefon</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="374" />
+            <location filename="../../../core/semantic_translator.py" line="376" />
             <source>Email</source>
             <translation>E-Mail</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="384" />
+            <location filename="../../../core/semantic_translator.py" line="386" />
             <source>Payment Reference</source>
             <translation>Zahlungsreferenz</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="386" />
+            <location filename="../../../core/semantic_translator.py" line="388" />
             <source>Order Number</source>
             <translation>Bestellnummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="388" />
+            <location filename="../../../core/semantic_translator.py" line="390" />
             <source>Order Date</source>
             <translation>Bestelldatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="390" />
+            <location filename="../../../core/semantic_translator.py" line="392" />
             <source>Service Date</source>
             <translation>Leistungsdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="394" />
+            <location filename="../../../core/semantic_translator.py" line="396" />
             <source>Buyer Reference</source>
             <translation>Käuferreferenz</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="396" />
+            <location filename="../../../core/semantic_translator.py" line="398" />
             <source>Project Reference</source>
             <translation>Projektnummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="398" />
+            <location filename="../../../core/semantic_translator.py" line="400" />
             <source>Accounting Reference</source>
             <translation>Buchungsreferenz</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="400" />
+            <location filename="../../../core/semantic_translator.py" line="402" />
             <source>Payment Terms</source>
             <translation>Zahlungsbedingungen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="402" />
+            <location filename="../../../core/semantic_translator.py" line="404" />
             <source>Payment Accounts</source>
             <translation>Bankverbindungen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="404" />
+            <location filename="../../../core/semantic_translator.py" line="406" />
             <source>Line Items</source>
             <translation>Positionen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="406" />
+            <location filename="../../../core/semantic_translator.py" line="408" />
             <source>Monetary Summation</source>
             <translation>Gesamtsummen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="408" />
+            <location filename="../../../core/semantic_translator.py" line="410" />
             <source>Tax Breakdown</source>
             <translation>Steueraufschlüsselung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="410" />
+            <location filename="../../../core/semantic_translator.py" line="412" />
             <source>Position</source>
             <translation>Position</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="412" />
+            <location filename="../../../core/semantic_translator.py" line="414" />
             <source>Description</source>
             <translation>Beschreibung</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="414" />
+            <location filename="../../../core/semantic_translator.py" line="416" />
             <source>Quantity</source>
             <translation>Menge</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="416" />
+            <location filename="../../../core/semantic_translator.py" line="418" />
             <source>Unit</source>
             <translation>Einheit</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="418" />
+            <location filename="../../../core/semantic_translator.py" line="420" />
             <source>Unit Price</source>
             <translation>Einzelpreis</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="420" />
+            <location filename="../../../core/semantic_translator.py" line="422" />
             <source>Total Price</source>
             <translation>Gesamtpreis</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="422" />
+            <location filename="../../../core/semantic_translator.py" line="424" />
             <source>Article Number</source>
             <translation>Artikelnummer</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="424" />
+            <location filename="../../../core/semantic_translator.py" line="426" />
             <source>Tax Basis Amount</source>
             <translation>Steuerbasisbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="428" />
+            <location filename="../../../core/semantic_translator.py" line="430" />
             <source>Tax Category</source>
             <translation>Steuerkategorie</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="430" />
+            <location filename="../../../core/semantic_translator.py" line="432" />
             <source>Line Total Amount</source>
             <translation>Netto-Gesamtbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="432" />
+            <location filename="../../../core/semantic_translator.py" line="434" />
             <source>Charge Total Amount</source>
             <translation>Zuschlag-Gesamtbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="434" />
+            <location filename="../../../core/semantic_translator.py" line="436" />
             <source>Allowance Total Amount</source>
             <translation>Nachlass-Gesamtbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="436" />
+            <location filename="../../../core/semantic_translator.py" line="438" />
             <source>Tax Basis Total Amount</source>
             <translation>Steuerbasis-Gesamtbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="438" />
+            <location filename="../../../core/semantic_translator.py" line="440" />
             <source>Tax Total Amount</source>
             <translation>Umsatzsteuer-Gesamtbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="440" />
+            <location filename="../../../core/semantic_translator.py" line="442" />
             <source>Grand Total Amount</source>
             <translation>Brutto-Gesamtbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="442" />
+            <location filename="../../../core/semantic_translator.py" line="444" />
             <source>Due Payable Amount</source>
             <translation>Zahlbetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="446" />
+            <location filename="../../../core/semantic_translator.py" line="448" />
             <source>Document Title</source>
             <translation>Dokumenttitel</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="450" />
+            <location filename="../../../core/semantic_translator.py" line="452" />
             <source>Issuer</source>
             <translation>Aussteller</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="452" />
+            <location filename="../../../core/semantic_translator.py" line="454" />
             <source>Beneficiary</source>
             <translation>Begünstigter</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="454" />
+            <location filename="../../../core/semantic_translator.py" line="456" />
             <source>Subject Reference</source>
             <translation>Betreff-Referenz</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="456" />
+            <location filename="../../../core/semantic_translator.py" line="458" />
             <source>Statements</source>
             <translation>Erklärungen</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="458" />
+            <location filename="../../../core/semantic_translator.py" line="460" />
             <source>Compliance Standards</source>
             <translation>Compliance-Standards</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="460" />
+            <location filename="../../../core/semantic_translator.py" line="462" />
             <source>Effective Date</source>
             <translation>Inkrafttreten</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="462" />
+            <location filename="../../../core/semantic_translator.py" line="464" />
             <source>Termination Date</source>
             <translation>Kündigungsdatum</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="464" />
+            <location filename="../../../core/semantic_translator.py" line="466" />
             <source>Valid Until</source>
             <translation>Gültig bis</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="466" />
+            <location filename="../../../core/semantic_translator.py" line="468" />
             <source>Notice Period</source>
             <translation>Kündigungsfrist</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="468" />
+            <location filename="../../../core/semantic_translator.py" line="470" />
             <source>Renewal Clause</source>
             <translation>Verlängerungsklausel</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="470" />
+            <location filename="../../../core/semantic_translator.py" line="472" />
             <source>Contract Type</source>
             <translation>Vertragsart</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="472" />
+            <location filename="../../../core/semantic_translator.py" line="474" />
             <source>Parties</source>
             <translation>Parteien</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="474" />
+            <location filename="../../../core/semantic_translator.py" line="476" />
             <source>Value</source>
             <translation>Wert</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="476" />
+            <location filename="../../../core/semantic_translator.py" line="478" />
             <source>Anchor Type</source>
             <translation>Ankertyp</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="478" />
+            <location filename="../../../core/semantic_translator.py" line="480" />
             <source>Anchor Scope</source>
             <translation>Anker-Geltungsbereich</translation>
         </message>
         <message>
-            <location filename="../../../core/semantic_translator.py" line="526" />
+            <location filename="../../../core/semantic_translator.py" line="527" />
             <source>Total Amount</source>
             <translation>Gesamtbetrag</translation>
         </message>
@@ -5405,344 +5453,344 @@ Please install 'qrcode' package.</source>
     <context>
         <name>SettingsDialog</name>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="577" />
-            <location filename="../../../gui/settings_dialog.py" line="44" />
+            <location filename="../../../gui/settings_dialog.py" line="578" />
+            <location filename="../../../gui/settings_dialog.py" line="47" />
             <source>Settings</source>
             <translation>Einstellungen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="600" />
-            <location filename="../../../gui/settings_dialog.py" line="160" />
+            <location filename="../../../gui/settings_dialog.py" line="601" />
+            <location filename="../../../gui/settings_dialog.py" line="163" />
             <source>Test Connection</source>
             <translation>Verbindung testen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="580" />
-            <location filename="../../../gui/settings_dialog.py" line="194" />
+            <location filename="../../../gui/settings_dialog.py" line="581" />
+            <location filename="../../../gui/settings_dialog.py" line="197" />
             <source>General</source>
             <translation>Allgemein</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="581" />
-            <location filename="../../../gui/settings_dialog.py" line="198" />
+            <location filename="../../../gui/settings_dialog.py" line="582" />
+            <location filename="../../../gui/settings_dialog.py" line="201" />
             <source>Vocabulary</source>
             <translation>Vokabular</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="617" />
-            <location filename="../../../gui/settings_dialog.py" line="229" />
+            <location filename="../../../gui/settings_dialog.py" line="618" />
+            <location filename="../../../gui/settings_dialog.py" line="232" />
             <source>Note: If these signatures appear in 'Sender', the document is OUTGOING.</source>
             <translation>Hinweis: Wenn diese Signaturen im 'Absender' erscheinen, gilt das Dokument als AUSGANG.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="582" />
-            <location filename="../../../gui/settings_dialog.py" line="231" />
+            <location filename="../../../gui/settings_dialog.py" line="583" />
+            <location filename="../../../gui/settings_dialog.py" line="234" />
             <source>Identity</source>
             <translation>Identität</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="626" />
-            <location filename="../../../gui/settings_dialog.py" line="256" />
+            <location filename="../../../gui/settings_dialog.py" line="627" />
+            <location filename="../../../gui/settings_dialog.py" line="259" />
             <source>Save</source>
             <translation>Speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="627" />
-            <location filename="../../../gui/settings_dialog.py" line="258" />
+            <location filename="../../../gui/settings_dialog.py" line="628" />
+            <location filename="../../../gui/settings_dialog.py" line="261" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="310" />
+            <location filename="../../../gui/settings_dialog.py" line="313" />
             <source>Select Vault Directory</source>
             <translation>Vault-Verzeichnis wählen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="315" />
+            <location filename="../../../gui/settings_dialog.py" line="318" />
             <source>Select OCR Binary</source>
             <translation>OCR-Programm wählen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="320" />
+            <location filename="../../../gui/settings_dialog.py" line="323" />
             <source>Select Transfer Directory</source>
             <translation>Transfer-Verzeichnis wählen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="391" />
+            <location filename="../../../gui/settings_dialog.py" line="394" />
             <source>API Key Verified</source>
             <translation>API-Schlüssel verifiziert</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="396" />
+            <location filename="../../../gui/settings_dialog.py" line="399" />
             <source>API Key Invalid</source>
             <translation>API-Schlüssel ungültig</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="405" />
+            <location filename="../../../gui/settings_dialog.py" line="408" />
             <source>Missing API Key</source>
             <translation>Fehlender API-Schlüssel</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="405" />
+            <location filename="../../../gui/settings_dialog.py" line="408" />
             <source>Please enter an API Key first.</source>
             <translation>Bitte geben Sie zuerst einen API-Schlüssel ein.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="434" />
+            <location filename="../../../gui/settings_dialog.py" line="437" />
             <source>Refresh Failed</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="435" />
+            <location filename="../../../gui/settings_dialog.py" line="438" />
             <source>API returned an empty model list. Please check if your API Key has access to Gemini models.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="442" />
+            <location filename="../../../gui/settings_dialog.py" line="445" />
             <source>Invalid API Key or Permission Denied.</source>
             <translation>Ungültiger API-Schlüssel oder Zugriff verweigert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="444" />
+            <location filename="../../../gui/settings_dialog.py" line="447" />
             <source>Rate limit exceeded.</source>
             <translation>Rate-Limit überschritten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="446" />
+            <location filename="../../../gui/settings_dialog.py" line="449" />
             <source>Failed to list models</source>
             <translation>Modelle konnten nicht geladen werden</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="509" />
-            <location filename="../../../gui/settings_dialog.py" line="475" />
-            <location filename="../../../gui/settings_dialog.py" line="451" />
+            <location filename="../../../gui/settings_dialog.py" line="512" />
+            <location filename="../../../gui/settings_dialog.py" line="478" />
+            <location filename="../../../gui/settings_dialog.py" line="454" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="469" />
+            <location filename="../../../gui/settings_dialog.py" line="472" />
             <source>Missing Input</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="469" />
+            <location filename="../../../gui/settings_dialog.py" line="472" />
             <source>Please enter a signature text first.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="475" />
+            <location filename="../../../gui/settings_dialog.py" line="478" />
             <source>No API Key configured.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="500" />
+            <location filename="../../../gui/settings_dialog.py" line="503" />
             <source>Analysis Successful</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="505" />
+            <location filename="../../../gui/settings_dialog.py" line="508" />
             <source>Analysis Failed</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="505" />
+            <location filename="../../../gui/settings_dialog.py" line="508" />
             <source>AI returned no valid profile.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="540" />
+            <location filename="../../../gui/settings_dialog.py" line="542" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="541" />
+            <location filename="../../../gui/settings_dialog.py" line="543" />
             <source>Connected to Ollama!</source>
             <translation>Mit Ollama verbunden!</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="541" />
+            <location filename="../../../gui/settings_dialog.py" line="543" />
             <source>Available models</source>
             <translation>Verfügbare Modelle</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="553" />
-            <location filename="../../../gui/settings_dialog.py" line="547" />
+            <location filename="../../../gui/settings_dialog.py" line="555" />
+            <location filename="../../../gui/settings_dialog.py" line="549" />
             <source>Connection Failed</source>
             <translation>Verbindung fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="548" />
+            <location filename="../../../gui/settings_dialog.py" line="550" />
             <source>Connected to Ollama, but no models found. Please pull a model first (e.g., 'ollama pull llama3').</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="553" />
+            <location filename="../../../gui/settings_dialog.py" line="555" />
             <source>Could not connect to Ollama</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="567" />
+            <location filename="../../../gui/settings_dialog.py" line="568" />
             <source>Log File Missing</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="567" />
+            <location filename="../../../gui/settings_dialog.py" line="568" />
             <source>The log file has not been created yet.</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="583" />
+            <location filename="../../../gui/settings_dialog.py" line="584" />
             <source>Logging</source>
             <translation>Protokollierung</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="586" />
+            <location filename="../../../gui/settings_dialog.py" line="587" />
             <source>Language:</source>
             <translation>Sprache:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="587" />
+            <location filename="../../../gui/settings_dialog.py" line="588" />
             <source>Vault Path:</source>
             <translation>Vault-Pfad:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="592" />
-            <location filename="../../../gui/settings_dialog.py" line="590" />
-            <location filename="../../../gui/settings_dialog.py" line="588" />
+            <location filename="../../../gui/settings_dialog.py" line="593" />
+            <location filename="../../../gui/settings_dialog.py" line="591" />
+            <location filename="../../../gui/settings_dialog.py" line="589" />
             <source>Browse...</source>
             <translation>Durchsuchen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="589" />
+            <location filename="../../../gui/settings_dialog.py" line="590" />
             <source>OCR Binary:</source>
             <translation>OCR-Programm:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="591" />
+            <location filename="../../../gui/settings_dialog.py" line="592" />
             <source>Transfer Folder:</source>
             <translation>Transfer-Ordner:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="593" />
+            <location filename="../../../gui/settings_dialog.py" line="594" />
             <source>AI Backend:</source>
             <translation>KI-Backend:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="595" />
+            <location filename="../../../gui/settings_dialog.py" line="596" />
             <source>Gemini API Key:</source>
             <translation>Gemini API-Schlüssel:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="596" />
+            <location filename="../../../gui/settings_dialog.py" line="597" />
             <source>Verify</source>
             <translation>Prüfen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="597" />
+            <location filename="../../../gui/settings_dialog.py" line="598" />
             <source>Gemini Model:</source>
             <translation>Gemini Modell:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="598" />
+            <location filename="../../../gui/settings_dialog.py" line="599" />
             <source>Ollama URL:</source>
             <translation>Ollama URL:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="599" />
+            <location filename="../../../gui/settings_dialog.py" line="600" />
             <source>Ollama Model:</source>
             <translation>Ollama Modell:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="601" />
+            <location filename="../../../gui/settings_dialog.py" line="602" />
             <source>OpenAI API Key:</source>
             <translation>OpenAI API-Schlüssel:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="602" />
+            <location filename="../../../gui/settings_dialog.py" line="603" />
             <source>OpenAI Model:</source>
             <translation>OpenAI Modell:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="603" />
+            <location filename="../../../gui/settings_dialog.py" line="604" />
             <source>Anthropic API Key:</source>
             <translation>Anthropic API-Schlüssel:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="604" />
+            <location filename="../../../gui/settings_dialog.py" line="605" />
             <source>Anthropic Model:</source>
             <translation>Anthropic Modell:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="605" />
+            <location filename="../../../gui/settings_dialog.py" line="606" />
             <source>AI Validation Retries:</source>
             <translation>KI Validierungs-Versuche:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="606" />
+            <location filename="../../../gui/settings_dialog.py" line="607" />
             <source>Retries</source>
             <translation>Versuche</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="609" />
+            <location filename="../../../gui/settings_dialog.py" line="610" />
             <source>Private Signature:
 (For Output/Debitor detection)</source>
             <translation>Private Signatur:
 (Für Ausgangs/Debitor-Erkennung)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="610" />
+            <location filename="../../../gui/settings_dialog.py" line="611" />
             <source>Max Mustermann
 Musterstraße 1...</source>
             <translation>Max Mustermann
 Musterstraße 1...</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="611" />
+            <location filename="../../../gui/settings_dialog.py" line="612" />
             <source>Analyze Private Signature with AI</source>
             <translation>Private Signatur mit KI analysieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="616" />
-            <location filename="../../../gui/settings_dialog.py" line="612" />
+            <location filename="../../../gui/settings_dialog.py" line="617" />
+            <location filename="../../../gui/settings_dialog.py" line="613" />
             <source>Extract structured data (Aliases, Address Parts) for better recognition.</source>
             <translation>Strukturierte Daten (Aliasse, Adressteile) für bessere Erkennung extrahieren.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="613" />
+            <location filename="../../../gui/settings_dialog.py" line="614" />
             <source>Business Signature:
 (For Output/Debitor detection)</source>
             <translation>Geschäftliche Signatur:
 (Für Ausgangs/Debitor-Erkennung)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="614" />
+            <location filename="../../../gui/settings_dialog.py" line="615" />
             <source>My Company GmbH
 Geschäftsführer: ...</source>
             <translation>Musterfirma GmbH
 Geschäftsführer: ...</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="615" />
+            <location filename="../../../gui/settings_dialog.py" line="616" />
             <source>Analyze Business Signature with AI</source>
             <translation>Geschäftliche Signatur mit KI analysieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="620" />
+            <location filename="../../../gui/settings_dialog.py" line="621" />
             <source>Global Log Level:</source>
             <translation>Globales Log-Level:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="621" />
+            <location filename="../../../gui/settings_dialog.py" line="622" />
             <source>Verbose AI Debugging (Raw Prompts/Responses)</source>
             <translation>Ausführliches KI-Debugging (Raw Prompts/Responses)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="622" />
+            <location filename="../../../gui/settings_dialog.py" line="623" />
             <source>Verbose Database Debugging (SQL Queries)</source>
             <translation>Ausführliches Datenbank-Debugging (SQL-Abfragen)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="623" />
+            <location filename="../../../gui/settings_dialog.py" line="624" />
             <source>Open Log File</source>
             <translation>Log-Datei öffnen</translation>
         </message>
@@ -5936,17 +5984,17 @@ Geschäftsführer: ...</translation>
     <context>
         <name>StatCard</name>
         <message>
-            <location filename="../../../gui/cockpit.py" line="197" />
+            <location filename="../../../gui/cockpit.py" line="199" />
             <source>Rename...</source>
             <translation>Umbenennen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="198" />
+            <location filename="../../../gui/cockpit.py" line="200" />
             <source>Edit Configuration...</source>
             <translation>Konfiguration bearbeiten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/cockpit.py" line="200" />
+            <location filename="../../../gui/cockpit.py" line="202" />
             <source>Remove from Cockpit</source>
             <translation>Aus Cockpit entfernen</translation>
         </message>
@@ -6174,12 +6222,12 @@ Geschäftsführer: ...</translation>
             <translation>Ansichtsname:</translation>
         </message>
         <message>
-            <location filename="../../../gui/view_manager.py" line="114" />
+            <location filename="../../../gui/view_manager.py" line="107" />
             <source>Confirm</source>
             <translation>Bestätigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/view_manager.py" line="115" />
+            <location filename="../../../gui/view_manager.py" line="108" />
             <source>Delete this view?</source>
             <translation>Diese Ansicht löschen?</translation>
         </message>
@@ -6316,7 +6364,7 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/widgets/workflow_controls.py" line="73" />
             <source>Rule '%s' missing</source>
-            <translation>Regel '%s' fehlt</translation>
+            <translation>Regel '%s' nicht gefunden</translation>
         </message>
         <message>
             <location filename="../../../gui/widgets/workflow_controls.py" line="158" />
@@ -6324,7 +6372,7 @@ Geschäftsführer: ...</translation>
             <translation>Fehlende Felder: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_controls.py" line="189" />
+            <location filename="../../../gui/widgets/workflow_controls.py" line="188" />
             <source>None</source>
             <translation>Keiner</translation>
         </message>
@@ -6332,439 +6380,517 @@ Geschäftsführer: ...</translation>
     <context>
         <name>WorkflowDashboardWidget</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="442" />
-            <location filename="../../../gui/workflow_manager.py" line="423" />
+            <location filename="../../../gui/workflow_manager.py" line="162" />
+            <location filename="../../../gui/workflow_manager.py" line="143" />
             <source>Active Rule Load:</source>
             <translation>Aktive Regelauslastung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="444" />
-            <location filename="../../../gui/workflow_manager.py" line="428" />
+            <location filename="../../../gui/workflow_manager.py" line="164" />
+            <location filename="../../../gui/workflow_manager.py" line="148" />
             <source>Workflow Rule</source>
             <translation>Ablaufregel</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="444" />
-            <location filename="../../../gui/workflow_manager.py" line="428" />
+            <location filename="../../../gui/workflow_manager.py" line="164" />
+            <location filename="../../../gui/workflow_manager.py" line="148" />
             <source>Active Documents</source>
             <translation>Aktive Dokumente</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="444" />
-            <location filename="../../../gui/workflow_manager.py" line="428" />
+            <location filename="../../../gui/workflow_manager.py" line="164" />
+            <location filename="../../../gui/workflow_manager.py" line="148" />
             <source>Completion Rate</source>
             <translation>Abschlussquote</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="473" />
+            <location filename="../../../gui/workflow_manager.py" line="193" />
             <source>Total in Pipeline</source>
             <translation>Gesamt im Ablauf</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="474" />
+            <location filename="../../../gui/workflow_manager.py" line="194" />
             <source>Urgent Actions</source>
             <translation>Dringende Aufgaben</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="475" />
+            <location filename="../../../gui/workflow_manager.py" line="195" />
             <source>New Tasks</source>
             <translation>Neue Aufgaben</translation>
         </message>
     </context>
     <context>
+        <name>WorkflowGraphWidget</name>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="534" />
+            <source>Fit view</source>
+            <translation>Ansicht anpassen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="571" />
+            <source>Add new state</source>
+            <translation>Neuen Status hinzufügen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="572" />
+            <source>Add transition between states</source>
+            <translation>Übergang zwischen Status hinzufügen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="573" />
+            <source>Delete selected item</source>
+            <translation>Auswahl löschen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="591" />
+            <source>Select a state or transition to edit its properties.</source>
+            <translation>Status oder Übergang auswählen, um Eigenschaften zu bearbeiten.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="779" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="772" />
+            <source>Add State</source>
+            <translation>Status hinzufügen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="773" />
+            <source>State ID (uppercase, e.g. PROCESSING):</source>
+            <translation>Status-ID (Großbuchstaben, z.B. IN_BEARBEITUNG):</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="780" />
+            <source>Display label for '%s':</source>
+            <translation>Bezeichnung für '%s':</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="849" />
+            <source>ID:</source>
+            <translation>ID:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="852" />
+            <source>Label:</source>
+            <translation>Bezeichnung:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="856" />
+            <source>Final state:</source>
+            <translation>Finaler Status:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="898" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="868" />
+            <source>Apply</source>
+            <translation>Anwenden</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="878" />
+            <source>Action:</source>
+            <translation>Aktion:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="882" />
+            <source>Auto:</source>
+            <translation>Automatisch:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="886" />
+            <source>Required Fields:</source>
+            <translation>Pflichtfelder:</translation>
+        </message>
+    </context>
+    <context>
         <name>WorkflowManagerWidget</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="693" />
-            <location filename="../../../gui/workflow_manager.py" line="568" />
+            <location filename="../../../gui/workflow_manager.py" line="417" />
+            <location filename="../../../gui/workflow_manager.py" line="286" />
             <source>Dashboard</source>
             <translation>Dashboard</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="694" />
-            <location filename="../../../gui/workflow_manager.py" line="580" />
+            <location filename="../../../gui/workflow_manager.py" line="418" />
+            <location filename="../../../gui/workflow_manager.py" line="298" />
             <source>Rule Editor</source>
             <translation>Ablaufeditor</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="696" />
-            <location filename="../../../gui/workflow_manager.py" line="618" />
+            <location filename="../../../gui/workflow_manager.py" line="420" />
+            <location filename="../../../gui/workflow_manager.py" line="336" />
             <source>Select Rule:</source>
             <translation>Ablauf wählen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="698" />
-            <location filename="../../../gui/workflow_manager.py" line="626" />
+            <location filename="../../../gui/workflow_manager.py" line="422" />
+            <location filename="../../../gui/workflow_manager.py" line="344" />
             <source>New Rule</source>
             <translation>Neuer Ablauf</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="699" />
-            <location filename="../../../gui/workflow_manager.py" line="627" />
+            <location filename="../../../gui/workflow_manager.py" line="423" />
+            <location filename="../../../gui/workflow_manager.py" line="345" />
             <source>Create a new workflow rule</source>
             <translation>Neuen Ablauf erstellen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="700" />
-            <location filename="../../../gui/workflow_manager.py" line="631" />
+            <location filename="../../../gui/workflow_manager.py" line="424" />
+            <location filename="../../../gui/workflow_manager.py" line="349" />
             <source>Revert</source>
             <translation>Zurücksetzen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="701" />
-            <location filename="../../../gui/workflow_manager.py" line="632" />
+            <location filename="../../../gui/workflow_manager.py" line="425" />
+            <location filename="../../../gui/workflow_manager.py" line="350" />
             <source>Discard unsaved changes</source>
             <translation>Änderungen verwerfen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="702" />
-            <location filename="../../../gui/workflow_manager.py" line="637" />
+            <location filename="../../../gui/workflow_manager.py" line="426" />
+            <location filename="../../../gui/workflow_manager.py" line="355" />
             <source>Save Rule</source>
             <translation>Ablauf speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="703" />
-            <location filename="../../../gui/workflow_manager.py" line="639" />
+            <location filename="../../../gui/workflow_manager.py" line="427" />
+            <location filename="../../../gui/workflow_manager.py" line="357" />
             <source>Save and activate the current rule</source>
             <translation>Ablauf speichern und aktivieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="704" />
-            <location filename="../../../gui/workflow_manager.py" line="643" />
+            <location filename="../../../gui/workflow_manager.py" line="428" />
+            <location filename="../../../gui/workflow_manager.py" line="361" />
             <source>Manage...</source>
             <translation>Verwalten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="705" />
-            <location filename="../../../gui/workflow_manager.py" line="644" />
+            <location filename="../../../gui/workflow_manager.py" line="429" />
+            <location filename="../../../gui/workflow_manager.py" line="362" />
             <source>Manage rule files (delete, rename, import)</source>
             <translation>Ablauf-Dateien verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="708" />
+            <location filename="../../../gui/workflow_manager.py" line="430" />
+            <location filename="../../../gui/workflow_manager.py" line="366" />
+            <source>Show documents</source>
+            <translation>Dokumente anzeigen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/workflow_manager.py" line="431" />
+            <location filename="../../../gui/workflow_manager.py" line="367" />
+            <source>Navigate to all documents currently tracked by this workflow</source>
+            <translation>Alle Dokumente anzeigen, die diesem Ablauf zugeordnet sind</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/workflow_manager.py" line="434" />
             <source>Ready</source>
             <translation>Bereit</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="734" />
+            <location filename="../../../gui/workflow_manager.py" line="460" />
             <source>--- Select Rule ---</source>
             <translation>--- Ablauf wählen ---</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="755" />
+            <location filename="../../../gui/workflow_manager.py" line="481" />
             <source>Rule deleted.</source>
             <translation>Ablauf gelöscht.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="761" />
+            <location filename="../../../gui/workflow_manager.py" line="487" />
             <source>Unsaved Changes</source>
             <translation>Ungespeicherte Änderungen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="762" />
+            <location filename="../../../gui/workflow_manager.py" line="488" />
             <source>You have unsaved changes. Discard them?</source>
             <translation>Es gibt ungespeicherte Änderungen. Verwerfen?</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="779" />
+            <location filename="../../../gui/workflow_manager.py" line="506" />
             <source>Editing: %1</source>
             <translation>Bearbeite: %1</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="805" />
+            <location filename="../../../gui/workflow_manager.py" line="532" />
             <source>Duplicate Name</source>
             <translation>Name bereits vergeben</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="806" />
+            <location filename="../../../gui/workflow_manager.py" line="533" />
             <source>A rule with the name '%1' already exists.</source>
             <translation>Eine Regel mit dem Namen '%1' existiert bereits.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="813" />
+            <location filename="../../../gui/workflow_manager.py" line="540" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="813" />
+            <location filename="../../../gui/workflow_manager.py" line="540" />
             <source>Rule '%1' saved and activated.</source>
             <translation>Regel '%1' gespeichert und aktiviert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="827" />
+            <location filename="../../../gui/workflow_manager.py" line="554" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="827" />
+            <location filename="../../../gui/workflow_manager.py" line="554" />
             <source>Failed to save rule: %1</source>
             <translation>Fehler beim Speichern der Regel: %1</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/workflow_manager.py" line="575" />
+            <source>Documents in workflow '%1'</source>
+            <translation>Dokumente im Ablauf '%1'</translation>
         </message>
         <message>
             <source>Rules in Use</source>
             <translation>Abläufe in Verwendung</translation>
         </message>
-        <message>
-            <source>Show documents</source>
-            <translation>Dokumente anzeigen</translation>
-        </message>
-        <message>
-            <source>Navigate to all documents currently tracked by this workflow</source>
-            <translation>Alle Dokumente anzeigen, die diesem Ablauf zugeordnet sind</translation>
-        </message>
-        <message>
-            <source>Documents in workflow '%1'</source>
-            <translation>Dokumente im Ablauf '%1'</translation>
-        </message>
     </context>
     <context>
         <name>WorkflowRuleFormEditor</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="166" />
-            <location filename="../../../gui/workflow_manager.py" line="54" />
+            <location filename="../../../gui/workflow_manager.py" line="97" />
+            <location filename="../../../gui/workflow_manager.py" line="56" />
             <source>Enter rule name...</source>
             <translation>Ablaufname eingeben...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="167" />
-            <location filename="../../../gui/workflow_manager.py" line="56" />
+            <location filename="../../../gui/workflow_manager.py" line="98" />
+            <location filename="../../../gui/workflow_manager.py" line="58" />
             <source>What does this rule do?</source>
             <translation>Was macht dieser Ablauf?</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="168" />
-            <location filename="../../../gui/workflow_manager.py" line="59" />
+            <location filename="../../../gui/workflow_manager.py" line="60" />
             <source>INVOICE, TELEKOM, ...</source>
             <translation>RECHNUNG, TELEKOM, ...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="162" />
+            <location filename="../../../gui/workflow_manager.py" line="92" />
             <source>Rule Name:</source>
             <translation>Name des Ablaufs:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="163" />
+            <location filename="../../../gui/workflow_manager.py" line="93" />
             <source>Description:</source>
             <translation>Beschreibung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="164" />
-            <source>Regex Triggers:</source>
-            <translation>Regex Auslöser:</translation>
+            <location filename="../../../gui/workflow_manager.py" line="94" />
+            <source>Tag Triggers:</source>
+            <translation>Tag-Auslöser:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="170" />
+            <location filename="../../../gui/workflow_manager.py" line="95" />
+            <source>Comma-separated type_tags that activate this rule (e.g. INVOICE, ORDER_CONFIRMATION). Multiple rules may share the same tag.</source>
+            <translation>Kommagetrennte Typ-Tags, die diese Regel auslösen (z.B. RECHNUNG, AUFTRAGSBESTÄTIGUNG). Mehrere Regeln dürfen denselben Tag verwenden.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/workflow_manager.py" line="99" />
+            <source>INVOICE, ORDER_CONFIRMATION, ...</source>
+            <translation>RECHNUNG, AUFTRAGSBESTÄTIGUNG, ...</translation>
+        </message>
+        <message>
+            <source>Regex Triggers:</source>
+            <translation type="vanished">Regex Auslöser:</translation>
+        </message>
+        <message>
             <source>Add State</source>
             <translation>Status hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="171" />
             <source>Remove State</source>
             <translation>Status entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="172" />
             <source>Move State Up</source>
             <translation>Status hoch</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="173" />
             <source>Move State Down</source>
             <translation>Status runter</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="176" />
             <source>State ID</source>
             <translation>Status ID</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="176" />
             <source>Label</source>
             <translation>Bezeichnung</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="176" />
             <source>Final?</source>
             <translation>Finale?</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="179" />
             <source>Add Transition</source>
             <translation>Übergang hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="180" />
             <source>Remove Transition</source>
             <translation>Übergang entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="181" />
             <source>Move Transition Up</source>
             <translation>Übergang hoch</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="182" />
             <source>Move Transition Down</source>
             <translation>Übergang runter</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="185" />
             <source>From State</source>
             <translation>Von Status</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="185" />
             <source>Action</source>
             <translation>Aktion</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="185" />
             <source>Target State</source>
             <translation>Ziel-Status</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="186" />
             <source>Required Fields</source>
             <translation>Pflichtfelder</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="186" />
             <source>UI?</source>
             <translation>Anzeige?</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="186" />
             <source>Conditions</source>
             <translation>Bedingungen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="189" />
             <source>States</source>
             <translation>Zustände</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="190" />
             <source>Transitions</source>
             <translation>Übergänge</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="330" />
             <source>New State</source>
-            <translation>Neuer Status</translation>
+            <translation type="vanished">Neuer Status</translation>
         </message>
     </context>
     <context>
         <name>WorkflowRuleManagerDialog</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="904" />
-            <location filename="../../../gui/workflow_manager.py" line="861" />
+            <location filename="../../../gui/workflow_manager.py" line="640" />
+            <location filename="../../../gui/workflow_manager.py" line="597" />
             <source>Manage Rules</source>
             <translation>Regeln verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="905" />
+            <location filename="../../../gui/workflow_manager.py" line="641" />
             <source>New...</source>
             <translation>Neu...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="906" />
+            <location filename="../../../gui/workflow_manager.py" line="642" />
             <source>Create a new rule file</source>
             <translation>Neue Regeldatei erstellen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="907" />
+            <location filename="../../../gui/workflow_manager.py" line="643" />
             <source>Rename...</source>
             <translation>Umbenennen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="908" />
+            <location filename="../../../gui/workflow_manager.py" line="644" />
             <source>Rename the selected rule's display name</source>
             <translation>Anzeigenamen ändern</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="909" />
+            <location filename="../../../gui/workflow_manager.py" line="645" />
             <source>Delete</source>
             <translation>Löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="910" />
+            <location filename="../../../gui/workflow_manager.py" line="646" />
             <source>Delete selected rule files (DEL)</source>
             <translation>Gewählte Regeln löschen (ENTF)</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="911" />
+            <location filename="../../../gui/workflow_manager.py" line="647" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="937" />
+            <location filename="../../../gui/workflow_manager.py" line="673" />
             <source>New Workflow</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="937" />
+            <location filename="../../../gui/workflow_manager.py" line="673" />
             <source>Enter display name:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="981" />
-            <location filename="../../../gui/workflow_manager.py" line="943" />
+            <location filename="../../../gui/workflow_manager.py" line="717" />
+            <location filename="../../../gui/workflow_manager.py" line="679" />
             <source>Duplicate Name</source>
             <translation>Name bereits vergeben</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="944" />
+            <location filename="../../../gui/workflow_manager.py" line="680" />
             <source>A workflow with the name '%1' already exists.</source>
             <translation>Ein Ablauf mit dem Namen '%1' existiert bereits.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="973" />
+            <location filename="../../../gui/workflow_manager.py" line="709" />
             <source>Rename Workflow</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="973" />
+            <location filename="../../../gui/workflow_manager.py" line="709" />
             <source>New display name:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="982" />
+            <location filename="../../../gui/workflow_manager.py" line="718" />
             <source>A rule with the name '%1' already exists.</source>
             <translation>Eine Regel mit dem Namen '%1' existiert bereits.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="991" />
+            <location filename="../../../gui/workflow_manager.py" line="727" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="998" />
+            <location filename="../../../gui/workflow_manager.py" line="734" />
             <source>Delete Rule</source>
             <translation>Regel löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="999" />
+            <location filename="../../../gui/workflow_manager.py" line="735" />
             <source>Are you sure you want to delete the rule '%1'?</source>
             <translation>Soll die Regel '%1' gelöscht werden?</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1001" />
+            <location filename="../../../gui/workflow_manager.py" line="737" />
             <source>Delete Rules</source>
             <translation>Regeln löschen</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/workflow_manager.py" line="1002" />
+            <location filename="../../../gui/workflow_manager.py" line="738" />
             <source>Are you sure you want to delete %n selected rule(s)?</source>
             <translation>
                 <numerusform>Sind Sie sicher, dass Sie %n ausgewählte Regel löschen möchten?</numerusform>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1015" />
+            <location filename="../../../gui/workflow_manager.py" line="751" />
             <source>Rules in Use</source>
             <translation>Regeln in Benutzung</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1016" />
+            <location filename="../../../gui/workflow_manager.py" line="752" />
             <source>The following rules cannot be deleted because they are still in use:
 
 %1</source>
