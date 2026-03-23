@@ -67,6 +67,8 @@ C_SCENE_BG = QColor("#e4e9ef")
 def _compute_layout(rule: WorkflowRule) -> Dict[str, QPointF]:
     """
     Layered left-to-right layout via BFS from 'NEW' (or first state).
+    If rule.node_positions contains an entry for a state the stored position
+    is used instead of the computed one (user override).
     Back-edges (target layer <= source layer) are detected and drawn as arcs.
     Returns a dict mapping state_id → scene position (centre of node).
     """
@@ -106,15 +108,19 @@ def _compute_layout(rule: WorkflowRule) -> Dict[str, QPointF]:
     for layer in by_layer:
         by_layer[layer].sort(key=lambda s: (rule.states[s].final, s))
 
-    # Assign positions centred vertically
+    # Assign positions centred vertically, but prefer stored positions
     positions: Dict[str, QPointF] = {}
     for layer_idx, sids in by_layer.items():
         total_h = len(sids) * NODE_H + (len(sids) - 1) * V_GAP
         top_y = -(total_h - NODE_H) / 2
         for rank, sid in enumerate(sids):
-            x = layer_idx * (NODE_W + H_GAP) + NODE_W / 2
-            y = top_y + rank * (NODE_H + V_GAP)
-            positions[sid] = QPointF(x, y)
+            if sid in rule.node_positions:
+                xy = rule.node_positions[sid]
+                positions[sid] = QPointF(xy[0], xy[1])
+            else:
+                x = layer_idx * (NODE_W + H_GAP) + NODE_W / 2
+                y = top_y + rank * (NODE_H + V_GAP)
+                positions[sid] = QPointF(x, y)
 
     return positions
 
@@ -950,8 +956,9 @@ class WorkflowGraphWidget(QWidget):
     # ── Edit mode — node-moved callback ──────────────────────────────────────
 
     def _on_node_moved(self, state_id: str, new_pos: QPointF) -> None:
-        # Positions are ephemeral in this version; could persist to rule metadata later
-        pass
+        if self._rule is not None:
+            self._rule.node_positions[state_id] = [new_pos.x(), new_pos.y()]
+            self.rule_changed.emit()
 
 
 # ── Container for multiple graphs in run mode ─────────────────────────────────

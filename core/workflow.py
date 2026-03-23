@@ -30,6 +30,9 @@ class WorkflowRule(BaseModel):
     description: str = ""
     states: Dict[str, WorkflowState] = Field(default_factory=dict)
     triggers: Dict[str, List[Any]] = Field(default_factory=dict)
+    node_positions: Dict[str, List[float]] = Field(default_factory=dict)
+    """Manual node positions [x, y] set by the user in the graph editor.
+    When present for a state, overrides the auto-layout algorithm."""
 
 class WorkflowEngine:
     def __init__(self, rule: WorkflowRule):
