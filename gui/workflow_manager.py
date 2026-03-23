@@ -5,7 +5,7 @@ import re
 import time
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
-    QPushButton, QTextEdit, QLabel, QMessageBox, QSplitter, QFrame,
+    QPushButton, QLabel, QMessageBox, QSplitter, QFrame,
     QLineEdit, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView,
     QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog,
     QStackedWidget, QButtonGroup
@@ -38,23 +38,24 @@ class WorkflowRuleFormEditor(QWidget):
         self.meta_frame.setObjectName("WorkflowRuleMetaFrame")
         self.meta_frame.setStyleSheet("""
             QFrame#WorkflowRuleMetaFrame {
-                background: #fdfdfd; 
-                border: 1px solid #e0e0e0; 
+                background: #fdfdfd;
+                border: 1px solid #e0e0e0;
                 border-radius: 6px;
-                margin-bottom: 15px;
             }
         """)
         meta_inner_layout = QVBoxLayout(self.meta_frame)
-        
+        meta_inner_layout.setContentsMargins(8, 6, 8, 6)
+        meta_inner_layout.setSpacing(0)
+
         gen_layout = QFormLayout()
         gen_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        gen_layout.setSpacing(10)
-        
+        gen_layout.setSpacing(5)
+        gen_layout.setContentsMargins(0, 0, 0, 0)
+
         self.edit_name = QLineEdit()
         self.edit_name.setPlaceholderText(self.tr("Enter rule name..."))
-        self.edit_desc = QTextEdit()
+        self.edit_desc = QLineEdit()
         self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
-        self.edit_desc.setMaximumHeight(60)
         self.edit_triggers = QLineEdit()
         self.edit_triggers.setPlaceholderText(self.tr("INVOICE, TELEKOM, ..."))
         
@@ -72,6 +73,7 @@ class WorkflowRuleFormEditor(QWidget):
         
         meta_inner_layout.addLayout(gen_layout)
         self.main_layout.addWidget(self.meta_frame)
+        self.main_layout.setSpacing(4)
 
         # Visual graph editor (replaces states/transitions tables)
         self._graph_widget = WorkflowGraphWidget(mode="edit")
@@ -104,7 +106,7 @@ class WorkflowRuleFormEditor(QWidget):
         self._lock_signals = True
         self.current_rule = rule
         self.edit_name.setText(rule.name)
-        self.edit_desc.setPlainText(rule.description)
+        self.edit_desc.setText(rule.description)
         triggers = rule.triggers.get("type_tags", [])
         self.edit_triggers.setText(", ".join(triggers))
         self._graph_widget.load(rule)
@@ -113,7 +115,7 @@ class WorkflowRuleFormEditor(QWidget):
     def get_rule(self) -> WorkflowRule:
         pb_id = self.current_rule.id if self.current_rule else "new_rule"
         name = self.edit_name.text().strip()
-        desc = self.edit_desc.toPlainText().strip()
+        desc = self.edit_desc.text().strip()
         triggers = [t.strip() for t in self.edit_triggers.text().split(",") if t.strip()]
         graph_rule = self._graph_widget.get_rule()
         states = graph_rule.states if graph_rule else {}

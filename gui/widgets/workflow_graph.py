@@ -48,18 +48,18 @@ BACK_DROP: int = 70    # how far back-edges arc below the nodes
 MULTI_OFF: int = 16    # y-offset between parallel edges
 
 # ── Colours ───────────────────────────────────────────────────────────────────
-C_CURRENT  = QColor("#1565c0")
-C_VISITED  = QColor("#90a4ae")
-C_DEFAULT  = QColor("#546e7a")
-C_FINAL_OK = QColor("#2e7d32")
-C_FINAL_NG = QColor("#c62828")
-C_AVAIL    = QColor("#1565c0")
-C_BLOCKED  = QColor("#b0bec5")
-C_AUTO     = QColor("#e65100")
-C_BG_CUR   = QColor("#e3f2fd")
-C_BG_VIS   = QColor("#f5f5f5")
-C_BG_DEF   = QColor("#ffffff")
-C_SCENE_BG = QColor("#f9fafb")
+C_CURRENT  = QColor("#0d47a1")
+C_VISITED  = QColor("#607d8b")
+C_DEFAULT  = QColor("#37474f")
+C_FINAL_OK = QColor("#1b5e20")
+C_FINAL_NG = QColor("#b71c1c")
+C_AVAIL    = QColor("#0d47a1")
+C_BLOCKED  = QColor("#90a4ae")
+C_AUTO     = QColor("#bf360c")
+C_BG_CUR   = QColor("#dbeafe")
+C_BG_VIS   = QColor("#e8ecef")
+C_BG_DEF   = QColor("#f8fafd")
+C_SCENE_BG = QColor("#e4e9ef")
 
 
 # ── Layout algorithm ──────────────────────────────────────────────────────────
@@ -177,10 +177,10 @@ class StateNode(QGraphicsItem):
             bw = 2.0
         elif self.is_visited:
             border_c = C_VISITED
-            bw = 1.0
+            bw = 1.5
         else:
             border_c = C_DEFAULT
-            bw = 1.0
+            bw = 1.5
 
         if self._hovered and self.mode == "edit":
             bw += 0.8
@@ -541,8 +541,14 @@ class WorkflowGraphWidget(QWidget):
         # ── Graphics view ─────────────────────────────────────────────────────
         self._scene = QGraphicsScene(self)
         self._view = QGraphicsView(self._scene)
-        self._view.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self._view.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+        self._view.setRenderHints(
+            QPainter.RenderHint.Antialiasing
+            | QPainter.RenderHint.TextAntialiasing
+            | QPainter.RenderHint.SmoothPixmapTransform
+        )
+        self._view.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.FullViewportUpdate
+        )
         self._view.setDragMode(
             QGraphicsView.DragMode.ScrollHandDrag
             if self.mode == "run"
