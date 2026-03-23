@@ -524,7 +524,7 @@ class WorkflowGraphWidget(QWidget):
 
         # ── Header ────────────────────────────────────────────────────────────
         self._header = QFrame()
-        self._header.setFixedHeight(36)
+        self._header.setFixedHeight(32)
         self._header.setStyleSheet(
             "background:#f1f5f9; border-bottom:1px solid #e2e8f0;"
         )
@@ -533,7 +533,7 @@ class WorkflowGraphWidget(QWidget):
         hdr.setSpacing(8)
 
         self._rule_lbl = QLabel()
-        self._rule_lbl.setStyleSheet("font-weight:bold; font-size:11px; color:#334155;")
+        self._rule_lbl.setStyleSheet("font-weight:bold; color:#334155;")
         hdr.addWidget(self._rule_lbl)
 
         self._badge = QLabel()
@@ -593,8 +593,8 @@ class WorkflowGraphWidget(QWidget):
             ("✕ %s",  "Delete selected item",           self._cmd_delete_selected),
         ):
             b = QPushButton()
-            b.setFixedHeight(24)
-            b.setStyleSheet("font-size:10px; padding:0 8px;")
+            b.setFixedHeight(26)
+            b.setStyleSheet("padding:0 8px;")
             b.clicked.connect(slot)
             hdr.addWidget(b)
             self._toolbar_buttons.append((b, text_key, tip_key))
@@ -602,7 +602,7 @@ class WorkflowGraphWidget(QWidget):
 
     def _build_detail_panel(self, vbox: QVBoxLayout) -> None:
         self._detail = QFrame()
-        self._detail.setFixedHeight(110)
+        self._detail.setFixedHeight(120)
         self._detail.setStyleSheet(
             "background:white; border-top:1px solid #e2e8f0;"
         )
@@ -610,7 +610,7 @@ class WorkflowGraphWidget(QWidget):
         dl.setContentsMargins(12, 6, 12, 6)
 
         self._detail_hint = QLabel(self.tr("Select a state or transition to edit its properties."))
-        self._detail_hint.setStyleSheet("color:#94a3b8; font-style:italic; font-size:10px;")
+        self._detail_hint.setStyleSheet("color:#94a3b8; font-style:italic;")
         dl.addWidget(self._detail_hint)
 
         self._detail_form = QFrame()
@@ -772,8 +772,7 @@ class WorkflowGraphWidget(QWidget):
             f" background:{badge_col}; color:white; font-weight:bold;"
         )
 
-        self._scene.setSceneRect(self._scene.itemsBoundingRect().adjusted(-24, -24, 24, 24))
-        QTimer.singleShot(40, self._fit_view)
+        QTimer.singleShot(50, self._fit_view)
 
     @staticmethod
     def _extract_visited(wi: Optional[Any]) -> Set[str]:
@@ -807,11 +806,14 @@ class WorkflowGraphWidget(QWidget):
 
     def _fit_view(self) -> None:
         r = self._scene.itemsBoundingRect()
-        if r.isNull():
+        if r.isNull() or self._view.width() < 10:
             return
-        # Pad 24px on all sides so nodes at the edge aren't clipped
         padded = r.adjusted(-24, -24, 24, 24)
         self._view.fitInView(padded, Qt.AspectRatioMode.KeepAspectRatio)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        QTimer.singleShot(0, self._fit_view)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -919,7 +921,7 @@ class WorkflowGraphWidget(QWidget):
             self.rule_changed.emit()
 
         apply_btn = QPushButton(self.tr("Apply"))
-        apply_btn.setFixedHeight(24)
+        apply_btn.setFixedHeight(26)
         apply_btn.clicked.connect(_apply)
         fl.addRow("", apply_btn)
 
@@ -949,7 +951,7 @@ class WorkflowGraphWidget(QWidget):
             self.rule_changed.emit()
 
         apply_btn = QPushButton(self.tr("Apply"))
-        apply_btn.setFixedHeight(24)
+        apply_btn.setFixedHeight(26)
         apply_btn.clicked.connect(_apply)
         fl.addRow("", apply_btn)
 
