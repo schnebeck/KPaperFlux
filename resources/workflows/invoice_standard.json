@@ -1,52 +1,93 @@
 {
-    "id": "invoice_standard",
-    "name": "Standard Invoice Manager",
-    "description": "Handles standard invoice verification and payment workflow.",
-    "triggers": {
-        "type_tags": [
-            "INVOICE"
-        ]
-    },
-    "states": {
-        "NEW": {
-            "label": "Incoming Invoice",
-            "transitions": [
-                {
-                    "action": "verify",
-                    "target": "VERIFIED",
-                    "required_fields": [
-                        "total_gross",
-                        "iban",
-                        "doc_date",
-                        "sender_name"
-                    ]
-                },
-                {
-                    "action": "reject",
-                    "target": "REJECTED"
-                }
-            ]
+  "id": "invoice_standard",
+  "name": "Standard Invoice Manager",
+  "description": "Handles standard invoice verification and payment workflow.",
+  "states": {
+    "NEW": {
+      "label": "Incoming Invoice",
+      "transitions": [
+        {
+          "action": "verify",
+          "target": "VERIFIED",
+          "required_fields": [
+            "total_gross",
+            "iban",
+            "doc_date",
+            "sender_name"
+          ],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
         },
-        "VERIFIED": {
-            "label": "Ready for Payment",
-            "transitions": [
-                {
-                    "action": "mark_as_paid",
-                    "target": "PAID"
-                },
-                {
-                    "action": "reset",
-                    "target": "NEW"
-                }
-            ]
-        },
-        "PAID": {
-            "label": "Paid & Archived",
-            "final": true
-        },
-        "REJECTED": {
-            "label": "Rejected / Spam",
-            "final": true
+        {
+          "action": "reject",
+          "target": "REJECTED",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
         }
+      ],
+      "final": false
+    },
+    "VERIFIED": {
+      "label": "Ready for Payment",
+      "transitions": [
+        {
+          "action": "mark_as_paid",
+          "target": "PAID",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "reset",
+          "target": "NEW",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false
+    },
+    "PAID": {
+      "label": "Paid & Archived",
+      "transitions": [],
+      "final": true
+    },
+    "REJECTED": {
+      "label": "Rejected / Spam",
+      "transitions": [],
+      "final": true
     }
+  },
+  "triggers": {
+    "type_tags": [
+      "INVOICE"
+    ]
+  },
+  "node_positions": {
+    "NEW": [
+      16.145452317495327,
+      45.61039120178905
+    ],
+    "VERIFIED": [
+      330.5365928376682,
+      46.83056091658242
+    ],
+    "PAID": [
+      648.1472903838494,
+      48.293355390129584
+    ],
+    "REJECTED": [
+      331.60977851300436,
+      -57.02582483227644
+    ]
+  }
 }
