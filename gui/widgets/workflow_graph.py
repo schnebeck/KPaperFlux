@@ -531,6 +531,7 @@ class WorkflowGraphWidget(QWidget):
         hdr = QHBoxLayout(self._header)
         hdr.setContentsMargins(10, 0, 10, 0)
         hdr.setSpacing(8)
+        self._hdr_layout = hdr
 
         self._rule_lbl = QLabel()
         self._rule_lbl.setStyleSheet("font-weight:bold; color:#334155;")

@@ -381,31 +381,32 @@ class WorkflowManagerWidget(QWidget):
 
         editor_layout.addWidget(self.content_container, 1)
 
-        # Bottom bar inside editor: status left, Revert + Save right
-        bottom_bar = QWidget()
-        bottom_layout = QHBoxLayout(bottom_bar)
-        bottom_layout.setContentsMargins(0, 4, 0, 0)
-
-        self.status_lbl = QLabel()
-        self.status_lbl.setStyleSheet("color: #666; font-style: italic;")
-        bottom_layout.addWidget(self.status_lbl, 1)
+        # Inject Revert + Save into the graph widget's header toolbar
+        graph_hdr = self.form_editor._graph_widget._hdr_layout
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        graph_hdr.addWidget(sep)
 
         self.btn_revert = QPushButton("🔄 " + self.tr("Revert"))
         self.btn_revert.setToolTip(self.tr("Discard unsaved changes"))
         self.btn_revert.setEnabled(False)
         self.btn_revert.clicked.connect(self._revert_changes)
-        bottom_layout.addWidget(self.btn_revert)
+        graph_hdr.addWidget(self.btn_revert)
 
         self.btn_save = QPushButton("💾 " + self.tr("Save Rule"))
         self.btn_save.setEnabled(False)
         self.btn_save.setToolTip(self.tr("Save and activate the current rule"))
         self.btn_save.clicked.connect(self._save_rule)
-        bottom_layout.addWidget(self.btn_save)
-
-        editor_layout.addWidget(bottom_bar)
+        graph_hdr.addWidget(self.btn_save)
 
         self.main_stack.addWidget(self.editor_widget)
         layout.addWidget(self.main_stack, 1)
+
+        # Status bar
+        self.status_lbl = QLabel()
+        self.status_lbl.setStyleSheet("color: #666; font-style: italic;")
+        layout.addWidget(self.status_lbl)
 
         self.retranslate_ui()
 
