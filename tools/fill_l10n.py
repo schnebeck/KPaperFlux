@@ -437,6 +437,9 @@ def fill():
         },
         "WorkflowGraphWidget": {
             "Fit view": "Ansicht anpassen",
+            "State": "Status",
+            "Transition": "Übergang",
+            "Delete": "Löschen",
             "Add new state": "Neuen Status hinzufügen",
             "Add transition between states": "Übergang zwischen Status hinzufügen",
             "Delete selected item": "Auswahl löschen",

@@ -427,16 +427,28 @@ class TransitionEdge(QGraphicsItem):
 class AddTransitionDialog(QDialog):
     """Small dialog for adding a transition in edit mode."""
 
-    def __init__(self, state_ids: List[str], parent=None) -> None:
+    def __init__(self, states: Dict[str, "WorkflowState"], parent=None) -> None:
+        """
+        states: mapping of state_id → WorkflowState (to show labels alongside IDs).
+        """
         super().__init__(parent)
         self.setWindowTitle(self.tr("Add Transition"))
-        self.setMinimumWidth(320)
+        self.setMinimumWidth(360)
+
+        st = SemanticTranslator.instance()
+        # Build display entries: "Label (ID)" stored with ID as UserData
+        self._state_ids: List[str] = list(states.keys())
+        display_items: List[Tuple[str, str]] = []
+        for sid, sdef in states.items():
+            label = st.translate(sdef.label) if sdef.label else sid
+            display_items.append((f"{label}  ({sid})", sid))
 
         layout = QFormLayout(self)
         layout.setSpacing(10)
 
         self._src = QComboBox()
-        self._src.addItems(state_ids)
+        for display, sid in display_items:
+            self._src.addItem(display, sid)
         layout.addRow(self.tr("From State:"), self._src)
 
         self._action = QLineEdit()
@@ -444,7 +456,8 @@ class AddTransitionDialog(QDialog):
         layout.addRow(self.tr("Action:"), self._action)
 
         self._tgt = QComboBox()
-        self._tgt.addItems(state_ids)
+        for display, sid in display_items:
+            self._tgt.addItem(display, sid)
         layout.addRow(self.tr("To State:"), self._tgt)
 
         self._auto = QCheckBox(self.tr("Auto-transition (no user interaction)"))
@@ -464,9 +477,9 @@ class AddTransitionDialog(QDialog):
     def get_values(self) -> Tuple[str, str, str, bool, List[str]]:
         req = [f.strip() for f in self._req.text().split(",") if f.strip()]
         return (
-            self._src.currentText(),
+            self._src.currentData(),   # ID, not display text
             self._action.text().strip().lower(),
-            self._tgt.currentText(),
+            self._tgt.currentData(),   # ID, not display text
             self._auto.isChecked(),
             req,
         )
@@ -567,17 +580,19 @@ class WorkflowGraphWidget(QWidget):
             self._scene.selectionChanged.connect(self._on_selection_changed)
 
     def _build_edit_toolbar(self, hdr: QHBoxLayout) -> None:
-        for text, tip, slot in (
-            ("✚ State",      self.tr("Add new state"),                   self._cmd_add_state),
-            ("✚ Transition", self.tr("Add transition between states"),   self._cmd_add_transition),
-            ("✕ Delete",     self.tr("Delete selected item"),            self._cmd_delete_selected),
+        self._toolbar_buttons: List[Tuple[QPushButton, str, str]] = []
+        for text_key, tip_key, slot in (
+            ("✚ %s",  "Add new state",                  self._cmd_add_state),
+            ("✚ %s",  "Add transition between states",  self._cmd_add_transition),
+            ("✕ %s",  "Delete selected item",           self._cmd_delete_selected),
         ):
-            b = QPushButton(text)
-            b.setToolTip(tip)
+            b = QPushButton()
             b.setFixedHeight(24)
             b.setStyleSheet("font-size:10px; padding:0 8px;")
             b.clicked.connect(slot)
             hdr.addWidget(b)
+            self._toolbar_buttons.append((b, text_key, tip_key))
+        self._retranslate_toolbar()
 
     def _build_detail_panel(self, vbox: QVBoxLayout) -> None:
         self._detail = QFrame()
@@ -600,6 +615,35 @@ class WorkflowGraphWidget(QWidget):
         dl.addWidget(self._detail_form)
 
         vbox.addWidget(self._detail)
+
+    # ── L10n ──────────────────────────────────────────────────────────────────
+
+    def changeEvent(self, event) -> None:
+        from PyQt6.QtCore import QEvent
+        if event and event.type() == QEvent.Type.LanguageChange:
+            self._retranslate_toolbar()
+            if self.mode == "edit":
+                self._detail_hint.setText(
+                    self.tr("Select a state or transition to edit its properties.")
+                )
+        super().changeEvent(event)
+
+    def _retranslate_toolbar(self) -> None:
+        if not hasattr(self, "_toolbar_buttons"):
+            return
+        labels = [
+            self.tr("State"),
+            self.tr("Transition"),
+            self.tr("Delete"),
+        ]
+        tips = [
+            self.tr("Add new state"),
+            self.tr("Add transition between states"),
+            self.tr("Delete selected item"),
+        ]
+        for (btn, fmt, _), label, tip in zip(self._toolbar_buttons, labels, tips):
+            btn.setText(fmt % label)
+            btn.setToolTip(tip)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -790,7 +834,7 @@ class WorkflowGraphWidget(QWidget):
     def _cmd_add_transition(self) -> None:
         if not self._rule or len(self._rule.states) < 2:
             return
-        dlg = AddTransitionDialog(list(self._rule.states.keys()), self)
+        dlg = AddTransitionDialog(self._rule.states, self)
         if dlg.exec():
             src, action, tgt, auto, req = dlg.get_values()
             if not action:

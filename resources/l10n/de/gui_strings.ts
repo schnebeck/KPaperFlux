@@ -3,42 +3,42 @@
     <context>
         <name>AddTransitionDialog</name>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="432" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="435" />
             <source>Add Transition</source>
             <translation>Übergang hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="440" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="452" />
             <source>From State:</source>
             <translation>Von Status:</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="443" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="455" />
             <source>e.g. verify, approve, reject</source>
             <translation>z.B. prüfen, genehmigen, ablehnen</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="444" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="456" />
             <source>Action:</source>
             <translation>Aktion:</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="448" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="461" />
             <source>To State:</source>
             <translation>Nach Status:</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="450" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="463" />
             <source>Auto-transition (no user interaction)</source>
             <translation>Automatischer Übergang (ohne Nutzeraktion)</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="454" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="467" />
             <source>iban, total_gross, …  (comma-separated)</source>
             <translation>iban, brutto_gesamt, … (kommagetrennt)</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="455" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="468" />
             <source>Required Fields:</source>
             <translation>Pflichtfelder:</translation>
         </message>
@@ -6422,79 +6422,95 @@ Geschäftsführer: ...</translation>
     <context>
         <name>WorkflowGraphWidget</name>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="534" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="547" />
             <source>Fit view</source>
             <translation>Ansicht anpassen</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="571" />
-            <source>Add new state</source>
-            <translation>Neuen Status hinzufügen</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="572" />
-            <source>Add transition between states</source>
-            <translation>Übergang zwischen Status hinzufügen</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="573" />
-            <source>Delete selected item</source>
-            <translation>Auswahl löschen</translation>
-        </message>
-        <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="591" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="627" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="606" />
             <source>Select a state or transition to edit its properties.</source>
             <translation>Status oder Übergang auswählen, um Eigenschaften zu bearbeiten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="779" />
-            <location filename="../../../gui/widgets/workflow_graph.py" line="772" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="635" />
+            <source>State</source>
+            <translation>Status</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="636" />
+            <source>Transition</source>
+            <translation>Übergang</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="637" />
+            <source>Delete</source>
+            <translation>Löschen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="640" />
+            <source>Add new state</source>
+            <translation>Neuen Status hinzufügen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="641" />
+            <source>Add transition between states</source>
+            <translation>Übergang zwischen Status hinzufügen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="642" />
+            <source>Delete selected item</source>
+            <translation>Auswahl löschen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/widgets/workflow_graph.py" line="826" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="819" />
             <source>Add State</source>
             <translation>Status hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="773" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="820" />
             <source>State ID (uppercase, e.g. PROCESSING):</source>
             <translation>Status-ID (Großbuchstaben, z.B. IN_BEARBEITUNG):</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="780" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="827" />
             <source>Display label for '%s':</source>
             <translation>Bezeichnung für '%s':</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="849" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="896" />
             <source>ID:</source>
             <translation>ID:</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="852" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="899" />
             <source>Label:</source>
             <translation>Bezeichnung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="856" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="903" />
             <source>Final state:</source>
             <translation>Finaler Status:</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="898" />
-            <location filename="../../../gui/widgets/workflow_graph.py" line="868" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="945" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="915" />
             <source>Apply</source>
             <translation>Anwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="878" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="925" />
             <source>Action:</source>
             <translation>Aktion:</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="882" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="929" />
             <source>Auto:</source>
             <translation>Automatisch:</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/workflow_graph.py" line="886" />
+            <location filename="../../../gui/widgets/workflow_graph.py" line="933" />
             <source>Required Fields:</source>
             <translation>Pflichtfelder:</translation>
         </message>
