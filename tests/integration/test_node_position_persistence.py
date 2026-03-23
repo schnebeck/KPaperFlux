@@ -114,21 +114,26 @@ def test_compute_layout_falls_back_to_bfs_for_missing_state():
 # ── Integration: full JSON round-trip ─────────────────────────────────────────
 
 def test_positions_survive_model_dump_and_reload(qtbot, two_state_rule):
-    """Drag a node, serialise to JSON, deserialise, check position is restored."""
-    widget = WorkflowGraphWidget(mode="edit")
-    qtbot.addWidget(widget)
-    widget.load(two_state_rule)
+    """Drag a node, serialise to JSON, deserialise, check position is restored.
+
+    Specifically tests via WorkflowRuleFormEditor.get_rule() — the path
+    that _save_rule() uses — to catch the bug where node_positions was
+    dropped when building the new WorkflowRule from form fields.
+    """
+    from gui.workflow_manager import WorkflowRuleFormEditor
+    editor = WorkflowRuleFormEditor()
+    qtbot.addWidget(editor)
+    editor.load_rule(two_state_rule)
 
     # Simulate dragging "DONE" to an unusual position
-    widget._on_node_moved("DONE", QPointF(777.0, -333.0))
+    editor._graph_widget._on_node_moved("DONE", QPointF(777.0, -333.0))
 
-    # Serialise (as _save_rule does)
-    rule_out = widget.get_rule()
+    # Serialise via the form editor path (as _save_rule does)
+    rule_out = editor.get_rule()
     payload = json.dumps(rule_out.model_dump())
 
     # Deserialise (as load_from_directory does)
-    data = json.loads(payload)
-    rule_in = WorkflowRule(**data)
+    rule_in = WorkflowRule(**json.loads(payload))
 
     assert "DONE" in rule_in.node_positions
     assert rule_in.node_positions["DONE"] == pytest.approx([777.0, -333.0], abs=0.1)

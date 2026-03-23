@@ -119,7 +119,9 @@ class WorkflowRuleFormEditor(QWidget):
         triggers = [t.strip() for t in self.edit_triggers.text().split(",") if t.strip()]
         graph_rule = self._graph_widget.get_rule()
         states = graph_rule.states if graph_rule else {}
-        return WorkflowRule(id=pb_id, name=name, description=desc, states=states, triggers={"type_tags": triggers})
+        node_positions = graph_rule.node_positions if graph_rule else {}
+        return WorkflowRule(id=pb_id, name=name, description=desc, states=states,
+                            triggers={"type_tags": triggers}, node_positions=node_positions)
 
 class WorkflowDashboardWidget(QWidget):
     """Overview of workflow performance and document distribution."""
