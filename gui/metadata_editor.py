@@ -35,6 +35,7 @@ from gui.utils import format_datetime, show_selectable_message_box, show_notific
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.tag_input import TagInputWidget
 from gui.widgets.workflow_controls import WorkflowControlsWidget
+from gui.widgets.workflow_graph import WorkflowGraphsPanel
 from gui.audit_window import AuditWindow
 
 # Core Models
@@ -347,6 +348,7 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.setTabText(6, self.tr("Source Mapping"))
         self.tab_widget.setTabText(7, self.tr("Debug Data"))
         self.tab_widget.setTabText(8, self.tr("History"))
+        self.tab_widget.setTabText(9, self.tr("Workflows"))
 
         # Subscription & Contract Labels
         self.lbl_sub_recurring_header.setText("--- " + self.tr("Subscription / Recurring") + " ---")
@@ -837,6 +839,11 @@ class MetadataEditorWidget(QWidget):
         
         self.tab_widget.addTab(self.history_tab, "")
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.history_tab), False)
+
+        # --- Tab 9: Workflows (visual state machine graphs) ---
+        self._workflow_graphs_panel = WorkflowGraphsPanel()
+        self.tab_widget.addTab(self._workflow_graphs_panel, "")
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self._workflow_graphs_panel), False)
 
         # Buttons
         self.btn_save = QPushButton()
@@ -1333,6 +1340,12 @@ class MetadataEditorWidget(QWidget):
         with QSignalBlocker(self.chk_pkv):
             self.chk_pkv.setChecked(first_wf.pkv_eligible if first_wf else False)
 
+        # Update visual workflow graphs panel (tab 9)
+        registry = WorkflowRuleRegistry()
+        self._workflow_graphs_panel.update_workflows(
+            sd.workflows if sd else {}, registry, doc_data_for_wf
+        )
+
         self._populate_history_table(sd.workflows if sd else {})
 
         # Extracted Data
@@ -1480,6 +1493,10 @@ class MetadataEditorWidget(QWidget):
             for wf in (doc.semantic_data.workflows.values() if doc.semantic_data else [])
         )
         self.tab_widget.setTabVisible(8, has_history)
+
+        # 9: Workflows (visual graph — show whenever at least one workflow is active)
+        has_workflows = bool(doc.semantic_data and doc.semantic_data.workflows)
+        self.tab_widget.setTabVisible(9, has_workflows)
 
     def _add_stamp_row(self):
         row = self.stamps_table.rowCount()
