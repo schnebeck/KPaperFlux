@@ -361,6 +361,18 @@ class WorkflowManagerWidget(QWidget):
 
         self.top_bar.addStretch()
 
+        self.btn_revert = QPushButton("🔄 " + self.tr("Revert"))
+        self.btn_revert.setToolTip(self.tr("Discard unsaved changes"))
+        self.btn_revert.setEnabled(False)
+        self.btn_revert.clicked.connect(self._revert_changes)
+        self.top_bar.addWidget(self.btn_revert)
+
+        self.btn_save = QPushButton("💾 " + self.tr("Save Rule"))
+        self.btn_save.setEnabled(False)
+        self.btn_save.setToolTip(self.tr("Save and activate the current rule"))
+        self.btn_save.clicked.connect(self._save_rule)
+        self.top_bar.addWidget(self.btn_save)
+
         editor_layout.addWidget(self.top_bar_widget)
 
         # Horizontal separator (inner)
@@ -384,28 +396,10 @@ class WorkflowManagerWidget(QWidget):
         self.main_stack.addWidget(self.editor_widget)
         layout.addWidget(self.main_stack, 1)
 
-        # Bottom bar: status label left, Revert + Save right
-        bottom_bar = QWidget()
-        bottom_layout = QHBoxLayout(bottom_bar)
-        bottom_layout.setContentsMargins(0, 4, 0, 4)
-
+        # Status Bar
         self.status_lbl = QLabel()
         self.status_lbl.setStyleSheet("color: #666; font-style: italic;")
-        bottom_layout.addWidget(self.status_lbl, 1)
-
-        self.btn_revert = QPushButton("🔄 " + self.tr("Revert"))
-        self.btn_revert.setToolTip(self.tr("Discard unsaved changes"))
-        self.btn_revert.setEnabled(False)
-        self.btn_revert.clicked.connect(self._revert_changes)
-        bottom_layout.addWidget(self.btn_revert)
-
-        self.btn_save = QPushButton("💾 " + self.tr("Save Rule"))
-        self.btn_save.setEnabled(False)
-        self.btn_save.setToolTip(self.tr("Save and activate the current rule"))
-        self.btn_save.clicked.connect(self._save_rule)
-        bottom_layout.addWidget(self.btn_save)
-
-        layout.addWidget(bottom_bar)
+        layout.addWidget(self.status_lbl)
 
         self.retranslate_ui()
 
