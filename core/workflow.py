@@ -33,6 +33,9 @@ class WorkflowRule(BaseModel):
     node_positions: Dict[str, List[float]] = Field(default_factory=dict)
     """Manual node positions [x, y] set by the user in the graph editor.
     When present for a state, overrides the auto-layout algorithm."""
+    transition_anchors: Dict[str, List[str]] = Field(default_factory=dict)
+    """Custom anchor points per transition. Key: 'src_state_id:action'.
+    Value: [src_anchor, tgt_anchor] e.g. ['right', 'bottom-left']."""
 
 class WorkflowEngine:
     def __init__(self, rule: WorkflowRule):

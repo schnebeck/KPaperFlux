@@ -47,6 +47,44 @@ BORDER_R: int = 10     # corner radius
 BACK_DROP: int = 70    # how far back-edges arc below the nodes
 MULTI_OFF: int = 16    # y-offset between parallel edges
 
+ANCHOR_NAMES: List[str] = [
+    "right", "left", "top", "bottom",
+    "top-right", "top-left", "bottom-right", "bottom-left",
+]
+CTRL_DIST_MIN: float = 60.0  # minimum Bezier control-point distance
+ANCHOR_SNAP: float = 34.0    # max distance to snap to an anchor
+
+
+def _anchor_point(center: QPointF, anchor: str) -> QPointF:
+    """Scene point for a named anchor on a node centred at *center*."""
+    hw, hh = NODE_W / 2.0, NODE_H / 2.0
+    x, y = center.x(), center.y()
+    return {
+        "right":        QPointF(x + hw, y),
+        "left":         QPointF(x - hw, y),
+        "top":          QPointF(x,       y - hh),
+        "bottom":       QPointF(x,       y + hh),
+        "top-right":    QPointF(x + hw,  y - hh),
+        "top-left":     QPointF(x - hw,  y - hh),
+        "bottom-right": QPointF(x + hw,  y + hh),
+        "bottom-left":  QPointF(x - hw,  y + hh),
+    }.get(anchor, QPointF(x + hw, y))
+
+
+def _anchor_tangent(anchor: str) -> QPointF:
+    """Outward unit tangent vector for an anchor."""
+    s = 0.7071
+    return {
+        "right":        QPointF( 1,  0),
+        "left":         QPointF(-1,  0),
+        "top":          QPointF( 0, -1),
+        "bottom":       QPointF( 0,  1),
+        "top-right":    QPointF( s, -s),
+        "top-left":     QPointF(-s, -s),
+        "bottom-right": QPointF( s,  s),
+        "bottom-left":  QPointF(-s,  s),
+    }.get(anchor, QPointF(1, 0))
+
 # ── Colours ───────────────────────────────────────────────────────────────────
 C_CURRENT  = QColor("#0d47a1")
 C_VISITED  = QColor("#607d8b")
@@ -249,6 +287,30 @@ class StateNode(QGraphicsItem):
         return any(k in self.state_id.upper() for k in ("REJECT", "ERROR", "FAIL", "SPAM", "CANCEL"))
 
 
+# ── AnchorDot ─────────────────────────────────────────────────────────────────
+
+class AnchorDot(QGraphicsItem):
+    """Snap-target shown on a node while an EndpointHandle is dragged."""
+    R = 7.0
+
+    def __init__(self, node: "StateNode", anchor: str) -> None:
+        super().__init__()
+        self.node = node
+        self.anchor = anchor
+        self.active = False
+        self.setZValue(10)
+
+    def boundingRect(self) -> QRectF:
+        r = self.R + 2
+        return QRectF(-r, -r, r * 2, r * 2)
+
+    def paint(self, painter: QPainter, option, widget=None) -> None:
+        col = QColor("#cddc39") if self.active else QColor("#8bc34a")
+        painter.setBrush(QBrush(col))
+        painter.setPen(QPen(QColor("#33691e"), 1.5))
+        painter.drawEllipse(QRectF(-self.R, -self.R, self.R * 2, self.R * 2))
+
+
 # ── TransitionEdge ────────────────────────────────────────────────────────────
 
 class TransitionEdge(QGraphicsItem):
@@ -264,9 +326,13 @@ class TransitionEdge(QGraphicsItem):
         click_callback: Optional[Callable[["TransitionEdge"], None]] = None,
         edge_index: int = 0,
         total_edges: int = 1,
+        src_anchor: str = "right",
+        tgt_anchor: str = "left",
     ) -> None:
         super().__init__()
         self.transition = transition
+        self.src_anchor = src_anchor
+        self.tgt_anchor = tgt_anchor
         self.src = source_node
         self.tgt = target_node
         self.is_available = is_available
@@ -298,7 +364,7 @@ class TransitionEdge(QGraphicsItem):
         tp = self.tgt.pos()
         off = self._y_offset()
 
-        # Self-loop
+        # Self-loop — fixed shape, anchors not used for path
         if self.src is self.tgt:
             rx = sp.x() + NODE_W / 2
             ry = sp.y()
@@ -310,36 +376,37 @@ class TransitionEdge(QGraphicsItem):
             )
             return path, QPointF(rx + 50, ry - 20)
 
-        if self.is_back_edge:
-            # Arc going below both nodes
-            sx = sp.x()
-            sy = sp.y() + NODE_H / 2
-            ex = tp.x()
-            ey = tp.y() + NODE_H / 2
-            cy = max(sy, ey) + BACK_DROP + abs(off)
-            cx = (sx + ex) / 2 + off
-            start = QPointF(sx, sy)
-            end = QPointF(ex, ey)
-            ctrl = QPointF(cx, cy)
-            path = QPainterPath(start)
-            path.quadTo(ctrl, end)
-            label_pos = QPointF(cx, cy - 12)
-        else:
-            # Forward edge: S-curve from right of src to left of tgt
-            sx = sp.x() + NODE_W / 2
-            sy = sp.y() + off
-            ex = tp.x() - NODE_W / 2
-            ey = tp.y() + off
-            mid_x = (sx + ex) / 2
-            path = QPainterPath(QPointF(sx, sy))
-            if abs(sy - ey) > 4:
-                path.cubicTo(QPointF(mid_x, sy), QPointF(mid_x, ey), QPointF(ex, ey))
-            else:
-                path.lineTo(QPointF(ex, ey))
-            mid = path.pointAtPercent(0.5)
-            label_pos = QPointF(mid.x(), mid.y() - 13)
+        # Anchor-based tangent Bezier for all other edges
+        src_pt = _anchor_point(sp, self.src_anchor)
+        tgt_pt = _anchor_point(tp, self.tgt_anchor)
 
-        return path, label_pos
+        # Perpendicular offset for parallel edges
+        if off:
+            dx = tgt_pt.x() - src_pt.x()
+            dy = tgt_pt.y() - src_pt.y()
+            length = math.sqrt(dx * dx + dy * dy) or 1.0
+            px, py = -dy / length * off, dx / length * off
+            src_pt = QPointF(src_pt.x() + px, src_pt.y() + py)
+            tgt_pt = QPointF(tgt_pt.x() + px, tgt_pt.y() + py)
+
+        src_tang = _anchor_tangent(self.src_anchor)
+        tgt_tang = _anchor_tangent(self.tgt_anchor)
+
+        dx = tgt_pt.x() - src_pt.x()
+        dy = tgt_pt.y() - src_pt.y()
+        dist = max(math.sqrt(dx * dx + dy * dy), 1.0)
+        ctrl_d = max(CTRL_DIST_MIN, dist * 0.42)
+
+        ctrl1 = QPointF(src_pt.x() + src_tang.x() * ctrl_d,
+                        src_pt.y() + src_tang.y() * ctrl_d)
+        ctrl2 = QPointF(tgt_pt.x() + tgt_tang.x() * ctrl_d,
+                        tgt_pt.y() + tgt_tang.y() * ctrl_d)
+
+        path = QPainterPath(src_pt)
+        path.cubicTo(ctrl1, ctrl2, tgt_pt)
+
+        mid = path.pointAtPercent(0.5)
+        return path, QPointF(mid.x(), mid.y() - 13)
 
     # ── QGraphicsItem interface ───────────────────────────────────────────────
 
@@ -491,6 +558,150 @@ class AddTransitionDialog(QDialog):
         )
 
 
+# ── EndpointHandle ────────────────────────────────────────────────────────────
+
+class EndpointHandle(QGraphicsItem):
+    """Draggable handle at a TransitionEdge anchor point (edit mode only).
+
+    Drag to another anchor on the same node to reroute the edge.
+    If the target anchor is already occupied by another edge on the same node,
+    the two edges swap their anchors (untangle mode).
+    """
+    R = 6.0
+
+    def __init__(
+        self,
+        edge: "TransitionEdge",
+        is_source: bool,
+        on_committed: Callable[["TransitionEdge", bool, str], None],
+    ) -> None:
+        super().__init__()
+        self._edge = edge
+        self._is_source = is_source
+        self._on_committed = on_committed
+        self._dragging = False
+        self._drag_pos = QPointF()
+        self._orig_src: str = ""
+        self._orig_tgt: str = ""
+        self._overlay: List[AnchorDot] = []
+        self.setZValue(9)
+        self.setAcceptHoverEvents(True)
+        self._snap_to_edge()
+
+    # ── Geometry ──────────────────────────────────────────────────────────────
+
+    def _node(self) -> "StateNode":
+        return self._edge.src if self._is_source else self._edge.tgt
+
+    def _snap_to_edge(self) -> None:
+        anchor = self._edge.src_anchor if self._is_source else self._edge.tgt_anchor
+        self.setPos(_anchor_point(self._node().pos(), anchor))
+
+    def boundingRect(self) -> QRectF:
+        r = self.R + 3
+        return QRectF(-r, -r, r * 2, r * 2)
+
+    def shape(self) -> QPainterPath:
+        p = QPainterPath()
+        p.addEllipse(QRectF(-(self.R + 5), -(self.R + 5), (self.R + 5) * 2, (self.R + 5) * 2))
+        return p
+
+    def paint(self, painter: QPainter, option, widget=None) -> None:
+        col = QColor("#ef5350") if self._dragging else QColor("#1565c0")
+        painter.setBrush(QBrush(col))
+        painter.setPen(QPen(QColor("white"), 1.5))
+        painter.drawEllipse(QRectF(-self.R, -self.R, self.R * 2, self.R * 2))
+
+    # ── Anchor overlay helpers ─────────────────────────────────────────────────
+
+    def _show_overlay(self) -> None:
+        sc = self.scene()
+        if sc is None:
+            return
+        for name in ANCHOR_NAMES:
+            dot = AnchorDot(self._node(), name)
+            dot.setPos(_anchor_point(self._node().pos(), name))
+            sc.addItem(dot)
+            self._overlay.append(dot)
+
+    def _hide_overlay(self) -> None:
+        sc = self.scene()
+        for dot in self._overlay:
+            if sc:
+                sc.removeItem(dot)
+        self._overlay.clear()
+
+    def _nearest(self, scene_pos: QPointF) -> Tuple[str, float]:
+        best_name, best_dist = ANCHOR_NAMES[0], float("inf")
+        node = self._node()
+        for name in ANCHOR_NAMES:
+            ap = _anchor_point(node.pos(), name)
+            d = scene_pos - ap
+            dist = math.sqrt(d.x() ** 2 + d.y() ** 2)
+            if dist < best_dist:
+                best_dist = dist
+                best_name = name
+        return best_name, best_dist
+
+    # ── Mouse events ──────────────────────────────────────────────────────────
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._drag_pos = event.scenePos()
+            self._orig_src = self._edge.src_anchor
+            self._orig_tgt = self._edge.tgt_anchor
+            self._show_overlay()
+            self.update()
+        event.accept()  # consume — do not propagate to scene selection
+
+    def mouseMoveEvent(self, event) -> None:
+        if not self._dragging:
+            return
+        self._drag_pos = event.scenePos()
+        self.setPos(self._drag_pos)
+
+        best_name, _ = self._nearest(self._drag_pos)
+        for dot in self._overlay:
+            dot.active = dot.anchor == best_name
+            dot.update()
+
+        # Live preview: temporarily reroute edge through nearest anchor
+        if self._is_source:
+            self._edge.src_anchor = best_name
+        else:
+            self._edge.tgt_anchor = best_name
+        self._edge.prepareGeometryChange()
+        self._edge.update()
+        event.accept()
+
+    def mouseReleaseEvent(self, event) -> None:
+        if not self._dragging:
+            return
+        self._dragging = False
+        self._hide_overlay()
+
+        best_name, best_dist = self._nearest(self._drag_pos)
+        if best_dist <= ANCHOR_SNAP:
+            self._on_committed(self._edge, self._is_source, best_name)
+        else:
+            # Revert preview
+            self._edge.src_anchor = self._orig_src
+            self._edge.tgt_anchor = self._orig_tgt
+            self._edge.prepareGeometryChange()
+            self._edge.update()
+
+        self._snap_to_edge()
+        self.update()
+        event.accept()
+
+    def hoverEnterEvent(self, event) -> None:
+        self.setCursor(QCursor(Qt.CursorShape.OpenHandCursor))
+
+    def hoverLeaveEvent(self, event) -> None:
+        self.unsetCursor()
+
+
 # ── WorkflowGraphWidget ───────────────────────────────────────────────────────
 
 class WorkflowGraphWidget(QWidget):
@@ -513,6 +724,7 @@ class WorkflowGraphWidget(QWidget):
         self._doc_data: Dict[str, Any] = {}
         self._nodes: Dict[str, StateNode] = {}
         self._edges: List[TransitionEdge] = []
+        self._handles: List[EndpointHandle] = []
         self._init_ui()
 
     # ── UI construction ───────────────────────────────────────────────────────
@@ -676,6 +888,7 @@ class WorkflowGraphWidget(QWidget):
         if not self._rule:
             return
 
+        self._handles.clear()  # scene.clear() removes them from scene
         self._scene.clear()
         self._nodes.clear()
         self._edges.clear()
@@ -733,6 +946,19 @@ class WorkflowGraphWidget(QWidget):
                 src_x = positions.get(sid, QPointF()).x()
                 tgt_x = positions.get(trans.target, QPointF()).x()
                 is_back = tgt_x <= src_x and sid != trans.target
+                is_self = sid == trans.target
+
+                # Determine anchor points (stored > defaults)
+                ak = f"{sid}:{trans.action}"
+                stored = rule.transition_anchors.get(ak)
+                if stored and len(stored) == 2:
+                    src_a, tgt_a = stored[0], stored[1]
+                elif is_self:
+                    src_a, tgt_a = "right", "right"
+                elif is_back:
+                    src_a, tgt_a = "bottom", "bottom"
+                else:
+                    src_a, tgt_a = "right", "left"
 
                 key = (sid, trans.target)
                 idx = pair_seen.get(key, 0)
@@ -751,6 +977,8 @@ class WorkflowGraphWidget(QWidget):
                     click_callback=_make_cb(rule.id, trans) if self.mode == "run" else None,
                     edge_index=idx,
                     total_edges=total,
+                    src_anchor=src_a,
+                    tgt_anchor=tgt_a,
                 )
                 if self.mode == "edit":
                     edge.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
@@ -884,6 +1112,11 @@ class WorkflowGraphWidget(QWidget):
     # ── Edit mode — detail panel ──────────────────────────────────────────────
 
     def _on_selection_changed(self) -> None:
+        # Remove stale endpoint handles
+        for h in self._handles:
+            self._scene.removeItem(h)
+        self._handles.clear()
+
         selected = self._scene.selectedItems()
         # Clear old form widgets
         while self._detail_form_layout.rowCount():
@@ -902,6 +1135,12 @@ class WorkflowGraphWidget(QWidget):
             self._populate_state_detail(item)
         elif isinstance(item, TransitionEdge):
             self._populate_transition_detail(item)
+            # Show draggable endpoint handles for anchor repositioning
+            h_src = EndpointHandle(item, True,  self._on_anchor_committed)
+            h_tgt = EndpointHandle(item, False, self._on_anchor_committed)
+            self._scene.addItem(h_src)
+            self._scene.addItem(h_tgt)
+            self._handles = [h_src, h_tgt]
 
     def _populate_state_detail(self, node: StateNode) -> None:
         fl = self._detail_form_layout
@@ -965,6 +1204,50 @@ class WorkflowGraphWidget(QWidget):
         if self._rule is not None:
             self._rule.node_positions[state_id] = [new_pos.x(), new_pos.y()]
             self.rule_changed.emit()
+
+    # ── Edit mode — anchor-committed callback ─────────────────────────────────
+
+    def _on_anchor_committed(
+        self, edge: TransitionEdge, is_source: bool, new_anchor: str
+    ) -> None:
+        """Persist a new anchor for *edge*; swap if another edge already uses it."""
+        if not self._rule:
+            return
+        node = edge.src if is_source else edge.tgt
+        old_anchor = edge.src_anchor if is_source else edge.tgt_anchor
+
+        # Swap: if another edge already occupies new_anchor on the same node/side
+        for other in self._edges:
+            if other is edge:
+                continue
+            if is_source and other.src is node and other.src_anchor == new_anchor:
+                other.src_anchor = old_anchor
+                ak = f"{other.src.state_id}:{other.transition.action}"
+                self._rule.transition_anchors[ak] = [other.src_anchor, other.tgt_anchor]
+                other.prepareGeometryChange()
+                other.update()
+            elif not is_source and other.tgt is node and other.tgt_anchor == new_anchor:
+                other.tgt_anchor = old_anchor
+                ak = f"{other.src.state_id}:{other.transition.action}"
+                self._rule.transition_anchors[ak] = [other.src_anchor, other.tgt_anchor]
+                other.prepareGeometryChange()
+                other.update()
+
+        # Apply to this edge (may already be set by live preview)
+        if is_source:
+            edge.src_anchor = new_anchor
+        else:
+            edge.tgt_anchor = new_anchor
+        ak = f"{edge.src.state_id}:{edge.transition.action}"
+        self._rule.transition_anchors[ak] = [edge.src_anchor, edge.tgt_anchor]
+        edge.prepareGeometryChange()
+        edge.update()
+
+        # Snap handles to updated positions
+        for h in self._handles:
+            h._snap_to_edge()
+
+        self.rule_changed.emit()
 
 
 # ── Container for multiple graphs in run mode ─────────────────────────────────
