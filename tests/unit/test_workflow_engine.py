@@ -74,8 +74,8 @@ def test_requirements_check():
     assert engine.can_transition("NEW", "check", data) is True
 
 def test_semantic_integration():
-    from core.models.semantic import SemanticExtraction, FinanceBody, MonetarySummation
-    
+    from core.models.semantic import SemanticExtraction, FinanceBody, MonetarySummation, WorkflowInfo
+
     rule_data = {
         "id": "pay_flow",
         "states": {
@@ -87,24 +87,25 @@ def test_semantic_integration():
     }
     rule = WorkflowRule(**rule_data)
     engine = WorkflowEngine(rule)
-    
-    # 1. Setup Document
+
+    # 1. Setup Document with workflow in the dict
     sem = SemanticExtraction()
     sem.bodies["finance_body"] = FinanceBody(
         monetary_summation=MonetarySummation(grand_total_amount=50.0)
     )
-    
+    sem.workflows["pay_flow"] = WorkflowInfo(rule_id="pay_flow", current_step="NEW")
+
     # 2. Check if transition is possible
-    # We use the standardized path
     val = sem.get_financial_value("monetary_summation.grand_total_amount")
     data_for_check = {"monetary_summation.grand_total_amount": val}
-    
-    if engine.can_transition(sem.workflow.current_step, "verify", data_for_check):
-        next_s = engine.get_next_state(sem.workflow.current_step, "verify")
-        sem.workflow.apply_transition("verify", next_s, user="TEST_BOT")
-        
-    assert sem.workflow.current_step == "PAID"
-    assert "TRANSITION: verify" in sem.workflow.history[-1].action
+
+    wf = sem.workflows["pay_flow"]
+    if engine.can_transition(wf.current_step, "verify", data_for_check):
+        next_s = engine.get_next_state(wf.current_step, "verify")
+        wf.apply_transition("verify", next_s, user="TEST_BOT")
+
+    assert sem.workflows["pay_flow"].current_step == "PAID"
+    assert "TRANSITION: verify" in sem.workflows["pay_flow"].history[-1].action
 
 def test_registry_loading():
     from core.workflow import WorkflowRuleRegistry
@@ -117,7 +118,7 @@ def test_registry_loading():
     assert rule is not None
     assert rule.id == "invoice_standard"
     
-    # Check trigger find
-    found = registry.find_rule_for_tags(["INVOICE", "URGENT"])
-    assert found is not None
-    assert found.id == "invoice_standard"
+    # Check trigger find (multi-rule)
+    found_list = registry.find_rules_for_tags(["INVOICE", "URGENT"])
+    assert len(found_list) >= 1
+    assert any(r.id == "invoice_standard" for r in found_list)

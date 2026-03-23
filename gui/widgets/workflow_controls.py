@@ -9,8 +9,8 @@ logger = get_logger("gui.widgets.workflow_controls")
 
 class WorkflowControlsWidget(QWidget):
     """Dynamic UI component for document workflow transitions."""
-    transition_triggered = pyqtSignal(str, str, bool) # action, target_state, is_auto
-    rule_changed = pyqtSignal(str) # new rule_id
+    transition_triggered = pyqtSignal(str, str, str, bool)  # rule_id, action, target_state, is_auto
+    rule_changed = pyqtSignal(str)  # new rule_id (for manual reassignment)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -82,7 +82,7 @@ class WorkflowControlsWidget(QWidget):
             state_def = rule.states.get(self.current_step)
             auto_action = next((t.action for t in state_def.transitions if t.auto and t.target == auto_target), "auto")
             logger.info(f"[Workflow-UI] Triggering auto-transition '{auto_action}' to {auto_target}")
-            self.transition_triggered.emit(auto_action, auto_target, True)
+            self.transition_triggered.emit(self.rule_id, auto_action, auto_target, True)
             return
 
         state_def = rule.states.get(self.current_step)
@@ -157,7 +157,7 @@ class WorkflowControlsWidget(QWidget):
                     if missing:
                         btn.setToolTip(self.tr("Missing fields: %s") % ", ".join(missing))
                 
-                btn.clicked.connect(lambda checked, a=trans.action, t=trans.target: self.transition_triggered.emit(a, t, False))
+                btn.clicked.connect(lambda checked, a=trans.action, t=trans.target: self.transition_triggered.emit(self.rule_id, a, t, False))
                 self.buttons_layout.addWidget(btn)
         
         if state_def and state_def.final:

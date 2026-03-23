@@ -51,26 +51,30 @@ def test_sum_documents_advanced(db_manager, repo):
 def test_workflow_persistence(db_manager, repo):
     """Requirement: Workflow metadata is persisted and restored correctly."""
     u1 = "wf-doc-1"
+    wf_info = WorkflowInfo(
+        rule_id="test_flow",
+        is_verified=True,
+        pkv_eligible=True,
+        current_step="VERIFIED",
+        history=[WorkflowLog(action="INITIAL_SCAN"), WorkflowLog(action="MANUAL_VERIFY", user="TEST-USER")]
+    )
     v1 = VirtualDocument(
         uuid=u1,
         semantic_data=SemanticExtraction(
-            workflow=WorkflowInfo(
-                is_verified=True,
-                pkv_eligible=True,
-                current_step="VERIFIED",
-                history=[WorkflowLog(action="INITIAL_SCAN"), WorkflowLog(action="MANUAL_VERIFY", user="TEST-USER")]
-            )
+            workflows={"test_flow": wf_info}
         )
     )
     repo.save(v1)
-    
+
     # Reload
     v2 = repo.get_by_uuid(u1)
-    assert v2.semantic_data.workflow.is_verified is True
-    assert v2.semantic_data.workflow.pkv_eligible is True
-    assert v2.semantic_data.workflow.current_step == "VERIFIED"
-    assert len(v2.semantic_data.workflow.history) == 2
-    assert v2.semantic_data.workflow.history[1].user == "TEST-USER"
+    assert "test_flow" in v2.semantic_data.workflows
+    restored = v2.semantic_data.workflows["test_flow"]
+    assert restored.is_verified is True
+    assert restored.pkv_eligible is True
+    assert restored.current_step == "VERIFIED"
+    assert len(restored.history) == 2
+    assert restored.history[1].user == "TEST-USER"
 
 def test_workflow_actions(db_manager, repo):
     """Requirement: Manual verification updates status, timestamp, and locks document."""
@@ -85,20 +89,23 @@ def test_workflow_actions(db_manager, repo):
         from core.models.semantic import SemanticExtraction
         doc.semantic_data = SemanticExtraction()
     
-    doc.semantic_data.workflow.is_verified = True
-    doc.semantic_data.workflow.verified_at = datetime.now().isoformat()
-    doc.semantic_data.workflow.history.append(WorkflowLog(action="VERIFY", user="TestEngine"))
+    if "main_flow" not in doc.semantic_data.workflows:
+        doc.semantic_data.workflows["main_flow"] = WorkflowInfo(rule_id="main_flow")
+    wf = doc.semantic_data.workflows["main_flow"]
+    wf.is_verified = True
+    wf.verified_at = datetime.now().isoformat()
+    wf.history.append(WorkflowLog(action="VERIFY", user="TestEngine"))
     doc.status = "PROCESSED"
     doc.is_immutable = True
-    
+
     repo.save(doc)
-    
+
     # 3. Verify Reloaded State
     after = repo.get_by_uuid(u1)
     assert after.status == "PROCESSED"
     assert after.is_immutable is True
-    assert after.semantic_data.workflow.is_verified is True
-    assert after.semantic_data.workflow.history[-1].action == "VERIFY"
+    assert after.semantic_data.workflows["main_flow"].is_verified is True
+    assert after.semantic_data.workflows["main_flow"].history[-1].action == "VERIFY"
 
 
 def test_sum_advanced_empty_result(db_manager):

@@ -59,7 +59,7 @@ class RulesEngine:
         current_tags: Set[str] = set(v_doc.tags or [])
         original_tags: Set[str] = current_tags.copy()
         
-        new_workflow: Optional[str] = None
+        new_workflows: Set[str] = set()
         modified = False
 
         for rule in rules:
@@ -72,24 +72,27 @@ class RulesEngine:
                 # 2. Remove specified tags
                 if rule.tags_to_remove:
                     current_tags.difference_update(set(rule.tags_to_remove))
-                
-                # 3. Assign Workflow
+
+                # 3. Collect ALL matching workflows
                 if rule.assign_workflow:
-                    new_workflow = rule.assign_workflow
+                    new_workflows.add(rule.assign_workflow)
 
         # Check for tag changes
         if current_tags != original_tags:
             v_doc.tags = sorted(list(current_tags))
             modified = True
-            
-        # Check for workflow changes
-        if new_workflow:
+
+        # Check for workflow changes — assign all matching workflows
+        if new_workflows:
             if not v_doc.semantic_data:
                 from core.models.semantic import SemanticExtraction
                 v_doc.semantic_data = SemanticExtraction()
-            
-            if v_doc.semantic_data.workflow.rule_id != new_workflow:
-                v_doc.semantic_data.workflow.rule_id = new_workflow
-                modified = True
+            from core.models.semantic import WorkflowInfo
+            for workflow_id in new_workflows:
+                if workflow_id not in v_doc.semantic_data.workflows:
+                    v_doc.semantic_data.workflows[workflow_id] = WorkflowInfo(
+                        rule_id=workflow_id, current_step="NEW"
+                    )
+                    modified = True
 
         return modified

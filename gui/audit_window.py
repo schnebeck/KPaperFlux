@@ -3,7 +3,7 @@ logger = get_logger("gui.audit_window")
 import tempfile
 import os
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, 
     QLabel, QFrame, QScrollArea, QPushButton, QMainWindow, QStackedWidget
@@ -32,7 +32,7 @@ class AuditWindow(QMainWindow):
     A non-modal window for side-by-side verification of document vs. extracted data.
     """
     closed = pyqtSignal()
-    workflow_triggered = pyqtSignal(str, str, bool) # action, target, is_auto
+    workflow_triggered = pyqtSignal(str, str, str, bool)  # rule_id, action, target, is_auto
 
     def __init__(self, pipeline=None, parent=None):
         super().__init__(parent)
@@ -123,11 +123,15 @@ class AuditWindow(QMainWindow):
         self.controls_frame.setStyleSheet("background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px;")
         controls_layout = QHBoxLayout(self.controls_frame)
         
-        controls_layout.addStretch(1) # Left Stretch
-        
-        self.workflow_controls = WorkflowControlsWidget()
-        self.workflow_controls.transition_triggered.connect(self.workflow_triggered.emit)
-        controls_layout.addWidget(self.workflow_controls)
+        controls_layout.addStretch(1)  # Left Stretch
+
+        # Phase 113: Multi-Workflow Controls Container
+        self._workflow_controls: Dict[str, WorkflowControlsWidget] = {}
+        self.workflow_controls_container = QWidget()
+        self._workflow_controls_layout = QHBoxLayout(self.workflow_controls_container)
+        self._workflow_controls_layout.setContentsMargins(0, 0, 0, 0)
+        self._workflow_controls_layout.setSpacing(4)
+        controls_layout.addWidget(self.workflow_controls_container)
 
         self.btn_close = QPushButton()
         self.btn_close.setFixedWidth(120)
@@ -161,7 +165,7 @@ class AuditWindow(QMainWindow):
 
     def set_debug_mode(self, enabled: bool):
         """Hides workflow controls and shows only a close button."""
-        self.workflow_controls.setVisible(not enabled)
+        self.workflow_controls_container.setVisible(not enabled)
         self.btn_close.setVisible(enabled)
         if enabled:
             self.setWindowTitle(f"DEBUG: {self.windowTitle()}")
@@ -233,16 +237,11 @@ class AuditWindow(QMainWindow):
         self.setWindowTitle(f"Audit: {doc.original_filename or doc.uuid}")
 
     def _refresh_workflow_controls(self):
-        """Updates the workflow control widget based on current_doc."""
+        """Updates workflow control widgets based on current_doc's workflows dict."""
         doc = self.current_doc
         if not doc:
             return
 
-        # Prepare flat data for requirement check (Sync with MetadataEditor)
-        wf_data = getattr(doc.semantic_data, "workflow", None)
-        rule_id = wf_data.rule_id if wf_data else None
-        current_step = wf_data.current_step if wf_data else "NEW"
-        
         now = datetime.now()
         doc_data_for_wf = {
             "total_gross": doc.total_amount,
@@ -254,23 +253,42 @@ class AuditWindow(QMainWindow):
             "DAYS_IN_STATE": 0,
             "DAYS_UNTIL_DUE": 999
         }
-        
+
         try:
             if doc.created_at:
                 doc_data_for_wf["AGE_DAYS"] = (now - datetime.fromisoformat(doc.created_at)).days
-            
-            if wf_data and wf_data.history:
-                last_ts = wf_data.history[-1].timestamp
-                doc_data_for_wf["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
-                
             if doc.due_date:
                 dd_str = doc.due_date
-                if len(dd_str) == 10: dd_str += "T00:00:00"
+                if len(dd_str) == 10:
+                    dd_str += "T00:00:00"
                 doc_data_for_wf["DAYS_UNTIL_DUE"] = (datetime.fromisoformat(dd_str) - now).days
         except Exception as e:
             logger.debug(f"Time calculation failed: {e}")
 
-        self.workflow_controls.update_workflow(rule_id, current_step, doc_data_for_wf)
+        workflows = doc.semantic_data.workflows if doc.semantic_data else {}
+
+        # Remove stale controls
+        for rid in set(self._workflow_controls) - set(workflows):
+            ctrl = self._workflow_controls.pop(rid)
+            ctrl.setParent(None)
+
+        # Add/update controls
+        for rid, wf_info in workflows.items():
+            if rid not in self._workflow_controls:
+                ctrl = WorkflowControlsWidget()
+                ctrl.transition_triggered.connect(self.workflow_triggered.emit)
+                self._workflow_controls[rid] = ctrl
+                self._workflow_controls_layout.addWidget(ctrl)
+
+            wf_doc_data = dict(doc_data_for_wf)
+            try:
+                if wf_info.history:
+                    last_ts = wf_info.history[-1].timestamp
+                    wf_doc_data["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
+            except Exception as e:
+                logger.debug(f"DAYS_IN_STATE skipped for {rid}: {e}")
+
+            self._workflow_controls[rid].update_workflow(rid, wf_info.current_step, wf_doc_data)
 
     def _on_rendering_finished(self, pdf_path: str):
         """Called when background PDF generation is done."""

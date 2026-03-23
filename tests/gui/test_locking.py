@@ -53,7 +53,7 @@ def test_locking_ui_and_persistence(main_window, mock_db, qtbot):
     # Tab widget stays enabled for navigation, but input fields are read-only
     assert editor.tab_widget.isEnabled() == True
     assert editor.sender_edit.isReadOnly() == True
-    assert editor.workflow_controls.isEnabled() == False
+    assert editor.workflow_controls_container.isEnabled() == False
     
     # 4. Verify DB Update (Immediate)
     # Check if 'locked': True was passed in updates

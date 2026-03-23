@@ -82,17 +82,20 @@ def test_history_tab_visibility(qtbot, editor):
     """Verify history tab appears only if history exists."""
     doc = VirtualDocument(uuid="doc-history")
     doc.semantic_data = SemanticExtraction(
-        workflow=WorkflowInfo(history=[
-            WorkflowLog(timestamp="2026-02-26T04:00:00", action="CREATED")
-        ])
+        workflows={"test_flow": WorkflowInfo(
+            rule_id="test_flow",
+            history=[WorkflowLog(timestamp="2026-02-26T04:00:00", action="CREATED")]
+        )}
     )
-    
+
     editor.display_document(doc)
     assert editor.tab_widget.isTabVisible(8)
-    
+
     # Empty history
     doc2 = VirtualDocument(uuid="doc-no-history")
-    doc2.semantic_data = SemanticExtraction(workflow=WorkflowInfo(history=[]))
+    doc2.semantic_data = SemanticExtraction(
+        workflows={"test_flow": WorkflowInfo(rule_id="test_flow", history=[])}
+    )
     editor.display_document(doc2)
     assert not editor.tab_widget.isTabVisible(8)
 

@@ -598,6 +598,29 @@ class DatabaseManager:
             val = node.get("value")
             negate = node.get("negate", False)
 
+            # workflow_step: cross-rule check — matches if ANY active workflow has the given step
+            if field == "workflow_step":
+                wf_json = "json_extract(semantic_data, '$.workflows')"
+                if op == "is_not_empty":
+                    clause = f"({wf_json} IS NOT NULL AND {wf_json} != '{{}}')"
+                    params: List[Any] = []
+                elif op == "in" and isinstance(val, list):
+                    placeholders = ",".join("?" * len(val))
+                    clause = (
+                        f"EXISTS (SELECT 1 FROM json_each({wf_json}) "
+                        f"WHERE json_extract(value, '$.current_step') IN ({placeholders}))"
+                    )
+                    params = list(val)
+                else:  # equals, contains, etc.
+                    clause = (
+                        f"EXISTS (SELECT 1 FROM json_each({wf_json}) "
+                        f"WHERE json_extract(value, '$.current_step') = ?)"
+                    )
+                    params = [val]
+                if negate:
+                    return f"NOT ({clause})", params
+                return clause, params
+
             expr = self._map_field_to_sql(field)
             clause, params = self._map_op_to_sql(expr, op, val)
 
@@ -654,7 +677,7 @@ class DatabaseManager:
             "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
             "classification": "json_extract(type_tags, '$[0]')",
             "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
-            "workflow_step": "json_extract(semantic_data, '$.workflow.current_step')",
+            # workflow_step is handled specially in _build_where_clause (json_each subquery)
             "archived": "archived",
             "storage_location": "storage_location",
             "ai_confidence": "ai_confidence",

@@ -172,10 +172,10 @@ class VisualAuditResult(BaseModel):
 
 class SemanticExtraction(BaseModel):
     """The central extraction model. Strict but informative."""
-    model_config = ConfigDict(populate_by_name=True, extra="forbid", validate_assignment=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore", validate_assignment=True)
     meta_header: Optional[MetaHeader] = Field(default_factory=MetaHeader)
     bodies: Dict[str, Any] = Field(default_factory=dict)
-    workflow: Optional[WorkflowInfo] = Field(default_factory=WorkflowInfo)
+    workflows: Dict[str, WorkflowInfo] = Field(default_factory=dict)
     repaired_text: Optional[str] = None
     type_tags: List[str] = Field(default_factory=list)
     direction: Optional[str] = "INBOUND"

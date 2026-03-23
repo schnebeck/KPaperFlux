@@ -155,13 +155,17 @@ class WorkflowRuleRegistry:
     def get_rule(self, rule_id: str) -> Optional[WorkflowRule]:
         return self.rules.get(rule_id)
 
+    def find_rules_for_tags(self, tags: List[str]) -> List[WorkflowRule]:
+        """Returns all rules whose type_tag triggers match any of the given tags."""
+        return [
+            rule for rule in self.rules.values()
+            if any(t in tags for t in rule.triggers.get("type_tags", []))
+        ]
+
     def find_rule_for_tags(self, tags: List[str]) -> Optional[WorkflowRule]:
-        """Simple trigger-based lookup."""
-        for rule in self.rules.values():
-            trigger_tags = rule.triggers.get("type_tags", [])
-            if any(t in tags for t in trigger_tags):
-                return rule
-        return None
+        """Deprecated: returns only the first matching rule. Use find_rules_for_tags()."""
+        matches = self.find_rules_for_tags(tags)
+        return matches[0] if matches else None
 
     def list_rules(self) -> List[WorkflowRule]:
         """Returns all registered rules."""

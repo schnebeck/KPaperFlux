@@ -484,22 +484,20 @@ class WorkflowDashboardWidget(QWidget):
         self.rules_table.setRowCount(len(rules))
         
         for i, rule in enumerate(rules):
-            # Count per rule
-            rule_q = {"field": "semantic:workflow.rule_id", "op": "equals", "value": rule.id}
+            # Count per rule: any doc that has this rule assigned (step is not empty)
+            rule_step_field = f"semantic:workflows.{rule.id}.current_step"
+            rule_q = {"field": rule_step_field, "op": "is_not_empty", "value": None}
             count = self.db_manager.count_documents_advanced(rule_q)
             if not isinstance(count, (int, float)): count = 0
-            
-            # Finished count (final states)
+
+            # Finished count (docs in a final state for this rule)
             final_states = [sid for sid, s in rule.states.items() if s.final]
-            finished_q = {
-                "operator": "AND",
-                "conditions": [
-                    {"field": "semantic:workflow.rule_id", "op": "equals", "value": rule.id},
-                    {"field": "workflow_step", "op": "in", "value": final_states}
-                ]
-            }
-            finished_count = self.db_manager.count_documents_advanced(finished_q)
-            if not isinstance(finished_count, (int, float)): finished_count = 0
+            if final_states:
+                finished_q = {"field": rule_step_field, "op": "in", "value": final_states}
+                finished_count = self.db_manager.count_documents_advanced(finished_q)
+                if not isinstance(finished_count, (int, float)): finished_count = 0
+            else:
+                finished_count = 0
             
             total_history = count + finished_count
             rate = f"{(finished_count / total_history * 100):.1f}%" if total_history > 0 else "0%"
@@ -851,7 +849,7 @@ class WorkflowManagerWidget(QWidget):
         if not rule_id:
             return
         rule_name = self.combo_rules.currentText()
-        query = {"field": "semantic:workflow.rule_id", "op": "equals", "value": rule_id}
+        query = {"field": f"semantic:workflows.{rule_id}.current_step", "op": "is_not_empty", "value": None}
         payload = {
             "query": query,
             "label": self.tr("Documents in workflow '%1'").replace("%1", rule_name),

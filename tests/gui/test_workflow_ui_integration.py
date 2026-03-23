@@ -81,7 +81,7 @@ def test_ui_signal_emission(qtbot, controls):
         go_btn = controls.buttons_layout.itemAt(0).widget()
         qtbot.mouseClick(go_btn, Qt.MouseButton.LeftButton)
         
-    assert blocker.args == ["go", "NEXT", False]
+    assert blocker.args == ["test_signal_rule", "go", "NEXT", False]
 
 def test_auto_transition_emits_immediately(qtbot, controls):
     """
@@ -103,4 +103,4 @@ def test_auto_transition_emits_immediately(qtbot, controls):
     with qtbot.waitSignal(controls.transition_triggered) as blocker:
         controls.update_workflow("test_auto_ui", "NEW", {})
         
-    assert blocker.args == ["skip_me", "AUTO_STEP", True]
+    assert blocker.args == ["test_auto_ui", "skip_me", "AUTO_STEP", True]

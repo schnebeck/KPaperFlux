@@ -27,34 +27,38 @@ def test_manual_transition_updates_history(qtbot, editor):
         }
     )
     registry.rules["manual_rule"] = rule
-    
-    # Setup Doc
+
+    # Setup Doc with workflow in dict
     doc = VirtualDocument(uuid="test-uuid")
     doc.semantic_data = SemanticExtraction(
-        workflow=WorkflowInfo(rule_id="manual_rule", current_step="NEW")
+        workflows={"manual_rule": WorkflowInfo(rule_id="manual_rule", current_step="NEW")}
     )
-    
+
     editor.display_document(doc)
-    
-    # Find the button
+
+    # Find the workflow control for manual_rule
+    assert "manual_rule" in editor._workflow_controls
+    ctrl = editor._workflow_controls["manual_rule"]
+
+    # Find the verify button
     verify_btn = None
-    for i in range(editor.workflow_controls.buttons_layout.count()):
-        w = editor.workflow_controls.buttons_layout.itemAt(i).widget()
-        if w.text() == "Verify":
+    for i in range(ctrl.buttons_layout.count()):
+        w = ctrl.buttons_layout.itemAt(i).widget()
+        if w and "Verify" in w.text():
             verify_btn = w
             break
-    
+
     assert verify_btn is not None
-    
+
     # Click it
     qtbot.mouseClick(verify_btn, Qt.MouseButton.LeftButton)
-    
+
     # Verify History
-    history = doc.semantic_data.workflow.history
+    history = doc.semantic_data.workflows["manual_rule"].history
     assert len(history) == 1
     assert "TRANSITION: verify (NEW -> DONE)" in history[0].action
     assert history[0].user == "USER"
-    assert doc.semantic_data.workflow.current_step == "DONE"
+    assert doc.semantic_data.workflows["manual_rule"].current_step == "DONE"
 
 def test_auto_transition_updates_history_immediately(qtbot, editor):
     # Setup Rule with Auto-Transition
@@ -70,24 +74,21 @@ def test_auto_transition_updates_history_immediately(qtbot, editor):
         }
     )
     registry.rules["auto_rule"] = rule
-    
+
     # Setup Doc
     doc = VirtualDocument(uuid="auto-uuid")
     doc.semantic_data = SemanticExtraction(
-        workflow=WorkflowInfo(rule_id="auto_rule", current_step="NEW")
+        workflows={"auto_rule": WorkflowInfo(rule_id="auto_rule", current_step="NEW")}
     )
-    
+
     # Displaying doc should trigger the auto-transition
     editor.display_document(doc)
-    
+
     # The signal is emitted from WorkflowControlsWidget, caught by MetadataEditorWidget
-    # which updates the doc.
-    
-    # Note: Because the signal might be queued, we might need to wait or process events.
-    qtbot.wait(100) # Small wait to ensure signals are processed
-    
-    history = doc.semantic_data.workflow.history
+    qtbot.wait(100)  # Small wait to ensure signals are processed
+
+    history = doc.semantic_data.workflows["auto_rule"].history
     assert len(history) == 1
     assert "TRANSITION: skip (NEW -> AUTO_DONE)" in history[0].action
     assert history[0].user == "SYSTEM"
-    assert doc.semantic_data.workflow.current_step == "AUTO_DONE"
+    assert doc.semantic_data.workflows["auto_rule"].current_step == "AUTO_DONE"

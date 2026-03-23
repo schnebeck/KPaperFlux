@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
 from core.database import DatabaseManager
-from core.models.semantic import SemanticExtraction
+from core.models.semantic import SemanticExtraction, WorkflowInfo
 from core.models.virtual import VirtualDocument as Document
 from core.models.types import DocType
 from core.models.identity import IdentityProfile
@@ -521,12 +521,14 @@ class CanonizerService:
             target_doc.export_filename = smart_name
             target_doc.cached_full_text = semantic_extraction.get("repaired_text") or entity_text
             
-            # Phase 3: Workflow Assignment
-            if target_doc.semantic_data and not target_doc.semantic_data.workflow.rule_id:
-                pb = self.workflow_registry.find_rule_for_tags(target_doc.type_tags)
-                if pb:
-                    target_doc.semantic_data.workflow.rule_id = pb.id
-                    logger.info(f"Assigned rule '{pb.id}' to {target_doc.uuid}")
+            # Phase 3: Workflow Assignment — assign ALL matching rules
+            if target_doc.semantic_data:
+                for rule in self.workflow_registry.find_rules_for_tags(target_doc.type_tags):
+                    if rule.id not in target_doc.semantic_data.workflows:
+                        target_doc.semantic_data.workflows[rule.id] = WorkflowInfo(
+                            rule_id=rule.id, current_step="NEW"
+                        )
+                        logger.info(f"Assigned rule '{rule.id}' to {target_doc.uuid}")
 
             target_doc.status = DocumentStatus.PROCESSED
             target_doc.last_processed_at = datetime.now().isoformat()

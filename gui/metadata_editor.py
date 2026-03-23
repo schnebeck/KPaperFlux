@@ -406,11 +406,13 @@ class MetadataEditorWidget(QWidget):
         
         lock_layout.addStretch()
         
-        # Phase 111: Dynamic Workflow Controls
-        self.workflow_controls = WorkflowControlsWidget()
-        self.workflow_controls.transition_triggered.connect(self.on_workflow_transition)
-        self.workflow_controls.rule_changed.connect(self.on_rule_changed)
-        lock_layout.addWidget(self.workflow_controls)
+        # Phase 113: Multi-Workflow Controls Container
+        self._workflow_controls: Dict[str, WorkflowControlsWidget] = {}
+        self.workflow_controls_container = QWidget()
+        self._workflow_controls_layout = QHBoxLayout(self.workflow_controls_container)
+        self._workflow_controls_layout.setContentsMargins(0, 0, 0, 0)
+        self._workflow_controls_layout.setSpacing(4)
+        lock_layout.addWidget(self.workflow_controls_container)
         
         self.btn_audit = QPushButton()
         self.btn_audit.setFixedHeight(28)
@@ -871,67 +873,60 @@ class MetadataEditorWidget(QWidget):
                   self.pay_amount_edit, self.pay_purpose_edit]:
             w.textChanged.connect(self._mark_dirty)
 
-    def on_workflow_transition(self, action: str, target_state: str, is_auto: bool = False):
+    def on_workflow_transition(self, rule_id: str, action: str, target_state: str, is_auto: bool = False):
         """Action handler for workflow button clicks."""
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
-            
+
         source = "SYSTEM" if is_auto else "USER"
         comment = self.tr("Auto-transition triggered") if is_auto else self.tr("Action triggered via UI")
-        
-        logger.debug(f"Triggering ACTION '{action}' -> '{target_state}' (Auto: {is_auto})")
-        
+
+        logger.debug(f"Triggering ACTION '{action}' -> '{target_state}' on rule '{rule_id}' (Auto: {is_auto})")
+
         # 1. Update In-Memory Object
         sd = self.doc.semantic_data
-        if sd and sd.workflow:
-            sd.workflow.apply_transition(action, target_state, user=source, comment=comment)
-            
-            # If target state is 'PAID', we might want to update status to 'DONE' etc.
-            # But the playbook should ideally define if a state is 'final'.
-            # For now, we also sync the STATUS combo if it's a final state.
-            
+        if sd and rule_id in sd.workflows:
+            sd.workflows[rule_id].apply_transition(action, target_state, user=source, comment=comment)
+
             # 2. Persist to DB
             for u in self.current_uuids:
-                # In most cases it's just one, but we support batch if needed.
                 self.db_manager.update_document_metadata(u, {"semantic_data": sd})
-        
+
         # 3. Refresh UI
-        self.display_documents([self.doc]) 
+        self.display_documents([self.doc])
         self.metadata_saved.emit()
         show_notification(self, self.tr("Workflow Updated"), self.tr("State transitioned to %1").replace("%1", target_state))
 
     def on_rule_changed(self, new_rule_id: str):
-        """Handler for manual rule reassignment."""
+        """Handler for manual rule assignment (adds a new workflow to the dict)."""
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
-            
-        logger.debug(f"Changing Rule to '{new_rule_id}'")
-        
+
+        logger.debug(f"Manually assigning rule '{new_rule_id}'")
+
         sd = self.doc.semantic_data
-        if not sd: return
-        
-        if not sd.workflow:
-            from core.models.semantic import WorkflowInfo
-            sd.workflow = WorkflowInfo()
-            
-        sd.workflow.rule_id = new_rule_id if new_rule_id else None
-        # Reset step to NEW if changing rule? Usually yes.
-        sd.workflow.current_step = "NEW"
-        
-        # Log it
-        sd.workflow.history.append(WorkflowLog(
-            action=f"RULE_CHANGE: {new_rule_id or 'NONE'}",
-            comment="Manual reassignment"
-        ))
-        
+        if not sd:
+            return
+
+        if new_rule_id:
+            if new_rule_id not in sd.workflows:
+                sd.workflows[new_rule_id] = WorkflowInfo(rule_id=new_rule_id, current_step="NEW")
+                sd.workflows[new_rule_id].history.append(WorkflowLog(
+                    action=f"RULE_ASSIGN: {new_rule_id}",
+                    comment="Manual assignment"
+                ))
+        else:
+            # "None" selected — clear all manually, keep empty dict
+            sd.workflows.clear()
+
         # Persist
         for u in self.current_uuids:
             self.db_manager.update_document_metadata(u, {"semantic_data": sd})
-            
+
         self.display_documents([self.doc])
         self.metadata_saved.emit()
         show_notification(self, self.tr("Workflow Updated"), self.tr("Rule assigned: %1").replace("%1", new_rule_id or self.tr("None")))
-        
+
         # Live Update Audit Window
         if self.audit_window and self.audit_window.isVisible():
             self.audit_window.display_document(self.doc)
@@ -961,17 +956,16 @@ class MetadataEditorWidget(QWidget):
         self.btn_save.setEnabled(True)
         self.btn_save.setStyleSheet("background-color: #e8f5e9; font-weight: bold; border: 1px solid #c8e6c9;")
         
-        # Phase 111: Hot-update workflow buttons as the user types
+        # Phase 113: Hot-update all active workflow controls as the user types
         if self.doc and self.doc.semantic_data:
-            wf = self.doc.semantic_data.workflow
-            if wf and wf.rule_id:
-                # Mock current data for the check
-                current_data = {
-                    "total_gross": self.pay_amount_edit.text(),
-                    "iban": self.pay_iban_edit.text(),
-                    "sender_name": self.sender_edit.text(),
-                }
-                self.workflow_controls.update_workflow(wf.rule_id, wf.current_step, current_data)
+            current_data = {
+                "total_gross": self.pay_amount_edit.text(),
+                "iban": self.pay_iban_edit.text(),
+                "sender_name": self.sender_edit.text(),
+            }
+            for rule_id, wf in self.doc.semantic_data.workflows.items():
+                if rule_id in self._workflow_controls:
+                    self._workflow_controls[rule_id].update_workflow(rule_id, wf.current_step, current_data)
 
     def _reset_dirty(self):
         """Disable save button and reset style."""
@@ -994,7 +988,9 @@ class MetadataEditorWidget(QWidget):
         we selectively make input fields read-only or disabled.
         """
         # 1. Main Workflow Controls
-        self.workflow_controls.setEnabled(not checked)
+        self.workflow_controls_container.setEnabled(not checked)
+        for ctrl in self._workflow_controls.values():
+            ctrl.setEnabled(not checked)
         
         # 2. Main Save Button
         if checked:
@@ -1260,23 +1256,15 @@ class MetadataEditorWidget(QWidget):
 
         self._populate_semantic_table(sd_dict)
 
-        # Workflow Logic
-        if sd and (not getattr(sd, "workflow", None) or not sd.workflow.rule_id):
-            from core.workflow import WorkflowRuleRegistry
-            registry = WorkflowRuleRegistry()
+        # Phase 113: Multi-Workflow Logic — auto-assign all matching rules
+        if sd:
             tags = doc.type_tags or []
-            matched_pb = registry.find_rule_for_tags(tags)
-            if matched_pb:
-                if not getattr(sd, "workflow", None):
-                    sd.workflow = WorkflowInfo()
-                sd.workflow.rule_id = matched_pb.id
-                sd.workflow.current_step = "NEW"
-                self._mark_dirty()
+            registry = WorkflowRuleRegistry()
+            for rule in registry.find_rules_for_tags(tags):
+                if rule.id not in sd.workflows:
+                    sd.workflows[rule.id] = WorkflowInfo(rule_id=rule.id, current_step="NEW")
+                    self._mark_dirty()
 
-        wf_data = getattr(sd, "workflow", None)
-        rule_id = wf_data.rule_id if wf_data else None
-        current_step = wf_data.current_step if wf_data else "NEW"
-        
         now = datetime.now()
         doc_data_for_wf = {
             "total_gross": doc.total_amount,
@@ -1288,28 +1276,64 @@ class MetadataEditorWidget(QWidget):
             "DAYS_IN_STATE": 0,
             "DAYS_UNTIL_DUE": 999
         }
-        
+
         try:
             if doc.created_at:
                 doc_data_for_wf["AGE_DAYS"] = (now - datetime.fromisoformat(doc.created_at)).days
-            
-            if wf_data and wf_data.history:
-                last_ts = wf_data.history[-1].timestamp
-                doc_data_for_wf["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
-                
             if doc.due_date:
                 dd_str = doc.due_date
-                if len(dd_str) == 10: dd_str += "T00:00:00"
+                if len(dd_str) == 10:
+                    dd_str += "T00:00:00"
                 doc_data_for_wf["DAYS_UNTIL_DUE"] = (datetime.fromisoformat(dd_str) - now).days
         except Exception as e:
-             logger.debug(f"Workflow date calculation skipped: {e}")
+            logger.debug(f"Workflow date calculation skipped: {e}")
 
-        self.workflow_controls.update_workflow(rule_id, current_step, doc_data_for_wf)
-        
+        # Rebuild workflow control widgets to match current workflows dict
+        existing_rule_ids = set(self._workflow_controls.keys())
+        current_rule_ids = set(sd.workflows.keys()) if sd else set()
+
+        # Remove stale controls
+        for rid in existing_rule_ids - current_rule_ids:
+            ctrl = self._workflow_controls.pop(rid)
+            ctrl.setParent(None)
+
+        # Add/update controls
+        for rid, wf_info in (sd.workflows.items() if sd else {}.items()):
+            if rid not in self._workflow_controls:
+                ctrl = WorkflowControlsWidget()
+                ctrl.transition_triggered.connect(self.on_workflow_transition)
+                ctrl.rule_changed.connect(self.on_rule_changed)
+                self._workflow_controls[rid] = ctrl
+                self._workflow_controls_layout.addWidget(ctrl)
+
+            wf_doc_data = dict(doc_data_for_wf)
+            try:
+                if wf_info.history:
+                    last_ts = wf_info.history[-1].timestamp
+                    wf_doc_data["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
+            except Exception as e:
+                logger.debug(f"DAYS_IN_STATE skipped for {rid}: {e}")
+
+            self._workflow_controls[rid].update_workflow(rid, wf_info.current_step, wf_doc_data)
+
+        # If no workflows exist, show a single empty control for rule assignment
+        if not current_rule_ids and not self._workflow_controls:
+            ctrl = WorkflowControlsWidget()
+            ctrl.transition_triggered.connect(self.on_workflow_transition)
+            ctrl.rule_changed.connect(self.on_rule_changed)
+            self._workflow_controls["__empty__"] = ctrl
+            self._workflow_controls_layout.addWidget(ctrl)
+            ctrl.update_workflow(None, "NEW", doc_data_for_wf)
+        elif "__empty__" in self._workflow_controls and current_rule_ids:
+            ctrl = self._workflow_controls.pop("__empty__")
+            ctrl.setParent(None)
+
+        # PKV checkbox: show state of first workflow that has pkv_eligible set
+        first_wf = next(iter(sd.workflows.values()), None) if sd else None
         with QSignalBlocker(self.chk_pkv):
-            self.chk_pkv.setChecked(wf_data.pkv_eligible if wf_data else False)
+            self.chk_pkv.setChecked(first_wf.pkv_eligible if first_wf else False)
 
-        self._populate_history_table(wf_data)
+        self._populate_history_table(sd.workflows if sd else {})
 
         # Extracted Data
         self.sender_edit.setText(doc.sender_name or "")
@@ -1451,8 +1475,10 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.setTabVisible(7, has_raw_sd)
 
         # 8: History
-        wf_data = getattr(doc.semantic_data, "workflow", None) if doc.semantic_data else None
-        has_history = bool(wf_data and wf_data.history)
+        has_history = any(
+            wf.history
+            for wf in (doc.semantic_data.workflows.values() if doc.semantic_data else [])
+        )
         self.tab_widget.setTabVisible(8, has_history)
 
     def _add_stamp_row(self):
@@ -1468,29 +1494,35 @@ class MetadataEditorWidget(QWidget):
         for row in indices:
             self.stamps_table.removeRow(row)
 
-    def _populate_history_table(self, wf_data):
-        """Displays the audit log of workflow transitions."""
+    def _populate_history_table(self, workflows: Dict):
+        """Displays the combined audit log of all workflow transitions."""
         self.history_table.setRowCount(0)
         idx_history = self.tab_widget.indexOf(self.history_tab)
-        
-        if not wf_data or not wf_data.history:
+
+        # Collect all entries from all workflows, tagged with rule_id
+        all_entries = []
+        for rule_id, wf_info in workflows.items():
+            for entry in wf_info.history:
+                all_entries.append((rule_id, entry))
+
+        if not all_entries:
             self.tab_widget.setTabVisible(idx_history, False)
             return
-            
+
         self.tab_widget.setTabVisible(idx_history, True)
-        # Reverse display to show newest first
-        for entry in reversed(wf_data.history):
+
+        # Sort all entries newest first by timestamp
+        all_entries.sort(key=lambda x: x[1].timestamp, reverse=True)
+
+        for rule_id, entry in all_entries:
             row = self.history_table.rowCount()
             self.history_table.insertRow(row)
-            
-            # Timestamp formatting
             ts = format_datetime(entry.timestamp)
-            
             self.history_table.setItem(row, 0, QTableWidgetItem(ts))
-            self.history_table.setItem(row, 1, QTableWidgetItem(entry.action))
+            self.history_table.setItem(row, 1, QTableWidgetItem(f"[{rule_id}] {entry.action}"))
             self.history_table.setItem(row, 2, QTableWidgetItem(entry.user or "SYSTEM"))
             self.history_table.setItem(row, 3, QTableWidgetItem(entry.comment or ""))
-            
+
         self.history_table.resizeRowsToContents()
 
     def _add_semantic_row(self):
@@ -1787,10 +1819,9 @@ class MetadataEditorWidget(QWidget):
         sd.direction = direction.upper()
         sd.tenant_context = context.upper()
         
-        # Workflow Persistence
-        if not sd.workflow:
-            sd.workflow = WorkflowInfo()
-        sd.workflow.pkv_eligible = self.chk_pkv.isChecked()
+        # Workflow Persistence — store pkv_eligible in all active workflows
+        for wf_info in sd.workflows.values():
+            wf_info.pkv_eligible = self.chk_pkv.isChecked()
 
         # Phase 107: Automatic Pruning of mismatched semantic bodies
         mapping = {
