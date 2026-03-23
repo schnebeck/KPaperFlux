@@ -329,6 +329,8 @@ def fill():
             "Workflow Updated": "Ablauf aktualisiert",
             "State transitioned to %1": "Status gewechselt zu %1",
             "Rule assigned: %1": "Regel zugewiesen: %1",
+            "Auto-transition triggered": "Automatischer Übergang ausgelöst",
+            "Action triggered via UI": "Aktion per Oberfläche ausgelöst",
             "None": "Keine",
             "Audit": "Prüfung",
             "Please select a document first.": "Bitte wählen Sie zuerst ein Dokument aus.",
@@ -388,6 +390,7 @@ def fill():
             "None": "Keiner",
             "Missing fields: %s": "Fehlende Felder: %s",
             "Change/Assign Rule": "Regel ändern/zuweisen",
+            "Rule '%s' missing": "Regel '%s' nicht gefunden",
         },
         "AdvancedFilterWidget": {
             "Search in current view only": "Nur in aktueller Ansicht suchen",
