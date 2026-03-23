@@ -380,23 +380,16 @@ class WorkflowManagerWidget(QWidget):
         line2.setStyleSheet("color: #ddd;")
         editor_layout.addWidget(line2)
 
-        # Form Editor Area
-        h_center = QHBoxLayout()
-        h_center.addStretch(1)
-        
+        # Form Editor Area — full width, no centering constraint
         self.content_container = QWidget()
-        self.content_container.setFixedWidth(1000)
         content_layout = QVBoxLayout(self.content_container)
-        content_layout.setContentsMargins(0, 20, 0, 0)
-        
+        content_layout.setContentsMargins(0, 8, 0, 0)
+
         self.form_editor = WorkflowRuleFormEditor()
         self.form_editor.changed.connect(self._mark_dirty)
         content_layout.addWidget(self.form_editor, 1)
-        
-        h_center.addWidget(self.content_container)
-        h_center.addStretch(1)
-        
-        editor_layout.addLayout(h_center, 1)
+
+        editor_layout.addWidget(self.content_container, 1)
 
         self.main_stack.addWidget(self.editor_widget)
         layout.addWidget(self.main_stack, 1)

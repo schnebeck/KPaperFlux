@@ -809,6 +809,9 @@ class WorkflowGraphWidget(QWidget):
         if r.isNull() or self._view.width() < 10:
             return
         padded = r.adjusted(-24, -24, 24, 24)
+        # Constrain scene rect to actual content so the background does not
+        # bleed into empty areas left/right of the fitted items.
+        self._scene.setSceneRect(padded)
         self._view.fitInView(padded, Qt.AspectRatioMode.KeepAspectRatio)
 
     def showEvent(self, event) -> None:
