@@ -161,11 +161,12 @@ class WorkflowRuleFormEditor(QWidget):
         """Updates all UI strings for on-the-fly localization."""
         self.lbl_name.setText(self.tr("Rule Name:"))
         self.lbl_desc.setText(self.tr("Description:"))
-        self.lbl_triggers.setText(self.tr("Regex Triggers:"))
-        
+        self.lbl_triggers.setText(self.tr("Tag Triggers:"))
+        self.lbl_triggers.setToolTip(self.tr("Comma-separated type_tags that activate this rule (e.g. INVOICE, ORDER_CONFIRMATION). Multiple rules may share the same tag."))
+
         self.edit_name.setPlaceholderText(self.tr("Enter rule name..."))
         self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
-        self.edit_triggers.setPlaceholderText(self.tr("INVOICE, TELEKOM, ..."))
+        self.edit_triggers.setPlaceholderText(self.tr("INVOICE, ORDER_CONFIRMATION, ..."))
 
         self.btn_add_state.setText("✚ " + self.tr("Add State"))
         self.btn_del_state.setText("▬ " + self.tr("Remove State"))

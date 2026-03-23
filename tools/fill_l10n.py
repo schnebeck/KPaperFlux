@@ -428,10 +428,11 @@ def fill():
         "WorkflowRuleFormEditor": {
             "Rule Name:": "Name des Ablaufs:",
             "Description:": "Beschreibung:",
-            "Regex Triggers:": "Regex Auslöser:",
+            "Tag Triggers:": "Tag-Auslöser:",
+            "Comma-separated type_tags that activate this rule (e.g. INVOICE, ORDER_CONFIRMATION). Multiple rules may share the same tag.": "Kommagetrennte Typ-Tags, die diese Regel auslösen (z.B. RECHNUNG, AUFTRAGSBESTÄTIGUNG). Mehrere Regeln dürfen denselben Tag verwenden.",
             "Enter rule name...": "Ablaufname eingeben...",
             "What does this rule do?": "Was macht dieser Ablauf?",
-            "INVOICE, TELEKOM, ...": "RECHNUNG, TELEKOM, ...",
+            "INVOICE, ORDER_CONFIRMATION, ...": "RECHNUNG, AUFTRAGSBESTÄTIGUNG, ...",
             "Add State": "Status hinzufügen",
             "Remove State": "Status entfernen",
             "Move State Up": "Status hoch",

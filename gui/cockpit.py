@@ -190,6 +190,8 @@ class StatCard(QFrame):
         self._pos_anim.start()
 
     def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.filter_query is not None:
+            self.clicked.emit(self.filter_query)
         super().mousePressEvent(event)
 
     def _show_context_menu(self, pos):
