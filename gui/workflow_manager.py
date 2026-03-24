@@ -10,12 +10,13 @@ from PyQt6.QtWidgets import (
     QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog,
     QStackedWidget, QButtonGroup
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize, QEvent, QTimer
 from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowEngine
-from gui.widgets.workflow_graph import WorkflowGraphWidget
+from gui.widgets.workflow_graph import WorkflowGraphWidget, StateNode, TransitionEdge
 from gui.cockpit import StatCard
 from typing import Dict, List, Any, Optional
 from core.logger import get_logger
+from core.semantic_translator import SemanticTranslator
 
 logger = get_logger("gui.workflow_manager")
 
@@ -30,56 +31,121 @@ class WorkflowRuleFormEditor(QWidget):
         self._lock_signals = False
 
     def _init_ui(self):
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Metadata Header (Always visible)
-        self.meta_frame = QFrame()
-        self.meta_frame.setObjectName("WorkflowRuleMetaFrame")
-        self.meta_frame.setStyleSheet("""
-            QFrame#WorkflowRuleMetaFrame {
-                background: #fdfdfd;
-                border: 1px solid #e0e0e0;
-                border-radius: 6px;
-            }
-        """)
-        meta_inner_layout = QVBoxLayout(self.meta_frame)
-        meta_inner_layout.setContentsMargins(8, 6, 8, 6)
-        meta_inner_layout.setSpacing(0)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        gen_layout = QFormLayout()
-        gen_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        gen_layout.setSpacing(5)
-        gen_layout.setContentsMargins(0, 0, 0, 0)
+        self._splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._splitter.setChildrenCollapsible(False)
+
+        # ── Left panel: rule metadata ──────────────────────────────────────
+        self._left_panel = QFrame()
+        self._left_panel.setMinimumWidth(28)
+        lp_layout = QVBoxLayout(self._left_panel)
+        lp_layout.setContentsMargins(0, 0, 0, 0)
+        lp_layout.setSpacing(0)
+
+        lp_hdr = QFrame()
+        lp_hdr.setFixedHeight(28)
+        lp_hdr.setStyleSheet("background:#e8eaf6; border-bottom:1px solid #c5cae9;")
+        lp_hdr_layout = QHBoxLayout(lp_hdr)
+        lp_hdr_layout.setContentsMargins(6, 0, 4, 0)
+        self.lbl_rule_panel = QLabel()
+        self.lbl_rule_panel.setStyleSheet("font-weight:bold; color:#3949ab; font-size:10px;")
+        lp_hdr_layout.addWidget(self.lbl_rule_panel)
+        lp_hdr_layout.addStretch()
+        self._btn_collapse_left = QToolButton()
+        self._btn_collapse_left.setFixedSize(20, 20)
+        self._btn_collapse_left.clicked.connect(self._toggle_left)
+        lp_hdr_layout.addWidget(self._btn_collapse_left)
+        lp_layout.addWidget(lp_hdr)
+
+        self._left_content = QWidget()
+        lc_layout = QFormLayout(self._left_content)
+        lc_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        lc_layout.setContentsMargins(8, 8, 8, 8)
+        lc_layout.setSpacing(6)
 
         self.edit_name = QLineEdit()
-        self.edit_name.setPlaceholderText(self.tr("Enter rule name..."))
         self.edit_desc = QLineEdit()
-        self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
         self.edit_triggers = QLineEdit()
-        self.edit_triggers.setPlaceholderText(self.tr("INVOICE, TELEKOM, ..."))
-        
         self.edit_name.textChanged.connect(self._on_changed)
         self.edit_desc.textChanged.connect(self._on_changed)
         self.edit_triggers.textChanged.connect(self._on_changed)
-        
+
         self.lbl_name = QLabel()
         self.lbl_desc = QLabel()
         self.lbl_triggers = QLabel()
+        lc_layout.addRow(self.lbl_name, self.edit_name)
+        lc_layout.addRow(self.lbl_desc, self.edit_desc)
+        lc_layout.addRow(self.lbl_triggers, self.edit_triggers)
 
-        gen_layout.addRow(self.lbl_name, self.edit_name)
-        gen_layout.addRow(self.lbl_desc, self.edit_desc)
-        gen_layout.addRow(self.lbl_triggers, self.edit_triggers)
-        
-        meta_inner_layout.addLayout(gen_layout)
-        self.main_layout.addWidget(self.meta_frame)
-        self.main_layout.setSpacing(4)
+        lp_layout.addWidget(self._left_content)
+        lp_layout.addStretch()
+        self._splitter.addWidget(self._left_panel)
 
-        # Visual graph editor (replaces states/transitions tables)
-        self._graph_widget = WorkflowGraphWidget(mode="edit")
+        # ── Center: graph widget (no inline detail panel) ──────────────────
+        self._graph_widget = WorkflowGraphWidget(mode="edit", inline_detail=False)
         self._graph_widget.rule_changed.connect(self._on_changed)
-        self.main_layout.addWidget(self._graph_widget)
+        self._graph_widget.item_selected.connect(self._on_item_selected)
+        self._splitter.addWidget(self._graph_widget)
 
+        # ── Right panel: state/transition properties ───────────────────────
+        self._right_panel = QFrame()
+        self._right_panel.setMinimumWidth(28)
+        rp_layout = QVBoxLayout(self._right_panel)
+        rp_layout.setContentsMargins(0, 0, 0, 0)
+        rp_layout.setSpacing(0)
+
+        rp_hdr = QFrame()
+        rp_hdr.setFixedHeight(28)
+        rp_hdr.setStyleSheet("background:#e8eaf6; border-bottom:1px solid #c5cae9;")
+        rp_hdr_layout = QHBoxLayout(rp_hdr)
+        rp_hdr_layout.setContentsMargins(4, 0, 6, 0)
+        self._btn_collapse_right = QToolButton()
+        self._btn_collapse_right.setFixedSize(20, 20)
+        self._btn_collapse_right.clicked.connect(self._toggle_right)
+        rp_hdr_layout.addWidget(self._btn_collapse_right)
+        rp_hdr_layout.addStretch()
+        self.lbl_props_panel = QLabel()
+        self.lbl_props_panel.setStyleSheet("font-weight:bold; color:#3949ab; font-size:10px;")
+        rp_hdr_layout.addWidget(self.lbl_props_panel)
+        rp_layout.addWidget(rp_hdr)
+
+        self._right_content = QWidget()
+        rc_layout = QVBoxLayout(self._right_content)
+        rc_layout.setContentsMargins(8, 8, 8, 8)
+        rc_layout.setSpacing(6)
+
+        self._detail_hint = QLabel()
+        self._detail_hint.setStyleSheet("color:#94a3b8; font-style:italic;")
+        self._detail_hint.setWordWrap(True)
+        rc_layout.addWidget(self._detail_hint)
+
+        self._detail_form = QFrame()
+        self._detail_form_layout = QFormLayout(self._detail_form)
+        self._detail_form_layout.setContentsMargins(0, 0, 0, 0)
+        self._detail_form_layout.setSpacing(6)
+        self._detail_form.hide()
+        rc_layout.addWidget(self._detail_form)
+        rc_layout.addStretch()
+
+        rp_layout.addWidget(self._right_content, 1)
+        self._splitter.addWidget(self._right_panel)
+
+        self._splitter.setStretchFactor(0, 0)
+        self._splitter.setStretchFactor(1, 1)
+        self._splitter.setStretchFactor(2, 0)
+
+        layout.addWidget(self._splitter, 1)
+
+        # Collapse state
+        self._left_expanded = True
+        self._right_expanded = True
+        self._left_saved_w = 220
+        self._right_saved_w = 240
+
+        QTimer.singleShot(0, self._init_splitter_sizes)
         self.retranslate_ui()
 
     def changeEvent(self, event):
@@ -89,6 +155,11 @@ class WorkflowRuleFormEditor(QWidget):
 
     def retranslate_ui(self):
         """Updates all UI strings for on-the-fly localization."""
+        self.lbl_rule_panel.setText(self.tr("Rule"))
+        self.lbl_props_panel.setText(self.tr("Properties"))
+        self._detail_hint.setText(self.tr("Select a state or transition to edit its properties."))
+        self._update_collapse_buttons()
+
         self.lbl_name.setText(self.tr("Rule Name:"))
         self.lbl_desc.setText(self.tr("Description:"))
         self.lbl_triggers.setText(self.tr("Tag Triggers:"))
@@ -120,8 +191,116 @@ class WorkflowRuleFormEditor(QWidget):
         graph_rule = self._graph_widget.get_rule()
         states = graph_rule.states if graph_rule else {}
         node_positions = graph_rule.node_positions if graph_rule else {}
+        transition_anchors = graph_rule.transition_anchors if graph_rule else {}
         return WorkflowRule(id=pb_id, name=name, description=desc, states=states,
-                            triggers={"type_tags": triggers}, node_positions=node_positions)
+                            triggers={"type_tags": triggers}, node_positions=node_positions,
+                            transition_anchors=transition_anchors)
+
+    def _init_splitter_sizes(self) -> None:
+        total = self._splitter.width()
+        if total > 100:
+            center = max(200, total - self._left_saved_w - self._right_saved_w)
+            self._splitter.setSizes([self._left_saved_w, center, self._right_saved_w])
+
+    def _update_collapse_buttons(self) -> None:
+        if hasattr(self, "_btn_collapse_left"):
+            self._btn_collapse_left.setText("◀" if self._left_expanded else "▶")
+        if hasattr(self, "_btn_collapse_right"):
+            self._btn_collapse_right.setText("▶" if self._right_expanded else "◀")
+
+    def _toggle_left(self) -> None:
+        sizes = self._splitter.sizes()
+        if self._left_expanded:
+            self._left_saved_w = max(sizes[0], 80)
+            self._splitter.setSizes([28, sizes[1] + sizes[0] - 28, sizes[2]])
+            self._left_content.hide()
+            self._left_expanded = False
+        else:
+            w = self._left_saved_w
+            self._splitter.setSizes([w, sizes[1] - w + 28, sizes[2]])
+            self._left_content.show()
+            self._left_expanded = True
+        self._update_collapse_buttons()
+
+    def _toggle_right(self) -> None:
+        sizes = self._splitter.sizes()
+        if self._right_expanded:
+            self._right_saved_w = max(sizes[2], 80)
+            self._splitter.setSizes([sizes[0], sizes[1] + sizes[2] - 28, 28])
+            self._right_content.hide()
+            self._right_expanded = False
+        else:
+            w = self._right_saved_w
+            self._splitter.setSizes([sizes[0], sizes[1] - w + 28, w])
+            self._right_content.show()
+            self._right_expanded = True
+        self._update_collapse_buttons()
+
+    def _on_item_selected(self, item) -> None:
+        fl = self._detail_form_layout
+        while fl.rowCount():
+            fl.removeRow(0)
+        if item is None:
+            self._detail_hint.show()
+            self._detail_form.hide()
+            return
+        self._detail_hint.hide()
+        self._detail_form.show()
+        if isinstance(item, StateNode):
+            self._fill_state_detail(item, fl)
+        elif isinstance(item, TransitionEdge):
+            self._fill_transition_detail(item, fl)
+
+    def _fill_state_detail(self, node: "StateNode", fl) -> None:
+        fl.addRow(self.tr("ID:"), QLabel(node.state_id))
+        lbl_edit = QLineEdit(node.state_def.label)
+        fl.addRow(self.tr("Label:"), lbl_edit)
+        final_chk = QCheckBox()
+        final_chk.setChecked(node.state_def.final)
+        fl.addRow(self.tr("Final state:"), final_chk)
+
+        def _apply():
+            node.state_def.label = lbl_edit.text().strip()
+            node.display_label = (
+                SemanticTranslator.instance().translate(node.state_def.label)
+                or node.state_id
+            )
+            node.state_def.final = final_chk.isChecked()
+            node.update()
+            self._graph_widget._rebuild()
+            self._on_changed()
+
+        apply_btn = QPushButton(self.tr("Apply"))
+        apply_btn.setFixedHeight(26)
+        apply_btn.clicked.connect(_apply)
+        fl.addRow("", apply_btn)
+
+    def _fill_transition_detail(self, edge: "TransitionEdge", fl) -> None:
+        t = edge.transition
+        action_edit = QLineEdit(t.action)
+        fl.addRow(self.tr("Action:"), action_edit)
+        auto_chk = QCheckBox()
+        auto_chk.setChecked(t.auto)
+        fl.addRow(self.tr("Auto:"), auto_chk)
+        req_edit = QLineEdit(", ".join(t.required_fields))
+        req_edit.setPlaceholderText("iban, total_gross, …")
+        fl.addRow(self.tr("Required Fields:"), req_edit)
+
+        def _apply():
+            new_action = action_edit.text().strip().lower()
+            if not new_action:
+                return
+            t.action = new_action
+            t.auto = auto_chk.isChecked()
+            t.required_fields = [f.strip() for f in req_edit.text().split(",") if f.strip()]
+            self._graph_widget._rebuild()
+            self._on_changed()
+
+        apply_btn = QPushButton(self.tr("Apply"))
+        apply_btn.setFixedHeight(26)
+        apply_btn.clicked.connect(_apply)
+        fl.addRow("", apply_btn)
+
 
 class WorkflowDashboardWidget(QWidget):
     """Overview of workflow performance and document distribution."""

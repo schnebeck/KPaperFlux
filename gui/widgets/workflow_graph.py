@@ -714,8 +714,9 @@ class WorkflowGraphWidget(QWidget):
 
     transition_triggered = pyqtSignal(str, str, str, bool)  # rule_id, action, target, is_auto
     rule_changed = pyqtSignal()  # edit mode: underlying rule was modified
+    item_selected = pyqtSignal(object)   # emitted in non-inline mode on selection change
 
-    def __init__(self, mode: str = "run", parent=None) -> None:
+    def __init__(self, mode: str = "run", parent=None, inline_detail: bool = True) -> None:
         super().__init__(parent)
         assert mode in ("run", "edit")
         self.mode = mode
@@ -725,6 +726,8 @@ class WorkflowGraphWidget(QWidget):
         self._nodes: Dict[str, StateNode] = {}
         self._edges: List[TransitionEdge] = []
         self._handles: List[EndpointHandle] = []
+        self.inline_detail = inline_detail
+        self._user_zoomed = False
         self._init_ui()
 
     # ── UI construction ───────────────────────────────────────────────────────
@@ -760,6 +763,14 @@ class WorkflowGraphWidget(QWidget):
         if self.mode == "edit":
             self._build_edit_toolbar(hdr)
 
+        # Zoom buttons (both modes)
+        for _txt, _slot in (("−", self._zoom_out), ("+", self._zoom_in)):
+            _b = QToolButton()
+            _b.setText(_txt)
+            _b.setFixedSize(26, 26)
+            hdr.addWidget(_b)
+            _b.clicked.connect(_slot)
+
         # Zoom-fit button (both modes)
         btn_fit = QToolButton()
         btn_fit.setText("⊞")
@@ -786,6 +797,8 @@ class WorkflowGraphWidget(QWidget):
             if self.mode == "run"
             else QGraphicsView.DragMode.RubberBandDrag
         )
+        self._view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._view.setFrameShape(QFrame.Shape.NoFrame)
         self._view.setBackgroundBrush(QBrush(C_SCENE_BG))
         self._view.setMinimumHeight(180)
@@ -795,7 +808,8 @@ class WorkflowGraphWidget(QWidget):
         vbox.addWidget(self._view, 1)
 
         if self.mode == "edit":
-            self._build_detail_panel(vbox)
+            if self.inline_detail:
+                self._build_detail_panel(vbox)
             self._scene.selectionChanged.connect(self._on_selection_changed)
 
     def _build_edit_toolbar(self, hdr: QHBoxLayout) -> None:
@@ -841,7 +855,7 @@ class WorkflowGraphWidget(QWidget):
         from PyQt6.QtCore import QEvent
         if event and event.type() == QEvent.Type.LanguageChange:
             self._retranslate_toolbar()
-            if self.mode == "edit":
+            if self.mode == "edit" and self.inline_detail:
                 self._detail_hint.setText(
                     self.tr("Select a state or transition to edit its properties.")
                 )
@@ -1039,10 +1053,18 @@ class WorkflowGraphWidget(QWidget):
         if r.isNull() or self._view.width() < 10:
             return
         padded = r.adjusted(-24, -24, 24, 24)
-        # Constrain scene rect to actual content so the background does not
-        # bleed into empty areas left/right of the fitted items.
-        self._scene.setSceneRect(padded)
+        # Generous sceneRect gives room to pan when zoomed in
+        self._scene.setSceneRect(r.adjusted(-300, -300, 300, 300))
         self._view.fitInView(padded, Qt.AspectRatioMode.KeepAspectRatio)
+        self._user_zoomed = False
+
+    def _zoom_in(self) -> None:
+        self._view.scale(1.25, 1.25)
+        self._user_zoomed = True
+
+    def _zoom_out(self) -> None:
+        self._view.scale(0.8, 0.8)
+        self._user_zoomed = True
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -1050,7 +1072,8 @@ class WorkflowGraphWidget(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        QTimer.singleShot(10, self._fit_view)
+        if not self._user_zoomed:
+            QTimer.singleShot(10, self._fit_view)
 
     # ── Edit mode — commands ──────────────────────────────────────────────────
 
@@ -1119,7 +1142,21 @@ class WorkflowGraphWidget(QWidget):
         self._handles.clear()
 
         selected = self._scene.selectedItems()
-        # Clear old form widgets
+        item = selected[0] if selected else None
+
+        # Endpoint handles for selected edge (both inline and external mode)
+        if isinstance(item, TransitionEdge):
+            h_src = EndpointHandle(item, True,  self._on_anchor_committed)
+            h_tgt = EndpointHandle(item, False, self._on_anchor_committed)
+            self._scene.addItem(h_src)
+            self._scene.addItem(h_tgt)
+            self._handles = [h_src, h_tgt]
+
+        if not self.inline_detail:
+            self.item_selected.emit(item)
+            return
+
+        # Inline detail panel
         while self._detail_form_layout.rowCount():
             self._detail_form_layout.removeRow(0)
 
@@ -1128,7 +1165,6 @@ class WorkflowGraphWidget(QWidget):
             self._detail_form.hide()
             return
 
-        item = selected[0]
         self._detail_hint.hide()
         self._detail_form.show()
 
@@ -1136,12 +1172,6 @@ class WorkflowGraphWidget(QWidget):
             self._populate_state_detail(item)
         elif isinstance(item, TransitionEdge):
             self._populate_transition_detail(item)
-            # Show draggable endpoint handles for anchor repositioning
-            h_src = EndpointHandle(item, True,  self._on_anchor_committed)
-            h_tgt = EndpointHandle(item, False, self._on_anchor_committed)
-            self._scene.addItem(h_src)
-            self._scene.addItem(h_tgt)
-            self._handles = [h_src, h_tgt]
 
     def _populate_state_detail(self, node: StateNode) -> None:
         fl = self._detail_form_layout
