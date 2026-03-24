@@ -6,11 +6,11 @@ import time
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QLabel, QMessageBox, QSplitter, QFrame,
-    QLineEdit, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView,
+    QLineEdit, QPlainTextEdit, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView,
     QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog,
     QStackedWidget, QButtonGroup
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize, QEvent, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize, QEvent, QTimer, QSettings
 from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowEngine
 from gui.widgets.workflow_graph import WorkflowGraphWidget, StateNode, TransitionEdge
 from gui.cockpit import StatCard
@@ -67,7 +67,9 @@ class WorkflowRuleFormEditor(QWidget):
         lc_layout.setSpacing(6)
 
         self.edit_name = QLineEdit()
-        self.edit_desc = QLineEdit()
+        self.edit_desc = QPlainTextEdit()
+        self.edit_desc.setFixedHeight(60)
+        self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
         self.edit_triggers = QLineEdit()
         self.edit_name.textChanged.connect(self._on_changed)
         self.edit_desc.textChanged.connect(self._on_changed)
@@ -177,7 +179,7 @@ class WorkflowRuleFormEditor(QWidget):
         self._lock_signals = True
         self.current_rule = rule
         self.edit_name.setText(rule.name)
-        self.edit_desc.setText(rule.description)
+        self.edit_desc.setPlainText(rule.description)
         triggers = rule.triggers.get("type_tags", [])
         self.edit_triggers.setText(", ".join(triggers))
         self._graph_widget.load(rule)
@@ -186,7 +188,7 @@ class WorkflowRuleFormEditor(QWidget):
     def get_rule(self) -> WorkflowRule:
         pb_id = self.current_rule.id if self.current_rule else "new_rule"
         name = self.edit_name.text().strip()
-        desc = self.edit_desc.text().strip()
+        desc = self.edit_desc.toPlainText().strip()
         triggers = [t.strip() for t in self.edit_triggers.text().split(",") if t.strip()]
         graph_rule = self._graph_widget.get_rule()
         states = graph_rule.states if graph_rule else {}
@@ -197,10 +199,20 @@ class WorkflowRuleFormEditor(QWidget):
                             transition_anchors=transition_anchors)
 
     def _init_splitter_sizes(self) -> None:
-        total = self._splitter.width()
-        if total > 100:
-            center = max(200, total - self._left_saved_w - self._right_saved_w)
-            self._splitter.setSizes([self._left_saved_w, center, self._right_saved_w])
+        settings = QSettings("KPaperFlux", "WorkflowEditor")
+        saved = settings.value("splitter_sizes")
+        if saved:
+            self._splitter.setSizes([int(x) for x in saved])
+        else:
+            total = self._splitter.width()
+            if total > 100:
+                center = max(200, total - self._left_saved_w - self._right_saved_w)
+                self._splitter.setSizes([self._left_saved_w, center, self._right_saved_w])
+        self._splitter.splitterMoved.connect(self._save_splitter_sizes)
+
+    def _save_splitter_sizes(self) -> None:
+        settings = QSettings("KPaperFlux", "WorkflowEditor")
+        settings.setValue("splitter_sizes", self._splitter.sizes())
 
     def _update_collapse_buttons(self) -> None:
         if hasattr(self, "_btn_collapse_left"):
@@ -411,6 +423,7 @@ class WorkflowManagerWidget(QWidget):
     """Management console for Rules."""
     workflows_changed = pyqtSignal()
     navigation_requested = pyqtSignal(dict)
+    status_message = pyqtSignal(str)
 
     def __init__(self, parent=None, filter_tree=None):
         super().__init__(parent)
@@ -582,10 +595,6 @@ class WorkflowManagerWidget(QWidget):
         self.main_stack.addWidget(self.editor_widget)
         layout.addWidget(self.main_stack, 1)
 
-        # Status bar
-        self.status_lbl = QLabel()
-        self.status_lbl.setStyleSheet("color: #666; font-style: italic;")
-        layout.addWidget(self.status_lbl)
 
         self.retranslate_ui()
 
@@ -611,8 +620,7 @@ class WorkflowManagerWidget(QWidget):
         self.btn_show_docs.setText("🔍 " + self.tr("Show documents"))
         self.btn_show_docs.setToolTip(self.tr("Navigate to all documents currently tracked by this workflow"))
 
-        if hasattr(self, 'status_lbl'):
-             self.status_lbl.setText(self.tr("Ready"))
+        self.status_message.emit(self.tr("Ready"))
 
     def _on_stack_changed(self, index):
         if index == 0:
@@ -659,7 +667,7 @@ class WorkflowManagerWidget(QWidget):
         # If the formerly selected rule is gone, clear the form
         if current_id and idx_to_restore == 0:
             self.form_editor.load_rule(WorkflowRule(id="new", name="", states={}))
-            self.status_lbl.setText(self.tr("Rule deleted."))
+            self.status_message.emit(self.tr("Rule deleted."))
             self._clear_dirty()
 
     def _on_combo_changed(self, index):
@@ -684,7 +692,7 @@ class WorkflowManagerWidget(QWidget):
         if rule:
             self.form_editor.load_rule(rule)
             self._clear_dirty()
-            self.status_lbl.setText(self.tr("Editing: %1").replace("%1", rule.name or rule_id))
+            self.status_message.emit(self.tr("Editing: %1").replace("%1", rule.name or rule_id))
 
     def _create_new_rule(self):
         rule = WorkflowRule(

@@ -334,6 +334,7 @@ class MainWindow(QMainWindow):
         
         self.status_layout.addStretch(1)
         self.statusBar().addWidget(self.status_container, 1)
+        self.workflow_manager.status_message.connect(self.main_status_label.setText)
 
         self.create_tool_bar()
         self.retranslate_ui()
