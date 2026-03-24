@@ -62,9 +62,10 @@ class WorkflowRuleFormEditor(QWidget):
 
         self._left_content = QWidget()
         lc_layout = QFormLayout(self._left_content)
-        lc_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        lc_layout.setContentsMargins(8, 8, 8, 8)
-        lc_layout.setSpacing(6)
+        lc_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        lc_layout.setContentsMargins(6, 6, 6, 6)
+        lc_layout.setSpacing(4)
+        lc_layout.setHorizontalSpacing(6)
 
         self.edit_name = QLineEdit()
         self.edit_desc = QPlainTextEdit()
@@ -83,7 +84,6 @@ class WorkflowRuleFormEditor(QWidget):
         lc_layout.addRow(self.lbl_triggers, self.edit_triggers)
 
         lp_layout.addWidget(self._left_content)
-        lp_layout.addStretch()
         self._splitter.addWidget(self._left_panel)
 
         # ── Center: graph widget (no inline detail panel) ──────────────────
@@ -130,7 +130,6 @@ class WorkflowRuleFormEditor(QWidget):
         self._detail_form_layout.setSpacing(6)
         self._detail_form.hide()
         rc_layout.addWidget(self._detail_form)
-        rc_layout.addStretch()
 
         rp_layout.addWidget(self._right_content, 1)
         self._splitter.addWidget(self._right_panel)
@@ -620,7 +619,6 @@ class WorkflowManagerWidget(QWidget):
         self.btn_show_docs.setText("🔍 " + self.tr("Show documents"))
         self.btn_show_docs.setToolTip(self.tr("Navigate to all documents currently tracked by this workflow"))
 
-        self.status_message.emit(self.tr("Ready"))
 
     def _on_stack_changed(self, index):
         if index == 0:
