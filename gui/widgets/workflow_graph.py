@@ -995,6 +995,7 @@ class WorkflowGraphWidget(QWidget):
         badge_text = st.translate(sdef_cur.label) if sdef_cur and sdef_cur.label else current_step
         badge_col = self._state_color(current_step, sdef_cur)
         self._rule_lbl.setText(st.translate(rule.name or rule.id))
+        self._badge.setVisible(self.mode == "run")
         self._badge.setText(badge_text)
         self._badge.setStyleSheet(
             f"font-size:10px; padding:2px 8px; border-radius:8px;"
