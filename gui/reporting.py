@@ -552,7 +552,8 @@ class ReportingWidget(QWidget):
         row2.addSpacing(10)
         
         self.btn_export = QPushButton()
-        self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; font-weight: bold; padding: 4px 16px;")
+        from gui.theme import CLR_SUCCESS, CLR_TEXT_ON_COLOR
+        self.btn_export.setStyleSheet(f"background-color: {CLR_SUCCESS}; color: {CLR_TEXT_ON_COLOR}; font-weight: bold; padding: 4px 16px;")
         
         # Add Export Menu
         self.export_menu = QMenu(self)
@@ -725,7 +726,8 @@ class ReportingWidget(QWidget):
         
         placeholder = QLabel(self.tr("Please select a report to display data."))
         placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        placeholder.setStyleSheet("color: #999; font-size: 14pt; margin-top: 100px;")
+        from gui.theme import CLR_TEXT_MUTED, FONT_LG
+        placeholder.setStyleSheet(f"color: {CLR_TEXT_MUTED}; font-size: {FONT_LG}px; margin-top: 100px;")
         self.content_layout.addWidget(placeholder)
         self.set_global_zoom(1.0)
 
@@ -826,17 +828,20 @@ class ReportingWidget(QWidget):
             sep = QFrame()
             sep.setFrameShape(QFrame.Shape.HLine)
             sep.setFrameShadow(QFrame.Shadow.Sunken)
-            sep.setStyleSheet("color: #e2e8f0; margin: 20px 0;")
+            from gui.theme import CLR_BORDER
+            sep.setStyleSheet(f"color: {CLR_BORDER}; margin: 20px 0;")
             self.content_layout.addWidget(sep)
 
         # Title & Info
         title_lbl = QLabel(self.tr(results["title"]))
-        title_lbl.setStyleSheet("font-size: 18pt; font-weight: bold; color: #2c3e50; margin-top: 10px;")
+        from gui.theme import CLR_TEXT, FONT_METRIC
+        title_lbl.setStyleSheet(f"font-size: {FONT_METRIC}px; font-weight: bold; color: {CLR_TEXT}; margin-top: 10px;")
         self.content_layout.addWidget(title_lbl)
         
         if definition.description:
             desc_lbl = QLabel(self.tr(definition.description))
-            desc_lbl.setStyleSheet("color: #7f8c8d; font-style: italic; margin-bottom: 20px;")
+            from gui.theme import CLR_TEXT_MUTED
+            desc_lbl.setStyleSheet(f"color: {CLR_TEXT_MUTED}; font-style: italic; margin-bottom: 20px;")
             self.content_layout.addWidget(desc_lbl)
 
         # Render each component in order
@@ -882,7 +887,8 @@ class ReportingWidget(QWidget):
                     
                     table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
                     table.setMinimumHeight(300)
-                    table.setStyleSheet("background: white; border: 1px solid #ddd; border-radius: 4px;")
+                    from gui.theme import CLR_SURFACE, CLR_BORDER, RADIUS_SM
+                    table.setStyleSheet(f"background: {CLR_SURFACE}; border: 1px solid {CLR_BORDER}; border-radius: {RADIUS_SM}px;")
                     
                     # Phase 113: Drill-Down Support for Tables
                     table.cellClicked.connect(lambda r, c, t=table, d=definition: self._on_table_drill_down(r, c, t, d))
@@ -896,7 +902,8 @@ class ReportingWidget(QWidget):
                 editor.setPlaceholderText(self.tr("Enter your comments or summary here..."))
                 editor.setText(comp.content or "")
                 editor.setMinimumHeight(120)
-                editor.setStyleSheet("background: #fdfdfd; font-family: sans-serif; font-size: 11pt; border: 1px solid #e2e8f0;")
+                from gui.theme import CLR_SURFACE, CLR_BORDER, FONT_BASE
+                editor.setStyleSheet(f"background: {CLR_SURFACE}; font-family: sans-serif; font-size: {FONT_BASE}px; border: 1px solid {CLR_BORDER};")
                 
                 # Update content on change
                 def update_content(c=comp, e=editor, d=definition):
@@ -920,17 +927,19 @@ class ReportingWidget(QWidget):
     def _wrap_component(self, inner_widget, title, index, definition):
         frame = QFrame()
         frame.setObjectName("ComponentCard")
-        frame.setStyleSheet("""
-            QFrame#ComponentCard { 
-                background: white; border: 1px solid #e2e8f0; border-radius: 12px; 
-            }
+        from gui.theme import CLR_SURFACE, CLR_BORDER, RADIUS_MD
+        frame.setStyleSheet(f"""
+            QFrame#ComponentCard {{
+                background: {CLR_SURFACE}; border: 1px solid {CLR_BORDER}; border-radius: {RADIUS_MD}px;
+            }}
         """)
         main_ly = QVBoxLayout(frame)
         main_ly.setContentsMargins(15, 12, 15, 12)
 
         # Header with Title and Controls
         header = QHBoxLayout()
-        title_lbl = QLabel(f"<span style='color: #475569; font-weight: bold;'>{title}</span>")
+        from gui.theme import CLR_TEXT_SECONDARY
+        title_lbl = QLabel(f"<span style='color: {CLR_TEXT_SECONDARY}; font-weight: bold;'>{title}</span>")
         header.addWidget(title_lbl)
         header.addStretch()
 
@@ -950,7 +959,8 @@ class ReportingWidget(QWidget):
         btn_del = QToolButton()
         btn_del.setText("✕")
         btn_del.setToolTip(self.tr("Delete Component"))
-        btn_del.setStyleSheet("color: #e74c3c;")
+        from gui.theme import CLR_DANGER
+        btn_del.setStyleSheet(f"color: {CLR_DANGER};")
         btn_del.clicked.connect(lambda: self.delete_component(index, definition))
 
         header.addWidget(btn_up)

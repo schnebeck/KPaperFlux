@@ -32,8 +32,10 @@ from PyQt6.QtWidgets import (
 )
 
 from core.logger import get_logger
-from core.semantic_translator import SemanticTranslator
-from core.workflow import WorkflowEngine, WorkflowRule, WorkflowState, WorkflowTransition
+from core.workflow import (
+    WorkflowEngine, WorkflowRule, WorkflowState, WorkflowTransition,
+    make_state_id, make_action_id,
+)
 
 logger = get_logger("gui.widgets.workflow_graph")
 
@@ -95,8 +97,11 @@ C_AVAIL    = QColor("#0d47a1")
 C_BLOCKED  = QColor("#90a4ae")
 C_AUTO     = QColor("#bf360c")
 C_BG_CUR   = QColor("#dbeafe")
+C_BG_TGT   = QColor("#e8f0fe")   # available-target highlight (run mode)
 C_BG_VIS   = QColor("#e8ecef")
 C_BG_DEF   = QColor("#f8fafd")
+C_PENDING  = QColor("#00796b")   # teal — active selection border
+C_BG_PEND  = QColor("#e0f2f1")   # teal-light — active selection fill
 C_SCENE_BG = QColor("#e4e9ef")
 
 
@@ -176,6 +181,10 @@ class StateNode(QGraphicsItem):
         is_current: bool = False,
         is_visited: bool = False,
         on_moved: Optional[Callable[[str, QPointF], None]] = None,
+        display_label: Optional[str] = None,
+        click_callback: Optional[Callable[[], None]] = None,
+        is_pending: bool = False,
+        is_target: bool = False,
     ) -> None:
         super().__init__()
         self.state_id = state_id
@@ -183,17 +192,25 @@ class StateNode(QGraphicsItem):
         self.mode = mode
         self.is_current = is_current
         self.is_visited = is_visited
+        self.is_pending = is_pending
+        self.is_target = is_target
         self._on_moved = on_moved
+        self._click_cb = click_callback
         self._hovered = False
         self._connected_edges: List["TransitionEdge"] = []
 
-        st = SemanticTranslator.instance()
-        self.display_label = st.translate(state_def.label) if state_def.label else state_id
+        # Use the pre-resolved locale label if provided, otherwise fall back
+        self.display_label = (
+            display_label if display_label is not None
+            else (state_def.label if state_def.label else state_id)
+        )
 
         self.setAcceptHoverEvents(True)
         if mode == "edit":
             self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
             self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        elif click_callback:
+            self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
 
     # ── QGraphicsItem interface ───────────────────────────────────────────────
@@ -204,8 +221,13 @@ class StateNode(QGraphicsItem):
     def paint(self, painter: QPainter, option, widget=None) -> None:
         r = self.boundingRect()
 
-        # Background
-        if self.is_current:
+        # Background — pending (orange selection) takes highest priority,
+        # including when the current state IS the pending state (initial / deselected).
+        if self.is_pending:
+            bg = C_BG_PEND   # teal-light — active selection (incl. current state)
+        elif self.is_target:
+            bg = C_BG_TGT    # light cornflower-blue — available/clickable target
+        elif self.is_current:
             bg = C_BG_CUR
         elif self.is_visited:
             bg = C_BG_VIS
@@ -213,12 +235,18 @@ class StateNode(QGraphicsItem):
             bg = C_BG_DEF
 
         # Border colour
-        if self.is_current:
+        if self.is_pending:
+            border_c = C_PENDING   # teal — active selection
+            bw = 2.5
+        elif self.is_current:
             border_c = C_CURRENT
             bw = 2.5
         elif self.state_def.final:
             border_c = C_FINAL_NG if self._is_error_final() else C_FINAL_OK
             bw = 2.0
+        elif self.is_target:
+            border_c = C_AVAIL     # blue border — signals clickability
+            bw = 1.5
         elif self.is_visited:
             border_c = C_VISITED
             bw = 1.5
@@ -239,14 +267,13 @@ class StateNode(QGraphicsItem):
         painter.setPen(QPen(border_c, bw))
         painter.drawRoundedRect(r, BORDER_R, BORDER_R)
 
-        # Double border for final states (UML convention)
-        if self.state_def.final:
-            c = border_c
+        # Double border: final states (UML convention) AND active pending selection
+        if self.state_def.final or self.is_pending:
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(QPen(c, 1.0))
+            painter.setPen(QPen(border_c, 1.0))
             painter.drawRoundedRect(r.adjusted(4, 4, -4, -4), BORDER_R - 3, BORDER_R - 3)
 
-        # Label
+        # Label — bold only on the current workflow state
         font = QFont()
         font.setPointSize(9)
         font.setBold(self.is_current)
@@ -256,21 +283,41 @@ class StateNode(QGraphicsItem):
                          Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                          self.display_label)
 
-        # Current-state dot (top-right corner)
+        # Current-state dot (top-right corner, blue)
         if self.is_current:
             painter.setBrush(QBrush(C_CURRENT))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(QPointF(r.right() - 10, r.top() + 10), 4, 4)
+
+    # ── Mouse ─────────────────────────────────────────────────────────────────
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self._click_cb:
+            event.accept()
+            # _click_cb may be a plain callable (no args) or have a ._node_cb attr
+            node_cb = getattr(self._click_cb, "_node_cb", None)
+            if node_cb is not None:
+                node_cb()
+            else:
+                self._click_cb()
+            return  # scene may be rebuilt inside callback — do NOT touch self after this
+        super().mousePressEvent(event)
 
     # ── Hover & drag ─────────────────────────────────────────────────────────
 
     def hoverEnterEvent(self, event) -> None:
         self._hovered = True
         self.update()
+        tip = self.toolTip()
+        if tip:
+            from PyQt6.QtWidgets import QToolTip  # noqa: PLC0415
+            QToolTip.showText(event.screenPos(), tip)
 
     def hoverLeaveEvent(self, event) -> None:
         self._hovered = False
         self.update()
+        from PyQt6.QtWidgets import QToolTip  # noqa: PLC0415
+        QToolTip.hideText()
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
@@ -341,16 +388,18 @@ class TransitionEdge(QGraphicsItem):
         self.edge_index = edge_index
         self.total_edges = total_edges
         self._hovered = False
+        self.is_pending: bool = False
+        self.ctrl1_offset: QPointF = QPointF(0.0, 0.0)  # source-side ctrl point displacement
+        self.ctrl2_offset: QPointF = QPointF(0.0, 0.0)  # target-side ctrl point displacement
+        self.src_spread: float = 0.0  # perpendicular fanout offset at source anchor
+        self.tgt_spread: float = 0.0  # perpendicular fanout offset at target anchor
 
-        st = SemanticTranslator.instance()
-        raw = transition.action.replace("_", " ").capitalize()
-        self._label = st.translate(raw)
-        if transition.auto:
-            self._label = f"⚡ {self._label}"
+        display = (transition.label or transition.action).replace("_", " ").capitalize()
+        self._label = f"⚡ {display}" if transition.auto else display
 
         self.setZValue(-1)
         self.setAcceptHoverEvents(True)
-        if is_available and click_callback and not transition.auto:
+        if click_callback and not transition.auto:
             self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
     # ── Path computation ──────────────────────────────────────────────────────
@@ -359,10 +408,54 @@ class TransitionEdge(QGraphicsItem):
         """Perpendicular offset for parallel edges between the same pair."""
         return (self.edge_index - (self.total_edges - 1) / 2.0) * MULTI_OFF
 
-    def _path_and_label(self) -> Tuple[QPainterPath, QPointF]:
+    def _ctrl_points(self) -> Optional[Tuple[QPointF, QPointF, QPointF, QPointF]]:
+        """Return (src_pt, ctrl1, ctrl2, tgt_pt) for the Bezier, or None for self-loops."""
+        if self.src is self.tgt:
+            return None
         sp = self.src.pos()
         tp = self.tgt.pos()
         off = self._y_offset()
+
+        src_pt = _anchor_point(sp, self.src_anchor)
+        tgt_pt = _anchor_point(tp, self.tgt_anchor)
+
+        if off:
+            dx = tgt_pt.x() - src_pt.x()
+            dy = tgt_pt.y() - src_pt.y()
+            length = math.sqrt(dx * dx + dy * dy) or 1.0
+            px, py = -dy / length * off, dx / length * off
+            src_pt = QPointF(src_pt.x() + px, src_pt.y() + py)
+            tgt_pt = QPointF(tgt_pt.x() + px, tgt_pt.y() + py)
+
+        src_tang = _anchor_tangent(self.src_anchor)
+        tgt_tang = _anchor_tangent(self.tgt_anchor)
+
+        # Fanout spread: shift departure/arrival points perpendicular to their
+        # anchor tangent when multiple edges share the same anchor on a node.
+        if self.src_spread:
+            src_pt = QPointF(src_pt.x() - src_tang.y() * self.src_spread,
+                             src_pt.y() + src_tang.x() * self.src_spread)
+        if self.tgt_spread:
+            tgt_pt = QPointF(tgt_pt.x() - tgt_tang.y() * self.tgt_spread,
+                             tgt_pt.y() + tgt_tang.x() * self.tgt_spread)
+
+        dx = tgt_pt.x() - src_pt.x()
+        dy = tgt_pt.y() - src_pt.y()
+        dist = max(math.sqrt(dx * dx + dy * dy), 1.0)
+        ctrl_d = max(CTRL_DIST_MIN, dist * 0.42)
+
+        ctrl1 = QPointF(
+            src_pt.x() + src_tang.x() * ctrl_d + self.ctrl1_offset.x(),
+            src_pt.y() + src_tang.y() * ctrl_d + self.ctrl1_offset.y(),
+        )
+        ctrl2 = QPointF(
+            tgt_pt.x() + tgt_tang.x() * ctrl_d + self.ctrl2_offset.x(),
+            tgt_pt.y() + tgt_tang.y() * ctrl_d + self.ctrl2_offset.y(),
+        )
+        return src_pt, ctrl1, ctrl2, tgt_pt
+
+    def _path_and_label(self) -> Tuple[QPainterPath, QPointF]:
+        sp = self.src.pos()
 
         # Self-loop — fixed shape, anchors not used for path
         if self.src is self.tgt:
@@ -376,32 +469,9 @@ class TransitionEdge(QGraphicsItem):
             )
             return path, QPointF(rx + 50, ry - 20)
 
-        # Anchor-based tangent Bezier for all other edges
-        src_pt = _anchor_point(sp, self.src_anchor)
-        tgt_pt = _anchor_point(tp, self.tgt_anchor)
-
-        # Perpendicular offset for parallel edges
-        if off:
-            dx = tgt_pt.x() - src_pt.x()
-            dy = tgt_pt.y() - src_pt.y()
-            length = math.sqrt(dx * dx + dy * dy) or 1.0
-            px, py = -dy / length * off, dx / length * off
-            src_pt = QPointF(src_pt.x() + px, src_pt.y() + py)
-            tgt_pt = QPointF(tgt_pt.x() + px, tgt_pt.y() + py)
-
-        src_tang = _anchor_tangent(self.src_anchor)
-        tgt_tang = _anchor_tangent(self.tgt_anchor)
-
-        dx = tgt_pt.x() - src_pt.x()
-        dy = tgt_pt.y() - src_pt.y()
-        dist = max(math.sqrt(dx * dx + dy * dy), 1.0)
-        ctrl_d = max(CTRL_DIST_MIN, dist * 0.42)
-
-        ctrl1 = QPointF(src_pt.x() + src_tang.x() * ctrl_d,
-                        src_pt.y() + src_tang.y() * ctrl_d)
-        ctrl2 = QPointF(tgt_pt.x() + tgt_tang.x() * ctrl_d,
-                        tgt_pt.y() + tgt_tang.y() * ctrl_d)
-
+        pts = self._ctrl_points()
+        assert pts is not None
+        src_pt, ctrl1, ctrl2, tgt_pt = pts
         path = QPainterPath(src_pt)
         path.cubicTo(ctrl1, ctrl2, tgt_pt)
 
@@ -432,6 +502,9 @@ class TransitionEdge(QGraphicsItem):
         else:
             col, style, pw = C_BLOCKED, Qt.PenStyle.DashLine, 1.2
 
+        if self.is_pending:
+            col, style, pw = C_PENDING, Qt.PenStyle.SolidLine, 2.5
+
         # Selection highlight
         if self.isSelected():
             painter.setPen(QPen(QColor("#2196f3"), pw + 1.5, Qt.PenStyle.DashLine))
@@ -442,10 +515,15 @@ class TransitionEdge(QGraphicsItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(path)
 
-        # Arrowhead
+        # Arrowhead — always perpendicular to node surface at anchor point
         end = path.pointAtPercent(1.0)
-        pre = path.pointAtPercent(0.97)
-        ang = math.atan2(end.y() - pre.y(), end.x() - pre.x())
+        if self.src is not self.tgt:
+            tgt_t = _anchor_tangent(self.tgt_anchor)
+            # tgt_t points outward from the node; negate for incoming direction
+            ang = math.atan2(-tgt_t.y(), -tgt_t.x())
+        else:
+            pre = path.pointAtPercent(0.97)
+            ang = math.atan2(end.y() - pre.y(), end.x() - pre.x())
         p1 = QPointF(end.x() - ARROW * math.cos(ang - math.pi / 6),
                      end.y() - ARROW * math.sin(ang - math.pi / 6))
         p2 = QPointF(end.x() - ARROW * math.cos(ang + math.pi / 6),
@@ -453,6 +531,17 @@ class TransitionEdge(QGraphicsItem):
         painter.setBrush(QBrush(col))
         painter.setPen(QPen(col, 1))
         painter.drawPolygon(QPolygonF([end, p1, p2]))
+
+        # Control-point arms (edit mode: shown when selected)
+        if self.isSelected() and self.src is not self.tgt:
+            pts = self._ctrl_points()
+            if pts:
+                s, c1, c2, t = pts
+                arm_pen = QPen(QColor(255, 152, 0, 140), 1.0, Qt.PenStyle.DashLine)
+                painter.setPen(arm_pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawLine(s, c1)
+                painter.drawLine(t, c2)
 
         # Label with semi-transparent background
         font = QFont()
@@ -481,17 +570,25 @@ class TransitionEdge(QGraphicsItem):
         if self.is_available:
             self._hovered = True
             self.update()
+        tip = self.toolTip()
+        if tip:
+            from PyQt6.QtWidgets import QToolTip  # noqa: PLC0415
+            QToolTip.showText(event.screenPos(), tip)
 
     def hoverLeaveEvent(self, event) -> None:
         self._hovered = False
         self.update()
+        from PyQt6.QtWidgets import QToolTip  # noqa: PLC0415
+        QToolTip.hideText()
 
     def mousePressEvent(self, event) -> None:
         if (event.button() == Qt.MouseButton.LeftButton
                 and self.is_available
                 and self._click_cb
                 and not self.transition.auto):
+            event.accept()
             self._click_cb(self)
+            return  # scene may be rebuilt inside callback — do NOT touch self after this
         super().mousePressEvent(event)
 
 
@@ -508,13 +605,11 @@ class AddTransitionDialog(QDialog):
         self.setWindowTitle(self.tr("Add Transition"))
         self.setMinimumWidth(360)
 
-        st = SemanticTranslator.instance()
-        # Build display entries: "Label (ID)" stored with ID as UserData
+        # Show only the label — IDs are internal and not shown to the user
         self._state_ids: List[str] = list(states.keys())
         display_items: List[Tuple[str, str]] = []
         for sid, sdef in states.items():
-            label = st.translate(sdef.label) if sdef.label else sid
-            display_items.append((f"{label}  ({sid})", sid))
+            display_items.append((sdef.label if sdef.label else sid, sid))
 
         layout = QFormLayout(self)
         layout.setSpacing(10)
@@ -524,9 +619,9 @@ class AddTransitionDialog(QDialog):
             self._src.addItem(display, sid)
         layout.addRow(self.tr("From State:"), self._src)
 
-        self._action = QLineEdit()
-        self._action.setPlaceholderText(self.tr("e.g. verify, approve, reject"))
-        layout.addRow(self.tr("Action:"), self._action)
+        self._label_edit = QLineEdit()
+        self._label_edit.setPlaceholderText(self.tr("e.g. Verify, Approve, Reject"))
+        layout.addRow(self.tr("Label:"), self._label_edit)
 
         self._tgt = QComboBox()
         for display, sid in display_items:
@@ -548,11 +643,16 @@ class AddTransitionDialog(QDialog):
         layout.addRow(btns)
 
     def get_values(self) -> Tuple[str, str, str, bool, List[str]]:
+        """Return (src_id, label, tgt_id, auto, required_fields).
+
+        The caller is responsible for generating a stable action_id via
+        make_action_id() and constructing the WorkflowTransition.
+        """
         req = [f.strip() for f in self._req.text().split(",") if f.strip()]
         return (
-            self._src.currentData(),   # ID, not display text
-            self._action.text().strip().lower(),
-            self._tgt.currentData(),   # ID, not display text
+            self._src.currentData(),
+            self._label_edit.text().strip(),
+            self._tgt.currentData(),
             self._auto.isChecked(),
             req,
         )
@@ -702,6 +802,141 @@ class EndpointHandle(QGraphicsItem):
         self.unsetCursor()
 
 
+# ── CtrlHandle ────────────────────────────────────────────────────────────────
+
+class CtrlHandle(QGraphicsItem):
+    """Draggable diamond at a Bezier control point of a TransitionEdge (edit mode).
+
+    Two instances are created per selected edge — one for ctrl1 (source side,
+    orange) and one for ctrl2 (target side, teal).  Drag to reshape the curve;
+    double-click to reset both control-point offsets to zero.
+    """
+
+    R = 6.0
+
+    # colours per side
+    _IDLE_COL  = {"ctrl1": QColor("#ff9800"), "ctrl2": QColor("#26a69a")}
+    _DRAG_COL  = {"ctrl1": QColor("#e65100"), "ctrl2": QColor("#00695c")}
+    _ZERO_COL  = {"ctrl1": QColor("#ffe082"), "ctrl2": QColor("#b2dfdb")}
+
+    def __init__(
+        self,
+        edge: "TransitionEdge",
+        which: str,
+        on_committed: "Callable[[TransitionEdge], None]",
+    ) -> None:
+        assert which in ("ctrl1", "ctrl2")
+        super().__init__()
+        self._edge = edge
+        self._which = which
+        self._on_committed = on_committed
+        self._dragging = False
+        self._drag_start_scene = QPointF()
+        self._drag_start_offset = QPointF()
+        self.setZValue(9)
+        self.setAcceptHoverEvents(True)
+        self._snap_to_edge()
+
+    # ── Geometry ──────────────────────────────────────────────────────────────
+
+    def _current_offset(self) -> QPointF:
+        return (self._edge.ctrl1_offset if self._which == "ctrl1"
+                else self._edge.ctrl2_offset)
+
+    def _set_offset(self, v: QPointF) -> None:
+        if self._which == "ctrl1":
+            self._edge.ctrl1_offset = v
+        else:
+            self._edge.ctrl2_offset = v
+
+    def _snap_to_edge(self) -> None:
+        """Protocol with EndpointHandle — reposition after edge geometry changes."""
+        pts = self._edge._ctrl_points()
+        if pts is None:
+            return
+        _, ctrl1, ctrl2, _ = pts
+        self.setPos(ctrl1 if self._which == "ctrl1" else ctrl2)
+
+    def boundingRect(self) -> QRectF:
+        r = self.R + 4
+        return QRectF(-r, -r, r * 2, r * 2)
+
+    def shape(self) -> QPainterPath:
+        p = QPainterPath()
+        p.addRect(self.boundingRect())
+        return p
+
+    # ── Painting ──────────────────────────────────────────────────────────────
+
+    def paint(self, painter: QPainter, option, widget=None) -> None:
+        off = self._current_offset()
+        has_offset = off.x() != 0.0 or off.y() != 0.0
+        if self._dragging:
+            col = self._DRAG_COL[self._which]
+        elif has_offset:
+            col = self._IDLE_COL[self._which]
+        else:
+            col = self._ZERO_COL[self._which]
+        painter.setBrush(QBrush(col))
+        painter.setPen(QPen(QColor("white"), 1.5))
+        painter.drawPolygon(QPolygonF([
+            QPointF(0,       -self.R),
+            QPointF(self.R,  0),
+            QPointF(0,       self.R),
+            QPointF(-self.R, 0),
+        ]))
+
+    # ── Mouse events ──────────────────────────────────────────────────────────
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._drag_start_scene = event.scenePos()
+            self._drag_start_offset = QPointF(self._current_offset())
+            self.update()
+        event.accept()
+
+    def mouseMoveEvent(self, event) -> None:
+        if not self._dragging:
+            return
+        delta = event.scenePos() - self._drag_start_scene
+        self._set_offset(QPointF(
+            self._drag_start_offset.x() + delta.x(),
+            self._drag_start_offset.y() + delta.y(),
+        ))
+        self._edge.prepareGeometryChange()
+        self._edge.update()
+        self._snap_to_edge()
+        event.accept()
+
+    def mouseReleaseEvent(self, event) -> None:
+        if not self._dragging:
+            return
+        self._dragging = False
+        self._on_committed(self._edge)
+        self.update()
+        event.accept()
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        """Reset both control-point offsets to zero (restore auto-computed path)."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._edge.ctrl1_offset = QPointF(0.0, 0.0)
+            self._edge.ctrl2_offset = QPointF(0.0, 0.0)
+            self._edge.prepareGeometryChange()
+            self._edge.update()
+            self._snap_to_edge()
+            self._on_committed(self._edge)
+        event.accept()
+
+    def hoverEnterEvent(self, event) -> None:
+        side = "source" if self._which == "ctrl1" else "target"
+        self.setToolTip(f"Drag to reshape curve ({side} side) · Double-click to reset")
+        self.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
+
+    def hoverLeaveEvent(self, event) -> None:
+        self.unsetCursor()
+
+
 # ── WorkflowGraphWidget ───────────────────────────────────────────────────────
 
 class WorkflowGraphWidget(QWidget):
@@ -728,6 +963,15 @@ class WorkflowGraphWidget(QWidget):
         self._handles: List[EndpointHandle] = []
         self.inline_detail = inline_detail
         self._user_zoomed = False
+        self._pending_action: Optional[str] = None
+        self._pending_target: Optional[str] = None
+        self._pending_rule_id: Optional[str] = None
+        self._current_step: str = ""
+        self._btn_apply: Optional[Any] = None
+        self._fit_timer = QTimer(self)
+        self._fit_timer.setSingleShot(True)
+        self._fit_timer.setInterval(120)   # ms after last resize event
+        self._fit_timer.timeout.connect(self._fit_view)
         self._init_ui()
 
     # ── UI construction ───────────────────────────────────────────────────────
@@ -740,8 +984,12 @@ class WorkflowGraphWidget(QWidget):
         # ── Header ────────────────────────────────────────────────────────────
         self._header = QFrame()
         self._header.setFixedHeight(32)
+        from gui.theme import (
+            CLR_SURFACE_ROW, CLR_BORDER, CLR_TEXT, CLR_TEXT_SECONDARY,
+            CLR_TEXT_ON_COLOR, FONT_BASE, RADIUS_SM,
+        )
         self._header.setStyleSheet(
-            "background:#f1f5f9; border-bottom:1px solid #e2e8f0;"
+            f"background:{CLR_SURFACE_ROW}; border-bottom:1px solid {CLR_BORDER};"
         )
         hdr = QHBoxLayout(self._header)
         hdr.setContentsMargins(10, 0, 10, 0)
@@ -749,19 +997,31 @@ class WorkflowGraphWidget(QWidget):
         self._hdr_layout = hdr
 
         self._rule_lbl = QLabel()
-        self._rule_lbl.setStyleSheet("font-weight:bold; color:#334155;")
+        self._rule_lbl.setStyleSheet(f"font-weight:bold; color:{CLR_TEXT}; font-size:{FONT_BASE}px;")
         hdr.addWidget(self._rule_lbl)
 
         self._badge = QLabel()
         self._badge.setStyleSheet(
-            "font-size:10px; padding:2px 8px; border-radius:8px;"
-            " background:#607d8b; color:white; font-weight:bold;"
+            f"font-size:{FONT_BASE}px; padding:2px 8px; border-radius:{RADIUS_SM}px;"
+            f" background:{CLR_TEXT_SECONDARY}; color:{CLR_TEXT_ON_COLOR}; font-weight:bold;"
         )
         hdr.addWidget(self._badge)
         hdr.addStretch()
 
         if self.mode == "edit":
             self._build_edit_toolbar(hdr)
+
+        if self.mode == "run":
+            from PyQt6.QtWidgets import QToolButton as _TB  # noqa: PLC0415
+            self._btn_apply = _TB()
+            self._btn_apply.setText(self.tr("✓ Apply"))
+            self._btn_apply.setFixedHeight(26)
+            self._btn_apply.setEnabled(False)
+            self._btn_apply.setStyleSheet(
+                "padding:0 12px; font-weight:bold;"
+            )
+            self._btn_apply.clicked.connect(self._on_apply)
+            hdr.addWidget(self._btn_apply)
 
         # Zoom buttons (both modes)
         for _txt, _slot in (("−", self._zoom_out), ("+", self._zoom_in)):
@@ -790,10 +1050,10 @@ class WorkflowGraphWidget(QWidget):
             | QPainter.RenderHint.SmoothPixmapTransform
         )
         self._view.setViewportUpdateMode(
-            QGraphicsView.ViewportUpdateMode.FullViewportUpdate
+            QGraphicsView.ViewportUpdateMode.SmartViewportUpdate
         )
         self._view.setDragMode(
-            QGraphicsView.DragMode.ScrollHandDrag
+            QGraphicsView.DragMode.NoDrag
             if self.mode == "run"
             else QGraphicsView.DragMode.RubberBandDrag
         )
@@ -882,7 +1142,7 @@ class WorkflowGraphWidget(QWidget):
 
     def load(
         self,
-        rule: WorkflowRule,
+        rule: Optional[WorkflowRule],
         workflow_info: Optional[Any] = None,
         doc_data: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -898,38 +1158,169 @@ class WorkflowGraphWidget(QWidget):
 
     # ── Scene construction ────────────────────────────────────────────────────
 
-    def _rebuild(self) -> None:
-        if not self._rule:
-            return
+    @staticmethod
+    def _resolve_step(rule: WorkflowRule, step: str) -> str:
+        """Return *step* if it is a valid state ID in *rule*, otherwise the
+        rule's initial state.  Handles the default WorkflowInfo.current_step
+        value of ``"NEW"`` for rules whose initial state has a different key.
+        """
+        if step in rule.states:
+            return step
+        from core.workflow import get_initial_state  # noqa: PLC0415
+        return get_initial_state(rule) or step
 
-        self._handles.clear()  # scene.clear() removes them from scene
+    def _rebuild(self) -> None:
+        self._handles.clear()
         self._scene.clear()
+        self._nodes.clear()
+        self._edges.clear()
+
+        if not self._rule:
+            # Show neutral placeholder when no rule is loaded
+            font = QFont()
+            font.setPointSize(11)
+            font.setItalic(True)
+            from PyQt6.QtWidgets import QGraphicsTextItem  # noqa: PLC0415
+            item = QGraphicsTextItem()
+            item.setFont(font)
+            item.setDefaultTextColor(QColor("#9e9e9e"))
+            item.setPlainText(self.tr("Select a workflow rule to view or edit it."))
+            self._scene.addItem(item)
+            self._scene.setSceneRect(item.boundingRect().adjusted(-40, -40, 40, 40))
+            self._view.fitInView(self._scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            return
         self._nodes.clear()
         self._edges.clear()
 
         rule = self._rule
         wi = self._wf_info
-        st = SemanticTranslator.instance()
 
-        current_step = wi.current_step if wi else "NEW"
-        visited_states = self._extract_visited(wi)
+        if self.mode == "run":
+            self._clear_pending()
+            self._rebuild_run_full(rule, wi)
+        else:
+            self._rebuild_edit_full(rule)
 
+        # Header badge — resolve step via same logic as _rebuild_run_slice
+        raw_step = (wi.current_step if wi else "NEW") if self.mode == "run" else ""
+        current_step = self._resolve_step(rule, raw_step) if raw_step else ""
+        sdef_cur = rule.states.get(current_step) if current_step else None
+        badge_text = rule.get_state_label(current_step) if current_step else ""
+        badge_col = self._state_color(current_step, sdef_cur) if current_step else "#607d8b"
+        self._rule_lbl.setText(rule.get_display_name())
+        self._badge.setVisible(self.mode == "run")
+        self._badge.setText(badge_text)
+        from gui.theme import CLR_TEXT_ON_COLOR, FONT_BASE, RADIUS_SM
+        self._badge.setStyleSheet(
+            f"font-size:{FONT_BASE}px; padding:2px 8px; border-radius:{RADIUS_SM}px;"
+            f" background:{badge_col}; color:{CLR_TEXT_ON_COLOR}; font-weight:bold;"
+        )
+
+        QTimer.singleShot(50, self._fit_view)
+
+    # ── Scene construction helpers ────────────────────────────────────────────
+
+    def _rebuild_run_full(self, rule: WorkflowRule, wi: Optional[Any]) -> None:
+        """Run mode: full workflow graph with non-relevant items dimmed.
+
+        Shows the complete graph (identical layout to edit mode) but dims all
+        states and transitions that are not reachable from the current step.
+        Relevant available transitions are clickable and set a pending selection;
+        the Apply button commits the transition.
+        """
+        current_step = self._resolve_step(rule, wi.current_step if wi else "")
+        self._current_step = current_step
+        visited = self._extract_visited(wi)
+        engine = WorkflowEngine(rule)
         positions = _compute_layout(rule)
-        engine = WorkflowEngine(rule) if self.mode == "run" else None
 
-        # Create nodes
+        # ── Pre-compute relevance and availability for edges and nodes ──────────
+        cur_sdef = rule.states.get(current_step)
+        relevant_transitions = {t.action for t in cur_sdef.transitions} if cur_sdef else set()
+        relevant_targets = {t.target for t in cur_sdef.transitions} if cur_sdef else set()
+
+        def _missing_tip(trans: WorkflowTransition) -> str:
+            parts: List[str] = []
+            missing_fields = [
+                f for f in trans.required_fields
+                if f not in self._doc_data or self._doc_data.get(f) is None
+            ]
+            if missing_fields:
+                parts.append("Missing fields: " + ", ".join(missing_fields))
+            unmet_conds = [
+                f"{c.field} {c.op} {c.value}"
+                for c in trans.conditions
+                if self._doc_data.get(c.field) is None
+                or not engine.evaluate_transition(
+                    WorkflowTransition(
+                        action=trans.action, target=trans.target,
+                        conditions=[c],
+                    ),
+                    self._doc_data,
+                )
+            ]
+            if unmet_conds:
+                parts.append("Unmet: " + ", ".join(unmet_conds))
+            return "\n".join(parts)
+
+        # Per-node display properties — computed before any addItem call so that
+        # the first paint already shows the correct opacity (no two-phase flicker).
+        _node_opacity: Dict[str, float] = {}
+        _node_is_target: Dict[str, bool] = {}
+        _node_cb: Dict[str, Optional[Callable]] = {}
+        _node_tip: Dict[str, str] = {}
+
+        for sid in rule.states:
+            if sid == current_step:
+                _node_opacity[sid] = 1.0
+                _node_cb[sid] = self._clear_pending
+            elif sid in relevant_targets:
+                avail_trans = next(
+                    (t for t in (cur_sdef.transitions if cur_sdef else [])
+                     if t.target == sid and not t.auto
+                     and engine.can_transition(current_step, t.action, self._doc_data)),
+                    None,
+                )
+                if avail_trans:
+                    _node_opacity[sid] = 1.0
+                    _node_is_target[sid] = True
+                    _node_cb[sid] = self._make_set_pending_cb(
+                        rule.id, avail_trans.action, avail_trans.target
+                    )
+                else:
+                    _node_opacity[sid] = 0.5
+                    tips = [
+                        _missing_tip(t)
+                        for t in (cur_sdef.transitions if cur_sdef else [])
+                        if t.target == sid and not t.auto and _missing_tip(t)
+                    ]
+                    if tips:
+                        _node_tip[sid] = "\n".join(tips)
+            else:
+                _node_opacity[sid] = 0.1
+
+        # ── Build all state nodes with correct opacity from the first paint ────
         for sid, sdef in rule.states.items():
-            is_cur = (sid == current_step) and self.mode == "run"
-            is_vis = sid in visited_states and not is_cur and self.mode == "run"
             node = StateNode(
-                sid, sdef, self.mode, is_cur, is_vis,
-                on_moved=self._on_node_moved if self.mode == "edit" else None,
+                sid, sdef, "run",
+                is_current=(sid == current_step),
+                is_visited=(sid in visited),
+                is_target=_node_is_target.get(sid, False),
+                display_label=rule.get_state_label(sid),
+                click_callback=_node_cb.get(sid),
             )
             node.setPos(positions.get(sid, QPointF(0, 0)))
+            opacity = _node_opacity.get(sid, 0.1)
+            if opacity < 1.0:
+                node.setOpacity(opacity)
+            if _node_cb.get(sid):
+                node.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            if _node_tip.get(sid):
+                node.setToolTip(_node_tip[sid])
             self._scene.addItem(node)
             self._nodes[sid] = node
 
-        # Count parallel edges per (src, tgt) pair
+        # ── Build all transition edges (same anchor/bend logic as edit mode) ──
         pair_count: Dict[Tuple[str, str], int] = {}
         for sid, sdef in rule.states.items():
             for t in sdef.transitions:
@@ -937,8 +1328,6 @@ class WorkflowGraphWidget(QWidget):
                 pair_count[key] = pair_count.get(key, 0) + 1
 
         pair_seen: Dict[Tuple[str, str], int] = {}
-
-        # Create edges
         for sid, sdef in rule.states.items():
             src_node = self._nodes.get(sid)
             if not src_node:
@@ -948,21 +1337,11 @@ class WorkflowGraphWidget(QWidget):
                 if not tgt_node:
                     continue
 
-                # Available = from current state AND condition met
-                is_avail = False
-                if engine and sid == current_step:
-                    if trans.auto:
-                        is_avail = engine.evaluate_transition(trans, self._doc_data)
-                    else:
-                        is_avail = engine.can_transition(current_step, trans.action, self._doc_data)
-
-                # Back-edge if target x-pos ≤ source x-pos (and not self-loop)
                 src_x = positions.get(sid, QPointF()).x()
                 tgt_x = positions.get(trans.target, QPointF()).x()
                 is_back = tgt_x <= src_x and sid != trans.target
                 is_self = sid == trans.target
 
-                # Determine anchor points (stored > defaults)
                 ak = f"{sid}:{trans.action}"
                 stored = rule.transition_anchors.get(ak)
                 if stored and len(stored) == 2:
@@ -977,46 +1356,245 @@ class WorkflowGraphWidget(QWidget):
                 key = (sid, trans.target)
                 idx = pair_seen.get(key, 0)
                 pair_seen[key] = idx + 1
-                total = pair_count[key]
 
-                def _make_cb(rule_id: str, t: WorkflowTransition):
-                    def cb(edge: TransitionEdge) -> None:
-                        self.transition_triggered.emit(rule_id, t.action, t.target, False)
-                    return cb
+                is_relevant = (sid == current_step and trans.action in relevant_transitions)
+                if is_relevant and not trans.auto:
+                    is_avail = engine.can_transition(current_step, trans.action, self._doc_data)
+                else:
+                    is_avail = False
 
                 edge = TransitionEdge(
                     trans, src_node, tgt_node,
                     is_available=is_avail,
                     is_back_edge=is_back,
-                    click_callback=_make_cb(rule.id, trans) if self.mode == "run" else None,
+                    click_callback=(
+                        self._make_set_pending_cb(rule.id, trans.action, trans.target)
+                        if is_relevant and is_avail and not trans.auto
+                        else None
+                    ),
                     edge_index=idx,
-                    total_edges=total,
+                    total_edges=pair_count[key],
                     src_anchor=src_a,
                     tgt_anchor=tgt_a,
                 )
-                if self.mode == "edit":
-                    edge.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+                bd = rule.transition_bends.get(ak)
+                if bd and len(bd) == 4:
+                    edge.ctrl1_offset = QPointF(bd[0], bd[1])
+                    edge.ctrl2_offset = QPointF(bd[2], bd[3])
+                elif bd and len(bd) == 2:
+                    bf = 4.0 / 3.0
+                    edge.ctrl1_offset = QPointF(bd[0] * bf, bd[1] * bf)
+                    edge.ctrl2_offset = QPointF(bd[0] * bf, bd[1] * bf)
+
+                tip = _missing_tip(trans) if is_relevant and not is_avail else ""
+                if tip:
+                    edge.setToolTip(tip)
+
+                if not is_relevant:
+                    edge.setOpacity(0.1)
+
                 self._scene.addItem(edge)
                 self._edges.append(edge)
 
-            # Link edges to nodes for geometry-change propagation
             src_node._connected_edges = [
                 e for e in self._edges if e.src is src_node or e.tgt is src_node
             ]
 
-        # Header badge
-        sdef_cur = rule.states.get(current_step)
-        badge_text = st.translate(sdef_cur.label) if sdef_cur and sdef_cur.label else current_step
-        badge_col = self._state_color(current_step, sdef_cur)
-        self._rule_lbl.setText(st.translate(rule.name or rule.id))
-        self._badge.setVisible(self.mode == "run")
-        self._badge.setText(badge_text)
-        self._badge.setStyleSheet(
-            f"font-size:10px; padding:2px 8px; border-radius:8px;"
-            f" background:{badge_col}; color:white; font-weight:bold;"
-        )
+        # ── Fanout spread (same as before) ────────────────────────────────────
+        _FANOUT = 12.0
+        from collections import defaultdict as _dd  # noqa: PLC0415
+        src_groups: Dict[Tuple[str, str], List[TransitionEdge]] = _dd(list)
+        for _e in self._edges:
+            src_groups[(_e.src.state_id, _e.src_anchor)].append(_e)
+        for _group in src_groups.values():
+            if len(_group) <= 1:
+                continue
+            _tgts = [_e.tgt.state_id for _e in _group]
+            if len(set(_tgts)) < len(_tgts):
+                continue
+            _group.sort(key=lambda _e: _e.tgt.pos().y())
+            for _i, _e in enumerate(_group):
+                _e.src_spread = (_i - (len(_group) - 1) / 2.0) * _FANOUT
 
-        QTimer.singleShot(50, self._fit_view)
+        # Initial orange: the current state starts as the pending/selected state
+        # so the user immediately sees which state is active.
+        cur_node = self._nodes.get(current_step)
+        if cur_node:
+            cur_node.is_pending = True
+            cur_node.update()
+
+    def _make_set_pending_cb(self, rule_id: str, action: str, target: str) -> Callable:
+        """Return a callback that sets (rule_id, action, target) as the pending transition."""
+        def _edge_cb(edge: TransitionEdge) -> None:  # noqa: ARG001
+            self._set_pending(rule_id, action, target)
+        # Also usable as node callback (no-arg)
+        _edge_cb._node_cb = lambda: self._set_pending(rule_id, action, target)  # type: ignore[attr-defined]
+        return _edge_cb
+
+    def _set_pending(self, rule_id: str, action: str, target: str) -> None:
+        """Visually mark (action → target) as the pending transition and enable Apply."""
+        # Clear previous pending visual
+        for _e in self._edges:
+            if _e.is_pending:
+                _e.is_pending = False
+                _e.update()
+        for _n in self._nodes.values():
+            if _n.is_pending:
+                _n.is_pending = False
+                _n.update()
+
+        self._pending_action = action
+        self._pending_target = target
+        self._pending_rule_id = rule_id
+
+        # Mark the relevant edge(s) and target node
+        for _e in self._edges:
+            if _e.src.state_id != target and _e.transition.action == action:
+                _e.is_pending = True
+                _e.update()
+        tgt_node = self._nodes.get(target)
+        if tgt_node:
+            tgt_node.is_pending = True
+            tgt_node.update()
+
+        if self._btn_apply:
+            from gui.theme import CLR_PRIMARY  # noqa: PLC0415
+            self._btn_apply.setEnabled(True)
+            self._btn_apply.setStyleSheet(
+                f"padding:0 12px; font-weight:bold;"
+                f" background:{CLR_PRIMARY}; color:white; border-radius:4px;"
+            )
+
+    def _clear_pending(self) -> None:
+        """Clear any pending transition selection and return orange to current state."""
+        self._pending_action = None
+        self._pending_target = None
+        self._pending_rule_id = None
+        for _e in self._edges:
+            _e.is_pending = False
+        for _n in self._nodes.values():
+            _n.is_pending = False
+        if self._btn_apply:
+            self._btn_apply.setEnabled(False)
+            self._btn_apply.setStyleSheet("padding:0 12px; font-weight:bold;")
+        # Restore orange highlight on the current state node
+        cur_node = self._nodes.get(self._current_step)
+        if cur_node:
+            cur_node.is_pending = True
+            cur_node.update()
+
+    def _on_apply(self) -> None:
+        """Commit the pending transition."""
+        if self._pending_action and self._pending_target and self._pending_rule_id:
+            rule_id = self._pending_rule_id
+            action = self._pending_action
+            target = self._pending_target
+            self._clear_pending()
+            self.transition_triggered.emit(rule_id, action, target, False)
+
+    def _rebuild_edit_full(self, rule: WorkflowRule) -> None:
+        """Edit mode: render the complete workflow graph with all states and transitions."""
+        positions = _compute_layout(rule)
+
+        for sid, sdef in rule.states.items():
+            node = StateNode(
+                sid, sdef, "edit",
+                on_moved=self._on_node_moved,
+                display_label=rule.get_state_label(sid),
+            )
+            node.setPos(positions.get(sid, QPointF(0, 0)))
+            self._scene.addItem(node)
+            self._nodes[sid] = node
+
+        pair_count: Dict[Tuple[str, str], int] = {}
+        for sid, sdef in rule.states.items():
+            for t in sdef.transitions:
+                key = (sid, t.target)
+                pair_count[key] = pair_count.get(key, 0) + 1
+
+        pair_seen: Dict[Tuple[str, str], int] = {}
+
+        for sid, sdef in rule.states.items():
+            src_node = self._nodes.get(sid)
+            if not src_node:
+                continue
+            for trans in sdef.transitions:
+                tgt_node = self._nodes.get(trans.target)
+                if not tgt_node:
+                    continue
+
+                src_x = positions.get(sid, QPointF()).x()
+                tgt_x = positions.get(trans.target, QPointF()).x()
+                is_back = tgt_x <= src_x and sid != trans.target
+                is_self = sid == trans.target
+
+                ak = f"{sid}:{trans.action}"
+                stored = rule.transition_anchors.get(ak)
+                if stored and len(stored) == 2:
+                    src_a, tgt_a = stored[0], stored[1]
+                elif is_self:
+                    src_a, tgt_a = "right", "right"
+                elif is_back:
+                    src_a, tgt_a = "bottom", "bottom"
+                else:
+                    src_a, tgt_a = "right", "left"
+
+                key = (sid, trans.target)
+                idx = pair_seen.get(key, 0)
+                pair_seen[key] = idx + 1
+
+                edge = TransitionEdge(
+                    trans, src_node, tgt_node,
+                    is_available=False,
+                    is_back_edge=is_back,
+                    click_callback=None,
+                    edge_index=idx,
+                    total_edges=pair_count[key],
+                    src_anchor=src_a,
+                    tgt_anchor=tgt_a,
+                )
+                bd = rule.transition_bends.get(ak)
+                if bd and len(bd) == 4:
+                    edge.ctrl1_offset = QPointF(bd[0], bd[1])
+                    edge.ctrl2_offset = QPointF(bd[2], bd[3])
+                elif bd and len(bd) == 2:
+                    bf = 4.0 / 3.0
+                    edge.ctrl1_offset = QPointF(bd[0] * bf, bd[1] * bf)
+                    edge.ctrl2_offset = QPointF(bd[0] * bf, bd[1] * bf)
+                edge.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+                self._scene.addItem(edge)
+                self._edges.append(edge)
+
+            src_node._connected_edges = [
+                e for e in self._edges if e.src is src_node or e.tgt is src_node
+            ]
+
+        # Fanout spread
+        _FANOUT = 12.0
+        from collections import defaultdict as _dd
+        src_groups: Dict[Tuple[str, str], List[TransitionEdge]] = _dd(list)
+        tgt_groups: Dict[Tuple[str, str], List[TransitionEdge]] = _dd(list)
+        for _e in self._edges:
+            src_groups[(_e.src.state_id, _e.src_anchor)].append(_e)
+            tgt_groups[(_e.tgt.state_id, _e.tgt_anchor)].append(_e)
+        for _group in src_groups.values():
+            if len(_group) <= 1:
+                continue
+            _tgts = [_e.tgt.state_id for _e in _group]
+            if len(set(_tgts)) < len(_tgts):
+                continue
+            _group.sort(key=lambda _e: _e.tgt.pos().y())
+            for _i, _e in enumerate(_group):
+                _e.src_spread = (_i - (len(_group) - 1) / 2.0) * _FANOUT
+        for _group in tgt_groups.values():
+            if len(_group) <= 1:
+                continue
+            _srcs = [_e.src.state_id for _e in _group]
+            if len(set(_srcs)) < len(_srcs):
+                continue
+            _group.sort(key=lambda _e: _e.src.pos().y())
+            for _i, _e in enumerate(_group):
+                _e.tgt_spread = (_i - (len(_group) - 1) / 2.0) * _FANOUT
 
     @staticmethod
     def _extract_visited(wi: Optional[Any]) -> Set[str]:
@@ -1049,13 +1627,31 @@ class WorkflowGraphWidget(QWidget):
     # ── View helpers ──────────────────────────────────────────────────────────
 
     def _fit_view(self) -> None:
-        r = self._scene.itemsBoundingRect()
+        if self.mode == "run" and self._nodes:
+            # Only fit to items that are actually visible (opacity > 0.15).
+            # Dimmed non-relevant nodes/edges (opacity 0.1) must not affect the rect.
+            r = QRectF()
+            for item in self._scene.items():
+                if item.opacity() > 0.15:
+                    mapped = item.mapToScene(item.boundingRect())
+                    r = r.united(mapped.boundingRect())
+        else:
+            r = self._scene.itemsBoundingRect()
         if r.isNull() or self._view.width() < 10:
             return
         padded = r.adjusted(-24, -24, 24, 24)
         # Generous sceneRect gives room to pan when zoomed in
         self._scene.setSceneRect(r.adjusted(-300, -300, 300, 300))
         self._view.fitInView(padded, Qt.AspectRatioMode.KeepAspectRatio)
+
+        # Cap maximum zoom: if fitInView produced a scale > 1.0 (content smaller
+        # than viewport), reset to 1:1 and centre instead — avoids oversized nodes
+        # when only a few states are visible in run mode.
+        t = self._view.transform()
+        if t.m11() > 1.0:
+            self._view.resetTransform()
+            self._view.centerOn(r.center())
+
         self._user_zoomed = False
 
     def _zoom_in(self) -> None:
@@ -1073,24 +1669,18 @@ class WorkflowGraphWidget(QWidget):
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         if not self._user_zoomed:
-            QTimer.singleShot(10, self._fit_view)
+            self._fit_timer.start()   # restarts the 120 ms countdown on every resize
 
     # ── Edit mode — commands ──────────────────────────────────────────────────
 
     def _cmd_add_state(self) -> None:
         if not self._rule:
             return
-        sid, ok = QInputDialog.getText(self, self.tr("Add State"),
-                                       self.tr("State ID (uppercase, e.g. PROCESSING):"))
-        if not ok or not sid.strip():
+        label, ok = QInputDialog.getText(self, self.tr("Add State"),
+                                         self.tr("Label for the new state:"))
+        if not ok or not label.strip():
             return
-        sid = sid.strip().upper()
-        if sid in self._rule.states:
-            return
-        label, ok2 = QInputDialog.getText(self, self.tr("Add State"),
-                                          self.tr("Display label for '%s':") % sid)
-        if not ok2:
-            return
+        sid = make_state_id()
         self._rule.states[sid] = WorkflowState(label=label.strip())
         self._rebuild()
         self.rule_changed.emit()
@@ -1100,12 +1690,13 @@ class WorkflowGraphWidget(QWidget):
             return
         dlg = AddTransitionDialog(self._rule.states, self)
         if dlg.exec():
-            src, action, tgt, auto, req = dlg.get_values()
-            if not action:
-                return
+            src, label, tgt, auto, req = dlg.get_values()
             if src in self._rule.states and tgt in self._rule.states:
                 self._rule.states[src].transitions.append(
-                    WorkflowTransition(action=action, target=tgt, auto=auto, required_fields=req)
+                    WorkflowTransition(
+                        action=make_action_id(), label=label,
+                        target=tgt, auto=auto, required_fields=req,
+                    )
                 )
                 self._rebuild()
                 self.rule_changed.emit()
@@ -1144,13 +1735,21 @@ class WorkflowGraphWidget(QWidget):
         selected = self._scene.selectedItems()
         item = selected[0] if selected else None
 
-        # Endpoint handles for selected edge (both inline and external mode)
+        # Endpoint handles + two ctrl-point handles for selected edge
         if isinstance(item, TransitionEdge):
-            h_src = EndpointHandle(item, True,  self._on_anchor_committed)
-            h_tgt = EndpointHandle(item, False, self._on_anchor_committed)
+            h_src   = EndpointHandle(item, True,  self._on_anchor_committed)
+            h_tgt   = EndpointHandle(item, False, self._on_anchor_committed)
+            h_ctrl1 = CtrlHandle(item, "ctrl1", self._on_ctrl_committed)
+            h_ctrl2 = CtrlHandle(item, "ctrl2", self._on_ctrl_committed)
+            # Skip ctrl handles for self-loops (no _ctrl_points)
             self._scene.addItem(h_src)
             self._scene.addItem(h_tgt)
-            self._handles = [h_src, h_tgt]
+            handles = [h_src, h_tgt]
+            if item.src is not item.tgt:
+                self._scene.addItem(h_ctrl1)
+                self._scene.addItem(h_ctrl2)
+                handles += [h_ctrl1, h_ctrl2]
+            self._handles = handles
 
         if not self.inline_detail:
             self.item_selected.emit(item)
@@ -1175,7 +1774,6 @@ class WorkflowGraphWidget(QWidget):
 
     def _populate_state_detail(self, node: StateNode) -> None:
         fl = self._detail_form_layout
-        fl.addRow(self.tr("ID:"), QLabel(node.state_id))
 
         lbl_edit = QLineEdit(node.state_def.label)
         fl.addRow(self.tr("Label:"), lbl_edit)
@@ -1188,7 +1786,7 @@ class WorkflowGraphWidget(QWidget):
             if not self._rule:
                 return
             node.state_def.label = lbl_edit.text().strip()
-            node.display_label = SemanticTranslator.instance().translate(node.state_def.label) or node.state_id
+            node.display_label = node.state_def.label or node.state_id
             node.state_def.final = final_chk.isChecked()
             node.update()
             self._rebuild()
@@ -1203,8 +1801,8 @@ class WorkflowGraphWidget(QWidget):
         fl = self._detail_form_layout
         t = edge.transition
 
-        action_edit = QLineEdit(t.action)
-        fl.addRow(self.tr("Action:"), action_edit)
+        label_edit = QLineEdit(t.label or t.action)
+        fl.addRow(self.tr("Label:"), label_edit)
 
         auto_chk = QCheckBox()
         auto_chk.setChecked(t.auto)
@@ -1215,10 +1813,7 @@ class WorkflowGraphWidget(QWidget):
         fl.addRow(self.tr("Required Fields:"), req_edit)
 
         def _apply():
-            new_action = action_edit.text().strip().lower()
-            if not new_action:
-                return
-            t.action = new_action
+            t.label = label_edit.text().strip()
             t.auto = auto_chk.isChecked()
             t.required_fields = [f.strip() for f in req_edit.text().split(",") if f.strip()]
             self._rebuild()
@@ -1278,6 +1873,18 @@ class WorkflowGraphWidget(QWidget):
         for h in self._handles:
             h._snap_to_edge()
 
+        self.rule_changed.emit()
+
+    def _on_ctrl_committed(self, edge: "TransitionEdge") -> None:
+        """Persist both ctrl-point offsets for *edge* into the rule."""
+        if not self._rule:
+            return
+        ak = f"{edge.src.state_id}:{edge.transition.action}"
+        c1, c2 = edge.ctrl1_offset, edge.ctrl2_offset
+        if c1.x() == 0 and c1.y() == 0 and c2.x() == 0 and c2.y() == 0:
+            self._rule.transition_bends.pop(ak, None)
+        else:
+            self._rule.transition_bends[ak] = [c1.x(), c1.y(), c2.x(), c2.y()]
         self.rule_changed.emit()
 
 

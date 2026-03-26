@@ -30,7 +30,7 @@ from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
 from core.rules_engine import RulesEngine
 from core.visual_auditor import VisualAuditor
-from core.workflow import WorkflowRuleRegistry
+from core.workflow import WorkflowRuleRegistry, get_initial_state
 
 if TYPE_CHECKING:
     from core.filter_tree import FilterTree
@@ -526,7 +526,8 @@ class CanonizerService:
                 for rule in self.workflow_registry.find_rules_for_tags(target_doc.type_tags):
                     if rule.id not in target_doc.semantic_data.workflows:
                         target_doc.semantic_data.workflows[rule.id] = WorkflowInfo(
-                            rule_id=rule.id, current_step="NEW"
+                            rule_id=rule.id,
+                            current_step=get_initial_state(rule) or "NEW",
                         )
                         logger.info(f"Assigned rule '{rule.id}' to {target_doc.uuid}")
 

@@ -1,88 +1,162 @@
 {
-    "id": "smart_dunning_agent",
-    "name": "Intelligenter Mahn-Agent",
-    "description": "Automatische Eskalationsstufen basierend auf Liegezeit und Fälligkeit.",
-    "states": {
-        "NEW": {
-            "label": "Posteingang",
-            "transitions": [
-                {
-                    "action": "prüfen",
-                    "target": "WAITING_FOR_PAYMENT",
-                    "required_fields": [
-                        "total_gross",
-                        "iban"
-                    ]
-                }
-            ]
-        },
-        "WAITING_FOR_PAYMENT": {
-            "label": "Warten auf Zahlung",
-            "transitions": [
-                {
-                    "action": "bezahlt",
-                    "target": "PAID"
-                },
-                {
-                    "action": "erinnern",
-                    "target": "REMINDER_1",
-                    "comment": "Nur sichtbar wenn seit 10 Tagen unbezahlt",
-                    "conditions": [
-                        {
-                            "field": "DAYS_IN_STATE",
-                            "op": ">",
-                            "value": 10
-                        }
-                    ]
-                },
-                {
-                    "action": "sofort_zahlen",
-                    "target": "PAID",
-                    "comment": "Erscheint nur wenn Fälligkeit in weniger als 2 Tagen",
-                    "conditions": [
-                        {
-                            "field": "DAYS_UNTIL_DUE",
-                            "op": "<",
-                            "value": 2
-                        }
-                    ]
-                }
-            ]
-        },
-        "REMINDER_1": {
-            "label": "1. Mahnstufe",
-            "transitions": [
-                {
-                    "action": "bezahlt",
-                    "target": "PAID"
-                },
-                {
-                    "action": "rechtsabteilung",
-                    "target": "LEGAL",
-                    "comment": "Eskalation nach 30 Tagen in Mahnstufe 1",
-                    "conditions": [
-                        {
-                            "field": "DAYS_IN_STATE",
-                            "op": ">",
-                            "value": 30
-                        }
-                    ]
-                }
-            ]
-        },
-        "PAID": {
-            "label": "Abgeschlossen",
-            "final": true
-        },
-        "LEGAL": {
-            "label": "Inkasso / Recht",
-            "final": true
+  "id": "smart_dunning",
+  "name": "Intelligenter Mahn-Agent",
+  "description": "Automatische Eskalationsstufen basierend auf Liegezeit und F\u00e4lligkeit.",
+  "creator_locale": "de",
+  "l10n": {},
+  "states": {
+    "s_00387ce1": {
+      "label": "Posteingang",
+      "transitions": [
+        {
+          "action": "t_d084d6d2",
+          "label": "pr\u00fcfen",
+          "target": "s_11285185",
+          "required_fields": [
+            "total_gross",
+            "iban"
+          ],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
         }
+      ],
+      "final": false
     },
-    "triggers": {
-        "type_tags": [
-            "INVOICE",
-            "RECHNUNG"
-        ]
+    "s_11285185": {
+      "label": "Warten auf Zahlung",
+      "transitions": [
+        {
+          "action": "t_f0dbd311",
+          "label": "bezahlt",
+          "target": "s_29669884",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_5ae16405",
+          "label": "erinnern",
+          "target": "s_a02eec87",
+          "required_fields": [],
+          "conditions": [
+            {
+              "field": "DAYS_IN_STATE",
+              "op": ">",
+              "value": 10
+            }
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false
+    },
+    "s_29669884": {
+      "label": "Abgeschlossen",
+      "transitions": [],
+      "final": true
+    },
+    "s_89fd76ba": {
+      "label": "Inkasso / Recht",
+      "transitions": [],
+      "final": true
+    },
+    "s_a02eec87": {
+      "label": "1. Mahnstufe",
+      "transitions": [
+        {
+          "action": "t_f0dbd311",
+          "label": "bezahlt",
+          "target": "s_29669884",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_c7f1bff2",
+          "label": "rechtsabteilung",
+          "target": "s_89fd76ba",
+          "required_fields": [],
+          "conditions": [
+            {
+              "field": "DAYS_IN_STATE",
+              "op": ">",
+              "value": 30
+            }
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false
     }
+  },
+  "triggers": {
+    "type_tags": [
+      "INVOICE",
+      "RECHNUNG"
+    ]
+  },
+  "node_positions": {
+    "s_00387ce1": [
+      31.083024098455887,
+      56.53208223733251
+    ],
+    "s_11285185": [
+      276.45908183632724,
+      56.40918163672654
+    ],
+    "s_29669884": [
+      583.086964834718,
+      54.23190622591456
+    ],
+    "s_89fd76ba": [
+      864.4191616766468,
+      -65.97005988023952
+    ],
+    "s_a02eec87": [
+      580.9560878243512,
+      -66.07784431137725
+    ]
+  },
+  "transition_anchors": {
+    "s_11285185:t_5ae16405": [
+      "top",
+      "left"
+    ],
+    "s_11285185:sofort_zahlen": [
+      "bottom-right",
+      "bottom-left"
+    ],
+    "s_11285185:t_f0dbd311": [
+      "right",
+      "left"
+    ],
+    "s_a02eec87:t_f0dbd311": [
+      "bottom",
+      "top"
+    ]
+  },
+  "transition_bends": {
+    "s_a02eec87:t_f0dbd311": [
+      3.0687705429612606,
+      31.710628943933123,
+      0.0,
+      0.0
+    ],
+    "s_11285185:t_5ae16405": [
+      0.0,
+      -15.343852714806353,
+      -29.66478191529228,
+      0.0
+    ]
+  }
 }

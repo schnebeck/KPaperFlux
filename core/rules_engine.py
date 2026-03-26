@@ -88,10 +88,15 @@ class RulesEngine:
                 from core.models.semantic import SemanticExtraction
                 v_doc.semantic_data = SemanticExtraction()
             from core.models.semantic import WorkflowInfo
+            from core.workflow import WorkflowRuleRegistry, get_initial_state
+            _registry = WorkflowRuleRegistry()
             for workflow_id in new_workflows:
                 if workflow_id not in v_doc.semantic_data.workflows:
+                    _rule = _registry.get_rule(workflow_id)
+                    _initial = get_initial_state(_rule) if _rule else None
                     v_doc.semantic_data.workflows[workflow_id] = WorkflowInfo(
-                        rule_id=workflow_id, current_step="NEW"
+                        rule_id=workflow_id,
+                        current_step=_initial or "NEW",
                     )
                     modified = True
 

@@ -1,14 +1,17 @@
 {
   "id": "invoice_standard",
-  "name": "Standard Invoice Manager",
-  "description": "Handles standard invoice verification and payment workflow.",
+  "name": "Standard Rechnungsmanager",
+  "description": "Pr\u00fcfung der semantischen Daten einer Rechnung",
+  "creator_locale": "de",
+  "l10n": {},
   "states": {
-    "NEW": {
-      "label": "Incoming Invoice",
+    "s_2030361d": {
+      "label": "Neue Rechnung",
       "transitions": [
         {
-          "action": "verify",
-          "target": "VERIFIED",
+          "action": "t_a461f1d8",
+          "label": "pr\u00fcfen",
+          "target": "s_2b61003e",
           "required_fields": [
             "total_gross",
             "iban",
@@ -21,8 +24,9 @@
           "icon": null
         },
         {
-          "action": "reject",
-          "target": "REJECTED",
+          "action": "t_28035cf6",
+          "label": "ablehnen",
+          "target": "s_60c10d5d",
           "required_fields": [],
           "conditions": [],
           "user_interaction": false,
@@ -32,12 +36,13 @@
       ],
       "final": false
     },
-    "VERIFIED": {
-      "label": "Ready for Payment",
+    "s_2b61003e": {
+      "label": "Gepr\u00fcft",
       "transitions": [
         {
-          "action": "mark_as_paid",
-          "target": "PAID",
+          "action": "t_6bb74cb1",
+          "label": "bezahlen",
+          "target": "s_2dc6045d",
           "required_fields": [],
           "conditions": [],
           "user_interaction": false,
@@ -45,8 +50,9 @@
           "icon": null
         },
         {
-          "action": "reset",
-          "target": "NEW",
+          "action": "t_e2844500",
+          "label": "zur\u00fccksetzen",
+          "target": "s_2030361d",
           "required_fields": [],
           "conditions": [],
           "user_interaction": false,
@@ -56,13 +62,13 @@
       ],
       "final": false
     },
-    "PAID": {
-      "label": "Paid & Archived",
+    "s_2dc6045d": {
+      "label": "Bezahlt -> Archiv",
       "transitions": [],
       "final": true
     },
-    "REJECTED": {
-      "label": "Rejected / Spam",
+    "s_60c10d5d": {
+      "label": "Zur\u00fcckgewiesen -> Spam",
       "transitions": [],
       "final": true
     }
@@ -73,21 +79,35 @@
     ]
   },
   "node_positions": {
-    "NEW": [
+    "s_2030361d": [
       16.145452317495327,
       45.61039120178905
     ],
-    "VERIFIED": [
-      330.5365928376682,
-      46.83056091658242
+    "s_2b61003e": [
+      262.87436226650806,
+      46.83056091658243
     ],
-    "PAID": [
-      648.1472903838494,
-      48.293355390129584
+    "s_2dc6045d": [
+      518.598873314677,
+      46.643057083515934
     ],
-    "REJECTED": [
-      331.60977851300436,
-      -57.02582483227644
+    "s_60c10d5d": [
+      517.431614458484,
+      -26.813092166714057
+    ]
+  },
+  "transition_anchors": {
+    "s_2030361d:t_28035cf6": [
+      "top",
+      "left"
+    ]
+  },
+  "transition_bends": {
+    "s_2030361d:t_28035cf6": [
+      16.74939302940311,
+      104.68370643376939,
+      -77.46594276098938,
+      1.395782752450259
     ]
   }
 }

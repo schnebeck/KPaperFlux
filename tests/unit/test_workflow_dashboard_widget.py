@@ -1,5 +1,5 @@
 import pytest
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QLabel
 from gui.workflow_manager import WorkflowDashboardWidget
 from core.database import DatabaseManager
 from core.repositories import LogicalRepository
@@ -43,16 +43,15 @@ def test_workflow_dashboard_refresh(qtbot, db_manager):
 
     widget.refresh()
 
-    # We should have 3 StatCards
-    assert widget.stats_layout.count() == 3
+    # We should have 3 overview StatCards on the board
+    assert len(widget._board._overview) == 3
 
     # Find the 'Urgent' card
     urgent_card = None
-    for i in range(widget.stats_layout.count()):
-        c = widget.stats_layout.itemAt(i).widget()
-        labels = c.findChildren(pytest.importorskip("PyQt6.QtWidgets").QLabel)
+    for card in widget._board._overview:
+        labels = card.findChildren(QLabel)
         if any("Urgent" in l.text() for l in labels):
-            urgent_card = c
+            urgent_card = card
             break
 
     assert urgent_card is not None

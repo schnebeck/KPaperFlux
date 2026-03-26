@@ -58,6 +58,10 @@ def load_translations(app: QApplication, app_config: AppConfig) -> None:
     current_lang = app_config.get_language()
     logger.info(f"Application language set to: {current_lang} (Config: {app_config.settings.fileName()})")
 
+    # Propagate UI locale to workflow label resolution
+    from core.workflow import set_user_locale
+    set_user_locale(current_lang)
+
 
 def main() -> None:
     """

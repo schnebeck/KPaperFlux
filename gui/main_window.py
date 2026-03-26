@@ -176,7 +176,10 @@ class MainWindow(QMainWindow):
         self.central_stack.addWidget(self.explorer_widget)
         
         # --- Page 2: Workflow Rules ---
-        self.workflow_manager = WorkflowManagerWidget(filter_tree=self.filter_tree)
+        self.workflow_manager = WorkflowManagerWidget(
+            filter_tree=self.filter_tree,
+            pipeline=self.pipeline,
+        )
         self.workflow_manager.navigation_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.workflow_manager)
 
@@ -309,11 +312,11 @@ class MainWindow(QMainWindow):
         self.status_layout.setContentsMargins(5, 0, 5, 0)
         self.status_layout.setSpacing(10)
         
-        self.main_status_label = QLabel(self.tr("Ready"))
-        self.status_layout.addWidget(self.main_status_label)
-        
         self.activity_panel = BackgroundActivityStatusBar()
         self.status_layout.addWidget(self.activity_panel)
+
+        self.main_status_label = QLabel(self.tr("Ready"))
+        self.status_layout.addWidget(self.main_status_label)
         
         # Phase 135: Centered Sum Container
         self.status_layout.addStretch(1)
@@ -1677,7 +1680,7 @@ class MainWindow(QMainWindow):
 
 
     def _on_ai_status_changed(self, msg: str) -> None:
-        self.main_status_label.setText(self.tr("AI: %s") % msg)
+        self.activity_panel.update_status(self.tr("AI: %s") % msg)
 
     def export_documents_slot(self, uuids: list[str]):
         """Export selected documents via ListWidget dialog."""
@@ -2237,98 +2240,98 @@ class MainWindow(QMainWindow):
         self.navbar = QToolBar("Navigation")
         self.navbar.setIconSize(QSize(20, 20))
         self.navbar.setMovable(False)
-        self.navbar.setStyleSheet("""
-            QToolBar {
-                background-color: #f5f5f5;
-                border-bottom: 1px solid #ddd;
+        from gui.theme import (
+            CLR_NAV_BG, CLR_BORDER, CLR_SURFACE, CLR_SURFACE_ROW, CLR_SURFACE_HOVER,
+            CLR_PRIMARY_NAV, CLR_PRIMARY_LIGHT, CLR_TEXT, CLR_TEXT_SECONDARY,
+            FONT_BASE, RADIUS_SM, NAV_HEIGHT,
+        )
+        self.navbar.setStyleSheet(f"""
+            QToolBar {{
+                background-color: {CLR_NAV_BG};
+                border-bottom: 1px solid {CLR_BORDER};
                 padding-top: 12px;
                 spacing: 2px;
-            }
-            QToolButton {
+            }}
+            QToolButton {{
                 padding: 6px 15px;
                 border: 1px solid transparent;
                 border-bottom: 3px solid transparent;
                 border-top-left-radius: 6px;
                 border-top-right-radius: 6px;
                 font-weight: 500;
-                font-size: 14px; /* Enforce same height as sub-modes */
-                color: #666;
-            }
-            QToolButton:hover {
-                background-color: #eee;
-            }
+                font-size: {FONT_BASE}px;
+                color: {CLR_TEXT_SECONDARY};
+            }}
+            QToolButton:hover {{
+                background-color: {CLR_SURFACE_HOVER};
+            }}
             /* Tab Container Styling */
-            QWidget#tabContainer {
+            QWidget#tabContainer {{
                 background-color: transparent;
                 border: 1px solid transparent;
                 border-top-left-radius: 6px;
                 border-top-right-radius: 6px;
                 margin-bottom: -1px;
-                margin-top: 10px; /* Explicit spacing to the menu bar */
-                min-height: 35px; /* Hard anchor for vertical height stability */
-            }
-            QWidget#tabContainer[active="true"] {
-                background-color: #ffffff;
-                border-color: #ddd;
-                border-bottom: 1px solid #ffffff;
-            }
-            QWidget#tabContainer[active="true"] QToolButton {
+                margin-top: 10px;
+                min-height: {NAV_HEIGHT}px;
+            }}
+            QWidget#tabContainer[active="true"] {{
+                background-color: {CLR_SURFACE};
+                border-color: {CLR_BORDER};
+                border-bottom: 1px solid {CLR_SURFACE};
+            }}
+            QWidget#tabContainer[active="true"] QToolButton {{
                 background-color: transparent;
                 border: 1px solid transparent;
-                color: #1976d2; /* Blue accent for active tab */
+                color: {CLR_PRIMARY_NAV};
                 font-weight: bold;
-            }
-            /* Visual underline for active tab */
-            QWidget#tabContainer[active="true"]::after {
-                /* Note: QWidget doesn't support ::after, using border-top instead or just the button underline */
-            }
-            
+            }}
             /* Underline for the main tab button when active */
-            QToolButton#mainTabBtn[active="true"] {
-                border-bottom: 3px solid #1976d2;
-                color: #1976d2;
-            }
+            QToolButton#mainTabBtn[active="true"] {{
+                border-bottom: 3px solid {CLR_PRIMARY_NAV};
+                color: {CLR_PRIMARY_NAV};
+            }}
 
             /* Filter Button specific styling */
-            QWidget#tabContainer QToolButton#filterBtn {
+            QWidget#tabContainer QToolButton#filterBtn {{
                 margin: 0px 6px;
                 padding: 4px 10px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                background-color: #f8f8f8;
-                font-size: 13px;
-                color: #333;
-            }
-            QWidget#tabContainer QToolButton#filterBtn:hover {
-                background-color: #efefef;
-                border-color: #bbb;
-            }
-            QWidget#tabContainer QToolButton#filterBtn:checked {
-                background-color: #e3f2fd;
-                border: 1px solid #2196f3;
-                color: #1976d2;
+                border: 1px solid {CLR_BORDER};
+                border-radius: {RADIUS_SM}px;
+                background-color: {CLR_SURFACE_ROW};
+                font-size: {FONT_BASE}px;
+                color: {CLR_TEXT};
+            }}
+            QWidget#tabContainer QToolButton#filterBtn:hover {{
+                background-color: {CLR_SURFACE_HOVER};
+                border-color: {CLR_BORDER};
+            }}
+            QWidget#tabContainer QToolButton#filterBtn:checked {{
+                background-color: {CLR_PRIMARY_LIGHT};
+                border: 1px solid {CLR_PRIMARY_NAV};
+                color: {CLR_PRIMARY_NAV};
                 font-weight: bold;
-            }
+            }}
             /* Sub-mode buttons */
-            QWidget#tabContainer QToolButton#subModeBtn {
+            QWidget#tabContainer QToolButton#subModeBtn {{
                 background: transparent;
                 border: none;
                 border-bottom: 3px solid transparent;
                 border-radius: 0px;
                 padding: 6px 15px;
-                color: #888;
-                font-size: 14px;
-            }
-            QWidget#tabContainer QToolButton#subModeBtn:hover {
-                background-color: #f1f7fd;
-                color: #1976d2;
-            }
-            QWidget#tabContainer QToolButton#subModeBtn:checked {
-                color: #1976d2;
-                border-bottom: 3px solid #1976d2;
-                background-color: #f0f7ff;
+                color: {CLR_TEXT_SECONDARY};
+                font-size: {FONT_BASE}px;
+            }}
+            QWidget#tabContainer QToolButton#subModeBtn:hover {{
+                background-color: {CLR_SURFACE_HOVER};
+                color: {CLR_PRIMARY_NAV};
+            }}
+            QWidget#tabContainer QToolButton#subModeBtn:checked {{
+                color: {CLR_PRIMARY_NAV};
+                border-bottom: 3px solid {CLR_PRIMARY_NAV};
+                background-color: {CLR_PRIMARY_LIGHT};
                 font-weight: bold;
-            }
+            }}
         """)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.navbar)
 

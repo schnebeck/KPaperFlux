@@ -194,7 +194,8 @@ class DocumentListWidget(QWidget):
         bc_layout.setContentsMargins(10, 5, 10, 5)
 
         self.lbl_breadcrumb = QLabel()
-        self.lbl_breadcrumb.setStyleSheet("font-weight: bold; color: #555;")
+        from gui.theme import CLR_TEXT_SECONDARY
+        self.lbl_breadcrumb.setStyleSheet(f"font-weight: bold; color: {CLR_TEXT_SECONDARY};")
         bc_layout.addWidget(self.lbl_breadcrumb)
         bc_layout.addStretch()
 
@@ -202,22 +203,23 @@ class DocumentListWidget(QWidget):
         self.btn_reset_view.setToolTip(self.tr("Show All"))
         self.btn_reset_view.setFixedSize(22, 22)  # Slightly larger
         self.btn_reset_view.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_reset_view.setStyleSheet("""
-            QPushButton {
+        from gui.theme import CLR_DANGER, CLR_TEXT_ON_COLOR, FONT_BASE
+        self.btn_reset_view.setStyleSheet(f"""
+            QPushButton {{
                 font-weight: bold;
-                font-size: 16px;
+                font-size: {FONT_BASE}px;
                 border-radius: 11px;
                 border: none;
-                background-color: #d32f2f;
-                color: white;
+                background-color: {CLR_DANGER};
+                color: {CLR_TEXT_ON_COLOR};
                 padding-bottom: 2px;
-            }
-            QPushButton:hover {
-                background-color: #f44336;
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:hover {{
+                background-color: #d93025;
+            }}
+            QPushButton:pressed {{
                 background-color: #b71c1c;
-            }
+            }}
         """)
         self.btn_reset_view.clicked.connect(self.clear_filters)
         bc_layout.addWidget(self.btn_reset_view)
@@ -250,6 +252,17 @@ class DocumentListWidget(QWidget):
         self.tree.header().customContextMenuRequested.connect(self.show_header_menu)
         self.tree.header().setSectionsMovable(True) # Explicitly enable DnD reordering
         layout.addWidget(self.tree)
+
+        # Workflow aggregate footer
+        self._workflow_footer = QLabel()
+        self._workflow_footer.setContentsMargins(10, 2, 10, 2)
+        from gui.theme import CLR_TEXT_SECONDARY, CLR_SURFACE_ROW, CLR_BORDER, FONT_SM
+        self._workflow_footer.setStyleSheet(
+            f"font-size: {FONT_SM}px; color: {CLR_TEXT_SECONDARY}; background: {CLR_SURFACE_ROW};"
+            f" border-top: 1px solid {CLR_BORDER}; padding: 2px 10px;"
+        )
+        self._workflow_footer.hide()
+        layout.addWidget(self._workflow_footer)
 
         # Phase 113: Lazy Loading / Infinite Scroll
         self.CHUNK_SIZE = 100
@@ -1423,6 +1436,36 @@ class DocumentListWidget(QWidget):
         
         return item
 
+    def _update_workflow_footer(self, docs: list) -> None:
+        """Aggregate open/done workflow counts from the current document list."""
+        from core.workflow import WorkflowRuleRegistry
+        registry = WorkflowRuleRegistry()
+        open_count = 0
+        done_count = 0
+        for doc in docs:
+            sd = getattr(doc, "semantic_data", None)
+            if not sd:
+                continue
+            workflows = getattr(sd, "workflows", None)
+            if not workflows:
+                continue
+            for rule_id, wf in workflows.items():
+                rule = registry.get_rule(rule_id)
+                if not rule:
+                    continue
+                state_def = rule.states.get(wf.current_step)
+                if state_def and state_def.final:
+                    done_count += 1
+                else:
+                    open_count += 1
+        if open_count or done_count:
+            self._workflow_footer.setText(
+                self.tr("Workflows: %d open · %d done") % (open_count, done_count)
+            )
+            self._workflow_footer.show()
+        else:
+            self._workflow_footer.hide()
+
     def populate_tree(self, docs):
         """Populate the tree using lazy incremental loading."""
         # 0. Temporarily disable sorting for bulk insertion performance
@@ -1436,6 +1479,7 @@ class DocumentListWidget(QWidget):
 
         # Phase 113: Load first chunk and reset state
         self._load_next_chunk(reset=True)
+        self._update_workflow_footer(docs)
 
         # 1. Restore Sort State or apply defaults
         header = self.tree.header()
@@ -1531,13 +1575,14 @@ class DocumentListWidget(QWidget):
             self.lbl_breadcrumb.setText(" > ".join(path))
             
             # Color Coding for better orientation
-            color = "#555"
+            from gui.theme import CLR_TEXT_SECONDARY, CLR_DANGER, CLR_WARNING, CLR_PRIMARY_NAV
+            color = CLR_TEXT_SECONDARY
             if self.is_trash_mode:
-                color = "#d32f2f"
+                color = CLR_DANGER
             elif "Semantic" in str(self.view_context) or "Missing" in str(self.view_context):
-                color = "#f57c00"
+                color = CLR_WARNING
             elif len(path) > 1:
-                color = "#1976d2"
+                color = CLR_PRIMARY_NAV
             self.lbl_breadcrumb.setStyleSheet(f"font-weight: bold; color: {color};")
             
             # Show/Hide Reset Button

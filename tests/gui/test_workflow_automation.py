@@ -46,8 +46,6 @@ def test_auto_rule_assignment_on_display(qtbot, editor):
     assert "test_invoice_rule" in doc.semantic_data.workflows
     assert doc.semantic_data.workflows["test_invoice_rule"].current_step == "NEW"
 
-    # Verify UI has a control for this rule
-    assert "test_invoice_rule" in editor._workflow_controls
 
 def test_multi_rule_assignment_on_display(qtbot, editor):
     """
@@ -78,7 +76,6 @@ def test_multi_rule_assignment_on_display(qtbot, editor):
 
     assert "rule_invoice" in doc.semantic_data.workflows
     assert "rule_order" in doc.semantic_data.workflows
-    assert len(editor._workflow_controls) == 2
 
 def test_existing_workflow_not_overwritten_on_display(qtbot, editor):
     """

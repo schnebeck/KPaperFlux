@@ -125,26 +125,9 @@ class AdvancedFilterWidget(QWidget):
         self.sub_mode_group = QButtonGroup(self)
         self.sub_mode_group.setExclusive(False) # Manual toggle logic
 
-        button_height = 30
-        button_style = f"""
-            QToolButton {{ 
-                padding: 0px 5px; 
-                height: {button_height}px;
-                border: 1px solid #ddd; 
-                border-radius: 4px;
-                background: #f8f9fa;
-                color: #555; 
-                font-size: 13px; 
-                font-weight: 500; 
-            }}
-            QToolButton:hover {{ background: #eee; }}
-            QToolButton:checked {{ 
-                background: #1565c0; 
-                color: white; 
-                border-color: #0d47a1;
-                font-weight: bold; 
-            }}
-        """
+        from gui.theme import btn_subnav, SUBNAV_HEIGHT
+        button_height = SUBNAV_HEIGHT
+        button_style = btn_subnav()
 
         self.sub_mode_buttons = {}
         modes = [
@@ -180,7 +163,8 @@ class AdvancedFilterWidget(QWidget):
         self.sep_line = QFrame()
         self.sep_line.setFrameShape(QFrame.Shape.HLine)
         self.sep_line.setFrameShadow(QFrame.Shadow.Sunken)
-        self.sep_line.setStyleSheet("background-color: #ddd; max-height: 1px; margin-bottom: 0px;")
+        from gui.theme import CLR_BORDER
+        self.sep_line.setStyleSheet(f"background-color: {CLR_BORDER}; max-height: 1px; margin-bottom: 0px;")
         layout.addWidget(self.sep_line)
 
         self.stack = QStackedWidget()
@@ -245,7 +229,8 @@ class AdvancedFilterWidget(QWidget):
         opt_layout.addWidget(opt_spacer)
 
         self.lbl_search_status = QLabel("")
-        self.lbl_search_status.setStyleSheet("color: #666; font-style: italic;")
+        from gui.theme import CLR_TEXT_SECONDARY
+        self.lbl_search_status.setStyleSheet(f"color: {CLR_TEXT_SECONDARY}; font-style: italic;")
         opt_layout.addWidget(self.lbl_search_status)
 
         search_layout.addLayout(opt_layout)
@@ -298,7 +283,8 @@ class AdvancedFilterWidget(QWidget):
 
         self.btn_export = QPushButton()
         self.btn_export.setFixedHeight(30)
-        self.btn_export.setStyleSheet("background-color: #1b5e20; color: white; font-weight: bold; padding: 4px 16px;")
+        from gui.theme import CLR_SUCCESS, CLR_TEXT_ON_COLOR
+        self.btn_export.setStyleSheet(f"background-color: {CLR_SUCCESS}; color: {CLR_TEXT_ON_COLOR}; font-weight: bold; padding: 4px 16px;")
         self.btn_export.clicked.connect(self.export_current_filter)
         top_bar.addWidget(self.btn_export)
 
@@ -306,7 +292,8 @@ class AdvancedFilterWidget(QWidget):
         self.btn_toggle_editor = QPushButton("🔽")
         self.btn_toggle_editor.setFixedWidth(30)
         self.btn_toggle_editor.setFixedHeight(30)
-        self.btn_toggle_editor.setStyleSheet("color: #ff9800; font-weight: bold; border: none; background: transparent; font-size: 16px;")
+        from gui.theme import CLR_WARNING, FONT_BASE
+        self.btn_toggle_editor.setStyleSheet(f"color: {CLR_WARNING}; font-weight: bold; border: none; background: transparent; font-size: {FONT_BASE}px;")
         self.btn_toggle_editor.setToolTip(self.tr("Show/Hide Editor"))
         self.btn_toggle_editor.setVisible(False) # Hide by default
         self.btn_toggle_editor.clicked.connect(self._toggle_editor_visibility)
@@ -340,7 +327,8 @@ class AdvancedFilterWidget(QWidget):
         bottom_bar.addStretch()
 
         self.lbl_changes = QLabel("")
-        self.lbl_changes.setStyleSheet("color: #666; margin-right: 5px;")
+        from gui.theme import CLR_TEXT_SECONDARY
+        self.lbl_changes.setStyleSheet(f"color: {CLR_TEXT_SECONDARY}; margin-right: 5px;")
         bottom_bar.addWidget(self.lbl_changes)
 
         self.btn_revert = QPushButton()
@@ -414,7 +402,8 @@ class AdvancedFilterWidget(QWidget):
         self.btn_toggle_rules = QPushButton("🔽")
         self.btn_toggle_rules.setFixedWidth(30)
         self.btn_toggle_rules.setFixedHeight(30)
-        self.btn_toggle_rules.setStyleSheet("color: #ff9800; font-weight: bold; border: none; background: transparent; font-size: 16px;")
+        from gui.theme import CLR_WARNING, FONT_BASE
+        self.btn_toggle_rules.setStyleSheet(f"color: {CLR_WARNING}; font-weight: bold; border: none; background: transparent; font-size: {FONT_BASE}px;")
         self.btn_toggle_rules.setToolTip(self.tr("Show/Hide Editor"))
         self.btn_toggle_rules.setVisible(False) 
         self.btn_toggle_rules.clicked.connect(self._toggle_rules_visibility)
@@ -492,7 +481,8 @@ class AdvancedFilterWidget(QWidget):
         bottom_bar.addStretch()
 
         self.lbl_changes_rule = QLabel("")
-        self.lbl_changes_rule.setStyleSheet("color: #666; margin-right: 5px;")
+        from gui.theme import CLR_TEXT_SECONDARY
+        self.lbl_changes_rule.setStyleSheet(f"color: {CLR_TEXT_SECONDARY}; margin-right: 5px;")
         bottom_bar.addWidget(self.lbl_changes_rule)
 
         self.btn_revert_rule = QPushButton("")
@@ -514,7 +504,8 @@ class AdvancedFilterWidget(QWidget):
         bottom_bar.addWidget(self.btn_save_rule)
 
         self.btn_apply_all = QPushButton("")
-        self.btn_apply_all.setStyleSheet("font-weight: bold; background-color: #f1f8e9;")
+        from gui.theme import CLR_SUCCESS_LIGHT
+        self.btn_apply_all.setStyleSheet(f"font-weight: bold; background-color: {CLR_SUCCESS_LIGHT};")
         self.btn_apply_all.setEnabled(False)
         self.btn_apply_all.clicked.connect(self._on_batch_run_clicked)
         bottom_bar.addWidget(self.btn_apply_all)
@@ -668,7 +659,8 @@ class AdvancedFilterWidget(QWidget):
         self.btn_create_view.setEnabled(has_tags)
 
         if is_modified:
-            self.btn_save_rule.setStyleSheet("background-color: #fff9c4; font-weight: bold;")
+            from gui.theme import CLR_WARNING_LIGHT
+            self.btn_save_rule.setStyleSheet(f"background-color: {CLR_WARNING_LIGHT}; font-weight: bold;")
         else:
             self.btn_save_rule.setStyleSheet("")
 
@@ -1062,7 +1054,8 @@ class AdvancedFilterWidget(QWidget):
         # 1. Validation (Allow empty to clear)
         if text and len(text) < 3:
             self.lbl_search_status.setText(self.tr("Search string too short (min 3 chars)"))
-            self.lbl_search_status.setStyleSheet("color: red;")
+            from gui.theme import CLR_DANGER
+            self.lbl_search_status.setStyleSheet(f"color: {CLR_DANGER};")
             return
         
         if not text:
@@ -1072,7 +1065,8 @@ class AdvancedFilterWidget(QWidget):
             return
 
         self.lbl_search_status.setText(self.tr("Searching..."))
-        self.lbl_search_status.setStyleSheet("color: black;")
+        from gui.theme import CLR_TEXT
+        self.lbl_search_status.setStyleSheet(f"color: {CLR_TEXT};")
         # Process UI updates immediately
         QCoreApplication.processEvents()
 
@@ -1136,7 +1130,8 @@ class AdvancedFilterWidget(QWidget):
                 # If total_hits < count, we stick to the base message to avoid confusion
 
         self.lbl_search_status.setText(status_msg)
-        self.lbl_search_status.setStyleSheet("color: green;" if count > 0 else "color: red;")
+        from gui.theme import CLR_SUCCESS, CLR_DANGER
+        self.lbl_search_status.setStyleSheet(f"color: {CLR_SUCCESS};" if count > 0 else f"color: {CLR_DANGER};")
 
         # Inject debug meta info for MainWindow
         final_query["_meta_fulltext"] = text
@@ -1278,7 +1273,8 @@ class AdvancedFilterWidget(QWidget):
         if self.btn_save:
              self.btn_save.setEnabled(is_modified)
              if is_modified:
-                 self.btn_save.setStyleSheet("background-color: #fff9c4; font-weight: bold;") # Subtle highlight
+                 from gui.theme import CLR_WARNING_LIGHT
+                 self.btn_save.setStyleSheet(f"background-color: {CLR_WARNING_LIGHT}; font-weight: bold;")
              else:
                  self.btn_save.setStyleSheet("")
 

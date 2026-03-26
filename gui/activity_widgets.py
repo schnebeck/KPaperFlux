@@ -73,6 +73,11 @@ class BackgroundActivityStatusBar(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
 
+        # AI status text — leftmost, dynamic
+        self.ai_status_label = QLabel()
+        self.ai_status_label.setStyleSheet("font-size:11px; color:#555;")
+        layout.addWidget(self.ai_status_label)
+
         # Mini Progress
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
@@ -98,6 +103,11 @@ class BackgroundActivityStatusBar(QFrame):
         self.stop_btn.clicked.connect(self.stop_requested)
         layout.addWidget(self.stop_btn)
 
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        layout.addWidget(sep)
+
     def _on_pause_clicked(self, checked):
         if checked:
             self.pause_btn.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_MediaPlay))
@@ -118,6 +128,9 @@ class BackgroundActivityStatusBar(QFrame):
     def update_status(self, text):
         if "Idle" in text or "Paused" in text or "Stopped" in text:
             self.progress_bar.hide()
+            self.ai_status_label.clear()
+        else:
+            self.ai_status_label.setText(text)
 
     @pyqtSlot(bool)
     def on_pause_state_changed(self, is_paused):

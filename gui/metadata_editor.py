@@ -34,9 +34,7 @@ from core.utils.girocode import GiroCodeGenerator
 from gui.utils import format_datetime, show_selectable_message_box, show_notification
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.tag_input import TagInputWidget
-from gui.widgets.workflow_controls import WorkflowControlsWidget
-from gui.widgets.workflow_graph import WorkflowGraphsPanel
-from gui.audit_window import AuditWindow
+from gui.widgets.workflow_summary import WorkflowSummaryWidget
 
 # Core Models
 from core.models.semantic import SemanticExtraction, WorkflowInfo, WorkflowLog, SubscriptionInfo
@@ -95,7 +93,8 @@ class NestedTableDialog(QDialog):
         remove_btn.clicked.connect(self._remove_row)
 
         save_btn = QPushButton(self.tr("Save / Apply"))
-        save_btn.setStyleSheet("font-weight: bold; background-color: #e1f5fe;")
+        from gui.theme import CLR_PRIMARY_LIGHT, CLR_PRIMARY
+        save_btn.setStyleSheet(f"font-weight: bold; background-color: {CLR_PRIMARY_LIGHT}; border: 1px solid {CLR_PRIMARY};")
         save_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.clicked.connect(self.reject)
@@ -189,7 +188,6 @@ class MetadataEditorWidget(QWidget):
         self.current_uuids = []
         self.doc = None
         self._locked_for_load = False
-        self.audit_window = None
         
         # Debounce timer for GiroCode updates
         self.giro_timer = QTimer()
@@ -239,9 +237,7 @@ class MetadataEditorWidget(QWidget):
     def retranslate_ui(self) -> None:
         """Updates all UI strings for on-the-fly localization."""
         self.chk_locked.setText(self.tr("Locked (Immutable)"))
-        self.btn_audit.setText(self.tr("🔍 Audit"))
-        self.btn_audit.setToolTip(self.tr("Open side-by-side verification window"))
-        
+
         # Labels in General Tab
         self.chk_pkv.setText(self.tr("Eligible for PKV Reimbursement"))
         self.lbl_uuid_prefix.setText(self.tr("UUID:"))
@@ -333,10 +329,6 @@ class MetadataEditorWidget(QWidget):
         self.btn_add_semantic.setText(self.tr("Add Entry"))
         self.btn_remove_semantic.setText(self.tr("Remove Selected"))
 
-        # History Table
-        self.history_table.setHorizontalHeaderLabels([
-            self.tr("Time"), self.tr("Action"), self.tr("User"), self.tr("Comment")
-        ])
 
         # Tab Titles
         self.tab_widget.setTabText(0, self.tr("General"))
@@ -347,8 +339,7 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.setTabText(5, self.tr("Semantic Data"))
         self.tab_widget.setTabText(6, self.tr("Source Mapping"))
         self.tab_widget.setTabText(7, self.tr("Debug Data"))
-        self.tab_widget.setTabText(8, self.tr("History"))
-        self.tab_widget.setTabText(9, self.tr("Workflows"))
+        self.tab_widget.setTabText(8, self.tr("Workflows"))
 
         # Subscription & Contract Labels
         self.lbl_sub_recurring_header.setText("--- " + self.tr("Subscription / Recurring") + " ---")
@@ -407,34 +398,9 @@ class MetadataEditorWidget(QWidget):
         lock_layout.addWidget(self.chk_locked)
         
         lock_layout.addStretch()
-        
-        # Phase 113: Multi-Workflow Controls Container
-        self._workflow_controls: Dict[str, WorkflowControlsWidget] = {}
-        self.workflow_controls_container = QWidget()
-        self._workflow_controls_layout = QHBoxLayout(self.workflow_controls_container)
-        self._workflow_controls_layout.setContentsMargins(0, 0, 0, 0)
-        self._workflow_controls_layout.setSpacing(4)
-        lock_layout.addWidget(self.workflow_controls_container)
-        
-        self.btn_audit = QPushButton()
-        self.btn_audit.setFixedHeight(28)
-        self.btn_audit.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff; 
-                color: #555; 
-                border: 1px solid #ccc;
-                font-size: 14px;
-                padding: 0px 15px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #f8f9fa;
-                border-color: #bbb;
-            }
-        """)
-        self.btn_audit.clicked.connect(self.open_audit_window)
-        lock_layout.addWidget(self.btn_audit)
-        
+
+        self._suppress_workflow_ui: bool = False  # set via set_workflow_ui_visible()
+
         layout.addLayout(lock_layout)
 
         self.tab_widget = QTabWidget()
@@ -567,7 +533,8 @@ class MetadataEditorWidget(QWidget):
         
         # Subscription Sub-Section
         self.lbl_pay_sub_header = QLabel()
-        self.lbl_pay_sub_header.setStyleSheet("font-weight: bold; margin-top: 10px; color: #555;")
+        from gui.theme import CLR_TEXT_SECONDARY, FONT_BASE
+        self.lbl_pay_sub_header.setStyleSheet(f"font-weight: bold; margin-top: 10px; color: {CLR_TEXT_SECONDARY}; font-size: {FONT_BASE}px;")
         payment_form.addRow(self.lbl_pay_sub_header)
         
         self.chk_pay_recurring = QCheckBox()
@@ -610,7 +577,8 @@ class MetadataEditorWidget(QWidget):
         qr_sub_layout.addStretch()
         
         self.lbl_giro_header = QLabel()
-        self.lbl_giro_header.setStyleSheet("font-weight: bold; color: #1565c0; font-size: 14px;")
+        from gui.theme import CLR_PRIMARY, FONT_LG
+        self.lbl_giro_header.setStyleSheet(f"font-weight: bold; color: {CLR_PRIMARY}; font-size: {FONT_LG}px;")
         
         qr_btn_row = QHBoxLayout()
         qr_btn_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -654,7 +622,8 @@ class MetadataEditorWidget(QWidget):
         
         # Section: Recurring Info
         self.lbl_sub_recurring_header = QLabel()
-        self.lbl_sub_recurring_header.setStyleSheet("font-weight: bold; color: #1565c0;")
+        from gui.theme import CLR_PRIMARY, FONT_BASE
+        self.lbl_sub_recurring_header.setStyleSheet(f"font-weight: bold; color: {CLR_PRIMARY}; font-size: {FONT_BASE}px;")
         sub_form.addRow(self.lbl_sub_recurring_header)
         
         self.chk_sub_recurring = QCheckBox()
@@ -688,7 +657,8 @@ class MetadataEditorWidget(QWidget):
 
         # Section: Legal Details
         self.lbl_sub_legal_header = QLabel()
-        self.lbl_sub_legal_header.setStyleSheet("font-weight: bold; color: #1565c0; margin-top: 15px;")
+        from gui.theme import CLR_PRIMARY, FONT_BASE
+        self.lbl_sub_legal_header.setStyleSheet(f"font-weight: bold; color: {CLR_PRIMARY}; margin-top: 15px; font-size: {FONT_BASE}px;")
         sub_form.addRow(self.lbl_sub_legal_header)
         
         self.lbl_sub_contract_id_prefix = QLabel()
@@ -715,7 +685,8 @@ class MetadataEditorWidget(QWidget):
 
         # Section: Notice Period
         self.lbl_sub_notice_header = QLabel()
-        self.lbl_sub_notice_header.setStyleSheet("font-weight: bold; color: #1565c0; margin-top: 15px;")
+        from gui.theme import CLR_PRIMARY, FONT_BASE
+        self.lbl_sub_notice_header.setStyleSheet(f"font-weight: bold; color: {CLR_PRIMARY}; margin-top: 15px; font-size: {FONT_BASE}px;")
         sub_form.addRow(self.lbl_sub_notice_header)
         
         self.lbl_sub_notice_value_prefix = QLabel()
@@ -827,23 +798,10 @@ class MetadataEditorWidget(QWidget):
         semantic_layout.addWidget(self.full_text_viewer)
         self.tab_widget.addTab(self.semantic_tab, "")
 
-        # --- Tab: Workflow History (Phase 112) ---
-        self.history_tab = QWidget()
-        history_layout = QVBoxLayout(self.history_tab)
-        
-        self.history_table = QTableWidget()
-        self.history_table.setColumnCount(4)
-        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.history_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        history_layout.addWidget(self.history_table)
-        
-        self.tab_widget.addTab(self.history_tab, "")
-        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self.history_tab), False)
-
-        # --- Tab 9: Workflows (visual state machine graphs) ---
-        self._workflow_graphs_panel = WorkflowGraphsPanel()
-        self.tab_widget.addTab(self._workflow_graphs_panel, "")
-        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self._workflow_graphs_panel), False)
+        # --- Tab 8: Workflows (read-only progress summary) ---
+        self._workflow_summary = WorkflowSummaryWidget()
+        self.tab_widget.addTab(self._workflow_summary, "")
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self._workflow_summary), False)
 
         # Buttons
         self.btn_save = QPushButton()
@@ -934,46 +892,14 @@ class MetadataEditorWidget(QWidget):
         self.metadata_saved.emit()
         show_notification(self, self.tr("Workflow Updated"), self.tr("Rule assigned: %1").replace("%1", new_rule_id or self.tr("None")))
 
-        # Live Update Audit Window
-        if self.audit_window and self.audit_window.isVisible():
-            self.audit_window.display_document(self.doc)
-
-    def open_audit_window(self):
-        """Launches the non-modal audit/verification interface."""
-        if not self.doc:
-            show_notification(self, self.tr("Audit"), self.tr("Please select a document first."))
-            return
-
-        if not self.audit_window:
-            self.audit_window = AuditWindow(pipeline=self.pipeline)
-            self.audit_window.workflow_triggered.connect(self.on_workflow_transition)
-            self.audit_window.closed.connect(self._on_audit_closed)
-            
-        self.audit_window.display_document(self.doc)
-        self.audit_window.show()
-        self.audit_window.raise_()
-
-    def _on_audit_closed(self):
-        self.audit_window = None
-
     def _mark_dirty(self):
         """Enable save button and update live workflow previews."""
         if getattr(self, "_locked_for_load", False):
             return
         self.btn_save.setEnabled(True)
-        self.btn_save.setStyleSheet("background-color: #e8f5e9; font-weight: bold; border: 1px solid #c8e6c9;")
+        from gui.theme import CLR_SUCCESS_LIGHT, CLR_SUCCESS
+        self.btn_save.setStyleSheet(f"background-color: {CLR_SUCCESS_LIGHT}; font-weight: bold; border: 1px solid {CLR_SUCCESS};")
         
-        # Phase 113: Hot-update all active workflow controls as the user types
-        if self.doc and self.doc.semantic_data:
-            current_data = {
-                "total_gross": self.pay_amount_edit.text(),
-                "iban": self.pay_iban_edit.text(),
-                "sender_name": self.sender_edit.text(),
-            }
-            for rule_id, wf in self.doc.semantic_data.workflows.items():
-                if rule_id in self._workflow_controls:
-                    self._workflow_controls[rule_id].update_workflow(rule_id, wf.current_step, current_data)
-
     def _reset_dirty(self):
         """Disable save button and reset style."""
         self.btn_save.setEnabled(False)
@@ -994,12 +920,7 @@ class MetadataEditorWidget(QWidget):
         Instead of disabling the whole tab widget (which stops navigation),
         we selectively make input fields read-only or disabled.
         """
-        # 1. Main Workflow Controls
-        self.workflow_controls_container.setEnabled(not checked)
-        for ctrl in self._workflow_controls.values():
-            ctrl.setEnabled(not checked)
-        
-        # 2. Main Save Button
+        # 1. Main Save Button
         if checked:
             self._reset_dirty() # This disables btn_save
         
@@ -1295,58 +1216,16 @@ class MetadataEditorWidget(QWidget):
         except Exception as e:
             logger.debug(f"Workflow date calculation skipped: {e}")
 
-        # Rebuild workflow control widgets to match current workflows dict
-        existing_rule_ids = set(self._workflow_controls.keys())
-        current_rule_ids = set(sd.workflows.keys()) if sd else set()
-
-        # Remove stale controls
-        for rid in existing_rule_ids - current_rule_ids:
-            ctrl = self._workflow_controls.pop(rid)
-            ctrl.setParent(None)
-
-        # Add/update controls
-        for rid, wf_info in (sd.workflows.items() if sd else {}.items()):
-            if rid not in self._workflow_controls:
-                ctrl = WorkflowControlsWidget()
-                ctrl.transition_triggered.connect(self.on_workflow_transition)
-                ctrl.rule_changed.connect(self.on_rule_changed)
-                self._workflow_controls[rid] = ctrl
-                self._workflow_controls_layout.addWidget(ctrl)
-
-            wf_doc_data = dict(doc_data_for_wf)
-            try:
-                if wf_info.history:
-                    last_ts = wf_info.history[-1].timestamp
-                    wf_doc_data["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
-            except Exception as e:
-                logger.debug(f"DAYS_IN_STATE skipped for {rid}: {e}")
-
-            self._workflow_controls[rid].update_workflow(rid, wf_info.current_step, wf_doc_data)
-
-        # If no workflows exist, show a single empty control for rule assignment
-        if not current_rule_ids and not self._workflow_controls:
-            ctrl = WorkflowControlsWidget()
-            ctrl.transition_triggered.connect(self.on_workflow_transition)
-            ctrl.rule_changed.connect(self.on_rule_changed)
-            self._workflow_controls["__empty__"] = ctrl
-            self._workflow_controls_layout.addWidget(ctrl)
-            ctrl.update_workflow(None, "NEW", doc_data_for_wf)
-        elif "__empty__" in self._workflow_controls and current_rule_ids:
-            ctrl = self._workflow_controls.pop("__empty__")
-            ctrl.setParent(None)
-
         # PKV checkbox: show state of first workflow that has pkv_eligible set
         first_wf = next(iter(sd.workflows.values()), None) if sd else None
         with QSignalBlocker(self.chk_pkv):
             self.chk_pkv.setChecked(first_wf.pkv_eligible if first_wf else False)
 
-        # Update visual workflow graphs panel (tab 9)
+        # Update workflow summary tab (tab 9)
         registry = WorkflowRuleRegistry()
-        self._workflow_graphs_panel.update_workflows(
-            sd.workflows if sd else {}, registry, doc_data_for_wf
+        self._workflow_summary.update_workflows(
+            sd.workflows if sd else {}, registry
         )
-
-        self._populate_history_table(sd.workflows if sd else {})
 
         # Extracted Data
         self.sender_edit.setText(doc.sender_name or "")
@@ -1374,10 +1253,6 @@ class MetadataEditorWidget(QWidget):
         self.pay_amount_edit.setText(f"{float(total or 0):.2f}" if total is not None else "")
         self.pay_purpose_edit.setText(doc.doc_number or "")
         self.refresh_girocode()
-
-        # Sync Audit Window
-        if self.audit_window and self.audit_window.isVisible():
-            self.audit_window.display_document(doc)
 
         # Source Mapping
         try:
@@ -1487,16 +1362,13 @@ class MetadataEditorWidget(QWidget):
         has_raw_sd = bool(sd_dict) and sd_dict != {}
         self.tab_widget.setTabVisible(7, has_raw_sd)
 
-        # 8: History
-        has_history = any(
-            wf.history
-            for wf in (doc.semantic_data.workflows.values() if doc.semantic_data else [])
-        )
-        self.tab_widget.setTabVisible(8, has_history)
-
-        # 9: Workflows (visual graph — show whenever at least one workflow is active)
+        # 8: Workflows (summary — show whenever at least one workflow is active,
+        #    unless suppressed by the embedding context)
         has_workflows = bool(doc.semantic_data and doc.semantic_data.workflows)
-        self.tab_widget.setTabVisible(9, has_workflows)
+        self.tab_widget.setTabVisible(
+            self.tab_widget.indexOf(self._workflow_summary),
+            has_workflows and not self._suppress_workflow_ui,
+        )
 
     def _add_stamp_row(self):
         row = self.stamps_table.rowCount()
@@ -1510,37 +1382,6 @@ class MetadataEditorWidget(QWidget):
         indices = sorted({idx.row() for idx in self.stamps_table.selectedIndexes()}, reverse=True)
         for row in indices:
             self.stamps_table.removeRow(row)
-
-    def _populate_history_table(self, workflows: Dict):
-        """Displays the combined audit log of all workflow transitions."""
-        self.history_table.setRowCount(0)
-        idx_history = self.tab_widget.indexOf(self.history_tab)
-
-        # Collect all entries from all workflows, tagged with rule_id
-        all_entries = []
-        for rule_id, wf_info in workflows.items():
-            for entry in wf_info.history:
-                all_entries.append((rule_id, entry))
-
-        if not all_entries:
-            self.tab_widget.setTabVisible(idx_history, False)
-            return
-
-        self.tab_widget.setTabVisible(idx_history, True)
-
-        # Sort all entries newest first by timestamp
-        all_entries.sort(key=lambda x: x[1].timestamp, reverse=True)
-
-        for rule_id, entry in all_entries:
-            row = self.history_table.rowCount()
-            self.history_table.insertRow(row)
-            ts = format_datetime(entry.timestamp)
-            self.history_table.setItem(row, 0, QTableWidgetItem(ts))
-            self.history_table.setItem(row, 1, QTableWidgetItem(f"[{rule_id}] {entry.action}"))
-            self.history_table.setItem(row, 2, QTableWidgetItem(entry.user or "SYSTEM"))
-            self.history_table.setItem(row, 3, QTableWidgetItem(entry.comment or ""))
-
-        self.history_table.resizeRowsToContents()
 
     def _add_semantic_row(self):
         row = self.semantic_table.rowCount()
@@ -1710,7 +1551,8 @@ class MetadataEditorWidget(QWidget):
         
         # UI Feedback for IBAN field
         if iban and not is_valid_iban:
-            self.pay_iban_edit.setStyleSheet("background-color: #ffebee; border: 1px solid #c62828;")
+            from gui.theme import CLR_DANGER_LIGHT, CLR_DANGER
+            self.pay_iban_edit.setStyleSheet(f"background-color: {CLR_DANGER_LIGHT}; border: 1px solid {CLR_DANGER};")
         else:
             self.pay_iban_edit.setStyleSheet("")
 
@@ -1771,6 +1613,17 @@ class MetadataEditorWidget(QWidget):
             show_notification(self, self.tr("GiroCode payload copied to clipboard."))
         except Exception as e:
             show_selectable_message_box(self, self.tr("Copy Error"), str(e), icon=QMessageBox.Icon.Critical)
+
+    def set_workflow_ui_visible(self, visible: bool) -> None:
+        """Show or hide the workflow summary tab.
+
+        Call with *False* when embedding the editor in a processing context that
+        has its own workflow navigation (e.g. WorkflowProcessingWidget).
+        """
+        self._suppress_workflow_ui = not visible
+        self.tab_widget.setTabVisible(
+            self.tab_widget.indexOf(self._workflow_summary), False
+        )
 
     def clear(self):
         self.current_uuids = []

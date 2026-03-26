@@ -110,11 +110,12 @@ class StatCard(QFrame):
         self._pos_anim.setEasingCurve(QEasingCurve.Type.OutQuint)
         
         # Styles
+        from gui.theme import CLR_BORDER, RADIUS_MD
         self.setStyleSheet(f"""
             QFrame#StatCard {{
                 background-color: white;
-                border: 1px solid #e5e7eb;
-                border-radius: 16px;
+                border: 1px solid {CLR_BORDER};
+                border-radius: {RADIUS_MD}px;
             }}
             QFrame#StatCard:hover {{
                 border: 1.5px solid {color_hex};
@@ -142,22 +143,33 @@ class StatCard(QFrame):
         title_row = QHBoxLayout()
         title_row.setSpacing(10)
         
+        from gui.theme import (
+            CLR_TEXT, CLR_TEXT_SECONDARY, CLR_TEXT_MUTED,
+            FONT_BASE, FONT_LG, FONT_METRIC, FONT_ICON, RADIUS_MD, RADIUS_SM,
+        )
         icon_lbl = QLabel(icon)
-        icon_lbl.setStyleSheet(f"font-size: 16pt; background: {color_hex}15; padding: 5px; border-radius: 8px;")
+        icon_lbl.setStyleSheet(
+            f"font-size: {FONT_ICON}px; background: {color_hex}15; padding: 5px; border-radius: {RADIUS_MD}px;"
+        )
         title_row.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignTop)
-        
+
         # We always try to translate the title if it matches a known system string
         title_display = self.tr(title)
         lbl_title = QLabel(title_display)
         lbl_title.setWordWrap(True)
-        lbl_title.setStyleSheet("color: #64748b; font-weight: 600; font-size: 10pt; line-height: 1.2;")
+        lbl_title.setStyleSheet(
+            f"color: {CLR_TEXT_SECONDARY}; font-weight: 600; font-size: {FONT_BASE}px;"
+        )
         title_row.addWidget(lbl_title, 1, Qt.AlignmentFlag.AlignTop)
-        
+
         agg_name = aggregation.capitalize()
         # Ensure we have the translation for the aggregation type
         localized_agg = self.tr(agg_name)
         self.lbl_agg = QLabel(localized_agg)
-        self.lbl_agg.setStyleSheet(f"color: {color_hex}; background-color: {color_hex}15; padding: 2px 6px; border-radius: 6px; font-size: 7pt; font-weight: bold;")
+        self.lbl_agg.setStyleSheet(
+            f"color: {color_hex}; background-color: {color_hex}15; padding: 2px 6px; "
+            f"border-radius: {RADIUS_SM}px; font-size: {FONT_LG}px; font-weight: bold;"
+        )
         title_row.addWidget(self.lbl_agg, 0, Qt.AlignmentFlag.AlignTop)
         
         layout.addLayout(title_row)
@@ -170,7 +182,7 @@ class StatCard(QFrame):
             display_val = str(value)
             
         self.lbl_count = QLabel(display_val)
-        self.lbl_count.setStyleSheet(f"color: #1e293b; font-weight: 800; font-size: 24pt;")
+        self.lbl_count.setStyleSheet(f"color: {CLR_TEXT}; font-weight: 800; font-size: {FONT_METRIC}px;")
         layout.addWidget(self.lbl_count)
         
         # Sparkline (The "Living" part)

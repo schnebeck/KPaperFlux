@@ -6793,6 +6793,50 @@ Geschäftsführer: ...</translation>
             <source>New State</source>
             <translation type="vanished">Neuer Status</translation>
         </message>
+        <message>
+            <source>Workflow</source>
+            <translation>Ablauf</translation>
+        </message>
+        <message>
+            <source>Properties</source>
+            <translation>Eigenschaften</translation>
+        </message>
+        <message>
+            <source>Select a state or transition to edit its properties.</source>
+            <translation>Status oder Übergang auswählen, um Eigenschaften zu bearbeiten.</translation>
+        </message>
+        <message>
+            <source>ID:</source>
+            <translation>ID:</translation>
+        </message>
+        <message>
+            <source>ID '%s' already exists.</source>
+            <translation>ID '%s' ist bereits vergeben.</translation>
+        </message>
+        <message>
+            <source>Label:</source>
+            <translation>Bezeichnung:</translation>
+        </message>
+        <message>
+            <source>Final state:</source>
+            <translation>Endstatus:</translation>
+        </message>
+        <message>
+            <source>Action:</source>
+            <translation>Aktion:</translation>
+        </message>
+        <message>
+            <source>Auto:</source>
+            <translation>Automatisch:</translation>
+        </message>
+        <message>
+            <source>Required Fields:</source>
+            <translation>Pflichtfelder:</translation>
+        </message>
+        <message>
+            <source>Manage localizations</source>
+            <translation>Übersetzungen verwalten</translation>
+        </message>
     </context>
     <context>
         <name>WorkflowRuleManagerDialog</name>
@@ -6913,6 +6957,85 @@ Geschäftsführer: ...</translation>
             <translation>Folgende Regeln sind noch in Benutzung und können nicht gelöscht werden:
 
 %1</translation>
+        </message>
+    </context>
+    <context>
+        <name>WorkflowLocaleDialog</name>
+        <message>
+            <source>Workflow Localizations</source>
+            <translation>Ablauf-Übersetzungen</translation>
+        </message>
+        <message>
+            <source>Locales</source>
+            <translation>Sprachen</translation>
+        </message>
+        <message>
+            <source>Add</source>
+            <translation>Hinzufügen</translation>
+        </message>
+        <message>
+            <source>Remove</source>
+            <translation>Entfernen</translation>
+        </message>
+        <message>
+            <source>Creator locale:</source>
+            <translation>Originalsprache:</translation>
+        </message>
+        <message>
+            <source>ISO 639-1 code of the language used to write the original rule.</source>
+            <translation>ISO-639-1-Code der Sprache, in der die Regel ursprünglich verfasst wurde.</translation>
+        </message>
+        <message>
+            <source>Select a locale from the list, or add one.</source>
+            <translation>Sprache aus der Liste auswählen oder hinzufügen.</translation>
+        </message>
+        <message>
+            <source>Name:</source>
+            <translation>Name:</translation>
+        </message>
+        <message>
+            <source>Description:</source>
+            <translation>Beschreibung:</translation>
+        </message>
+        <message>
+            <source>Translated rule name</source>
+            <translation>Übersetzter Ablaufname</translation>
+        </message>
+        <message>
+            <source>Translated description</source>
+            <translation>Übersetzte Beschreibung</translation>
+        </message>
+        <message>
+            <source>State labels:</source>
+            <translation>Status-Bezeichnungen:</translation>
+        </message>
+        <message>
+            <source>State ID</source>
+            <translation>Status-ID</translation>
+        </message>
+        <message>
+            <source>Translated label</source>
+            <translation>Übersetzte Bezeichnung</translation>
+        </message>
+        <message>
+            <source>Native label: %s</source>
+            <translation>Originalbezeichnung: %s</translation>
+        </message>
+        <message>
+            <source>Add Locale</source>
+            <translation>Sprache hinzufügen</translation>
+        </message>
+        <message>
+            <source>Choose locale to add:</source>
+            <translation>Sprache zum Hinzufügen wählen:</translation>
+        </message>
+        <message>
+            <source>Remove Locale</source>
+            <translation>Sprache entfernen</translation>
+        </message>
+        <message>
+            <source>Remove all translations for locale &apos;%s&apos;?</source>
+            <translation>Alle Übersetzungen für die Sprache &apos;%s&apos; entfernen?</translation>
         </message>
     </context>
 </TS>

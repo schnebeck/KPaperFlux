@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QVBoxLayout, QMenu
 from PyQt6.QtCore import pyqtSignal, Qt
 from core.workflow import WorkflowRuleRegistry, WorkflowEngine, WorkflowState
-from core.semantic_translator import SemanticTranslator
 from typing import Dict, Any, Optional
 from core.logger import get_logger
 
@@ -87,9 +86,7 @@ class WorkflowControlsWidget(QWidget):
 
         state_def = rule.states.get(self.current_step)
         
-        st = SemanticTranslator.instance()
-        label = state_def.label if state_def else self.current_step
-        self.status_lbl.setText(st.translate(label))
+        self.status_lbl.setText(rule.get_state_label(self.current_step))
         
         # Apply Status Color
         color = self._get_status_color(self.current_step, state_def)
@@ -109,14 +106,11 @@ class WorkflowControlsWidget(QWidget):
             for trans in state_def.transitions:
                 if trans.auto: continue # Skip auto-transitions in UI
                 
-                # Use SemanticTranslator for action names
-                # Most actions in JSON are lowercase, but translator should handle them
-                translated_text = st.translate(trans.action.capitalize().replace("_", " "))
-
+                btn_text = (trans.label or trans.action).capitalize().replace("_", " ")
                 if trans.icon:
-                    btn = QPushButton(f"{trans.icon} {translated_text}")
+                    btn = QPushButton(f"{trans.icon} {btn_text}")
                 else:
-                    btn = QPushButton(translated_text)
+                    btn = QPushButton(btn_text)
                 
                 # Check prerequisites
                 can_run = engine.can_transition(self.current_step, trans.action, self.document_data)
@@ -161,7 +155,7 @@ class WorkflowControlsWidget(QWidget):
                 self.buttons_layout.addWidget(btn)
         
         if state_def and state_def.final:
-            self.status_lbl.setText(f"✓ {label}")
+            self.status_lbl.setText(f"✓ {rule.get_state_label(self.current_step)}")
             # Final states are typically green-ish
             self.status_lbl.setFixedHeight(28)
             self.status_lbl.setStyleSheet("font-weight: bold; color: white; background: #2e7d32; padding: 0px 15px; border-radius: 14px;")
@@ -190,9 +184,7 @@ class WorkflowControlsWidget(QWidget):
         menu.addSeparator()
         
         for rule in rules:
-            # Use Name if available, otherwise ID. Don't show both.
-            st = SemanticTranslator.instance()
-            label = st.translate(rule.name or rule.id)
+            label = rule.name or rule.id
             action = menu.addAction(label)
             action.triggered.connect(lambda checked, rid=rule.id: self.rule_changed.emit(rid))
             
