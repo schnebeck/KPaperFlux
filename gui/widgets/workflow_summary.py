@@ -12,11 +12,12 @@ Description:    Compact read-only workflow progress summary widget used in
 """
 from typing import Dict
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QProgressBar, QScrollArea,
     QVBoxLayout, QWidget,
 )
+from PyQt6.QtGui import QCursor
 
 from core.workflow import WorkflowRuleRegistry, completion_percent
 from gui.theme import (
@@ -25,8 +26,24 @@ from gui.theme import (
 )
 
 
+class _ClickableRow(QFrame):
+    """QFrame that emits clicked(rule_id) when the user clicks anywhere in the row."""
+    clicked = pyqtSignal(str)
+
+    def __init__(self, rule_id: str, parent=None):
+        super().__init__(parent)
+        self._rule_id = rule_id
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self._rule_id)
+        super().mousePressEvent(event)
+
+
 class WorkflowSummaryWidget(QWidget):
     """Read-only list of workflow progress rows for a single document."""
+
+    workflow_clicked = pyqtSignal(str)   # emits rule_id
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -76,9 +93,12 @@ class WorkflowSummaryWidget(QWidget):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _build_row(self, rule_id: str, wf_info, rule) -> QFrame:
-        frame = QFrame()
+        frame = _ClickableRow(rule_id)
+        frame.clicked.connect(self.workflow_clicked)
         frame.setFrameShape(QFrame.Shape.StyledPanel)
         frame.setStyleSheet(card_row())
+        frame.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        frame.setToolTip(self.tr("Click to open this workflow in the Process view"))
 
         row_layout = QHBoxLayout(frame)
         row_layout.setContentsMargins(12, 8, 12, 8)

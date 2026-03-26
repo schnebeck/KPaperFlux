@@ -265,6 +265,8 @@ class MainWindow(QMainWindow):
                  self.editor_widget.metadata_saved.connect(self.cockpit_widget.refresh_stats)
             # Phase 105: Ensure Rule Editor stays in sync
             self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
+            # Workflow-row click: switch to Workflow > Process view for the clicked rule/doc
+            self.editor_widget.open_workflow_process.connect(self._navigate_to_workflow_process)
 
             self.left_pane_splitter.addWidget(self.editor_widget)
             self.editor_widget.setVisible(False)
@@ -2110,6 +2112,16 @@ class MainWindow(QMainWindow):
         win.raise_()
 
 
+    def _navigate_to_workflow_process(self, rule_id: str, doc) -> None:
+        """Switch to Workflow > Process view and open *doc* under *rule_id*."""
+        # Preserve the Explorer selection so it is restored when the user returns.
+        doc_uuid = str(doc.uuid)
+        self._last_selected_uuid = doc_uuid
+        if hasattr(self, "list_widget"):
+            self.list_widget.target_uuid_to_restore = doc_uuid
+        self.central_stack.setCurrentIndex(2)   # Workflow Manager page
+        self.workflow_manager.open_document_in_process(rule_id, doc)
+
     def navigate_to_list_filter(self, payload: dict):
         """Switch to Explorer View and apply filter."""
 
@@ -2452,7 +2464,11 @@ class MainWindow(QMainWindow):
         if index == 1 and hasattr(self, 'list_widget'):
             if self._last_selected_uuid:
                 self.list_widget.target_uuid_to_restore = self._last_selected_uuid
-            self.list_widget.refresh_list(force_select_first=True)
+                # Don't force-select-first when a specific UUID should be restored —
+                # force_select_first=True would take priority and override the UUID.
+                self.list_widget.refresh_list(force_select_first=False)
+            else:
+                self.list_widget.refresh_list(force_select_first=True)
 
         for container in [self.cockpit_nav_container, self.doc_container, self.report_container, self.wf_container]:
             container.style().unpolish(container)

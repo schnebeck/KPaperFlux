@@ -166,6 +166,7 @@ class MetadataEditorWidget(QWidget):
     Simplified Widget to edit virtual document metadata for Stage 0/1.
     """
     metadata_saved = pyqtSignal()
+    open_workflow_process = pyqtSignal(str, object)   # rule_id, VirtualDocument
 
     STATUS_MAP = {
         "NEW": "New",
@@ -800,6 +801,7 @@ class MetadataEditorWidget(QWidget):
 
         # --- Tab 8: Workflows (read-only progress summary) ---
         self._workflow_summary = WorkflowSummaryWidget()
+        self._workflow_summary.workflow_clicked.connect(self._on_workflow_row_clicked)
         self.tab_widget.addTab(self._workflow_summary, "")
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self._workflow_summary), False)
 
@@ -1613,6 +1615,12 @@ class MetadataEditorWidget(QWidget):
             show_notification(self, self.tr("GiroCode payload copied to clipboard."))
         except Exception as e:
             show_selectable_message_box(self, self.tr("Copy Error"), str(e), icon=QMessageBox.Icon.Critical)
+
+    def _on_workflow_row_clicked(self, rule_id: str) -> None:
+        """Forward a workflow-row click to the main window for navigation."""
+        doc = getattr(self, "doc", None)
+        if doc:
+            self.open_workflow_process.emit(rule_id, doc)
 
     def set_workflow_ui_visible(self, visible: bool) -> None:
         """Show or hide the workflow summary tab.

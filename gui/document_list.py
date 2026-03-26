@@ -251,18 +251,20 @@ class DocumentListWidget(QWidget):
         self.tree.header().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.header().customContextMenuRequested.connect(self.show_header_menu)
         self.tree.header().setSectionsMovable(True) # Explicitly enable DnD reordering
-        layout.addWidget(self.tree)
 
-        # Workflow aggregate footer
+        # Workflow aggregate bar — shown above the list so the bottom stays free
+        # for document-info from the selection.
         self._workflow_footer = QLabel()
         self._workflow_footer.setContentsMargins(10, 2, 10, 2)
         from gui.theme import CLR_TEXT_SECONDARY, CLR_SURFACE_ROW, CLR_BORDER, FONT_SM
         self._workflow_footer.setStyleSheet(
             f"font-size: {FONT_SM}px; color: {CLR_TEXT_SECONDARY}; background: {CLR_SURFACE_ROW};"
-            f" border-top: 1px solid {CLR_BORDER}; padding: 2px 10px;"
+            f" border-bottom: 1px solid {CLR_BORDER}; padding: 2px 10px;"
         )
         self._workflow_footer.hide()
         layout.addWidget(self._workflow_footer)
+
+        layout.addWidget(self.tree)
 
         # Phase 113: Lazy Loading / Infinite Scroll
         self.CHUNK_SIZE = 100

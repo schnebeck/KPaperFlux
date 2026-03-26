@@ -1618,6 +1618,42 @@ class WorkflowManagerWidget(QWidget):
         self.btn_show_processing.setChecked(True)
         self.main_stack.setCurrentIndex(1)
 
+    def open_document_in_process(self, rule_id: str, doc) -> None:
+        """Open the Process view for *rule_id* showing *doc*.
+
+        Called from outside (e.g. MetadataEditor workflow-row click).
+        Fetches all documents for the rule; ensures *doc* is included and
+        selected as the initial entry.
+        """
+        registry = WorkflowRuleRegistry()
+        rule = registry.get_rule(rule_id)
+        if not rule:
+            return
+        db_manager = self.filter_tree.db_manager if self.filter_tree else None
+        if not db_manager:
+            return
+        try:
+            field = f"semantic:workflows.{rule_id}.current_step"
+            all_docs = db_manager.search_documents_advanced(
+                {"field": field, "op": "is_not_empty", "value": None}
+            )
+            # Guarantee the clicked doc is present (it may be in a final state
+            # and therefore excluded by some callers, or simply not yet indexed).
+            doc_uuid = str(doc.uuid)
+            if not any(str(d.uuid) == doc_uuid for d in all_docs):
+                all_docs.insert(0, doc)
+
+            label = self.tr("Processing: %s") % (rule.get_display_name() or rule_id)
+            self._on_process_requested(all_docs, rule_id, label)
+
+            # Jump to the target document
+            uuids = [str(d.uuid) for d in self.processing_widget._docs]
+            if doc_uuid in uuids:
+                self.processing_widget._current_index = uuids.index(doc_uuid)
+                self.processing_widget._show_current()
+        except Exception as exc:
+            logger.warning(f"open_document_in_process failed: {exc}")
+
     def _on_stack_changed(self, index):
         if index == 0:
             self.dashboard_tab.refresh()
