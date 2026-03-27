@@ -283,6 +283,19 @@ class StateNode(QGraphicsItem):
                          Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                          self.display_label)
 
+        # Initial-state indicator: small right-pointing triangle on left edge (UML entry arrow)
+        if self.state_def.initial:
+            tx = r.left() + 9
+            ty = r.center().y()
+            tri = QPolygonF([
+                QPointF(tx - 5, ty - 5),
+                QPointF(tx + 5, ty),
+                QPointF(tx - 5, ty + 5),
+            ])
+            painter.setBrush(QBrush(QColor("#1565c0")))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawPolygon(tri)
+
         # Current-state dot (top-right corner, blue)
         if self.is_current:
             painter.setBrush(QBrush(C_CURRENT))

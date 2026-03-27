@@ -752,8 +752,15 @@ class WorkflowRuleFormEditor(QWidget):
     def _fill_state_detail(self, node: "StateNode", fl) -> None:
         lbl_edit = QLineEdit(node.state_def.label)
         fl.addRow(self.tr("Label:"), lbl_edit)
+
+        initial_chk = QCheckBox()
+        initial_chk.setChecked(node.state_def.initial)
+        initial_chk.setToolTip(self.tr("Mark as the designated start state of this workflow (only one per rule)."))
+        fl.addRow(self.tr("Initial state:"), initial_chk)
+
         final_chk = QCheckBox()
         final_chk.setChecked(node.state_def.final)
+        final_chk.setToolTip(self.tr("Mark as a terminal state (workflow complete)."))
         fl.addRow(self.tr("Final state:"), final_chk)
 
         def _apply():
@@ -762,6 +769,11 @@ class WorkflowRuleFormEditor(QWidget):
             except RuntimeError:
                 return  # stale deferred call — widgets already deleted
             node.state_def.label = new_label
+            # Radio semantics: only one initial state per rule
+            if initial_chk.isChecked():
+                for sdef in self._graph_widget._rule.states.values():
+                    sdef.initial = False
+            node.state_def.initial = initial_chk.isChecked()
             node.state_def.final = final_chk.isChecked()
             self._graph_widget._rebuild()
             self._on_changed()
@@ -771,6 +783,7 @@ class WorkflowRuleFormEditor(QWidget):
             ))
 
         lbl_edit.editingFinished.connect(lambda: QTimer.singleShot(0, _apply))
+        initial_chk.stateChanged.connect(lambda _: QTimer.singleShot(0, _apply))
         final_chk.stateChanged.connect(lambda _: QTimer.singleShot(0, _apply))
 
     def _fill_transition_detail(self, edge: "TransitionEdge", fl) -> None:
@@ -1742,7 +1755,7 @@ class WorkflowManagerWidget(QWidget):
             name="New Workflow",
             description="Generated via GUI",
             states={
-                "NEW": WorkflowState(label="Start", transitions=[
+                "NEW": WorkflowState(label="Start", initial=True, transitions=[
                     WorkflowTransition(action="verify", target="DONE")
                 ]),
                 "DONE": WorkflowState(label="Done", final=True)
@@ -1768,17 +1781,31 @@ class WorkflowManagerWidget(QWidget):
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(rule.model_dump(), f, indent=2)
                 
-            QMessageBox.information(self, self.tr("Success"), self.tr("Rule '%1' saved and activated.").replace("%1", rule.name))
-            
             self._clear_dirty()
-            
+
             # Reload registry and list
             self.registry.load_from_directory(self.workflow_dir)
             self.load_workflows()
-            
+
+            # Sanitize documents: reset any current_step that no longer exists
+            from core.workflow import sanitize_documents_for_rule
+            db_manager = self.filter_tree.db_manager if self.filter_tree else None
+            reset_count = 0
+            if db_manager:
+                reset_count, _ = sanitize_documents_for_rule(db_manager, rule)
+
+            if reset_count:
+                QMessageBox.information(
+                    self, self.tr("Rule Saved & Sanitized"),
+                    self.tr("Rule '%1' saved.\n\n%2 document(s) had their workflow reset to the initial state because their previous state no longer exists in the updated rule.")
+                    .replace("%1", rule.name).replace("%2", str(reset_count))
+                )
+            else:
+                QMessageBox.information(self, self.tr("Success"), self.tr("Rule '%1' saved and activated.").replace("%1", rule.name))
+
             # Select the saved one
             self._select_rule_by_id(rule.id)
-            
+
             self.workflows_changed.emit()
             
         except Exception as e:

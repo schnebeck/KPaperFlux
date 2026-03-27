@@ -90,6 +90,11 @@ class WorkflowState(BaseModel):
     label: str = ""
     transitions: List[WorkflowTransition] = Field(default_factory=list)
     final: bool = False
+    initial: bool = False
+    """Explicit start-state marker.  At most one state per rule should be True.
+    When present, ``get_initial_state()`` returns this state without falling back
+    to topology detection.  Existing rules without this flag continue to work
+    via the topology heuristic (state with no incoming transitions)."""
 
 
 class WorkflowL10nPatch(BaseModel):
@@ -347,13 +352,20 @@ class WorkflowRuleRegistry:
 # ---------------------------------------------------------------------------
 
 def get_initial_state(rule: WorkflowRule) -> Optional[str]:
-    """Return the state ID with no incoming transitions (= starting state).
+    """Return the designated start-state ID for *rule*.
 
-    Falls back to the first key in ``rule.states`` when every state is
-    targeted (cycle-only graph — unlikely in practice).
+    Resolution order:
+    1. Explicit ``initial=True`` marker on a state (preferred).
+    2. Topology heuristic: state with no incoming transitions.
+    3. First state in ``rule.states`` (cycle-only graph fallback).
     """
     if not rule.states:
         return None
+    # 1. Explicit marker
+    for sid, state in rule.states.items():
+        if state.initial:
+            return sid
+    # 2. Topology: state that is not the target of any transition
     targeted: set[str] = {
         t.target for s in rule.states.values() for t in s.transitions
     }
@@ -375,3 +387,53 @@ def completion_percent(wf_info: Any, rule: WorkflowRule) -> int:
         return 0
     visited = len(wf_info.history) + 1
     return min(99, round(visited / total * 100))
+
+
+def sanitize_documents_for_rule(db_manager: Any, rule: WorkflowRule) -> tuple[int, list[str]]:
+    """Reset workflow state for documents whose ``current_step`` no longer exists.
+
+    Queries all documents that have *rule.id* in their ``semantic_data.workflows``
+    dict.  Any document whose ``current_step`` is not a valid state ID in *rule*
+    is reset to ``get_initial_state(rule)`` and a SYSTEM log entry is appended to
+    its history.
+
+    Returns ``(reset_count, affected_uuids)``.  Saves each affected document to
+    the database.
+    """
+    from core.models.semantic import WorkflowLog  # local import to avoid cycles
+
+    valid_states: set[str] = set(rule.states.keys())
+    initial: str = get_initial_state(rule) or next(iter(rule.states), "NEW")
+
+    query = {
+        "field": f"semantic:workflows.{rule.id}.current_step",
+        "op": "is_not_empty",
+        "value": None,
+    }
+    try:
+        docs = db_manager.search_documents_advanced(query)
+    except Exception:
+        return 0, []
+
+    affected: list[str] = []
+    for doc in docs:
+        sd = getattr(doc, "semantic_data", None)
+        if sd is None or not hasattr(sd, "workflows"):
+            continue
+        wf_info = sd.workflows.get(rule.id)
+        if wf_info is None or wf_info.current_step in valid_states:
+            continue
+        stale = wf_info.current_step
+        wf_info.history.append(WorkflowLog(
+            action=f"SYSTEM_RESET: '{stale}' -> '{initial}'",
+            user="SYSTEM",
+            comment=f"State '{stale}' was removed from rule '{rule.id}'; reset to initial state.",
+        ))
+        wf_info.current_step = initial
+        try:
+            db_manager.update_document_metadata(doc.uuid, {"semantic_data": sd})
+            affected.append(doc.uuid)
+        except Exception as exc:
+            logger.error(f"sanitize_documents_for_rule: failed to save {doc.uuid}: {exc}")
+
+    return len(affected), affected

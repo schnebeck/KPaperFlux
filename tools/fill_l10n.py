@@ -482,6 +482,9 @@ def fill():
             "Conditions": "Bedingungen",
             "States": "Zustände",
             "Transitions": "Übergänge",
+            "Initial state:": "Startzustand:",
+            "Mark as the designated start state of this workflow (only one per rule).": "Als festgelegten Startzustand dieses Ablaufs markieren (nur einer pro Regel möglich).",
+            "Mark as a terminal state (workflow complete).": "Als Endzustand markieren (Ablauf abgeschlossen).",
         },
         "WorkflowManagerWidget": {
             "Dashboard": "Dashboard",
@@ -954,6 +957,8 @@ def fill():
         "WorkflowManagerWidget": {
             "Process": "Verarbeiten",
             "Processing: %s": "Verarbeitung: %s",
+            "Rule Saved & Sanitized": "Regel gespeichert && bereinigt",
+            "Rule '%1' saved.\n\n%2 document(s) had their workflow reset to the initial state because their previous state no longer exists in the updated rule.": "Regel '%1' gespeichert.\n\n%2 Dokument(e) wurden auf den Startzustand zurückgesetzt, da ihr vorheriger Zustand in der aktualisierten Regel nicht mehr existiert.",
         },
         "WorkflowProcessingWidget": {
             "Prev": "Zurück",
