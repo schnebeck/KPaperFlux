@@ -219,7 +219,9 @@ class StateNode(QGraphicsItem):
     # ── QGraphicsItem interface ───────────────────────────────────────────────
 
     def boundingRect(self) -> QRectF:
-        return QRectF(-NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H)
+        # Extra margin accounts for the selection ring drawn 4px outside the
+        # node rect with a 2px pen (4 + ceil(2/2) + 1px safety = 6px each side).
+        return QRectF(-NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H).adjusted(-6, -6, 6, 6)
 
     def paint(self, painter: QPainter, option, widget=None) -> None:
         r = self.boundingRect()
