@@ -29,6 +29,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction
 from core.logger import get_logger, log_sql_query, get_silent_logger
+from core.query_builder import QueryBuilder
 
 # --- Central Logging Setup ---
 logger = get_logger("database")
@@ -54,12 +55,13 @@ class DatabaseManager:
         self.init_db()
         # Source of truth for document selection to avoid index mismatches
         self._doc_select = """
-            uuid, source_mapping, status, export_filename, last_used, 
-            last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
+            uuid, source_mapping, status, export_filename, last_used,
+            last_processed_at, is_immutable, thumbnail_path, cached_full_text,
             semantic_data, created_at, deleted, page_count_virt, type_tags,
             tags, deleted_at, locked_at, exported_at, pdf_class,
             archived, storage_location, ai_confidence, process_id
         """
+        self._qb = QueryBuilder()
 
     def _connect(self) -> None:
         """
@@ -582,269 +584,20 @@ class DatabaseManager:
             return [0.0] * 30
 
     def _build_where_clause(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
-        """
-        Recursively translates a query node into SQL WHERE fragments.
-
-        Args:
-            node: The query node (condition or group).
-
-        Returns:
-            A tuple of (SQL string, parameters list).
-        """
-        if "field" in node:
-            field = node["field"]
-            op = node["op"]
-            val = node.get("value")
-            negate = node.get("negate", False)
-
-            # workflow_step: cross-rule check — matches if ANY active workflow has the given step
-            if field == "workflow_step":
-                wf_json = "json_extract(semantic_data, '$.workflows')"
-                if op == "is_not_empty":
-                    clause = f"({wf_json} IS NOT NULL AND {wf_json} != '{{}}')"
-                    params: List[Any] = []
-                elif op == "in" and isinstance(val, list):
-                    placeholders = ",".join("?" * len(val))
-                    clause = (
-                        f"EXISTS (SELECT 1 FROM json_each({wf_json}) "
-                        f"WHERE json_extract(value, '$.current_step') IN ({placeholders}))"
-                    )
-                    params = list(val)
-                else:  # equals, contains, etc.
-                    clause = (
-                        f"EXISTS (SELECT 1 FROM json_each({wf_json}) "
-                        f"WHERE json_extract(value, '$.current_step') = ?)"
-                    )
-                    params = [val]
-                if negate:
-                    return f"NOT ({clause})", params
-                return clause, params
-
-            expr = self._map_field_to_sql(field)
-            clause, params = self._map_op_to_sql(expr, op, val)
-
-            if negate:
-                return f"NOT ({clause})", params
-            return clause, params
-
-        if "conditions" in node:
-            logic_op = str(node.get("operator", "AND")).upper()
-            sub_clauses = []
-            all_params = []
-
-            for cond in node["conditions"]:
-                clause, params = self._build_where_clause(cond)
-                if clause:
-                    sub_clauses.append(f"({clause})")
-                    all_params.extend(params)
-
-            if not sub_clauses:
-                return "1=1", []
-
-            return f" {logic_op} ".join(sub_clauses), all_params
-
-        return "1=1", []
+        """Delegates to QueryBuilder.build_where()."""
+        return self._qb.build_where(node)
 
     def _map_field_to_sql(self, field: str) -> str:
-        """
-        Maps logical field names to database-level SQL expressions.
-        Supports direct columns and nested JSON paths.
+        """Delegates to QueryBuilder.map_field()."""
+        return self._qb.map_field(field)
 
-        Args:
-            field: The logical field name.
-
-        Returns:
-            A SQL expression string.
-        """
-        mapping = {
-            "uuid": "uuid",
-            "status": "status",
-            "page_count_virt": "page_count_virt",
-            "created_at": "created_at",
-            "last_processed_at": "last_processed_at",
-            "last_used": "last_used",
-            "cached_full_text": "cached_full_text",
-            "original_filename": "export_filename",
-            "deleted": "deleted",
-            "type_tags": "type_tags",
-            "sender": "json_extract(semantic_data, '$.meta_header.sender.name')",
-            "doc_date": "json_extract(semantic_data, '$.meta_header.doc_date')",
-            "amount": "CAST(json_extract(semantic_data, '$.bodies.finance_body.monetary_summation.grand_total_amount') AS REAL)",
-            
-            # Semantic shortcuts
-            "direction": "json_extract(semantic_data, '$.direction')",
-            "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
-            "classification": "json_extract(type_tags, '$[0]')",
-            "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
-            # workflow_step is handled specially in _build_where_clause (json_each subquery)
-            "archived": "archived",
-            "storage_location": "storage_location",
-            "ai_confidence": "ai_confidence",
-            "process_id": "process_id",
-            "expiry_date": "COALESCE(json_extract(semantic_data, '$.bodies.legal_body.termination_date'), "
-                           "json_extract(semantic_data, '$.bodies.legal_body.valid_until'), "
-                           "json_extract(semantic_data, '$.bodies.finance_body.due_date'))",
-            
-            # Forensic/Stamp aggregations
-            "stamp_text": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.raw_content'), '')) "
-                          "FROM json_each(json_extract(semantic_data, '$.visual_audit.layer_stamps')) AS s)",
-            "stamp_type": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.type'), '')) "
-                          "FROM json_each(json_extract(semantic_data, '$.visual_audit.layer_stamps')) AS s)"
-        }
-        
-        if field in mapping:
-            return mapping[field]
-            
-        # Dynamic JSON mapping
-        if field.startswith("json:") or field.startswith("semantic:"):
-            path = field.split(":", 1)[1].replace("'", "''")
-            return f"json_extract(semantic_data, '$.{path}')"
-
-        # Dynamic Stamp Form Fields
-        if field.startswith("stamp_field:"):
-            label = field[12:].replace("'", "''")
-            return (
-                f"(SELECT group_concat(COALESCE(json_extract(f.value, '$.normalized_value'), "
-                f"json_extract(f.value, '$.raw_value'))) "
-                f" FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), "
-                f" json_extract(semantic_data, '$.layer_stamps'))) AS s, "
-                f" json_each(json_extract(s.value, '$.form_fields')) AS f "
-                f" WHERE json_extract(f.value, '$.label') = '{label}')"
-            )
-            
-        return field
-
-    def _resolve_relative_date(self, val: str) -> Any:
-        """
-        Translates relative date literals (e.g., 'LAST_MONTH') into absolute
-        date strings or ranges (tuples).
-        """
-        if not isinstance(val, str):
-            return val
-
-        now = datetime.now()
-        today = now.date()
-
-        if val == "LAST_7_DAYS":
-            start = (today - timedelta(days=7)).isoformat()
-            return (start, today.isoformat())
-        
-        if val == "LAST_30_DAYS":
-            start = (today - timedelta(days=30)).isoformat()
-            return (start, today.isoformat())
-
-        if val == "LAST_90_DAYS":
-            start = (today - timedelta(days=90)).isoformat()
-            return (start, today.isoformat())
-
-        if val == "THIS_MONTH":
-            start = today.replace(day=1).isoformat()
-            return (start, today.isoformat())
-
-        if val == "LAST_MONTH":
-            last_month_end = today.replace(day=1) - timedelta(days=1)
-            last_month_start = last_month_end.replace(day=1)
-            return (last_month_start.isoformat(), last_month_end.isoformat())
-
-        if val == "THIS_YEAR":
-            start = today.replace(month=1, day=1).isoformat()
-            return (start, today.isoformat())
-
-        if val == "LAST_YEAR":
-            last_year = today.year - 1
-            start = today.replace(year=last_year, month=1, day=1).isoformat()
-            end = today.replace(year=last_year, month=12, day=31).isoformat()
-            return (start, end)
-
-        if val.startswith("relative:"):
-            try:
-                # Format: relative:-90d or relative:30d
-                offset_str = val.split(":")[1]
-                unit = offset_str[-1] # 'd', 'm', 'y'
-                amount = int(offset_str[:-1])
-                
-                if unit == 'd':
-                    start = (today + timedelta(days=amount)).isoformat()
-                    return start
-                # Add more units if needed (months/years)
-            except Exception as e:
-                logger.error(f"Failed to parse relative date {val}: {e}")
-
-        if "," in val and len(val.split(",")) == 2:
-            return tuple(val.split(","))
-
-        return val
+    def _resolve_relative_date(self, val: Any) -> Any:
+        """Delegates to QueryBuilder.resolve_relative_date()."""
+        return self._qb.resolve_relative_date(val)
 
     def _map_op_to_sql(self, expr: str, op: str, val: Any) -> Tuple[str, List[Any]]:
-        """
-        Translates a logical operator and value into a SQL condition.
-        Handles relative date literals.
-        """
-        resolved_val = self._resolve_relative_date(val)
-        
-        # If the operator is 'equals' or 'contains' but the resolved value is a range (tuple),
-        # we automatically switch to 'between' behavior for dates.
-        if isinstance(resolved_val, tuple) and len(resolved_val) == 2:
-            op = "between"
-            val = list(resolved_val)
-        else:
-            val = resolved_val
-        if isinstance(val, str):
-            if val.lower() == "true": val = True
-            elif val.lower() == "false": val = False
-
-        if op == "equals":
-            if isinstance(val, list):
-                if not val:
-                    return "1=1", []
-                placeholders = ", ".join(["?" for _ in val])
-                return f"{expr} COLLATE NOCASE IN ({placeholders})", val
-            return f"{expr} = ? COLLATE NOCASE", [val]
-
-        if op == "contains":
-            if expr in ["type_tags", "tags"]:
-                # JSON array intersection logic
-                if isinstance(val, list):
-                    if not val:
-                        return "1=1", []
-                    clauses = [f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ? COLLATE NOCASE)" for _ in val]
-                    return "(" + " OR ".join(clauses) + ")", val
-                return f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ? COLLATE NOCASE)", [val]
-
-            if isinstance(val, list):
-                if not val:
-                    return "1=1", []
-                clauses = [f"{expr} LIKE ?" for _ in val]
-                params = [f"%{v}%" for v in val]
-                return "(" + " OR ".join(clauses) + ")", params
-            return f"{expr} LIKE ?", [f"%{val}%"]
-
-        if op == "starts_with":
-            return f"{expr} LIKE ?", [f"{val}%"]
-
-        if op in ["gt", "gte", "lt", "lte"]:
-            sql_ops = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
-            return f"{expr} {sql_ops[op]} ?", [val]
-
-        if op == "is_empty":
-            return f"{expr} IS NULL OR {expr} = ''", []
-
-        if op == "is_not_empty":
-            return f"{expr} IS NOT NULL AND {expr} != ''", []
-
-        if op == "between":
-            if isinstance(val, list) and len(val) == 2:
-                return f"{expr} BETWEEN ? AND ?", [val[0], val[1]]
-
-        if op == "in":
-            if not val:
-                return "1=0", [] # Nothing matches an empty set
-            if isinstance(val, (list, tuple, set)):
-                placeholders = ", ".join(["?" for _ in val])
-                return f"{expr} COLLATE NOCASE IN ({placeholders})", list(val)
-            return f"{expr} = ? COLLATE NOCASE", [val]
-
-        return "1=1", []
+        """Delegates to QueryBuilder.map_op()."""
+        return self._qb.map_op(expr, op, val)
 
     def get_all_entities_view(self) -> List[Document]:
         """
