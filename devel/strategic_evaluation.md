@@ -1,146 +1,174 @@
-# KPaperFlux: Strategic Evaluation & Reporting Concept
+# KPaperFlux: Strategic Evaluation & Roadmap
 
-**Date:** 2026-02-14
-**Status:** Reporting Engine & Visual Cockpits Live (Phase Transition)
-
-## 1. Status Quo: Forensic Maturity
-
-Following the successful implementation of the Reporting Canvas and the Ollama Integration, KPaperFlux has achieved "Local AI Sovereignty".
-
-*   **Interactive Design Canvas:** The reporting layer now supports a WYSIWYG "Canvas" mode where users can reorder, delete, and annotate report components (charts, tables, text) in real-time.
-*   **High-Fidelity PDF Export:** Professional PDF reports are generated preserving the exact interactive layout and custom annotations.
-*   **Local AI Sovereignty & Multi-Cloud:** Transitioned from Cloud-only to Hybrid/Multi-Cloud. The system now supports Gemini, OpenAI, Anthropic, and local Ollama backends (e.g. Llama3/Mistral) for flexible document processing.
-*   **Reporting & Analytics Live:** Specialized visualization layer (`PieChartWidget`, `BarChartWidget`, `LineChartWidget`) implemented with high-density charting and dynamic zooming.
-*   **Schema-less Metadata (JSON-First):** The polymorphic `semantic_data` architecture is fully proven and handles diverse document types (`Finance`, `Delivery Note`, etc.).
-*   **Forensic "Nüchterner Stolz" Branding:** The project documentation and README have been refined to reflect professional technical sovereignty and forensic precision.
+**Date:** 2026-03-27
+**Status:** Workflow Engine Mature — Transitioning to Document Intelligence & Deadline Management
 
 ---
 
-## 2. The Vision: From Data Grave to Knowledge Manager
+## 1. Status Quo: What Is Done
 
-The goal is now to leverage the "treasure" of extracted data. Reporting in this context is not just a list, but an **interpretative layer**.
+### Core Infrastructure (Stable)
+- **Three-Layer Document Model:** `PhysicalDocument` (vault/WORM) → `VirtualDocument` (state/pipeline) → `SemanticDocument` (extracted JSON) — proven and stable.
+- **Multi-Stage Pipeline (Stage 0–2):** Ingestion, PDF splitting, adaptive AI preflight (`SANDWICH` / `HEADER_SCAN` / `FULL_READ`), forensic visual audit (Stage 1.5), semantic extraction (Stage 2).
+- **Local AI Sovereignty:** Multi-backend support — Gemini, OpenAI, Anthropic, Ollama. 100% local processing possible.
+- **SQLite + FTS5:** Full-text search, semantic JSON querying via `json_extract` / `json_each`, schema migrations, virtual columns.
+- **Vault (WORM):** UUID-based immutable file storage. Files are never modified after write.
+- **404 unit and GUI tests**, single remaining TODO in codebase. Quality gate enforced via `test_code_quality.py`.
 
-### A. Financial Intelligence & Reporting (Mandatory)
-*   **Finance Hub:** Aggregation of `amount` values over custom time periods.
-*   **Tax Preparation:** Automated export (CSV/ZIP) for tax consultants, grouped by categories and tax rates.
-*   **Expense Cockpit:** Visualization of cash flow and burn rates (e.g., "Software Subscriptions", "Insurance").
+### Reporting & Analytics (Stable)
+- **Reporting Canvas (WYSIWYG):** Reorderable, annotatable report components (charts, tables, text). Real-time drag-and-drop layout.
+- **High-Fidelity PDF Export:** Exact canvas layout preserved in export.
+- **Charting:** `PieChartWidget`, `BarChartWidget`, `LineChartWidget` with sync-zooming.
+- **Generalized Grouping Engine:** Reports group by arbitrary semantic fields, not just hardcoded categories.
+- **Multi-Format Export:** CSV, ZIP, PDF. Stream-based (low memory footprint for 10k+ records).
+- **Internationalized PDF Reports:** i18n via Qt `.ts` / `.qm` pipeline, German locale fully translated.
 
-### B. Process Management & Workflow (Task-Based Interaction)
-*   **Generic State Machine:** Moving from a hard-coded "Processing" state to a freely-definable Workflow Engine (Finite State Machine).
-*   **Inbox Zero:** Managing the bureaucracy lifecycle (e.g., `NEW` -> `VERIFIED` -> `PAID` -> `DONE`).
-*   **Deadline Monitoring:** Proactive calculation of due dates and discount periods (Skonto) with a unified "Traffic Light" warning system.
-*   **Dynamic UI Orchestration:** The Metadata Editor adapts its fields and buttons based on the document's current workflow step.
+### Workflow Engine (Mature)
+- **Generic Finite State Machine:** JSON-defined rules (`resources/workflows/`), states, transitions, conditions, triggers.
+- **Multi-Workflow per Document:** A document can simultaneously carry multiple active workflows (e.g. `INVOICE` + `ORDER_CONFIRMATION`). `SemanticExtraction.workflows: Dict[str, WorkflowInfo]` keyed by rule ID.
+- **Workflow Canvas:** Interactive run-mode graph with clickable state nodes, dashed hover-ring affordance, color-coded states (current / available / visited / blocked / final-ok / final-error), auto-transitions, condition tooltips.
+- **Workflow Dashboard:** Per-rule document counts with live DB queries.
+- **Workflow Summary Tab:** Per-document active workflows with step counts in `MetadataEditor`.
+- **WorkflowEngine conditions:** `required_fields`, `conditions` (field/op/value), auto-transitions.
+- **Two bundled workflows:** `invoice_standard`, `smart_dunning`.
 
-### C. Context & Relations (Knowledge)
-*   **Knowledge Graph:** Linking documents (e.g., Quote <-> Invoice).
-*   **Timeline View:** Displaying documents on a chronological axis instead of a static list.
+### GiroCode & Payment (Stable)
+- **EPC QR Code generation** (`core/utils/girocode.py`) fully wired into the payment tab of `MetadataEditor` with live-refresh on field changes.
 
----
+### Forensic / Hybrid PDF (Partial)
+- `HybridEngine`, `ForegroundDetector`, forensic ink extraction: complete.
+- `ZugferdExtractor` (`core/utils/zugferd_extractor.py`): complete and tested.
+- `PAdES` signature detection: complete.
+- Immutability protection (UI locks, pipeline routing): complete.
+- **Missing:** ZUGFeRD/PAdES data is NOT yet injected into `SemanticExtraction` before the AI call (Stage 0.5). See Section 3.
 
-## 3. Technical Pillars of `core/reporting.py`
-
-Implementation follows modern software design patterns to guarantee scalability and maintainability.
-
-### I. Stream-Based Processing
-Instead of collecting data in RAM, we work with file streams.
-*   **Advantage:** Exporting thousands of documents with minimal memory footprint.
-*   **Technique:** Manual JSON/CSV stream construction directly into the file handle.
-
-### II. Strategy Pattern (Exporter)
-Decoupling the data source from the export format.
-*   `CsvExporter`, `JsonExporter`, `ExcelFriendlyExporter` (using `utf-8-sig`).
-
-### III. Aggregation Layer (Finance & Time Series)
-A specialized module in the core calculates sums and groups.
-*   **Input:** Filter results from the database.
-*   **Output:** Aggregated data structures for charts and reports.
-
-### IV. Data Quality Scoring
-A "Watchdog" module assesses data health (Anomaly Detection).
-*   **Check:** Missing mandatory fields, incorrect date formats, unusual amounts (compared to the sender's average).
+### Plugin System
+- Interface defined, `hybrid_assembler` and `order_collection_linker` implemented.
+- Runtime loading at startup. No hot-reload, no settings-UI for installed plugins.
 
 ---
 
-## 4. Implementation Strategy (Phase Model)
+## 2. Known Architectural Weaknesses
 
-### Phase 1: The Reporting Engine (DONE)
-*   **ReportGenerator & Charting Interface:** Successfully integrated into the main GUI.
-*   **FinancialTimeModule:** Working aggregation for monthly spending and vendor distribution.
-*   **Visual Polish:** Fixed legend alignments and implemented chart-sync-zooming.
+### 1. `main_window.py` is a God-Object (2600+ lines)
+Directly coordinates signals between all subsystems. Risk of circular dependency growth as the project scales. Mitigation: introduce a central `ApplicationController` or thin event-bus layer for cross-subsystem signals.
 
-### Phase 2: Actionability (DONE / IN PROGRESS)
-*   **Cockpit Integration:** Multiple report views (Top Senders, Trends) active.
-*   **Multi-Format Export:** CSV strategy implemented; PDF/ZIP hooks prepared.
-*   **GiroCode Generator:** Core logic ready, needs final UI hook in the payment tab.
+### 2. Pipeline has no real cancellation protocol
+`PipelineProcessor.process_document()` is a single synchronous call. `terminate_activity()` is a soft-stop flag, not a true cooperative cancellation. Large batches block until the current document finishes. Mitigation: structured cancellation tokens per stage.
 
-### Phase 3: Generic Workflow Engine (State Machine)
-*   **Workflow Schema:** Definition of YAML/JSON-based state machines (States, Transitions, Requirements).
-*   **Shared Templates:** Library of community-driven workflows (e.g., "Health Reimbursement", "Tax Deductibles").
-*   **Adaptive UI:** Dynamic button/input rendering in the Metadata Editor based on current state.
+### 3. `core/database.py` is monolithic (1700+ lines)
+Schema migrations, query builder, virtual column definitions, and `json_each` special-case handlers coexist in one class. `_build_where_clause()` accumulates special cases. Mitigation (future): extract a `QueryBuilder` class.
 
-### Phase 4: Final Output & Local Sovereignty (DONE)
-*   **Interactive PDF Report Generation:** High-fidelity PDF document generation from aggregated report data + interactive canvas annotations. (DONE)
-*   **Local AI Integration:** Full support for local LLMs (Ollama) to allow 100% private semantic analysis. (DONE)
-*   **Performance Scaling:** Implementation of Lazy Loading for document lists to handle 10k+ records.
+### 4. Plugin system is opaque to the user
+No settings panel showing installed plugins, their version, or on/off toggle. Plugins cannot be added/removed at runtime.
 
 ---
 
-## 5. Specialized PDF Integrity & Hybrid Strategy
+## 3. Roadmap: Open Feature Work
 
-KPaperFlux treats "Digital Originals" (signed, XML-enriched) and "Scanned Copies" as non-equal entities that must be fused into a **Hybrid Truth** for maximum utility.
+### Priority 1 — ZUGFeRD Stage 0.5 Injection (High Impact)
 
-### A. The "Chain of Trust" Forensic Model
-A central challenge is the loss of legal validity when a signed PDF is printed and scanned. KPaperFlux solves this via **Forensic Embedding**:
-*   **The Original**: If a document is digitally signed (PAdES) or contains structured data (ZUGFeRD XML), it is treated as a "Sacred Source".
-*   **The Hybrid**: During the matching process, the system extracts only the dynamic "Ink" (signatures, stamps) from the scan.
-*   **Internal Linkage**: The resulting Hybrid PDF (which is visually perfect and searchable) automatically **embeds the original signed PDF as an attachment**. 
-*   **Benefit**: A single file contains the "Human View" (Scan-Ink) and the "Legal View" (Digital Signature) simultaneously.
+**Problem:** `ZugferdExtractor` exists and works, but the pipeline calls the AI unconditionally. For ZUGFeRD/Factur-X PDFs, the embedded XML already contains 100% accurate structured data (amounts, dates, parties, line items). Running a full AI extraction wastes tokens and introduces potential hallucinations.
 
-### B. Immutability & Protection Layer
-Once a document is processed into a Hybrid or identified as a Signed Original, it receives the `kpaperflux_immutable` protection level.
-1.  **Metadata Flagging**: Detection via standard PDF keywords ensures compatibility.
-2.  **UI Locking**: The system proactively prevents destructive operations (Splitting, Page Deletion, Physical Stamping) on these documents.
-3.  **Workflow Routing**: Immutable documents bypass the Splitter ("Stage 0") and move directly to Semantic Analysis, as their page structure is considered final.
+**Design:**
+1. In `PipelineProcessor._run_ai_analysis()` (or a new pre-stage before it): call `ZugferdExtractor.extract(path)`.
+2. If XML data is found: populate `SemanticExtraction` fields directly from XML. Set `ai_confidence = 1.0`, `source = "ZUGFERD_NATIVE"`.
+3. Switch AI to **Audit Mode**: instead of full extraction, the AI only verifies visual text vs. XML data and reports discrepancies as red flags.
+4. If no XML: normal AI extraction flow unchanged.
 
-### C. Multi-Standard Support
-The architecture is designed to handle the convergence of different PDF standards:
-*   **ZUGFeRD/Factur-X**: High-fidelity extraction of embedded XML data.
-*   **PAdES (Electronic Signatures)**: Identification and forensic preservation across the whole lifecycle.
-*   **Hybrid PDF (V3)**: Optimized overlay strategy (~150KB) to keep the repository lean while maintaining vector-level text-quality.
-
-### D. Bridging the Gap: Native Specialist Support (Action Items)
-While the `HybridEngine` and `Foreground Detection` are complete, the native support for direct imports of Signed/ZUGFeRD PDFs requires three final integration steps:
-
-1.  **Pipeline "Stage 0.5" (The Fingerprint):**
-    *   **Integration**: Modify `PreFlightImporter` to not only check for immutability but also run the `ZugferdExtractor`.
-    *   **Data Injection**: If valid XML is found, inject this data directly into the `SemanticExtraction` model *before* the AI is involved. This ensures 100% accuracy and massive token savings.
-
-2.  **UI - Integrity Status Bar:**
-    *   **Cockpiting in the Viewer**: Add a slim status bar (or top-overlay) to `PdfViewerWidget` with interactive icons:
-        *   🛡️ **Signature Shield**: Verified Digital Signature status (Link to verification details).
-        *   ⚙️ **Data Gear**: Presence of ZUGFeRD / EN 16931 structured data.
-        *   📎 **Forensic Clip**: Indicator for embedded attachments (Original Source, XML).
-    *   **Actionability**: Clicking the clips allows the user to "Retrieve/Save-As" the embedded original.
-
-3.  **The "Audited by AI" Flow:**
-    *   Instead of "Analyzing" a ZUGFeRD-PDF from scratch, the AI should switch to an **Audit Mode**. It simply verifies if the visual text on the PDF matches the extracted XML data, reporting any discrepancies as "Red Flags".
+**Benefit:** Token savings ~80% for ZUGFeRD documents; zero hallucination risk on structured data.
 
 ---
 
-## 6. Infrastructure: The Generic State Machine
+### Priority 2 — Deadline Monitor / Traffic-Light in DocumentList (High Impact)
 
-The core shift is from **"What is this document?"** to **"What needs to be done with this document?"**.
+**Problem:** `due_date`, `service_period_end`, and Skonto deadlines are extracted and stored, but there is no proactive warning system. The user discovers overdue documents by accident.
 
-### I. Programmable Lifecycle
-Workflows are treated as "Playbooks". A playbook defines:
-1.  **Triggers:** Events that start the process (e.g., Tag `INVOICE` added).
-2.  **Steps:** Specific states (e.g., `WAITING_FOR_PAYMENT`).
-3.  **Requirements:** Data fields that must be filled before transitioning (e.g., `IBAN` must be valid).
-4.  **Transitions:** Named actions (e.g., "Confirm Reimbursement").
+**Design:**
+- Add a `DeadlineMonitor` service (`core/deadline_monitor.py`) that computes urgency tiers:
+  - 🔴 **Overdue** — due date in the past
+  - 🟡 **Due soon** — within configurable days (default: 7)
+  - 🟢 **OK** — no deadline or deadline far away
+- `DocumentListWidget` gets an optional urgency column (traffic-light icon). Sortable.
+- `Cockpit` gets a "Due Today / This Week" card pulling from the same monitor.
+- Filter system gets a `deadline` operator (`overdue`, `due_within_N_days`).
 
-### II. Community & Sharing
-By decoupling the workflow logic from the Python code, users can share their "State Machines" (e.g., a specific German 'DATEV' export workflow or a complex medical reimbursement flow).
+---
 
-## 7. Conclusion
+### Priority 3 — PDF-Viewer Integrity Status Bar (Medium Impact)
 
-KPaperFlux is transitioning from **Data Acquisition** to **Task-Based Knowledge Management**. The architectural decision for JSON metadata and the new Generic State Machine allows the system to guide the user through complex bureaucratic processes, rather than just displaying data.
+**Problem:** `PdfViewerWidget` renders documents but communicates nothing about their forensic status. Users cannot see if a document has a verified digital signature, embedded ZUGFeRD XML, or forensic attachments.
+
+**Design:** Slim overlay bar at the top of `PdfViewerWidget`:
+- 🛡️ **Signature**: PAdES/digital signature status (verified / unverified / absent). Click → details dialog.
+- ⚙️ **Data**: ZUGFeRD / EN 16931 structured data present. Click → show raw XML.
+- 📎 **Attachment**: embedded original PDF or XML. Click → Save-As dialog.
+
+Icons are greyed-out when not applicable (no visual noise for unstructured scans).
+
+---
+
+### Priority 4 — Saved Reports (Medium Impact)
+
+**Problem:** Report configurations (chart selection, grouping, filters, layout order) are not persisted. Every session starts from the default state. Power users rebuild the same report repeatedly.
+
+**Design:**
+- Serialize the current report canvas state to JSON (list of component configs + layout positions).
+- Store in a new `saved_reports` table in SQLite (name, json_config, created_at, last_used_at).
+- `ReportingWidget` gets a "Save As..." / "Load..." toolbar button.
+- Saved reports appear in a sidebar list, double-click loads them.
+
+---
+
+### Priority 5 — Document Reference Browser (Low Impact)
+
+**Problem:** `DocumentReference` (order numbers, customer IDs, project IDs) is extracted into `SemanticExtraction.meta_header.references`, but there is no UI that exploits these links. A user cannot click "show all documents with Order No. 12345".
+
+**Design:**
+- In `MetadataEditor` references section: each reference value becomes a clickable chip.
+- Clicking emits `navigation_requested` with a pre-built filter query `{"semantic:meta_header.references[*].ref_value": "12345"}`.
+- `MainWindow` routes this to `DocumentList` filter — same mechanism as workflow navigation.
+
+---
+
+### Priority 6 — Plugin Settings UI (Low Impact)
+
+- Settings dialog gets a "Plugins" tab showing: name, version, description, enabled/disabled toggle.
+- Reads from `manifest.json` of each discovered plugin directory.
+
+---
+
+## 4. PDF Integrity & Hybrid Strategy (Reference)
+
+KPaperFlux treats "Digital Originals" (signed, XML-enriched) and "Scanned Copies" as non-equal entities fused into a **Hybrid Truth**.
+
+### Chain of Trust Model
+- **Sacred Source:** Digitally signed (PAdES) or ZUGFeRD-XML-enriched PDFs.
+- **The Hybrid:** Forensic ink (stamps, signatures) extracted from scan overlaid on the digital original.
+- **Internal Linkage:** Hybrid PDF embeds the original signed PDF as an attachment — one file contains both the "Human View" and the "Legal View".
+
+### Immutability Layer (Complete)
+- `kpaperflux_immutable` protection flag prevents splitting, page deletion, and physical stamping.
+- Immutable documents bypass Stage 0 splitter, proceed directly to semantic analysis.
+
+### Standards Supported
+- **ZUGFeRD 2.2 / Factur-X / EN 16931:** High-fidelity XML extraction (extractor complete; pipeline injection pending — see Priority 1).
+- **PAdES:** Signature detection and preservation (complete).
+- **Hybrid PDF V3:** Overlay strategy ~150KB overhead.
+
+---
+
+## 5. Workflow Engine: Next Steps
+
+The engine itself is stable. Open work is at the edges:
+
+- **Timed transitions:** Auto-escalation after N days without activity (e.g., "30 days no payment → DUNNING"). Requires a background scheduler or on-load age-check in `WorkflowEngine`.
+- **External triggers:** File-system watch or webhook to advance a workflow step automatically.
+- **Shared workflow templates:** Community-shareable `.json` rule files (e.g., German PKV reimbursement, DATEV export checklist). The JSON format is already self-contained and portable.
+- **Workflow transition history UI:** The `WorkflowLog` history is stored per document but has no dedicated audit-trail view in the UI (only visible in raw JSON).
+
+---
+
+## 6. Conclusion
+
+KPaperFlux has successfully transitioned from **Data Acquisition** to **Task-Based Knowledge Management**. The workflow engine, multi-backend AI, and forensic hybrid pipeline are production-ready. The next phase focuses on closing the gap between *data that is extracted* and *insight that is surfaced* — specifically deadline awareness, ZUGFeRD-native accuracy, and navigable document relationships.
