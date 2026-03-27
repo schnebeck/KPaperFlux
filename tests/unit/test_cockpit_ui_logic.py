@@ -1,47 +1,42 @@
+"""
+Verify that DocumentActionController emits the correct signals after import.
+Tests call _on_import_finished directly to avoid dialog interactions.
+"""
 import unittest
 from unittest.mock import MagicMock, patch
-from PyQt6.QtCore import pyqtSignal, QObject
 
-class MockImportWorker(QObject):
-    finished = pyqtSignal(bool, int, list, str)
-    progress = pyqtSignal(int, str)
-    
-    def start(self):
-        pass
 
 class TestCockpitRefresh(unittest.TestCase):
-    
-    @patch('gui.main_window.QProgressDialog')
-    @patch('gui.main_window.show_notification')
-    def test_import_refresh_cockpit(self, mock_notify, mock_progress_dialog):
+
+    def test_import_refresh_signals_emitted(self):
         """
-        Verify that _on_import_finished calls cockpit_widget.refresh_stats()
+        _on_import_finished must emit list_refresh_requested and stats_refresh_requested.
         """
-        # We don't import MainWindow at top level to avoid circular issues during test patching
-        from gui.main_window import MainWindow
-        
-        # Create mw without calling __init__ to avoid GUI setup
-        mw = MagicMock(spec=MainWindow)
-        mw.db_manager = MagicMock()
-        
-        # Mock document returned by DB
+        from gui.controllers.document_action_controller import DocumentActionController
+
+        db = MagicMock()
         mock_doc = MagicMock()
         mock_doc.page_count = 1
         mock_doc.original_filename = "test.pdf"
-        mw.db_manager.get_document_by_uuid.return_value = mock_doc
+        db.get_document_by_uuid.return_value = mock_doc
 
-        mw.cockpit_widget = MagicMock()
+        # QObject requires None or a real Qt parent — no MagicMock here
+        ctrl = DocumentActionController(None, MagicMock(), db)
+        ctrl._parent = MagicMock()
+        ctrl._parent.tr = lambda x, *a: x
 
-        mw.list_widget = MagicMock()
-        mw.pipeline = MagicMock()
-        mw.tr = lambda x: x
-        
-        # Real method call
-        MainWindow._on_import_finished(mw, 1, 1, ["uuid-1"], None, MagicMock())
-        
-        # Verify stats refresh
-        mw.cockpit_widget.refresh_stats.assert_called_once()
-        mw.list_widget.refresh_list.assert_called_once()
+        list_calls = []
+        stats_calls = []
+        ctrl.list_refresh_requested.connect(lambda: list_calls.append(1))
+        ctrl.stats_refresh_requested.connect(lambda: stats_calls.append(1))
 
-if __name__ == '__main__':
+        with patch("gui.utils.show_notification"), \
+             patch("gui.utils.show_selectable_message_box"):
+            ctrl._on_import_finished(1, 1, ["uuid-1"], None, MagicMock(), skip_splitter=True)
+
+        self.assertTrue(list_calls, "list_refresh_requested not emitted")
+        self.assertTrue(stats_calls, "stats_refresh_requested not emitted")
+
+
+if __name__ == "__main__":
     unittest.main()

@@ -23,7 +23,6 @@ import platform
 import os
 import sys
 import tempfile
-import shutil
 import json
 from core.logger import get_logger, get_silent_logger
 from PyQt6.QtCore import QEvent
@@ -37,16 +36,14 @@ from gui.utils import show_selectable_message_box
 from core.importer import PreFlightImporter
 from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager
-from core.stamper import DocumentStamper
 from core.filter_tree import FilterTree, NodeType
 from core.config import AppConfig
 from core.integrity import IntegrityManager
-from core.utils.forensics import check_pdf_immutable, PDFClass, get_pdf_class
 from core.exchange import ExchangeService, ExchangePayload
 from core.scanner import SANE_AVAILABLE
 
 # GUI Imports
-from gui.workers import ImportWorker, MainLoopWorker, SimilarityWorker, ReprocessWorker
+from gui.workers import MainLoopWorker, SimilarityWorker
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
@@ -57,7 +54,6 @@ from gui.splitter_dialog import SplitterDialog
 from gui.scanner_dialog import ScannerDialog
 from gui.duplicate_dialog import DuplicateFinderDialog
 from gui.maintenance_dialog import MaintenanceDialog
-from gui.stamper_dialog import StamperDialog
 from gui.batch_tag_dialog import BatchTagDialog
 from gui.tag_manager import TagManagerDialog
 from gui.activity_widgets import BackgroundActivityStatusBar
@@ -138,6 +134,7 @@ class MainWindow(QMainWindow):
         self._setup_pages()
         self._setup_explorer_pane()
         self._setup_status_bar()
+        self._setup_doc_controller()
 
         self.create_tool_bar()
         self.retranslate_ui()
@@ -325,6 +322,51 @@ class MainWindow(QMainWindow):
 
         self.statusBar().addWidget(self.status_container, 1)
         self.workflow_manager.status_message.connect(self.main_status_label.setText)
+
+    def _setup_doc_controller(self) -> None:
+        """Instantiate DocumentActionController and wire all its signals."""
+        from gui.controllers.document_action_controller import DocumentActionController
+
+        self.doc_controller = DocumentActionController(self, self.pipeline, self.db_manager)
+
+        self.doc_controller.list_refresh_requested.connect(
+            self.list_widget.refresh_list if hasattr(self, "list_widget") else lambda: None
+        )
+        self.doc_controller.stats_refresh_requested.connect(self.cockpit_widget.refresh_stats)
+        self.doc_controller.status_updated.connect(self.main_status_label.setText)
+        self.doc_controller.editor_reload_requested.connect(self._on_editor_reload)
+        self.doc_controller.editor_clear_requested.connect(
+            self.editor_widget.clear if hasattr(self, "editor_widget") else lambda: None
+        )
+        self.doc_controller.viewer_clear_requested.connect(self.pdf_viewer.clear)
+        self.doc_controller.list_select_requested.connect(
+            self.list_widget.select_document if hasattr(self, "list_widget") else lambda u: None
+        )
+        self.doc_controller.document_reselect_requested.connect(
+            lambda u: self.list_widget.document_selected.emit([u])
+            if hasattr(self, "list_widget") else None
+        )
+        self.doc_controller.splitter_dialog_requested.connect(self.open_splitter_dialog_slot)
+
+        # Keep controller in sync with trash-mode toggling
+        if hasattr(self, "advanced_filter"):
+            self.advanced_filter.trash_mode_changed.connect(self.doc_controller.set_trash_mode)
+
+    def _on_editor_reload(self, processed_uuids: list) -> None:
+        """Reload editor if any of the processed docs are currently shown."""
+        if not hasattr(self, "editor_widget") or not self.editor_widget or not self.db_manager:
+            return
+        if not self.editor_widget.isVisible():
+            return
+        intersect = set(processed_uuids) & set(self.editor_widget.current_uuids)
+        if intersect:
+            docs = [
+                self.db_manager.get_document_by_uuid(u)
+                for u in self.editor_widget.current_uuids
+            ]
+            docs = [d for d in docs if d]
+            if docs:
+                self.editor_widget.display_documents(docs)
 
     def _sweep_stale_workflow_states(self) -> None:
         """Background sweep: reset stale workflow states across all rules."""
@@ -1003,272 +1045,18 @@ class MainWindow(QMainWindow):
                 show_selectable_message_box(self, self.tr("Info"), self.tr("Please select documents to delete."), icon=QMessageBox.Icon.Information)
 
     def delete_document_slot(self, uuids):
-        """
-        Handle delete request from List (Single or Batch).
-        Supports both Entity Deletion (Smart) and Document Deletion (Trash).
-        """
+        """Handle delete request — delegates to DocumentActionController."""
         if not isinstance(uuids, list):
             uuids = [uuids]
-
-        if not uuids:
-            return
-
-        count = len(uuids)
-        msg = self.tr("Are you sure you want to delete this item?") if count == 1 else self.tr("Are you sure you want to delete %s items?") % count
-
-        reply = show_selectable_message_box(self, self.tr("Confirm Delete"),
-                                     msg,
-                                     icon=QMessageBox.Icon.Question,
-                                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
-        if reply == QMessageBox.StandardButton.Yes:
-            if self.db_manager and self.pipeline:
-                deleted_count = 0
-                is_trash_mode = getattr(self.list_widget, 'is_trash_mode', False)
-
-                for uuid in uuids:
-                    # 0. If in Trash Mode, Purge Immediately
-                    if is_trash_mode:
-                        if self.pipeline.delete_entity(uuid, purge=True):
-                             deleted_count += 1
-                        continue
-
-                    # 1. Try Deleting as Entity (Smart Delete)
-                    # Use soft-delete (trash=True) by default in normal view
-                    if self.pipeline.delete_entity(uuid, purge=False):
-                        deleted_count += 1
-                        continue
-
-                    # 2. Fallback: Deleting a Source Doc (e.g. from Trash or Inbox if raw)
-                    doc = self.db_manager.get_document_by_uuid(uuid)
-                    if doc:
-                        # If we are in Trash Mode, we Purge.
-                        # If not, we Move to Trash.
-                        if getattr(self.list_widget, 'is_trash_mode', False):
-                             self.db_manager.purge_document(uuid)
-                        else:
-                             self.db_manager.mark_documents_deleted([uuid])
-                        deleted_count += 1
-
-                self.editor_widget.clear()
-                self.pdf_viewer.clear()
-                self.list_widget.refresh_list()
-
-                # Refresh Stats
-                if hasattr(self, "cockpit_widget"):
-                     self.cockpit_widget.refresh_stats()
-                if hasattr(self, "filter_tree_widget"):
-                     self.filter_tree_widget.load_tree()
-
-                if count > 1:
-                    show_notification(self, self.tr("Deleted"), self.tr("Deleted %s items.") % deleted_count)
+        self.doc_controller.delete_documents(uuids)
 
     def reprocess_document_slot(self, uuids: list, force_ocr: bool = False):
-        """Re-run pipeline for list of documents."""
-        if not self.pipeline:
-            return
-
-        # Pipeline expects physical document UUIDs.
-        source_uuids = set()
-        for u in uuids:
-            # v28.2: Soft Reset instead of Purge.
-            self.db_manager.reset_document_for_reanalysis(u)
-            source_uuids.add(u)
-
-        start_uuids = list(source_uuids)
-        if not start_uuids: return
-
-        count = len(start_uuids)
-
-        label = self.tr("Reprocessing...") if not force_ocr else self.tr("Running OCR...")
-        progress = QProgressDialog(label, self.tr("Cancel"), 0, count, self)
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(0) # Show immediately
-        progress.forceShow() # Ensure visibility
-        progress.setValue(0)
-
-        uuid_to_restore = None
-        if hasattr(self, 'pdf_viewer') and self.pdf_viewer.current_uuid in start_uuids:
-             uuid_to_restore = self.pdf_viewer.current_uuid
-             self.pdf_viewer.clear()
-
-        self.reprocess_worker = ReprocessWorker(self.pipeline, start_uuids, force_ocr=force_ocr)
-        self.reprocess_errors = []
-
-        # Connect Signals — use a named slot so Qt uses QueuedConnection across threads
-        def _on_reprocess_progress(i: int, uid: str) -> None:
-            progress.setLabelText(self.tr("Reprocessing %s of %s...") % (i+1, count))
-            progress.setValue(i)
-
-        self.reprocess_worker.progress.connect(_on_reprocess_progress)
-
-        self.reprocess_worker.finished.connect(
-            lambda success, total, processed_uuids: self._on_reprocess_finished(success, total, processed_uuids, uuids, progress, uuid_to_restore)
-        )
-
-        self.reprocess_worker.error.connect(lambda uid, msg: self.reprocess_errors.append(f"{uid}: {msg}"))
-
-        progress.canceled.connect(self.reprocess_worker.cancel)
-
-        self.reprocess_worker.start()
-
-    def _on_reprocess_finished(self, success_count, total, processed_uuids, original_uuids, progress_dialog, uuid_to_restore=None):
-        progress_dialog.close()
-
-        # Safe Thread Cleanup
-        if hasattr(self, 'reprocess_worker') and self.reprocess_worker:
-            self.reprocess_worker.wait() # Ensure it's fully done
-            self.reprocess_worker.deleteLater() # Schedule deletion
-            self.reprocess_worker = None # Clear ref
-
-        # Refresh Editor logic
-        if hasattr(self, 'editor_widget') and self.editor_widget:
-            intersect = set(processed_uuids) & set(self.editor_widget.current_uuids)
-            if intersect:
-                 docs_to_refresh = []
-                 for uid in self.editor_widget.current_uuids:
-                     d = self.db_manager.get_document_by_uuid(uid)
-                     if d: docs_to_refresh.append(d)
-                 if docs_to_refresh:
-                     self.editor_widget.display_documents(docs_to_refresh)
-
-        # Refresh List First (this typically clears selection and viewer)
-        self.list_widget.refresh_list()
-
-        # Restore Selection
-        if uuid_to_restore and uuid_to_restore in processed_uuids:
-             self.list_widget.select_document(uuid_to_restore)
-
-        # Trigger Cockpit Refresh
-        if hasattr(self, 'cockpit_widget') and self.cockpit_widget:
-            self.cockpit_widget.refresh_stats()
-
-        if hasattr(self, 'reprocess_errors') and self.reprocess_errors:
-            error_count = len(self.reprocess_errors)
-            from gui.utils import show_notification
-            show_notification(
-                self, 
-                self.tr("Processing Error"), 
-                self.tr("%n error(s) occurred during reprocessing. Check logs.", "", error_count),
-                duration=5000
-            )
-            # Clear errors for next run
-            self.reprocess_errors = []
-
-        # The MainLoopWorker will pick up 'NEW' documents automatically.
-
-        show_notification(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nProcessing will continue in background.")
+        """Re-run pipeline — delegates to DocumentActionController."""
+        self.doc_controller.reprocess_documents(uuids, force_ocr=force_ocr)
 
     def start_import_process(self, files: list[str], move_source: bool = False):
-        """
-        Unified entry point for importing documents (Menu or Drop).
-        Starts the ImportWorker with a modal ProgressDialog.
-        Intercepts with Splitter Dialog for Pre-Flight Check.
-        """
-        if not files or not self.pipeline:
-            return
-
-        # We process files one by one via Dialog to get Instructions
-        import_items = []
-
-        pdf_files = [f for f in files if f.lower().endswith(".pdf")]
-        other_files = [f for f in files if not f.lower().endswith(".pdf")]
-
-        # 1. Handle PDFs via Batch Assistant
-        if pdf_files:
-            file_infos = []
-            for f in pdf_files:
-                try:
-                    p_class = get_pdf_class(f)
-                    is_prot = (p_class != PDFClass.STANDARD)
-                    file_infos.append({
-                        "path": f,
-                        "pdf_class": p_class.value,
-                        "is_protected": is_prot
-                    })
-                except Exception as e:
-                    logger.error(f"Error classifying PDF {f}: {e}")
-                    # Default to standard if check fails
-                    file_infos.append({
-                        "path": f,
-                        "pdf_class": "C",
-                        "is_protected": False
-                    })
-            
-            # ALL PDFs now go through splitter, but protected ones are locked
-            if file_infos:
-                dialog = SplitterDialog(self.pipeline, self)
-                dialog.load_for_batch_import(file_infos)
-
-                if dialog.exec() == QDialog.DialogCode.Accepted:
-                    instrs = dialog.import_instructions
-                    import_items.append(("BATCH", instrs))
-                else:
-                    logger.info("PDF Import cancelled by user.")
-                    # If we only had PDFs, we might want to return here.
-                    # But other_files might still need processing.
-
-        # 2. Handle non-PDFs (Direct)
-        for fpath in other_files:
-            import_items.append((fpath, None))
-
-        if not import_items:
-             logger.info("No files to import (User cancelled all).")
-             return
-
-        is_batch = any(item[0] == "BATCH" for item in import_items if isinstance(item, tuple))
-        
-        # Calculate effective total (including sub-items and ingestion steps for batches)
-        count = 0
-        for item in import_items:
-            if isinstance(item, tuple) and item[0] == "BATCH" and isinstance(item[1], list):
-                # How many unique files in this batch?
-                unique_files = set()
-                for doc_instr in item[1]:
-                    for pg in doc_instr.get("pages", []):
-                        if "file_path" in pg:
-                            unique_files.add(pg["file_path"])
-                
-                # In batch mode, we have unique_files + len(instructions) steps
-                count += len(unique_files) + len(item[1])
-            else:
-                count += 1
-
-        # Progress Dialog
-        progress = QProgressDialog(self.tr("Initializing Import..."), self.tr("Cancel"), 0, count, self)
-        progress.setWindowTitle(self.tr("Importing..."))
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(0)
-        progress.setValue(0)
-
-        progress.show()
-
-        # Worker Setup
-        self.import_worker = ImportWorker(self.pipeline, import_items, move_source=move_source)
-
-        # Signals — named slots ensure Qt uses QueuedConnection across threads
-        def _on_import_progress(i: int, label: str) -> None:
-            self.main_status_label.setText(self.tr("Importing %s/%s: %s") % (i+1, count, label))
-            progress.setValue(i + 1)
-
-        def _on_document_imported(uid: str) -> None:
-            if self.list_widget:
-                self.list_widget.refresh_list()
-            if hasattr(self, "cockpit_widget"):
-                self.cockpit_widget.refresh_stats()
-
-        self.import_worker.progress.connect(_on_import_progress)
-
-        # Incremental feedback during long batches
-        self.import_worker.document_imported.connect(_on_document_imported)
-
-        self.import_worker.finished.connect(
-            lambda s, t, uuids, err: self._on_import_finished(s, t, uuids, err, progress, skip_splitter=is_batch)
-        )
-
-        progress.canceled.connect(self.import_worker.cancel)
-
-        self.import_worker.start()
+        """Unified entry point for importing documents — delegates to DocumentActionController."""
+        self.doc_controller.start_import(files, move_source=move_source)
 
     def import_document_slot(self):
         """Handle import button click (File Menu)."""
@@ -1426,61 +1214,14 @@ class MainWindow(QMainWindow):
         )
 
     def run_stage_2_selected_slot(self, uuids: list[str] = None):
-        """Manually trigger Stage 2 for selected documents."""
+        """Manually trigger Stage 2 for selected documents — delegates to DocumentActionController."""
         if not uuids:
             uuids = self.list_widget.get_selected_uuids()
-
-        if not uuids:
-            show_selectable_message_box(self, self.tr("Action required"), self.tr("Please select at least one document."), icon=QMessageBox.Icon.Warning)
-            return
-
-        to_shortcut = []
-        to_full = []
-
-        # We need to check current status. List widget has objects or we ask DB.
-        for uid in uuids:
-            doc = self.db_manager.get_document_by_uuid(uid)
-            if doc and doc.status in ('PROCESSED', 'ERROR_AI') and doc.type_tags:
-                to_shortcut.append(uid)
-            else:
-                to_full.append(uid)
-
-        if to_shortcut:
-            self.db_manager.queue_for_semantic_extraction(to_shortcut)
-        if to_full:
-            self.reprocess_document_slot(to_full)
-
-        self.main_status_label.setText(self.tr("Queued %s docs for extraction.") % len(uuids))
+        self.doc_controller.run_stage_2(uuids)
 
     def run_stage_2_all_missing_slot(self):
-        """Find all documents with empty semantic data and trigger processing."""
-        docs = self.db_manager.get_documents_missing_semantic_data()
-        if not docs:
-            show_notification(self, self.tr("Semantic Data"), self.tr("No empty documents found."))
-            return
-
-        uuids = [d.uuid for d in docs]
-        confirm = show_selectable_message_box(self, self.tr("Process empty Documents"),
-                                             self.tr("Start semantic extraction for %s documents without details?") % len(uuids),
-                                             icon=QMessageBox.Icon.Question,
-                                             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if confirm == QMessageBox.StandardButton.Yes:
-            to_shortcut = []
-            to_full = []
-            for uid in uuids:
-                # Optimized check: docs are already loaded in 'docs' list
-                match = next((d for d in docs if d.uuid == uid), None)
-                if match and match.status in ('PROCESSED', 'ERROR_AI') and match.type_tags:
-                    to_shortcut.append(uid)
-                else:
-                    to_full.append(uid)
-
-            if to_shortcut:
-                self.db_manager.queue_for_semantic_extraction(to_shortcut)
-            if to_full:
-                self.reprocess_document_slot(to_full)
-
-            self.main_status_label.setText(self.tr("Queued %n doc(s) for background extraction.", "", len(uuids)))
+        """Find all documents with empty semantic data — delegates to DocumentActionController."""
+        self.doc_controller.run_stage_2_all_missing()
 
     def merge_documents_slot(self, uuids: list[str]):
         """Handle merge request."""
@@ -1683,50 +1424,6 @@ class MainWindow(QMainWindow):
             move_source = chk_move.isChecked()
             self.start_import_process(files, move_source=move_source)
 
-    def _on_import_finished(self, success_count, total, imported_uuids, error_msg, progress_dialog, skip_splitter=False):
-        progress_dialog.close()
-
-        if hasattr(self, 'import_worker') and self.import_worker:
-            self.import_worker.wait() # Ensure finished
-            self.import_worker.deleteLater()
-            self.import_worker = None
-
-        if error_msg:
-             logger.error(f"Import Finished with error: {error_msg}")
-             show_selectable_message_box(self, self.tr("Import Error"), error_msg, icon=QMessageBox.Icon.Critical)
-
-        # Refresh List
-        if self.list_widget:
-            self.list_widget.refresh_list()
-
-        if self.pipeline and imported_uuids:
-             splitter_opened = False
-             queued_count = 0
-
-             for uid in imported_uuids:
-                  d = self.db_manager.get_document_by_uuid(uid)
-
-                  if d:
-                      logger.debug(f"Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
-                      # Note: MainLoopWorker will pick this up via status 'NEW'
-                      queued_count += 1
-                  else:
-                      logger.debug(f"Import Finished: UUID={uid} NOT FOUND in DB!")
-
-                  if d and d.page_count and d.page_count > 1 and not skip_splitter:
-                      if not splitter_opened:
-                          self.open_splitter_dialog_slot(uid)
-                          splitter_opened = True
-
-             if not error_msg and not splitter_opened:
-                  show_notification(self, self.tr("Import Finished"),
-                                    self.tr("Imported %s documents.\nBackground processing started.") % len(imported_uuids))
-
-        if hasattr(self, "cockpit_widget"):
-             self.cockpit_widget.refresh_stats()
-
-        if hasattr(self, "filter_tree_widget"):
-             self.filter_tree_widget.load_tree()
 
 
     def _on_ai_status_changed(self, msg: str) -> None:
@@ -1758,91 +1455,8 @@ class MainWindow(QMainWindow):
         self.list_widget.open_export_dialog(docs)
 
     def stamp_document_slot(self, uuid_or_list):
-        """Stamp a document (or multiple)."""
-        if not self.pipeline:
-            return
-
-        if isinstance(uuid_or_list, list):
-            uuids = uuid_or_list
-        else:
-            uuids = [uuid_or_list]
-
-        if not uuids:
-            return
-
-        target_uuid = uuids[0]
-        src_path = self.pipeline.vault.get_file_path(target_uuid)
-
-        # Fallback for Virtual Entities
-        if not src_path or not os.path.exists(src_path) or src_path == "/dev/null":
-             if self.db_manager:
-                 mapping = self.db_manager.get_source_mapping_from_entity(target_uuid)
-                 if mapping and len(mapping) > 0:
-                      phys_uuid = mapping[0].get("file_uuid")
-                      if phys_uuid:
-                          src_path = self.pipeline.vault.get_file_path(phys_uuid)
-
-        if not src_path or not os.path.exists(src_path):
-            show_selectable_message_box(self, self.tr("Error"), self.tr("Could not locate physical file for UUID: %s") % target_uuid, icon=QMessageBox.Icon.Warning)
-            return
-
-        dialog = StamperDialog(self)
-
-        stamper = DocumentStamper()
-        existing_stamps = stamper.get_stamps(src_path)
-
-        dialog.populate_stamps(existing_stamps)
-
-        if dialog.exec():
-            action, text, pos, color, rotation, remove_id = dialog.get_data()
-            try:
-                successful_count = 0
-
-                if action == "remove":
-                    if len(uuids) > 1:
-                        show_selectable_message_box(self, self.tr("Batch Operation"), self.tr("Removing stamps is only supported for single documents."), icon=QMessageBox.Icon.Warning)
-                        uuids = [target_uuid]
-
-                    removed = stamper.remove_stamp(src_path, stamp_id=remove_id)
-                    if removed:
-                        successful_count = 1
-                else:
-                    # APPLY BATCH
-                    for uid in uuids:
-                        fpath = self.pipeline.vault.get_file_path(uid)
-
-                        # Fallback for Virtual
-                        if not fpath or not os.path.exists(fpath) or fpath == "/dev/null":
-                             if self.db_manager:
-                                 mapping = self.db_manager.get_source_mapping_from_entity(uid)
-                                 if mapping and len(mapping) > 0:
-                                      phys_uuid = mapping[0].get("file_uuid")
-                                      if phys_uuid:
-                                          fpath = self.pipeline.vault.get_file_path(phys_uuid)
-
-                        if not fpath or not os.path.exists(fpath):
-                            logger.info(f"[Stamper] Failed to resolve path for {uid}")
-                            continue
-
-                        base, ext = os.path.splitext(fpath)
-                        tmp_path = f"{base}_stamped{ext}"
-
-                        stamper.apply_stamp(fpath, tmp_path, text, position=pos, color=color, rotation=rotation)
-                        shutil.move(tmp_path, fpath)
-                        successful_count += 1
-
-                msg = ""
-                if action == "remove":
-                     msg = self.tr("Stamp removed.")
-                else:
-                     msg = self.tr("Stamp applied to %n document(s).", "", successful_count)
-
-                show_notification(self, self.tr("Success"), msg)
-
-                self.list_widget.document_selected.emit([target_uuid])
-
-            except Exception as e:
-                show_selectable_message_box(self, self.tr("Error"), self.tr("Stamping operation failed: %s") % e, icon=QMessageBox.Icon.Critical)
+        """Stamp a document (or multiple) — delegates to DocumentActionController."""
+        self.doc_controller.stamp_documents(uuid_or_list)
 
     def manage_tags_slot(self, uuids: list[str]):
         """Open dialog to add/remove tags for selected documents."""
@@ -2033,31 +1647,12 @@ class MainWindow(QMainWindow):
             self.main_status_label.setText(self.tr("Ready"))
 
     def restore_documents_slot(self, uuids: list[str]):
-        count = 0
-        for uid in uuids:
-            if self.db_manager.restore_document(uid):
-                count += 1
-        if count > 0:
-            self.list_widget.refresh_list()
-            show_notification(self, self.tr("Restored"), self.tr("Restored %n document(s).", "", count))
+        """Restore soft-deleted documents — delegates to DocumentActionController."""
+        self.doc_controller.restore_documents(uuids)
 
     def archive_document_slot(self, uuids: list[str], archive: bool = True):
-        """Handles archiving or restoring documents from the archive."""
-        count = 0
-        for uid in uuids:
-            if self.pipeline.archive_entity(uid, archive):
-                count += 1
-            
-        if count > 0:
-            self.list_widget.refresh_list()
-            action_str = self.tr("Archived") if archive else self.tr("Restored from Archive")
-            if archive:
-                msg_str = self.tr("Archived %n document(s)", "", count)
-            else:
-                msg_str = self.tr("Restored %n document(s) from Archive", "", count)
-            
-            # Using a safer way to concatenate translated strings if needed
-            show_notification(self, action_str, msg_str)
+        """Archive or unarchive documents — delegates to DocumentActionController."""
+        self.doc_controller.archive_documents(uuids, archive)
 
     def purge_data_slot(self):
         """
@@ -2129,13 +1724,8 @@ class MainWindow(QMainWindow):
         self.main_loop_worker.start()
 
     def purge_documents_slot(self, uuids: list[str]):
-        count = 0
-        for uid in uuids:
-            if self.pipeline.delete_entity(uid):
-                count += 1
-        if count > 0:
-            self.list_widget.refresh_list()
-            show_notification(self, self.tr("Deleted"), self.tr("Permanently deleted %n document(s).", "", count))
+        """Permanently delete documents — delegates to DocumentActionController."""
+        self.doc_controller.purge_documents(uuids)
     def open_debug_audit_window(self, uuid: str):
         """Opens the Audit Window in debug/generic mode with only a Close button."""
         doc = self.db_manager.get_document_by_uuid(uuid)
