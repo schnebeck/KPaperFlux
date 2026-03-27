@@ -209,6 +209,9 @@ class StateNode(QGraphicsItem):
         if mode == "edit":
             self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
             self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+            # Required so itemChange() receives ItemPositionChange (pre-move)
+            # and ItemPositionHasChanged (post-move) — both needed for edge repaint.
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
         elif click_callback:
             self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
@@ -333,9 +336,14 @@ class StateNode(QGraphicsItem):
         QToolTip.hideText()
 
     def itemChange(self, change, value):
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            # Pre-move: tell Qt the edges' old bounding rects are dirty BEFORE
+            # the node position (and therefore their path/boundingRect) changes.
             for edge in self._connected_edges:
                 edge.prepareGeometryChange()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            # Post-move: trigger a visual refresh and persist the new position.
+            for edge in self._connected_edges:
                 edge.update()
             if self._on_moved:
                 self._on_moved(self.state_id, value)
