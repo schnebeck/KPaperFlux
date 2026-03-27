@@ -183,7 +183,7 @@ class DatabaseManager:
         if not query_dict:
             return True
 
-        where_clause, params = self._build_where_clause(query_dict)
+        where_clause, params = self._qb.build_where(query_dict)
         sql = f"SELECT 1 FROM virtual_documents WHERE uuid = ? AND ({where_clause})"
 
         try:
@@ -415,7 +415,7 @@ class DatabaseManager:
         if not query or (not query.get("conditions") and not query.get("field")):
              return self.get_all_entities_view()
 
-        where_clause, params = self._build_where_clause(query)
+        where_clause, params = self._qb.build_where(query)
         
         # Exclude deleted/archived documents unless explicitly searched
         if "deleted" not in where_clause.lower():
@@ -445,7 +445,7 @@ class DatabaseManager:
         if not query or (not query.get("conditions") and not query.get("field")):
             return self.count_documents()
 
-        where_clause, params = self._build_where_clause(query)
+        where_clause, params = self._qb.build_where(query)
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
 
@@ -468,11 +468,11 @@ class DatabaseManager:
         if not self.connection:
             return 0.0
 
-        where_clause, params = self._build_where_clause(query or {})
+        where_clause, params = self._qb.build_where(query or {})
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
 
-        expr = self._map_field_to_sql(field)
+        expr = self._qb.map_field(field)
         # Use CAST for safety with JSON values stored as strings
         sql = f"SELECT SUM(CAST({expr} AS REAL)) FROM virtual_documents WHERE {where_clause}"
         
@@ -493,16 +493,16 @@ class DatabaseManager:
         """
         if not self.connection: return []
         
-        where_clause, params = self._build_where_clause(query or {})
+        where_clause, params = self._qb.build_where(query or {})
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
             
         # Determine time field: prefer doc_date if it's a financial aggregation
-        time_expr = self._map_field_to_sql("doc_date")
+        time_expr = self._qb.map_field("doc_date")
         # Ensure we have a valid date part, fallback to created_at
         time_expr = f"COALESCE(NULLIF({time_expr}, ''), strftime('%Y-%m-%d', created_at))"
         
-        val_expr = "COUNT(*)" if aggregation == "count" else f"COALESCE(SUM(CAST({self._map_field_to_sql('amount')} AS REAL)), 0)"
+        val_expr = "COUNT(*)" if aggregation == "count" else f"COALESCE(SUM(CAST({self._qb.map_field('amount')} AS REAL)), 0)"
         
         try:
             cursor = self.connection.cursor()
@@ -582,22 +582,6 @@ class DatabaseManager:
             traceback.print_exc()
             logger.error(f"Error in get_trend_data_advanced: {e}")
             return [0.0] * 30
-
-    def _build_where_clause(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
-        """Delegates to QueryBuilder.build_where()."""
-        return self._qb.build_where(node)
-
-    def _map_field_to_sql(self, field: str) -> str:
-        """Delegates to QueryBuilder.map_field()."""
-        return self._qb.map_field(field)
-
-    def _resolve_relative_date(self, val: Any) -> Any:
-        """Delegates to QueryBuilder.resolve_relative_date()."""
-        return self._qb.resolve_relative_date(val)
-
-    def _map_op_to_sql(self, expr: str, op: str, val: Any) -> Tuple[str, List[Any]]:
-        """Delegates to QueryBuilder.map_op()."""
-        return self._qb.map_op(expr, op, val)
 
     def get_all_entities_view(self) -> List[Document]:
         """
@@ -1178,7 +1162,7 @@ class DatabaseManager:
         if not text:
             return 0
         
-        where_clause, params = self._build_where_clause(query)
+        where_clause, params = self._qb.build_where(query)
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
             

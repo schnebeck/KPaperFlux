@@ -29,14 +29,14 @@ def test_virtual_column_search():
 
 def test_semantic_prefix_search():
     """Verify the 'semantic:' prefix works for deep JSON mapping."""
-    db = DatabaseManager(":memory:")
+    from core.query_builder import QueryBuilder
+    qb = QueryBuilder()
     query = {
-        "field": "semantic:meta_header.doc_id", 
-        "op": "equals", 
-        "value": "123"
+        "field": "semantic:meta_header.doc_id",
+        "op": "equals",
+        "value": "123",
     }
-    
-    sql, params = db._build_where_clause(query)
+    sql, params = qb.build_where(query)
     assert "json_extract" in sql
     assert "$.meta_header.doc_id" in sql
     assert "123" in params
