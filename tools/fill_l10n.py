@@ -596,6 +596,8 @@ def fill():
             "Enter display name:": "Anzeigename eingeben:",
             "Rename Workflow": "Ablauf umbenennen",
             "New display name:": "Neuer Anzeigename:",
+            "Delete Failed": "Löschen fehlgeschlagen",
+            "Could not delete rule(s): %1": "Regel(n) konnten nicht gelöscht werden: %1",
         },
         "AddTransitionDialog": {
             "e.g. Verify, Approve, Reject": "z.B. Prüfen, Genehmigen, Ablehnen",
@@ -614,9 +616,11 @@ def fill():
         },
         "ColumnManagerDialog": {
             "Drag and drop to reorder...": "Ziehen zum Sortieren. Abwählen zum Ausblenden. Doppelklick oder Button zum Entfernen.",
+            "Drag and drop to reorder. Uncheck to hide. Double-click or use button to remove dynamic columns.": "Ziehen zum Sortieren. Abwählen zum Ausblenden. Doppelklick oder Button zum Entfernen.",
             "Add Column": "Spalte hinzufügen",
             "Fixed Column": "Feste Spalte",
             "Fixed columns can only be hidden...": "Feste Spalten können nur ausgeblendet, nicht aus dem System entfernt werden.",
+            "Fixed columns can only be hidden, not removed from the system.": "Feste Spalten können nur ausgeblendet, nicht aus dem System entfernt werden.",
         },
         "DateRangePicker": {
             "Specific Date": "Bestimmtes Datum",
@@ -664,6 +668,7 @@ def fill():
         "HybridAssemblerPlugin": {
             "Hybrid Assembler": "Hybrid-Assembler",
             "Assembles hybrid PDFs...": "Erstellt Hybrid-PDFs aus nativen und gescannten Versionen.",
+            "Assembles hybrid PDFs from native and scanned versions.": "Erstellt Hybrid-PDFs aus nativen und gescannten Versionen.",
             "Assemble Hybrid PDFs...": "Hybrid-PDFs erstellen...",
         },
         "L10nMarker": {
@@ -732,6 +737,13 @@ def fill():
             "This document is a digital original and cannot be restructured.": "Dieses Dokument ist ein digitales Original und kann nicht umstrukturiert werden.",
             "Document deleted (empty structure).": "Dokument gelöscht (leere Struktur).",
             "Pipeline STOPPED due to fatal error.": "Pipeline wegen schwerem Fehler gestoppt.",
+            "Orphaned Workflow References": "Verwaiste Ablauf-Referenzen",
+            "No orphaned workflow references found. All rule IDs in all documents match a known rule.": "Keine verwaisten Ablauf-Referenzen gefunden. Alle Regel-IDs in allen Dokumenten entsprechen einer bekannten Regel.",
+            "Prune Orphaned Workflow References": "Verwaiste Ablauf-Referenzen bereinigen",
+            "Prune Orphaned Workflow References...": "Verwaiste Ablauf-Referenzen bereinigen...",
+            "Removed orphaned workflow references from %d document(s).": "Verwaiste Ablauf-Referenzen aus %d Dokument(en) entfernt.",
+            "Done": "Fertig",
+            "DANGER: This will delete ALL documents, files, and database entries.\n\nThis action cannot be undone.\n\nAre you completely sure you want to reset the system?": "ACHTUNG: Alle Dokumente, Dateien und Datenbankeinträge werden gelöscht.\n\nDieser Vorgang kann nicht rückgängig gemacht werden.\n\nSind Sie sicher?",
         },
         "MaintenanceDialog": {
             "Entries in Database but file missing in Vault:": "Datenbankeinträge ohne Datei im Vault:",
@@ -742,6 +754,8 @@ def fill():
         },
         "MatchingDialog": {
             "Hybrid Matching-Dialog": "Hybrid-Abgleich",
+            "<b>Hybrid Matching-Dialog</b><br>Finds pairs of scanned and native PDFs in a folder to merge them.": "Hybrid-Abgleich: Findet Paare aus gescannten und nativen PDFs in einem Ordner zum Zusammenführen.",
+            "Side-by-side comparison and verification": "Seitenweiser Vergleich und Verifizierung",
             "No folder selected.": "Kein Ordner ausgewählt.",
             "Browse Folder...": "Ordner suchen...",
             "Delete original files after successful merge": "Originaldateien nach Zusammenführung löschen",
@@ -774,6 +788,8 @@ def fill():
             "Keep original documents": "Originaldokumente behalten",
         },
         "MetadataEditorWidget": {
+            "Warning": "Warnung",
+            "Semantic data could not be re-validated (%1). Other fields were saved.": "Semantische Daten konnten nicht erneut validiert werden (%1). Andere Felder wurden gespeichert.",
             "Custom Tags: Enter keywords, separated by commas or Enter.": "Eigene Tags: Schlüsselwörter eingeben, mit Komma oder Enter trennen.",
             "Physical Source Components:": "Physische Quell-Komponenten:",
             "Raw Virtual Document Storage:": "Rohdaten des virtuellen Dokuments:",
@@ -825,6 +841,7 @@ def fill():
             "Import Successful": "Import erfolgreich",
             "Import Report Style": "Berichtsstil importieren",
             "The report style was successfully imported...": "Der Berichtsstil wurde erfolgreich importiert und der Bibliothek hinzugefügt.",
+            "The report style was successfully imported and added to your library.": "Der Berichtsstil wurde erfolgreich importiert und der Bibliothek hinzugefügt.",
             "Could not find an embedded report configuration in this PDF.": "Keine eingebettete Berichtskonfiguration in dieser PDF gefunden.",
             "Please select": "Bitte auswählen",
             "Report Error": "Berichtsfehler",
@@ -887,6 +904,7 @@ def fill():
         "SettingsDialog": {
             "Refresh Failed": "Aktualisierung fehlgeschlagen",
             "API returned an empty model list...": "API hat leere Modellliste zurückgegeben. Bitte API-Schlüssel prüfen.",
+            "API returned an empty model list. Please check if your API Key has access to Gemini models.": "API hat leere Modellliste zurückgegeben. Bitte prüfen, ob der API-Schlüssel Zugriff auf Gemini-Modelle hat.",
             "Missing Input": "Fehlende Eingabe",
             "Please enter a signature text first.": "Bitte zuerst einen Signaturtext eingeben.",
             "No API Key configured.": "Kein API-Schlüssel konfiguriert.",
@@ -894,6 +912,7 @@ def fill():
             "Analysis Failed": "Analyse fehlgeschlagen",
             "AI returned no valid profile.": "KI hat kein gültiges Profil zurückgegeben.",
             "Connected to Ollama, but no models found...": "Mit Ollama verbunden, aber keine Modelle gefunden. Bitte Modell laden (z.B. 'ollama pull llama3').",
+            "Connected to Ollama, but no models found. Please pull a model first (e.g., 'ollama pull llama3').": "Mit Ollama verbunden, aber keine Modelle gefunden. Bitte zuerst ein Modell laden (z.B. 'ollama pull llama3').",
             "Could not connect to Ollama": "Verbindung zu Ollama fehlgeschlagen",
             "Log File Missing": "Log-Datei fehlt",
             "The log file has not been created yet.": "Die Log-Datei wurde noch nicht erstellt.",
@@ -903,6 +922,7 @@ def fill():
         },
         "SplitterDialog": {
             "Hover between pages to find split points...": "Maus zwischen Seiten für Trennpunkte. Schere klicken zum Setzen/Entfernen.",
+            "Hover between pages to find split points. Click the scissors to toggle cuts.": "Maus zwischen Seiten für Trennpunkte. Schere klicken zum Setzen/Entfernen.",
             "Cancel Import": "Import abbrechen",
             "Delete this file and abort import.": "Diese Datei löschen und Import abbrechen.",
             "Revert Edits": "Bearbeitungen rückgängig",
@@ -938,6 +958,8 @@ def fill():
         "WorkflowProcessingWidget": {
             "Prev": "Zurück",
             "Next": "Weiter",
+            "Transition Failed": "Übergang fehlgeschlagen",
+            "Could not apply workflow transition: %1": "Ablauf-Übergang konnte nicht angewendet werden: %1",
         },
         "WorkflowRuleCard": {
             "open": "offen",

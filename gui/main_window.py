@@ -661,7 +661,7 @@ class MainWindow(QMainWindow):
 
         self.action_prune_orphans = QAction("", self)
         self.action_prune_orphans.triggered.connect(self._debug_prune_orphans_slot)
-        self.debug_menu.addAction(self.action_debug_orphans)
+        self.debug_menu.addAction(self.action_prune_orphans)
 
         self.debug_menu.addSeparator()
 
@@ -678,6 +678,12 @@ class MainWindow(QMainWindow):
         self.action_debug_dedup = QAction("", self)
         self.action_debug_dedup.triggered.connect(self._debug_deduplicate_vault_slot)
         self.debug_menu.addAction(self.action_debug_dedup)
+
+        self.debug_menu.addSeparator()
+
+        self.action_prune_orphan_workflows = QAction("", self)
+        self.action_prune_orphan_workflows.triggered.connect(self._debug_prune_orphan_workflows_slot)
+        self.debug_menu.addAction(self.action_prune_orphan_workflows)
 
         # -- Config Menu --
         self.config_menu = menubar.addMenu("")
@@ -781,6 +787,78 @@ class MainWindow(QMainWindow):
             mgr.deduplicate_vault()
             if self.list_widget:
                 self.list_widget.refresh_list()
+
+    def _debug_prune_orphan_workflows_slot(self) -> None:
+        """Remove workflow entries from documents whose rule no longer exists in the registry."""
+        from core.workflow import WorkflowRuleRegistry
+        from core.models.semantic import SemanticExtraction
+
+        if not self.db_manager:
+            return
+
+        registry = WorkflowRuleRegistry()
+        known_ids = set(registry.rules.keys())
+
+        all_docs = self.db_manager.get_all_entities_view()
+        affected: list[tuple] = []  # (uuid, list[orphaned_rule_ids])
+
+        for doc in all_docs:
+            sd = getattr(doc, "semantic_data", None)
+            if not sd or not hasattr(sd, "workflows") or not sd.workflows:
+                continue
+            orphaned = [rid for rid in sd.workflows if rid not in known_ids]
+            if orphaned:
+                affected.append((doc.uuid, orphaned))
+
+        if not affected:
+            show_selectable_message_box(
+                self,
+                self.tr("Orphaned Workflow References"),
+                self.tr("No orphaned workflow references found. All rule IDs in all documents match a known rule."),
+                icon=QMessageBox.Icon.Information,
+            )
+            return
+
+        total_entries = sum(len(ids) for _, ids in affected)
+        all_orphaned_ids = sorted({rid for _, ids in affected for rid in ids})
+        detail = "\n".join(f"  • {rid}" for rid in all_orphaned_ids)
+        msg = (
+            f"Found {total_entries} orphaned workflow reference(s) in {len(affected)} document(s).\n\n"
+            f"Unknown rule IDs:\n{detail}\n\n"
+            "Remove these entries from all affected documents?"
+        )
+        reply = show_selectable_message_box(
+            self,
+            self.tr("Prune Orphaned Workflow References"),
+            msg,
+            icon=QMessageBox.Icon.Warning,
+            buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        pruned_docs = 0
+        errors: list[str] = []
+        for uuid, orphaned_ids in affected:
+            try:
+                doc = self.db_manager.get_document_by_uuid(uuid)
+                sd = getattr(doc, "semantic_data", None)
+                if sd and hasattr(sd, "workflows"):
+                    for rid in orphaned_ids:
+                        sd.workflows.pop(rid, None)
+                    self.db_manager.update_document_metadata(uuid, {"semantic_data": sd})
+                    pruned_docs += 1
+            except Exception as e:
+                logger.error(f"Failed to prune orphaned workflows from {uuid}: {e}")
+                errors.append(uuid)
+
+        summary = self.tr("Removed orphaned workflow references from %d document(s).") % pruned_docs
+        if errors:
+            summary += f"\n\nFailed for {len(errors)} document(s) — see log for details."
+        show_selectable_message_box(self, self.tr("Done"), summary, icon=QMessageBox.Icon.Information)
+
+        if self.list_widget:
+            self.list_widget.refresh_list()
 
     def _on_filter_changed(self, criteria: dict):
         """Update local state when filter changes."""
@@ -2517,6 +2595,7 @@ class MainWindow(QMainWindow):
         self.action_debug_broken.setText(self.tr("Show Broken Entity References"))
         self.action_prune_broken.setText(self.tr("Prune Broken Entity References (Console)"))
         self.action_debug_dedup.setText(self.tr("Deduplicate Vault (Inhaltsbasiert)"))
+        self.action_prune_orphan_workflows.setText(self.tr("Prune Orphaned Workflow References..."))
 
         self.config_menu.setTitle(self.tr("&Config"))
         self.action_settings.setText(self.tr("&Settings..."))
