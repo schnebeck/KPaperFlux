@@ -2,38 +2,42 @@ import pytest
 import json
 from datetime import datetime, timedelta
 from core.database import DatabaseManager
+from core.query_builder import QueryBuilder
+
+@pytest.fixture
+def qb():
+    return QueryBuilder()
 
 @pytest.fixture
 def db():
-    # We dont need a real file for private method testing
     return DatabaseManager(":memory:")
 
-def test_resolve_relative_dates(db):
+def test_resolve_relative_dates(qb):
     now = datetime.now()
     today = now.date()
-    
+
     # LAST_7_DAYS
-    res = db._resolve_relative_date("LAST_7_DAYS")
+    res = qb.resolve_relative_date("LAST_7_DAYS")
     assert isinstance(res, tuple)
     assert res[1] == today.isoformat()
     assert res[0] == (today - timedelta(days=7)).isoformat()
-    
+
     # LAST_MONTH
-    res = db._resolve_relative_date("LAST_MONTH")
+    res = qb.resolve_relative_date("LAST_MONTH")
     assert isinstance(res, tuple)
     last_month_end = today.replace(day=1) - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)
     assert res[0] == last_month_start.isoformat()
     assert res[1] == last_month_end.isoformat()
-    
+
     # THIS_YEAR
-    res = db._resolve_relative_date("THIS_YEAR")
+    res = qb.resolve_relative_date("THIS_YEAR")
     assert res[0] == today.replace(month=1, day=1).isoformat()
     assert res[1] == today.isoformat()
-    
+
     # Pass-through
-    assert db._resolve_relative_date("2023-01-01") == "2023-01-01"
-    assert db._resolve_relative_date(None) is None
+    assert qb.resolve_relative_date("2023-01-01") == "2023-01-01"
+    assert qb.resolve_relative_date(None) is None
 
 def test_trend_data_generation(db):
     """Test the dynamic scaling and auto-binning (Day/Month/Year)."""

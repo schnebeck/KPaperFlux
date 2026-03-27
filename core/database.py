@@ -29,6 +29,8 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction
 from core.logger import get_logger, log_sql_query, get_silent_logger
+from core.query_builder import QueryBuilder
+from core.document_hydrator import DocumentHydrator
 
 # --- Central Logging Setup ---
 logger = get_logger("database")
@@ -54,12 +56,14 @@ class DatabaseManager:
         self.init_db()
         # Source of truth for document selection to avoid index mismatches
         self._doc_select = """
-            uuid, source_mapping, status, export_filename, last_used, 
-            last_processed_at, is_immutable, thumbnail_path, cached_full_text, 
+            uuid, source_mapping, status, export_filename, last_used,
+            last_processed_at, is_immutable, thumbnail_path, cached_full_text,
             semantic_data, created_at, deleted, page_count_virt, type_tags,
             tags, deleted_at, locked_at, exported_at, pdf_class,
             archived, storage_location, ai_confidence, process_id
         """
+        self._qb = QueryBuilder()
+        self._hydrator = DocumentHydrator()
 
     def _connect(self) -> None:
         """
@@ -181,7 +185,7 @@ class DatabaseManager:
         if not query_dict:
             return True
 
-        where_clause, params = self._build_where_clause(query_dict)
+        where_clause, params = self._qb.build_where(query_dict)
         sql = f"SELECT 1 FROM virtual_documents WHERE uuid = ? AND ({where_clause})"
 
         try:
@@ -285,7 +289,7 @@ class DatabaseManager:
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
         if row:
-            return self._row_to_doc(row)
+            return self._hydrator.hydrate(row)
         return None
 
     def get_physical_file(self, uuid: str) -> Optional[Dict[str, Any]]:
@@ -413,7 +417,7 @@ class DatabaseManager:
         if not query or (not query.get("conditions") and not query.get("field")):
              return self.get_all_entities_view()
 
-        where_clause, params = self._build_where_clause(query)
+        where_clause, params = self._qb.build_where(query)
         
         # Exclude deleted/archived documents unless explicitly searched
         if "deleted" not in where_clause.lower():
@@ -443,7 +447,7 @@ class DatabaseManager:
         if not query or (not query.get("conditions") and not query.get("field")):
             return self.count_documents()
 
-        where_clause, params = self._build_where_clause(query)
+        where_clause, params = self._qb.build_where(query)
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
 
@@ -466,11 +470,11 @@ class DatabaseManager:
         if not self.connection:
             return 0.0
 
-        where_clause, params = self._build_where_clause(query or {})
+        where_clause, params = self._qb.build_where(query or {})
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
 
-        expr = self._map_field_to_sql(field)
+        expr = self._qb.map_field(field)
         # Use CAST for safety with JSON values stored as strings
         sql = f"SELECT SUM(CAST({expr} AS REAL)) FROM virtual_documents WHERE {where_clause}"
         
@@ -491,16 +495,16 @@ class DatabaseManager:
         """
         if not self.connection: return []
         
-        where_clause, params = self._build_where_clause(query or {})
+        where_clause, params = self._qb.build_where(query or {})
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
             
         # Determine time field: prefer doc_date if it's a financial aggregation
-        time_expr = self._map_field_to_sql("doc_date")
+        time_expr = self._qb.map_field("doc_date")
         # Ensure we have a valid date part, fallback to created_at
         time_expr = f"COALESCE(NULLIF({time_expr}, ''), strftime('%Y-%m-%d', created_at))"
         
-        val_expr = "COUNT(*)" if aggregation == "count" else f"COALESCE(SUM(CAST({self._map_field_to_sql('amount')} AS REAL)), 0)"
+        val_expr = "COUNT(*)" if aggregation == "count" else f"COALESCE(SUM(CAST({self._qb.map_field('amount')} AS REAL)), 0)"
         
         try:
             cursor = self.connection.cursor()
@@ -581,271 +585,6 @@ class DatabaseManager:
             logger.error(f"Error in get_trend_data_advanced: {e}")
             return [0.0] * 30
 
-    def _build_where_clause(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
-        """
-        Recursively translates a query node into SQL WHERE fragments.
-
-        Args:
-            node: The query node (condition or group).
-
-        Returns:
-            A tuple of (SQL string, parameters list).
-        """
-        if "field" in node:
-            field = node["field"]
-            op = node["op"]
-            val = node.get("value")
-            negate = node.get("negate", False)
-
-            # workflow_step: cross-rule check — matches if ANY active workflow has the given step
-            if field == "workflow_step":
-                wf_json = "json_extract(semantic_data, '$.workflows')"
-                if op == "is_not_empty":
-                    clause = f"({wf_json} IS NOT NULL AND {wf_json} != '{{}}')"
-                    params: List[Any] = []
-                elif op == "in" and isinstance(val, list):
-                    placeholders = ",".join("?" * len(val))
-                    clause = (
-                        f"EXISTS (SELECT 1 FROM json_each({wf_json}) "
-                        f"WHERE json_extract(value, '$.current_step') IN ({placeholders}))"
-                    )
-                    params = list(val)
-                else:  # equals, contains, etc.
-                    clause = (
-                        f"EXISTS (SELECT 1 FROM json_each({wf_json}) "
-                        f"WHERE json_extract(value, '$.current_step') = ?)"
-                    )
-                    params = [val]
-                if negate:
-                    return f"NOT ({clause})", params
-                return clause, params
-
-            expr = self._map_field_to_sql(field)
-            clause, params = self._map_op_to_sql(expr, op, val)
-
-            if negate:
-                return f"NOT ({clause})", params
-            return clause, params
-
-        if "conditions" in node:
-            logic_op = str(node.get("operator", "AND")).upper()
-            sub_clauses = []
-            all_params = []
-
-            for cond in node["conditions"]:
-                clause, params = self._build_where_clause(cond)
-                if clause:
-                    sub_clauses.append(f"({clause})")
-                    all_params.extend(params)
-
-            if not sub_clauses:
-                return "1=1", []
-
-            return f" {logic_op} ".join(sub_clauses), all_params
-
-        return "1=1", []
-
-    def _map_field_to_sql(self, field: str) -> str:
-        """
-        Maps logical field names to database-level SQL expressions.
-        Supports direct columns and nested JSON paths.
-
-        Args:
-            field: The logical field name.
-
-        Returns:
-            A SQL expression string.
-        """
-        mapping = {
-            "uuid": "uuid",
-            "status": "status",
-            "page_count_virt": "page_count_virt",
-            "created_at": "created_at",
-            "last_processed_at": "last_processed_at",
-            "last_used": "last_used",
-            "cached_full_text": "cached_full_text",
-            "original_filename": "export_filename",
-            "deleted": "deleted",
-            "type_tags": "type_tags",
-            "sender": "json_extract(semantic_data, '$.meta_header.sender.name')",
-            "doc_date": "json_extract(semantic_data, '$.meta_header.doc_date')",
-            "amount": "CAST(json_extract(semantic_data, '$.bodies.finance_body.monetary_summation.grand_total_amount') AS REAL)",
-            
-            # Semantic shortcuts
-            "direction": "json_extract(semantic_data, '$.direction')",
-            "tenant_context": "json_extract(semantic_data, '$.tenant_context')",
-            "classification": "json_extract(type_tags, '$[0]')",
-            "visual_audit_mode": "COALESCE(json_extract(semantic_data, '$.visual_audit.meta_mode'), 'NONE')",
-            # workflow_step is handled specially in _build_where_clause (json_each subquery)
-            "archived": "archived",
-            "storage_location": "storage_location",
-            "ai_confidence": "ai_confidence",
-            "process_id": "process_id",
-            "expiry_date": "COALESCE(json_extract(semantic_data, '$.bodies.legal_body.termination_date'), "
-                           "json_extract(semantic_data, '$.bodies.legal_body.valid_until'), "
-                           "json_extract(semantic_data, '$.bodies.finance_body.due_date'))",
-            
-            # Forensic/Stamp aggregations
-            "stamp_text": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.raw_content'), '')) "
-                          "FROM json_each(json_extract(semantic_data, '$.visual_audit.layer_stamps')) AS s)",
-            "stamp_type": "(SELECT group_concat(COALESCE(json_extract(s.value, '$.type'), '')) "
-                          "FROM json_each(json_extract(semantic_data, '$.visual_audit.layer_stamps')) AS s)"
-        }
-        
-        if field in mapping:
-            return mapping[field]
-            
-        # Dynamic JSON mapping
-        if field.startswith("json:") or field.startswith("semantic:"):
-            path = field.split(":", 1)[1].replace("'", "''")
-            return f"json_extract(semantic_data, '$.{path}')"
-
-        # Dynamic Stamp Form Fields
-        if field.startswith("stamp_field:"):
-            label = field[12:].replace("'", "''")
-            return (
-                f"(SELECT group_concat(COALESCE(json_extract(f.value, '$.normalized_value'), "
-                f"json_extract(f.value, '$.raw_value'))) "
-                f" FROM json_each(COALESCE(json_extract(semantic_data, '$.visual_audit.layer_stamps'), "
-                f" json_extract(semantic_data, '$.layer_stamps'))) AS s, "
-                f" json_each(json_extract(s.value, '$.form_fields')) AS f "
-                f" WHERE json_extract(f.value, '$.label') = '{label}')"
-            )
-            
-        return field
-
-    def _resolve_relative_date(self, val: str) -> Any:
-        """
-        Translates relative date literals (e.g., 'LAST_MONTH') into absolute
-        date strings or ranges (tuples).
-        """
-        if not isinstance(val, str):
-            return val
-
-        now = datetime.now()
-        today = now.date()
-
-        if val == "LAST_7_DAYS":
-            start = (today - timedelta(days=7)).isoformat()
-            return (start, today.isoformat())
-        
-        if val == "LAST_30_DAYS":
-            start = (today - timedelta(days=30)).isoformat()
-            return (start, today.isoformat())
-
-        if val == "LAST_90_DAYS":
-            start = (today - timedelta(days=90)).isoformat()
-            return (start, today.isoformat())
-
-        if val == "THIS_MONTH":
-            start = today.replace(day=1).isoformat()
-            return (start, today.isoformat())
-
-        if val == "LAST_MONTH":
-            last_month_end = today.replace(day=1) - timedelta(days=1)
-            last_month_start = last_month_end.replace(day=1)
-            return (last_month_start.isoformat(), last_month_end.isoformat())
-
-        if val == "THIS_YEAR":
-            start = today.replace(month=1, day=1).isoformat()
-            return (start, today.isoformat())
-
-        if val == "LAST_YEAR":
-            last_year = today.year - 1
-            start = today.replace(year=last_year, month=1, day=1).isoformat()
-            end = today.replace(year=last_year, month=12, day=31).isoformat()
-            return (start, end)
-
-        if val.startswith("relative:"):
-            try:
-                # Format: relative:-90d or relative:30d
-                offset_str = val.split(":")[1]
-                unit = offset_str[-1] # 'd', 'm', 'y'
-                amount = int(offset_str[:-1])
-                
-                if unit == 'd':
-                    start = (today + timedelta(days=amount)).isoformat()
-                    return start
-                # Add more units if needed (months/years)
-            except Exception as e:
-                logger.error(f"Failed to parse relative date {val}: {e}")
-
-        if "," in val and len(val.split(",")) == 2:
-            return tuple(val.split(","))
-
-        return val
-
-    def _map_op_to_sql(self, expr: str, op: str, val: Any) -> Tuple[str, List[Any]]:
-        """
-        Translates a logical operator and value into a SQL condition.
-        Handles relative date literals.
-        """
-        resolved_val = self._resolve_relative_date(val)
-        
-        # If the operator is 'equals' or 'contains' but the resolved value is a range (tuple),
-        # we automatically switch to 'between' behavior for dates.
-        if isinstance(resolved_val, tuple) and len(resolved_val) == 2:
-            op = "between"
-            val = list(resolved_val)
-        else:
-            val = resolved_val
-        if isinstance(val, str):
-            if val.lower() == "true": val = True
-            elif val.lower() == "false": val = False
-
-        if op == "equals":
-            if isinstance(val, list):
-                if not val:
-                    return "1=1", []
-                placeholders = ", ".join(["?" for _ in val])
-                return f"{expr} COLLATE NOCASE IN ({placeholders})", val
-            return f"{expr} = ? COLLATE NOCASE", [val]
-
-        if op == "contains":
-            if expr in ["type_tags", "tags"]:
-                # JSON array intersection logic
-                if isinstance(val, list):
-                    if not val:
-                        return "1=1", []
-                    clauses = [f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ? COLLATE NOCASE)" for _ in val]
-                    return "(" + " OR ".join(clauses) + ")", val
-                return f"EXISTS (SELECT 1 FROM json_each({expr}) WHERE value = ? COLLATE NOCASE)", [val]
-
-            if isinstance(val, list):
-                if not val:
-                    return "1=1", []
-                clauses = [f"{expr} LIKE ?" for _ in val]
-                params = [f"%{v}%" for v in val]
-                return "(" + " OR ".join(clauses) + ")", params
-            return f"{expr} LIKE ?", [f"%{val}%"]
-
-        if op == "starts_with":
-            return f"{expr} LIKE ?", [f"{val}%"]
-
-        if op in ["gt", "gte", "lt", "lte"]:
-            sql_ops = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
-            return f"{expr} {sql_ops[op]} ?", [val]
-
-        if op == "is_empty":
-            return f"{expr} IS NULL OR {expr} = ''", []
-
-        if op == "is_not_empty":
-            return f"{expr} IS NOT NULL AND {expr} != ''", []
-
-        if op == "between":
-            if isinstance(val, list) and len(val) == 2:
-                return f"{expr} BETWEEN ? AND ?", [val[0], val[1]]
-
-        if op == "in":
-            if not val:
-                return "1=0", [] # Nothing matches an empty set
-            if isinstance(val, (list, tuple, set)):
-                placeholders = ", ".join(["?" for _ in val])
-                return f"{expr} COLLATE NOCASE IN ({placeholders})", list(val)
-            return f"{expr} = ? COLLATE NOCASE", [val]
-
-        return "1=1", []
-
     def get_all_entities_view(self) -> List[Document]:
         """
         Retrieves all active (non-deleted) logical documents.
@@ -865,92 +604,7 @@ class DatabaseManager:
         """Executes a SELECT query and returns a list of hydrated Document objects."""
         cursor = self.connection.cursor()
         cursor.execute(sql, params)
-        return [self._row_to_doc(row) for row in cursor.fetchall()]
-
-    def _row_to_doc(self, row: Any) -> Document:
-        """
-        Converts a database result into a fully hydrated Document object.
-        Supports sqlite3.Row, dict and standard tuples.
-        """
-        if not row:
-            return None
-
-        # Convert to dict for easier access if it's Row-like
-        if hasattr(row, 'keys'):
-            data = dict(row)
-        elif isinstance(row, dict):
-            data = row
-        else:
-            # Fallback for plain tuples: use model's index-based mapping
-            return Document.from_row(row)
-
-        def safe_json_load(data_in: Optional[str], default: Any = None) -> Any:
-            if not data_in:
-                return default
-            try:
-                if isinstance(data_in, (bytes, str)):
-                    return json.loads(data_in)
-                return data_in
-            except (json.JSONDecodeError, TypeError) as e:
-                get_silent_logger().debug(f"JSON failure in database Row hydration: {e}")
-                return default
-
-        type_tags = safe_json_load(data.get("type_tags"), [])
-        semantic_raw = safe_json_load(data.get("semantic_data"), {})
-        tags_raw = data.get("tags")
-        
-        # 1. Hydrate Semantic Model
-        semantic_data = None
-        if semantic_raw:
-            try:
-                semantic_data = SemanticExtraction(**semantic_raw)
-            except Exception as e:
-                logger.warning(f"Metadata degradation for {data.get('uuid')}: {e}")
-                semantic_data = None
-
-        tags: List[str] = []
-        if tags_raw:
-            try:
-                tags = json.loads(tags_raw) if isinstance(tags_raw, str) else tags_raw
-                if isinstance(tags, str):
-                    tags = [t.strip() for t in tags.split(",") if t.strip()]
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"Error parsing tags for {data.get('uuid')}: {e}")
-
-        source_mapping = safe_json_load(data.get("source_mapping"), [])
-        
-        doc_data = {
-            "uuid": data.get("uuid"),
-            "source_mapping": source_mapping,
-            "extra_data": {},
-            "status": data.get("status"),
-            "original_filename": data.get("export_filename") or f"Entity {str(data.get('uuid'))[:8]}",
-            "page_count": data.get("page_count_virt"),
-            "created_at": data.get("created_at"),
-            "last_used": data.get("last_used"),
-            "last_processed_at": data.get("last_processed_at"),
-            "is_immutable": bool(data.get("is_immutable", False)),
-            "deleted": bool(data.get("deleted", False)),
-            "type_tags": type_tags,
-            "cached_full_text": data.get("cached_full_text"),
-            "text_content": data.get("cached_full_text"),
-            "semantic_data": semantic_data,
-            "tags": tags,
-            "deleted_at": data.get("deleted_at"),
-            "locked_at": data.get("locked_at"),
-            "exported_at": data.get("exported_at"),
-            "archived": bool(data.get("archived", False)),
-            "storage_location": data.get("storage_location"),
-            "ai_confidence": float(data.get("ai_confidence", 1.0)),
-            "process_id": data.get("process_id")
-        }
-
-        try:
-            return Document(**doc_data)
-        except Exception as e:
-            logger.error(f"CRITICAL: VirtualDocument hydration failed for UUID {doc_data.get('uuid')}: {e}")
-            logger.debug(f"Faulty doc_data: {doc_data}")
-            return None
+        return [self._hydrator.hydrate(row) for row in cursor.fetchall()]
 
     def search_documents(self, search_text: str) -> List[Document]:
         """
@@ -1070,7 +724,7 @@ class DatabaseManager:
         cursor.execute(sql)
         rows = cursor.fetchall()
         
-        all_docs = [self._row_to_doc(row) for row in rows]
+        all_docs = [self._hydrator.hydrate(row) for row in rows]
         mismatched: List[Document] = []
         
         # Mappings of Tag -> Expected Semantic Body
@@ -1425,7 +1079,7 @@ class DatabaseManager:
         if not text:
             return 0
         
-        where_clause, params = self._build_where_clause(query)
+        where_clause, params = self._qb.build_where(query)
         if "deleted" not in where_clause.lower():
             where_clause = f"({where_clause}) AND deleted = 0"
             
