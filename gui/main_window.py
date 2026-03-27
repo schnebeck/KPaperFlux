@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
             self.db_manager = self.pipeline.db
 
         self._last_selected_uuid = None
-        self.current_search_text = "" # Phase 106: Persistent search terms
+        self.current_search_text = ""
         self._visible_count = 0
         self._total_count = 0
         self._selected_sum = 0.0
@@ -126,7 +126,6 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         self.pending_selection = []
 
-        # Phase 105: Selection Tracking
         self._cockpit_selections = {} # query_str -> uuid
         self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
 
@@ -224,14 +223,12 @@ class MainWindow(QMainWindow):
             self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
             self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
             
-            # Phase 106: Hit Navigation from Sidebar
             self.advanced_filter.prev_hit_requested.connect(lambda: self.pdf_viewer.canvas.prev_hit())
             self.advanced_filter.next_hit_requested.connect(lambda: self.pdf_viewer.canvas.next_hit())
 
             self.advanced_filter.trash_mode_changed.connect(self.set_trash_mode)
             self.advanced_filter.archive_mode_changed.connect(self.set_archive_mode) # [NEW]
 
-            # Phase 92: Trash Actions
             self.list_widget.restore_requested.connect(self.restore_documents_slot)
             self.list_widget.archive_requested.connect(self.archive_document_slot)
             self.list_widget.purge_requested.connect(self.purge_documents_slot)
@@ -240,13 +237,11 @@ class MainWindow(QMainWindow):
             self.list_widget.show_generic_requested.connect(self.open_debug_audit_window)
             self.list_widget.search_cleared.connect(self._on_search_cleared)
 
-            # Phase 105: Active Filter Precedence
             self.advanced_filter.filter_active_changed.connect(self.list_widget.set_advanced_filter_active)
             self.advanced_filter.size_changed.connect(self.left_pane_splitter.updateGeometry)
             # Synchronize initial state
             self.list_widget.advanced_filter_active = self.advanced_filter.chk_active.isChecked()
 
-            # Phase 106: Rule Application Scope
             self.advanced_filter.request_apply_rule.connect(self._on_rule_apply_requested)
             self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
 
@@ -256,14 +251,13 @@ class MainWindow(QMainWindow):
             self.left_pane_splitter.setStretchFactor(1, 1) # List
 
             # --- FIX: Metadata Editor (Unten links) ---
-            # Dieser Block fehlte oder war unvollständig, was zum Absturz führte.
+            # Previously this block was missing, causing a crash.
             self.editor_widget = MetadataEditorWidget(self.db_manager, pipeline=self.pipeline)
 
             # Connect Editor Signals
             self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
             if hasattr(self, 'cockpit_widget'):
                  self.editor_widget.metadata_saved.connect(self.cockpit_widget.refresh_stats)
-            # Phase 105: Ensure Rule Editor stays in sync
             self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
             # Workflow-row click: switch to Workflow > Process view for the clicked rule/doc
             self.editor_widget.open_workflow_process.connect(self._navigate_to_workflow_process)
@@ -320,7 +314,6 @@ class MainWindow(QMainWindow):
         self.main_status_label = QLabel(self.tr("Ready"))
         self.status_layout.addWidget(self.main_status_label)
         
-        # Phase 135: Centered Sum Container
         self.status_layout.addStretch(1)
         
         self.sum_status_label = QLabel("")
@@ -408,7 +401,6 @@ class MainWindow(QMainWindow):
             self.list_widget.view_context = "Search"
             self.list_widget.refresh_list(force_select_first=True)
         
-        # Phase 131: Sync context if document is already loaded
         if hasattr(self, 'pdf_viewer') and self.pdf_viewer.current_uuid:
             self._sync_global_search_context(self.pdf_viewer.current_uuid)
             self.pdf_viewer.set_highlight_text(search_text)
@@ -508,7 +500,7 @@ class MainWindow(QMainWindow):
     def load_filter_tree(self):
         """Load Filter Tree using ExchangeService, with fallback to starter kit."""
         if self.filter_config_path.exists():
-            logger.info(f"[DEBUG] Loading Filter Tree from: {self.filter_config_path}")
+            logger.debug(f"Loading Filter Tree from: {self.filter_config_path}")
             try:
                 with open(self.filter_config_path, "r", encoding="utf-8") as f:
                     content = f.read()
@@ -519,27 +511,25 @@ class MainWindow(QMainWindow):
                             self.filter_tree.load(payload.payload)
                         else:
                             # If it's a payload but wrong type, log and skip
-                            logger.info(f"[ERROR] Found exchange payload in filter tree, but type is {payload.type}")
+                            logger.error(f"Found exchange payload in filter tree, but type is {payload.type}")
                     except Exception:
                         # Fallback for transient period/starter: Load raw JSON
                         data = json.loads(content)
                         self.filter_tree.load(data)
-                logger.info(f"[DEBUG] Loaded {len(self.filter_tree.root.children)} root items.")
+                logger.debug(f"Loaded {len(self.filter_tree.root.children)} root items.")
             except Exception as e:
-                logger.info(f"[ERROR] Error loading filter tree: {e}")
+                logger.error(f"Error loading filter tree: {e}")
         else:
-            # Phase 130: Starter Kit Fallback
             starter_path = Path(__file__).resolve().parent.parent / "resources" / "filter_tree_starter.json"
             if starter_path.exists():
-                logger.info(f"[DEBUG] Initializing with Starter Kit: {starter_path}")
+                logger.debug(f"Initializing with Starter Kit: {starter_path}")
                 try:
                     with open(starter_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         self.filter_tree.load(data)
                 except Exception as e:
-                    logger.info(f"[ERROR] Error loading starter kit: {e}")
+                    logger.error(f"Error loading starter kit: {e}")
 
-        # Phase 92: Ensure Trash/Archive Nodes exist
         root = self.filter_tree.root
         trash_exists = any(child.node_type == NodeType.TRASH for child in root.children)
         if not trash_exists:
@@ -552,13 +542,13 @@ class MainWindow(QMainWindow):
     def save_filter_tree(self):
         """Save Filter Tree using ExchangeService (Universal Standard)."""
         try:
-            logger.info(f"[DEBUG] Saving Filter Tree to: {self.filter_config_path}")
+            logger.debug(f"Saving Filter Tree to: {self.filter_config_path}")
             # Save the full tree data (including favorites)
             tree_data = json.loads(self.filter_tree.to_json())
             ExchangeService.save_to_file("filter_tree", tree_data, str(self.filter_config_path))
-            logger.info("[DEBUG] Filter Tree saved successfully.")
+            logger.debug("Filter Tree saved successfully.")
         except Exception as e:
-             logger.info(f"[ERROR] Error saving filter tree: {e}")
+             logger.error(f"Error saving filter tree: {e}")
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -740,7 +730,7 @@ class MainWindow(QMainWindow):
                     for action in actions:
                         self.plugin_submenu.addAction(action)
             except Exception as e:
-                logger.info(f"[PluginError] Error loading tools from {plugin.__class__.__name__}: {e}")
+                logger.error(f"Error loading tools from {plugin.__class__.__name__}: {e}")
                 
         if not found_any:
             load_errors = getattr(self.plugin_manager, 'load_errors', {})
@@ -801,18 +791,16 @@ class MainWindow(QMainWindow):
 
         self.current_search_text = text
         
-        # Phase 106: Push search text to viewer for dynamic highlighting
         if hasattr(self, 'pdf_viewer'):
             self.pdf_viewer.set_highlight_text(text)
             
-        logger.info(f"[DEBUG] MainWindow updated current_search_text to: '{self.current_search_text}'")
+        logger.debug(f"MainWindow updated current_search_text to: '{self.current_search_text}'")
 
     def _on_pipeline_documents_processed(self):
         """Unified handler for background pipeline completions."""
         if hasattr(self, 'list_widget'):
             self.list_widget.refresh_list()
         
-        # Phase 107: Auto-refresh editor if something is selected
         self._refresh_current_editor_selection()
         
         # Refresh Stats
@@ -914,7 +902,6 @@ class MainWindow(QMainWindow):
                 self.editor_widget.status_combo.setCurrentText(stat)
             self.editor_widget.export_filename_edit.setText(primary_doc.original_filename or "")
 
-        # Phase 105: UI Resilience - Check Splitter Sizes (Force expand if collapsed)
         main_sizes = self.main_splitter.sizes()
         if main_sizes and len(main_sizes) > 1 and main_sizes[1] == 0:
             total = sum(main_sizes)
@@ -1012,7 +999,6 @@ class MainWindow(QMainWindow):
         if not self.pipeline:
             return
 
-        # Phase 98: Resolve Entity UUIDs to Source UUIDs
         # Pipeline expects physical document UUIDs.
         source_uuids = set()
         for u in uuids:
@@ -1088,7 +1074,6 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'cockpit_widget') and self.cockpit_widget:
             self.cockpit_widget.refresh_stats()
 
-        # Phase 116 Error Reporting
         if hasattr(self, 'reprocess_errors') and self.reprocess_errors:
             error_count = len(self.reprocess_errors)
             from gui.utils import show_notification
@@ -1101,7 +1086,6 @@ class MainWindow(QMainWindow):
             # Clear errors for next run
             self.reprocess_errors = []
 
-        # Phase 107 Update: We NO LONGER add tasks manually to ai_worker.
         # The MainLoopWorker will pick up 'NEW' documents automatically.
 
         show_notification(self, self.tr("Reprocessed"), f"Reprocessed {success_count}/{total} documents.\nProcessing will continue in background.")
@@ -1115,7 +1099,6 @@ class MainWindow(QMainWindow):
         if not files or not self.pipeline:
             return
 
-        # Phase 9: Pre-Flight Check
         # We process files one by one via Dialog to get Instructions
         import_items = []
 
@@ -1135,7 +1118,7 @@ class MainWindow(QMainWindow):
                         "is_protected": is_prot
                     })
                 except Exception as e:
-                    logger.info(f"Error classifying PDF {f}: {e}")
+                    logger.error(f"Error classifying PDF {f}: {e}")
                     # Default to standard if check fails
                     file_infos.append({
                         "path": f,
@@ -1251,7 +1234,6 @@ class MainWindow(QMainWindow):
         self.list_widget.refresh_list()
         self._update_transfer_menu_visibility()
         
-        # Phase 2.0: Hot-Reload AI Components
         if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
             logger.info("[Core] Settings changed. Re-initializing AI Analyzer...")
             from core.ai_analyzer import AIAnalyzer
@@ -1263,7 +1245,6 @@ class MainWindow(QMainWindow):
                 if hasattr(self.main_loop_worker.canonizer, 'visual_auditor'):
                     self.main_loop_worker.canonizer.visual_auditor.ai = new_analyzer
 
-        # Phase 120: Live Language Switch
         new_lang = self.app_config.get_language()
         self._switch_language(new_lang, refresh_ui=True)
 
@@ -1384,7 +1365,6 @@ class MainWindow(QMainWindow):
             show_selectable_message_box(self, self.tr("Action required"), self.tr("Please select at least one document."), icon=QMessageBox.Icon.Warning)
             return
 
-        # Phase 107: Smart routing
         to_shortcut = []
         to_full = []
 
@@ -1457,7 +1437,7 @@ class MainWindow(QMainWindow):
                     show_selectable_message_box(self, self.tr("Error"), self.tr("Merge failed."), icon=QMessageBox.Icon.Warning)
             except Exception as e:
                 import traceback
-                logger.info(f"[ERROR] Merge error: {e}")
+                logger.error(f"Merge error: {e}")
                 traceback.print_exc()
                 show_selectable_message_box(
                     self, 
@@ -1615,7 +1595,6 @@ class MainWindow(QMainWindow):
 
         layout = QVBoxLayout(dialog)
         
-        # Phase 105: Fix pluralization and translation
         msg = self.tr("Import %n file(s) into KPaperFlux?", "", len(files))
         layout.addWidget(QLabel(msg))
 
@@ -1644,7 +1623,7 @@ class MainWindow(QMainWindow):
             self.import_worker = None
 
         if error_msg:
-             logger.info(f"[ERROR] Import Finished with error: {error_msg}")
+             logger.error(f"Import Finished with error: {error_msg}")
              show_selectable_message_box(self, self.tr("Import Error"), error_msg, icon=QMessageBox.Icon.Critical)
 
         # Refresh List
@@ -1659,11 +1638,11 @@ class MainWindow(QMainWindow):
                   d = self.db_manager.get_document_by_uuid(uid)
 
                   if d:
-                      logger.info(f"[DEBUG] Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
+                      logger.debug(f"Import Finished: UUID={uid}, Pages={d.page_count}, Filename={d.original_filename}")
                       # Note: MainLoopWorker will pick this up via status 'NEW'
                       queued_count += 1
                   else:
-                      logger.info(f"[DEBUG] Import Finished: UUID={uid} NOT FOUND in DB!")
+                      logger.debug(f"Import Finished: UUID={uid} NOT FOUND in DB!")
 
                   if d and d.page_count and d.page_count > 1 and not skip_splitter:
                       if not splitter_opened:
@@ -1808,7 +1787,6 @@ class MainWindow(QMainWindow):
         if uuids:
              first_doc = self.db_manager.get_document_by_uuid(uuids[0])
              if first_doc:
-                 # Phase 102/105: Use tags (User) separately from type_tags (System)
                  common_tags = set(first_doc.tags or [])
 
                  for i in range(1, len(uuids)):
@@ -2024,7 +2002,6 @@ class MainWindow(QMainWindow):
                                      buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
-            # Phase 1: Shutdown background processing to avoid DB contention
             if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
                 self.main_loop_worker.stop()
                 self.main_loop_worker.wait(5000)
@@ -2049,7 +2026,6 @@ class MainWindow(QMainWindow):
                 if hasattr(self, "filter_input"):
                     self.filter_input.clear()
 
-                # Phase 2: Restart Worker
                 if self.pipeline:
                     self._init_main_loop_worker()
 
@@ -2137,12 +2113,9 @@ class MainWindow(QMainWindow):
         self.list_widget.target_uuid_to_restore = target_uuid
         self.list_widget.current_cockpit_query = filter_query
 
-        # Phase 107: Breadcrumb Support for Cockpit
-        # Phase 107: Breadcrumb Support for Cockpit
         label = payload.get("label") or payload.get("name")
         self.list_widget.view_context = label if label else "Cockpit View"
         
-        # Phase 115: Pass select_query to list_widget
         self.list_widget.target_select_query = payload.get("select_query")
 
         if self.advanced_filter.chk_active.isChecked():
@@ -2207,7 +2180,6 @@ class MainWindow(QMainWindow):
         """Open Splitter Dialog for specific UUID."""
         if not uuid or not self.pipeline: return
 
-        # Phase 9: Protection Check
         v_doc = self.pipeline.logical_repo.get_by_uuid(uuid)
         if v_doc and getattr(v_doc, 'is_immutable', False):
             show_selectable_message_box(self, self.tr("Document Protected"),
@@ -2238,7 +2210,7 @@ class MainWindow(QMainWindow):
 
                   except Exception as e:
                        import traceback
-                       logger.info(f"[ERROR] Failed to apply structural changes: {e}")
+                       logger.error(f"Failed to apply structural changes: {e}")
                        traceback.print_exc()
                        show_selectable_message_box(self, self.tr("Error"), f"Failed to apply structural changes: {e}", icon=QMessageBox.Icon.Critical)
 

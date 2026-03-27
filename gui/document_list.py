@@ -815,12 +815,8 @@ class DocumentListWidget(QWidget):
             current_uuid = item.data(1, Qt.ItemDataRole.UserRole)
             current_row_index = self.tree.indexOfTopLevelItem(item)
 
-        # Phase 105: Tiered Query Selection
         active_query = None
         search_text = getattr(self, "current_filter_text", "")
-        if not search_text:
-             # Check for active query meta as fallback
-             pass 
         if self.is_trash_mode:
             docs = self.db_manager.get_deleted_entities_view()
         elif self.is_archive_mode:
@@ -830,28 +826,21 @@ class DocumentListWidget(QWidget):
                 "value": True
             })
         else:
-            # FIX: Prioritize Advanced Filter (Search) if it is set, regardless of "active" flag if it comes from search
-            # The issue was that Cockpit Filter was overriding Search.
-            # We assume if current_advanced_query is SET, it should be used.
-            # advanced_filter_active might be toggled by the UI checkbox, but search should override.
+            # current_advanced_query takes priority over cockpit query (search must not be overridden by cockpit)
             if self.current_advanced_query:
                 active_query = self.current_advanced_query
-                logger.info(f"[DEBUG] refresh_list: Using Advanced/Search Filter: {active_query}")
             elif self.current_cockpit_query:
                 active_query = self.current_cockpit_query
-                logger.info(f"[DEBUG] refresh_list: Rule Editor INACTIVE. Using Cockpit Filter: {active_query}")
 
             if active_query:
-                 docs = self.db_manager.search_documents_advanced(active_query)
+                docs = self.db_manager.search_documents_advanced(active_query)
             else:
                 query_text = getattr(self, "current_filter_text", None)
                 if query_text:
                     docs = self.db_manager.search_documents(query_text)
                 else:
                     docs = self.db_manager.get_all_entities_view()
-                logger.info(f"[DEBUG] Standard View returned {len(docs)} documents.")
 
-            # Phase 106: Calculate hit counts if search is active
             if not search_text and active_query:
                 search_text = active_query.get('_meta_fulltext')
             
@@ -861,21 +850,13 @@ class DocumentListWidget(QWidget):
                 if uuids:
                     self.current_hit_map = self.db_manager.get_hit_counts_for_documents(uuids, search_text)
 
-        # v28.2: Change Detection / Redraw Prevention
-        # We include all timestamps to ensure triggers from the DB are reflected immediately
         current_sig = tuple(
             (d.uuid, d.status, str(d.last_processed_at), str(d.last_used), str(d.deleted_at), str(d.locked_at))
             for d in docs
         ) + tuple(self.dynamic_columns) + (search_text,)
 
         if not force_select_first and hasattr(self, '_last_refresh_sig') and self._last_refresh_sig == current_sig:
-             # [SILENT] Data is identical to what is currently shown.
-             return
-
-        if hasattr(self, '_last_refresh_sig'):
-             logger.info(f"[DEBUG] refresh_list: Change detected in {len(docs)} documents (or forced). Redrawing view.")
-        else:
-             logger.info(f"[DEBUG] refresh_list: Initial population ({len(docs)} documents).")
+            return
 
         self._last_refresh_sig = current_sig
 
@@ -891,44 +872,35 @@ class DocumentListWidget(QWidget):
              self.apply_filter(self.current_filter)
 
 
-        # Phase 105: Selection Resilience
         self.tree.blockSignals(True)
         restored = False
 
-        # 1. Highest Priority: Force Select First (e.g. for new searches or context changes)
         if force_select_first and docs:
-             self.selectRow(0)
-             restored = True
+            self.selectRow(0)
+            restored = True
+        elif self.target_uuid_to_restore:
+            self.select_document(self.target_uuid_to_restore)
+            self.target_uuid_to_restore = None
+            restored = bool(self.tree.selectedItems())
+        elif selected_uuids:
+            selected_set = set(selected_uuids)
+            for i in range(self.tree.topLevelItemCount()):
+                item = self.tree.topLevelItem(i)
+                uuid = item.data(1, Qt.ItemDataRole.UserRole)
+                if uuid in selected_set:
+                    item.setSelected(True)
+                    if uuid == current_uuid:
+                        self.tree.setCurrentItem(item)
+            restored = bool(self.tree.selectedItems())
 
-        # 2. Priority: Explicit Target ( from Cockpit or Re-analysis)
-        if not restored and self.target_uuid_to_restore:
-             self.select_document(self.target_uuid_to_restore)
-             self.target_uuid_to_restore = None
-             restored = bool(self.tree.selectedItems())
-
-        # 3. Medium Priority: Previous Selection
-        if not restored and selected_uuids:
-             for uuid in selected_uuids:
-                  self.select_document(uuid)
-                  if uuid == current_uuid:
-                       for i in range(self.tree.topLevelItemCount()):
-                           item = self.tree.topLevelItem(i)
-                           if item.data(1, Qt.ItemDataRole.UserRole) == uuid:
-                               self.tree.setCurrentItem(item)
-                               break
-             restored = bool(self.tree.selectedItems())
-
-        # 4. Medium-Low Priority: Positional Persistence (Phase 105: Next Item logic)
-        # If the doc moved out of filter, select the one now at the same row
         if not restored and current_row_index >= 0 and docs:
-             target_index = min(current_row_index, self.tree.topLevelItemCount() - 1)
-             if target_index >= 0:
-                 self.selectRow(target_index)
-                 restored = True
+            target_index = min(current_row_index, self.tree.topLevelItemCount() - 1)
+            if target_index >= 0:
+                self.selectRow(target_index)
 
         self.tree.blockSignals(False)
 
-        # 5. Handle Programmatic Target Selection (Drill-Down Phase 115)
+        # Handle programmatic target selection (drill-down from cockpit)
         if hasattr(self, "target_select_query") and self.target_select_query:
             try:
                 select_docs = self.db_manager.search_documents_advanced(self.target_select_query)
@@ -942,7 +914,7 @@ class DocumentListWidget(QWidget):
                     self.select_rows_by_uuids(select_uuids)
                     restored = True
             except Exception as e:
-                logger.info(f"[ERROR] Drill-down selection failed: {e}")
+                logger.error(f"Drill-down selection failed: {e}")
             self.target_select_query = None # Clear after use
 
         # 6. Emit selection signal manually to ensure UI sync
@@ -985,7 +957,7 @@ class DocumentListWidget(QWidget):
                  old_doc.semantic_data == doc.semantic_data):
                   return # Change is irrelevant for view
 
-             logger.info(f"[DEBUG] update_document_item: Updating row for {doc.uuid} ({old_doc.status} -> {doc.status})")
+             logger.debug(f"update_document_item: Updating row for {doc.uuid} ({old_doc.status} -> {doc.status})")
 
         # 1.5 Find matching item
         target_item = None
@@ -1224,11 +1196,11 @@ class DocumentListWidget(QWidget):
 
     def apply_advanced_filter(self, query: dict, label: Optional[str] = None):
         """Apply advanced search query."""
-        logger.info(f"[DEBUG] DocumentList Received Query: {query}")
+        logger.debug(f"DocumentList Received Query: {query}")
 
         is_mode_trash = self._check_query_for_field(query, "deleted")
         is_mode_archive = self._check_query_for_field(query, "archived")
-        logger.info(f"[DEBUG] check results: trash={is_mode_trash}, archive={is_mode_archive} for query: {query}")
+        logger.debug(f"check results: trash={is_mode_trash}, archive={is_mode_archive} for query: {query}")
 
         if is_mode_trash:
             self.current_advanced_query = None

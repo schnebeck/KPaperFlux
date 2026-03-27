@@ -1020,9 +1020,17 @@ class WorkflowProcessingWidget(QWidget):
             return
         doc = self._docs[self._current_index]
         sd = getattr(doc, "semantic_data", None)
-        if sd and self._rule_id and self._rule_id in sd.workflows:
-            sd.workflows[self._rule_id].apply_transition(action, target, user="USER")
-            self.db_manager.update_document_metadata(doc.uuid, {"semantic_data": sd})
+        try:
+            if sd and self._rule_id and self._rule_id in sd.workflows:
+                sd.workflows[self._rule_id].apply_transition(action, target, user="USER")
+                self.db_manager.update_document_metadata(doc.uuid, {"semantic_data": sd})
+        except Exception as e:
+            logger.error(f"Workflow transition failed: {e}")
+            QMessageBox.warning(
+                self, self.tr("Transition Failed"),
+                self.tr("Could not apply workflow transition: %1").replace("%1", str(e))
+            )
+            return
         self._show_current()
         self.transition_done.emit()
 
@@ -1979,6 +1987,7 @@ class WorkflowRuleManagerDialog(QDialog):
         reply = QMessageBox.question(self, title, msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             reg = WorkflowRuleRegistry()
+            failed = []
             for item in items:
                 pb_id = item.data(Qt.ItemDataRole.UserRole)
                 file_path = os.path.join(self.workflow_dir, f"{pb_id}.json")
@@ -1989,6 +1998,12 @@ class WorkflowRuleManagerDialog(QDialog):
                             del reg.rules[pb_id]
                     except Exception as e:
                         logger.error(f"Failed to delete {file_path}: {e}")
+                        failed.append(pb_id)
 
+            if failed:
+                QMessageBox.warning(
+                    self, self.tr("Delete Failed"),
+                    self.tr("Could not delete rule(s): %1").replace("%1", ", ".join(failed))
+                )
             self._reload_list()
 

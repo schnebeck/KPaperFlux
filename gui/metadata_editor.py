@@ -1910,7 +1910,11 @@ class MetadataEditorWidget(QWidget):
              updates["semantic_data"] = updated_sd
         except Exception as e:
              logger.error(f"Failed to validate updated semantic data: {e}")
-             pass
+             show_notification(
+                 self,
+                 self.tr("Warning"),
+                 self.tr("Semantic data could not be re-validated (%1). Other fields were saved.").replace("%1", str(e))
+             )
 
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)
