@@ -30,6 +30,7 @@ from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction
 from core.logger import get_logger, log_sql_query, get_silent_logger
 from core.query_builder import QueryBuilder
+from core.document_hydrator import DocumentHydrator
 
 # --- Central Logging Setup ---
 logger = get_logger("database")
@@ -62,6 +63,7 @@ class DatabaseManager:
             archived, storage_location, ai_confidence, process_id
         """
         self._qb = QueryBuilder()
+        self._hydrator = DocumentHydrator()
 
     def _connect(self) -> None:
         """
@@ -287,7 +289,7 @@ class DatabaseManager:
         cursor.execute(sql, (uuid,))
         row = cursor.fetchone()
         if row:
-            return self._row_to_doc(row)
+            return self._hydrator.hydrate(row)
         return None
 
     def get_physical_file(self, uuid: str) -> Optional[Dict[str, Any]]:
@@ -602,92 +604,7 @@ class DatabaseManager:
         """Executes a SELECT query and returns a list of hydrated Document objects."""
         cursor = self.connection.cursor()
         cursor.execute(sql, params)
-        return [self._row_to_doc(row) for row in cursor.fetchall()]
-
-    def _row_to_doc(self, row: Any) -> Document:
-        """
-        Converts a database result into a fully hydrated Document object.
-        Supports sqlite3.Row, dict and standard tuples.
-        """
-        if not row:
-            return None
-
-        # Convert to dict for easier access if it's Row-like
-        if hasattr(row, 'keys'):
-            data = dict(row)
-        elif isinstance(row, dict):
-            data = row
-        else:
-            # Fallback for plain tuples: use model's index-based mapping
-            return Document.from_row(row)
-
-        def safe_json_load(data_in: Optional[str], default: Any = None) -> Any:
-            if not data_in:
-                return default
-            try:
-                if isinstance(data_in, (bytes, str)):
-                    return json.loads(data_in)
-                return data_in
-            except (json.JSONDecodeError, TypeError) as e:
-                get_silent_logger().debug(f"JSON failure in database Row hydration: {e}")
-                return default
-
-        type_tags = safe_json_load(data.get("type_tags"), [])
-        semantic_raw = safe_json_load(data.get("semantic_data"), {})
-        tags_raw = data.get("tags")
-        
-        # 1. Hydrate Semantic Model
-        semantic_data = None
-        if semantic_raw:
-            try:
-                semantic_data = SemanticExtraction(**semantic_raw)
-            except Exception as e:
-                logger.warning(f"Metadata degradation for {data.get('uuid')}: {e}")
-                semantic_data = None
-
-        tags: List[str] = []
-        if tags_raw:
-            try:
-                tags = json.loads(tags_raw) if isinstance(tags_raw, str) else tags_raw
-                if isinstance(tags, str):
-                    tags = [t.strip() for t in tags.split(",") if t.strip()]
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"Error parsing tags for {data.get('uuid')}: {e}")
-
-        source_mapping = safe_json_load(data.get("source_mapping"), [])
-        
-        doc_data = {
-            "uuid": data.get("uuid"),
-            "source_mapping": source_mapping,
-            "extra_data": {},
-            "status": data.get("status"),
-            "original_filename": data.get("export_filename") or f"Entity {str(data.get('uuid'))[:8]}",
-            "page_count": data.get("page_count_virt"),
-            "created_at": data.get("created_at"),
-            "last_used": data.get("last_used"),
-            "last_processed_at": data.get("last_processed_at"),
-            "is_immutable": bool(data.get("is_immutable", False)),
-            "deleted": bool(data.get("deleted", False)),
-            "type_tags": type_tags,
-            "cached_full_text": data.get("cached_full_text"),
-            "text_content": data.get("cached_full_text"),
-            "semantic_data": semantic_data,
-            "tags": tags,
-            "deleted_at": data.get("deleted_at"),
-            "locked_at": data.get("locked_at"),
-            "exported_at": data.get("exported_at"),
-            "archived": bool(data.get("archived", False)),
-            "storage_location": data.get("storage_location"),
-            "ai_confidence": float(data.get("ai_confidence", 1.0)),
-            "process_id": data.get("process_id")
-        }
-
-        try:
-            return Document(**doc_data)
-        except Exception as e:
-            logger.error(f"CRITICAL: VirtualDocument hydration failed for UUID {doc_data.get('uuid')}: {e}")
-            logger.debug(f"Faulty doc_data: {doc_data}")
-            return None
+        return [self._hydrator.hydrate(row) for row in cursor.fetchall()]
 
     def search_documents(self, search_text: str) -> List[Document]:
         """
@@ -807,7 +724,7 @@ class DatabaseManager:
         cursor.execute(sql)
         rows = cursor.fetchall()
         
-        all_docs = [self._row_to_doc(row) for row in rows]
+        all_docs = [self._hydrator.hydrate(row) for row in rows]
         mismatched: List[Document] = []
         
         # Mappings of Tag -> Expected Semantic Body
