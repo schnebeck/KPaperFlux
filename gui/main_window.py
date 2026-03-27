@@ -98,20 +98,20 @@ class MainWindow(QMainWindow):
     """
     Main application window for KPaperFlux.
     """
-    def __init__(self, 
-                 pipeline: Optional[PipelineProcessor] = None, 
+    def __init__(self,
+                 pipeline: Optional[PipelineProcessor] = None,
                  db_manager: Optional[DatabaseManager] = None,
                  app_config: Optional[AppConfig] = None) -> None:
         super().__init__()
-        self._translators: list[PyQt6.QtCore.QTranslator] = [] # Track active translators
+        self._translators: list[PyQt6.QtCore.QTranslator] = []
         self.pipeline = pipeline
         self.db_manager = db_manager
         self.app_config = app_config or AppConfig()
+
         lang = self.app_config.get_language()
         logger.debug(f"[MainWindow] Initial language from config: '{lang}' (File: {self.app_config.settings.fileName()})")
         self._switch_language(lang, refresh_ui=False)
 
-        # If pipeline is provided but db_manager checks, try to extract db from pipeline
         if self.pipeline and not self.db_manager:
             self.db_manager = self.pipeline.db
 
@@ -120,61 +120,75 @@ class MainWindow(QMainWindow):
         self._visible_count = 0
         self._total_count = 0
         self._selected_sum = 0.0
+        self.pending_selection = []
+        self._cockpit_selections: dict = {}
+        self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
+
         self.setWindowTitle(self.tr("KPaperFlux"))
         self.setWindowIcon(QIcon("resources/icon.png"))
         self.resize(1000, 700)
         self.setAcceptDrops(True)
-        self.pending_selection = []
 
-        self._cockpit_selections = {} # query_str -> uuid
-        self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
+        self._setup_plugins()
+        self.create_menu_bar()
 
-        # --- Phase 200: Plugin System ---
+        self.filter_tree = FilterTree(self.db_manager)
+        self.load_filter_tree()
+
+        self._setup_pages()
+        self._setup_explorer_pane()
+        self._setup_status_bar()
+
+        self.create_tool_bar()
+        self.retranslate_ui()
+        self.setup_shortcuts()
+        self.read_settings()
+
+        self._on_tab_changed(0)
+
+        if self.db_manager and hasattr(self, "list_widget") and isinstance(self.list_widget, DocumentListWidget):
+            self.list_widget.refresh_list()
+
+        if self.db_manager:
+            QTimer.singleShot(0, self._sweep_stale_workflow_states)
+
+    # ── Setup helpers (called once from __init__) ─────────────────────────────
+
+    def _setup_plugins(self) -> None:
+        """Discover and initialise the plugin system."""
         plugin_dirs = [str(self.app_config.get_plugins_dir())]
-        
-        # Absolute path to project root
-        project_root = Path(__file__).resolve().parent.parent
-        local_plugins = project_root / "plugins"
-        
+        local_plugins = Path(__file__).resolve().parent.parent / "plugins"
         if local_plugins.exists():
             plugin_dirs.append(str(local_plugins))
-            
+
         self.plugin_api = ApiContext(
             db=self.db_manager,
-            vault=getattr(self.pipeline, 'vault', None) if self.pipeline else None,
+            vault=getattr(self.pipeline, "vault", None) if self.pipeline else None,
             config=self.app_config,
-            main_window=self
+            main_window=self,
         )
         self.plugin_manager = PluginManager(plugin_dirs=plugin_dirs, api_context=self.plugin_api)
         self.plugin_manager.discover_plugins()
 
-        self.create_menu_bar()
-        # Toolbar/Shortcuts moved down to ensure all widgets like list_widget exist before initial status update
-
-        # --- Global Models ---
-        self.filter_tree = FilterTree(self.db_manager)
-        self.load_filter_tree()
-
-        # Central Widget is now a Stacked Widget
+    def _setup_pages(self) -> None:
+        """Build the central QStackedWidget with all top-level pages."""
         self.central_stack = QStackedWidget()
         self.setCentralWidget(self.central_stack)
 
-        # --- Page 0: Cockpit (Home) ---
+        # Page 0: Cockpit
         self.cockpit_widget = CockpitWidget(self.db_manager, filter_tree=self.filter_tree, app_config=self.app_config)
         self.cockpit_widget.navigation_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.cockpit_widget)
 
-        # --- Page 1: Explorer (Splitter) ---
+        # Page 1: Explorer (hosts the main_splitter)
         self.explorer_widget = QWidget()
         explorer_layout = QVBoxLayout(self.explorer_widget)
         explorer_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Main Splitter (Left Pane | Right Pane) -- Re-parented to explorer_layout
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         explorer_layout.addWidget(self.main_splitter)
         self.central_stack.addWidget(self.explorer_widget)
-        
-        # --- Page 2: Workflow Rules ---
+
+        # Page 2: Workflow rules editor + dashboard
         self.workflow_manager = WorkflowManagerWidget(
             filter_tree=self.filter_tree,
             pipeline=self.pipeline,
@@ -182,140 +196,118 @@ class MainWindow(QMainWindow):
         self.workflow_manager.navigation_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.workflow_manager)
 
-        # --- Page 3: Reporting ---
+        # Page 3: Reporting
         self.reporting_widget = ReportingWidget(self.db_manager, filter_tree=self.filter_tree)
         self.reporting_widget.filter_requested.connect(self.navigate_to_list_filter)
         self.central_stack.addWidget(self.reporting_widget)
 
-        self.central_stack.setCurrentIndex(0) # Start with Cockpit
+        self.central_stack.setCurrentIndex(0)
         self.central_stack.currentChanged.connect(self._on_tab_changed)
 
-        # --- Left Pane (Filter | List | Editor) ---
+    def _setup_explorer_pane(self) -> None:
+        """Build left pane (filter | list | editor) and right pane (viewer)."""
         self.left_pane_splitter = QSplitter(Qt.Orientation.Vertical)
 
-        # 1. Unified Filter Controller (Tabs: Suche | Ansicht | Auto-Tagging)
         self.advanced_filter = AdvancedFilterWidget(
             db_manager=self.db_manager,
             filter_tree=self.filter_tree,
-            save_callback=self.save_filter_tree
+            save_callback=self.save_filter_tree,
         )
         self.left_pane_splitter.addWidget(self.advanced_filter)
 
         if self.db_manager:
-            self.list_widget = DocumentListWidget(self.db_manager, filter_tree=self.filter_tree, plugin_manager=self.plugin_manager)
-            self.list_widget.document_selected.connect(self._on_document_selected)
-            self.list_widget.delete_requested.connect(self.delete_document_slot)
-            self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
-            self.list_widget.re_ocr_requested.connect(lambda uuids: self.reprocess_document_slot(uuids, force_ocr=True))
-            self.list_widget.merge_requested.connect(self.merge_documents_slot)
-            # self.list_widget.export_requested.connect(self.export_documents_slot) # Handled internally
-            self.list_widget.stamp_requested.connect(self.stamp_document_slot)
-            self.list_widget.tags_update_requested.connect(self.manage_tags_slot)
-            self.list_widget.edit_requested.connect(self.open_splitter_dialog_slot)
-            self.list_widget.document_count_changed.connect(self.update_status_bar)
-            self.list_widget.save_list_requested.connect(self.save_static_list)
-            self.list_widget.apply_rule_requested.connect(self._on_rule_apply_requested)
+            self._setup_list_and_editor()
 
-            # Connect Filter
-            # IMPORTANT: Connect local handler FIRST so current_search_text is updated
-            # BEFORE the list refreshes and triggers selection logic.
-            self.advanced_filter.filter_changed.connect(self._on_filter_changed)
-            self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
-            self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
-            
-            self.advanced_filter.prev_hit_requested.connect(lambda: self.pdf_viewer.canvas.prev_hit())
-            self.advanced_filter.next_hit_requested.connect(lambda: self.pdf_viewer.canvas.next_hit())
-
-            self.advanced_filter.trash_mode_changed.connect(self.set_trash_mode)
-            self.advanced_filter.archive_mode_changed.connect(self.set_archive_mode) # [NEW]
-
-            self.list_widget.restore_requested.connect(self.restore_documents_slot)
-            self.list_widget.archive_requested.connect(self.archive_document_slot)
-            self.list_widget.purge_requested.connect(self.purge_documents_slot)
-            self.list_widget.stage2_requested.connect(self.run_stage_2_selected_slot)
-            self.list_widget.active_filter_changed.connect(self._on_view_filter_changed)
-            self.list_widget.show_generic_requested.connect(self.open_debug_audit_window)
-            self.list_widget.search_cleared.connect(self._on_search_cleared)
-
-            self.advanced_filter.filter_active_changed.connect(self.list_widget.set_advanced_filter_active)
-            self.advanced_filter.size_changed.connect(self.left_pane_splitter.updateGeometry)
-            # Synchronize initial state
-            self.list_widget.advanced_filter_active = self.advanced_filter.chk_active.isChecked()
-
-            self.advanced_filter.request_apply_rule.connect(self._on_rule_apply_requested)
-            self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
-
-            self.left_pane_splitter.addWidget(self.list_widget)
-            # Ensure the list widget expands and the filter widget shrinks/collapses correctly
-            self.left_pane_splitter.setStretchFactor(0, 0) # Filter
-            self.left_pane_splitter.setStretchFactor(1, 1) # List
-
-            # --- FIX: Metadata Editor (Unten links) ---
-            # Previously this block was missing, causing a crash.
-            self.editor_widget = MetadataEditorWidget(self.db_manager, pipeline=self.pipeline)
-
-            # Connect Editor Signals
-            self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
-            if hasattr(self, 'cockpit_widget'):
-                 self.editor_widget.metadata_saved.connect(self.cockpit_widget.refresh_stats)
-            self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
-            # Workflow-row click: switch to Workflow > Process view for the clicked rule/doc
-            self.editor_widget.open_workflow_process.connect(self._navigate_to_workflow_process)
-
-            self.left_pane_splitter.addWidget(self.editor_widget)
-            self.editor_widget.setVisible(False)
-
-            # Define Stretch Factors: Filter (0) | List (1) | Editor (0)
-            # This ensures the List expands to fill available space
-            self.left_pane_splitter.setStretchFactor(0, 0)
-            self.left_pane_splitter.setStretchFactor(1, 1)
-            self.left_pane_splitter.setStretchFactor(2, 0)
-            # ------------------------------------------
-
-        # Add Left Pane to Main Splitter
         self.main_splitter.addWidget(self.left_pane_splitter)
 
-
-        # --- Right Pane (PDF Viewer) ---
+        # Right pane: PDF viewer
         self.pdf_viewer = PdfViewerWidget(self.pipeline)
         self.pdf_viewer.stamp_requested.connect(self.stamp_document_slot)
         self.pdf_viewer.tags_update_requested.connect(self.manage_tags_slot)
         self.pdf_viewer.export_requested.connect(self.export_documents_slot)
         self.pdf_viewer.reprocess_requested.connect(self.reprocess_document_slot)
         self.pdf_viewer.delete_requested.connect(self.delete_document_slot)
-        if hasattr(self, 'list_widget'):
+        if hasattr(self, "list_widget"):
             self.pdf_viewer.document_changed.connect(self.list_widget.refresh_list)
         self.pdf_viewer.split_requested.connect(self.open_splitter_dialog_slot)
         self.pdf_viewer.canvas.hit_overflow.connect(self._on_pdf_hit_overflow)
         self.pdf_viewer.canvas.hits_updated.connect(self._on_pdf_hits_updated)
         self.main_splitter.addWidget(self.pdf_viewer)
 
-        # Set Initial Sizes
-        # Left Pane: 10% Filter, 60% List, 30% Editor
         self.left_pane_splitter.setSizes([70, 420, 210])
-        self.left_pane_splitter.setCollapsible(0, False) # Keep filter visible
-
-        # Main Splitter: Left 40%, Right 60%
+        self.left_pane_splitter.setCollapsible(0, False)
         self.main_splitter.setSizes([400, 600])
-        self.main_splitter.setCollapsible(1, True) # Allow shrinking viewer
+        self.main_splitter.setCollapsible(1, True)
         self.main_splitter.setHandleWidth(4)
 
+    def _setup_list_and_editor(self) -> None:
+        """Build DocumentListWidget, MetadataEditorWidget and wire their signals."""
+        self.list_widget = DocumentListWidget(
+            self.db_manager, filter_tree=self.filter_tree, plugin_manager=self.plugin_manager
+        )
+        self.list_widget.document_selected.connect(self._on_document_selected)
+        self.list_widget.delete_requested.connect(self.delete_document_slot)
+        self.list_widget.reprocess_requested.connect(self.reprocess_document_slot)
+        self.list_widget.re_ocr_requested.connect(lambda uuids: self.reprocess_document_slot(uuids, force_ocr=True))
+        self.list_widget.merge_requested.connect(self.merge_documents_slot)
+        self.list_widget.stamp_requested.connect(self.stamp_document_slot)
+        self.list_widget.tags_update_requested.connect(self.manage_tags_slot)
+        self.list_widget.edit_requested.connect(self.open_splitter_dialog_slot)
+        self.list_widget.document_count_changed.connect(self.update_status_bar)
+        self.list_widget.save_list_requested.connect(self.save_static_list)
+        self.list_widget.apply_rule_requested.connect(self._on_rule_apply_requested)
+        self.list_widget.restore_requested.connect(self.restore_documents_slot)
+        self.list_widget.archive_requested.connect(self.archive_document_slot)
+        self.list_widget.purge_requested.connect(self.purge_documents_slot)
+        self.list_widget.stage2_requested.connect(self.run_stage_2_selected_slot)
+        self.list_widget.active_filter_changed.connect(self._on_view_filter_changed)
+        self.list_widget.show_generic_requested.connect(self.open_debug_audit_window)
+        self.list_widget.search_cleared.connect(self._on_search_cleared)
+
+        self.advanced_filter.filter_changed.connect(self._on_filter_changed)
+        self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
+        self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
+        self.advanced_filter.prev_hit_requested.connect(lambda: self.pdf_viewer.canvas.prev_hit())
+        self.advanced_filter.next_hit_requested.connect(lambda: self.pdf_viewer.canvas.next_hit())
+        self.advanced_filter.trash_mode_changed.connect(self.set_trash_mode)
+        self.advanced_filter.archive_mode_changed.connect(self.set_archive_mode)
+        self.advanced_filter.filter_active_changed.connect(self.list_widget.set_advanced_filter_active)
+        self.advanced_filter.size_changed.connect(self.left_pane_splitter.updateGeometry)
+        self.advanced_filter.request_apply_rule.connect(self._on_rule_apply_requested)
+        self.list_widget.advanced_filter_active = self.advanced_filter.chk_active.isChecked()
+
+        self.left_pane_splitter.addWidget(self.list_widget)
+        self.left_pane_splitter.setStretchFactor(0, 0)
+        self.left_pane_splitter.setStretchFactor(1, 1)
+
+        self.editor_widget = MetadataEditorWidget(self.db_manager, pipeline=self.pipeline)
+        self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
+        self.editor_widget.metadata_saved.connect(self.cockpit_widget.refresh_stats)
+        self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
+        self.editor_widget.open_workflow_process.connect(self._navigate_to_workflow_process)
+        self.left_pane_splitter.addWidget(self.editor_widget)
+        self.editor_widget.setVisible(False)
+
+        self.left_pane_splitter.setStretchFactor(0, 0)
+        self.left_pane_splitter.setStretchFactor(1, 1)
+        self.left_pane_splitter.setStretchFactor(2, 0)
+
+    def _setup_status_bar(self) -> None:
+        """Build the status bar with activity panel and label widgets."""
         self.setStatusBar(QStatusBar())
-        
-        # Unified Status Container (Left Side)
+
         self.status_container = QWidget()
         self.status_layout = QHBoxLayout(self.status_container)
         self.status_layout.setContentsMargins(5, 0, 5, 0)
         self.status_layout.setSpacing(10)
-        
+
         self.activity_panel = BackgroundActivityStatusBar()
         self.status_layout.addWidget(self.activity_panel)
 
         self.main_status_label = QLabel(self.tr("Ready"))
         self.status_layout.addWidget(self.main_status_label)
-        
         self.status_layout.addStretch(1)
-        
+
         self.sum_status_label = QLabel("")
         self.sum_status_label.setObjectName("SumStatusLabel")
         self.sum_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -327,32 +319,12 @@ class MainWindow(QMainWindow):
                 min-width: 120px;
             }
         """)
-        self.sum_status_label.hide() # Hide when 0.0
+        self.sum_status_label.hide()
         self.status_layout.addWidget(self.sum_status_label)
-        
         self.status_layout.addStretch(1)
+
         self.statusBar().addWidget(self.status_container, 1)
         self.workflow_manager.status_message.connect(self.main_status_label.setText)
-
-        self.create_tool_bar()
-        self.retranslate_ui()
-        self.setup_shortcuts()
-
-        self.read_settings()
-
-        # Initial Refresh & UI Sync
-        # We explicitly trigger _on_tab_changed(0) here to ensure the Cockpit looks active 
-        # and the Filter button is hidden from the very first frame.
-        self._on_tab_changed(0)
-
-        if self.db_manager and hasattr(self, 'list_widget') and isinstance(self.list_widget, DocumentListWidget):
-            self.list_widget.refresh_list()
-
-        # Sweep for stale workflow states after UI is up.  Any document whose
-        # current_step no longer exists in the rule is silently reset to the
-        # initial state.  Runs deferred so it never delays startup.
-        if self.db_manager:
-            QTimer.singleShot(0, self._sweep_stale_workflow_states)
 
     def _sweep_stale_workflow_states(self) -> None:
         """Background sweep: reset stale workflow states across all rules."""
