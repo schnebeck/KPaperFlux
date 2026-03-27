@@ -705,7 +705,6 @@ class SplitterStripWidget(QWidget):
             is_prot = pg_info.get("is_protected", False)
 
             # 1. Automatic Split before boundary files
-            # Phase 105: Only split BETWEEN pages (i > 0)
             if i > 0 and pg_info.get("is_boundary"):
                 div = SplitDividerWidget(page_index_before=i-1)
                 

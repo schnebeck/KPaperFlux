@@ -364,7 +364,6 @@ class PdfCanvas(QScrollArea):
         self.current_page_idx = 0
         self.rotation = 0 # Reset rotation on new document
         
-        # Phase 130: Reset search state on document change to force re-search
         # Search results for the old document are no longer valid.
         self.all_hits = []
         self.current_hit_idx = -1
@@ -1119,7 +1118,7 @@ class PdfViewerWidget(QWidget):
         self.current_pages_data: List[dict] = []
         self.temp_pdf_path: Optional[Path] = None
         self.search_text = ""
-        self.global_search_offset = 0  # Phase 131: Global Hit Tracking
+        self.global_search_offset = 0
         self.global_search_total = 0   # Total hits across all results
         
         # Prevent viewer from pushing main window boundaries
@@ -1132,7 +1131,7 @@ class PdfViewerWidget(QWidget):
         self.toolbar_policy = 'comparison' if controller else 'standard'
         
         self.canvas = PdfCanvas(self)
-        self.toast = ToastOverlay(self) # Phase 131: User feedback for async errors
+        self.toast = ToastOverlay(self)
         self._init_ui()
         
         self.canvas.page_changed.connect(self.on_page_changed)
@@ -1662,7 +1661,6 @@ class PdfViewerWidget(QWidget):
     def _update_hit_status(self, current: int, total: int) -> None:
         """Updates the search hit counter and button visibility."""
         if total > 0:
-            # Phase 131: Use global context if provided
             display_total = self.global_search_total if self.global_search_total > 0 else total
             display_current = (current + 1 + self.global_search_offset) if self.global_search_total > 0 else (current + 1)
             

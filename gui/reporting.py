@@ -812,7 +812,6 @@ class ReportingWidget(QWidget):
             # Clear legacy list to prefer components
             definition.visualizations = []
 
-        # Phase 113: Artifact Prevention
         # If a report has no components (e.g. all deleted), we don't render its title/sep.
         if not definition.components:
             if definition in self.active_definitions:
@@ -890,7 +889,6 @@ class ReportingWidget(QWidget):
                     from gui.theme import CLR_SURFACE, CLR_BORDER, RADIUS_SM
                     table.setStyleSheet(f"background: {CLR_SURFACE}; border: 1px solid {CLR_BORDER}; border-radius: {RADIUS_SM}px;")
                     
-                    # Phase 113: Drill-Down Support for Tables
                     table.cellClicked.connect(lambda r, c, t=table, d=definition: self._on_table_drill_down(r, c, t, d))
 
                     widget = self._wrap_component(table, self.tr("Detailed Data"), idx, definition)
@@ -1112,7 +1110,6 @@ class ReportingWidget(QWidget):
                 drill_cond = {"field": group_field, "op": "equals", "value": label}
 
         if drill_cond:
-            # Phase 115: Better Drill-Down
             # We filter for EVERYTHING shown in the report/histogram (base query)
             # but we request SELECTION for the specific bucket/segment.
             bucket_query = {"operator": "AND", "conditions": [query, drill_cond]}
@@ -1253,7 +1250,7 @@ class ReportingWidget(QWidget):
                             if Path(doc.path).exists():
                                 arcname = Path(doc.path).name
                                 zip_f.write(doc.path, arcname)
-                    QMessageBox.information(self, self.tr("Export ZIP"), self.tr("Successfully created ZIP archive with %d documents.") % len(docs))
+                    QMessageBox.information(self, self.tr("Export ZIP"), self.tr("Successfully created ZIP archive with %n documents.", "", len(docs)))
                 except Exception as e:
                     QMessageBox.critical(self, self.tr("Error"), f"Failed to create ZIP: {str(e)}")
 

@@ -505,7 +505,6 @@ class DatabaseManager:
         try:
             cursor = self.connection.cursor()
             
-            # Phase 1: Determine Range
             range_sql = f"SELECT MIN({time_expr}), MAX({time_expr}) FROM virtual_documents WHERE {where_clause}"
             cursor.execute(range_sql, params)
             min_d, max_d = cursor.fetchone()
@@ -781,7 +780,6 @@ class DatabaseManager:
         Translates a logical operator and value into a SQL condition.
         Handles relative date literals.
         """
-        # Phase 130: Resolve relative dates
         resolved_val = self._resolve_relative_date(val)
         
         # If the operator is 'equals' or 'contains' but the resolved value is a range (tuple),
@@ -791,7 +789,6 @@ class DatabaseManager:
             val = list(resolved_val)
         else:
             val = resolved_val
-        # Phase 131: Robust Boolean strings (from UI text fields)
         if isinstance(val, str):
             if val.lower() == "true": val = True
             elif val.lower() == "false": val = False

@@ -318,7 +318,6 @@ class MainLoopWorker(QThread):
                         # Emit (processed_so_far, total_in_this_burst)
                         self.progress.emit(processed_in_this_run, burst_total)
                         self.status_changed.emit(f"Processing ({total_pending} remaining)")
-                        # Phase 110: Immediate UI feedback
                         self.documents_processed.emit()
 
             except Exception as e:

@@ -51,7 +51,6 @@ class FilterNode:
         self.children: List['FilterNode'] = []
         self.parent: Optional['FilterNode'] = parent
 
-        # Phase 106: Rule Extension
         self.tags_to_add: List[str] = []
         self.tags_to_remove: List[str] = []
         self.assign_workflow: Optional[str] = None

@@ -1056,7 +1056,6 @@ class MetadataEditorWidget(QWidget):
         self.archived_chk.setChecked(bool(doc.archived))
         self.storage_location_edit.setText(doc.storage_location or "")
 
-        # Phase 106: Display User Tags from the dedicated 'tags' column
         user_tags = getattr(doc, "tags", []) or []
         if isinstance(user_tags, list):
             self.tags_edit.setTags(user_tags)
@@ -1186,13 +1185,15 @@ class MetadataEditorWidget(QWidget):
 
         self._populate_semantic_table(sd_dict)
 
-        # Phase 113: Multi-Workflow Logic — auto-assign all matching rules
+        # Auto-assign all matching workflow rules that the document doesn't have yet.
         if sd:
+            from core.workflow import get_initial_state  # avoid circular at module level
             tags = doc.type_tags or []
             registry = WorkflowRuleRegistry()
             for rule in registry.find_rules_for_tags(tags):
                 if rule.id not in sd.workflows:
-                    sd.workflows[rule.id] = WorkflowInfo(rule_id=rule.id, current_step="NEW")
+                    initial_step = get_initial_state(rule) or next(iter(rule.states), "")
+                    sd.workflows[rule.id] = WorkflowInfo(rule_id=rule.id, current_step=initial_step)
                     self._mark_dirty()
 
         now = datetime.now()
@@ -1548,7 +1549,6 @@ class MetadataEditorWidget(QWidget):
             self.qr_label.setPixmap(QPixmap())
             return
 
-        # Phase 125: Strict IBAN Checksum Verification before QR generation
         is_valid_iban = validate_iban(iban)
         
         # UI Feedback for IBAN field
@@ -1701,7 +1701,6 @@ class MetadataEditorWidget(QWidget):
         for wf_info in sd.workflows.values():
             wf_info.pkv_eligible = self.chk_pkv.isChecked()
 
-        # Phase 107: Automatic Pruning of mismatched semantic bodies
         mapping = {
             "INVOICE": "finance_body", "RECEIPT": "finance_body", "ORDER_CONFIRMATION": "finance_body",
             "DUNNING": "finance_body", "BANK_STATEMENT": "ledger_body", "CONTRACT": "legal_body",

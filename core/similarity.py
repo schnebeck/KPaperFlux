@@ -55,7 +55,6 @@ class SimilarityManager:
         Returns:
             A list of tuples containing (doc_a, doc_b, similarity_score).
         """
-        # Phase 102: Use Entity View instead of legacy get_all_documents
         documents = self.db_manager.get_all_entities_view()
         duplicates: List[Tuple[Document, Document, float]] = []
         self.thumbnail_cache = {}  # Clear cache for a fresh scan
@@ -239,7 +238,6 @@ class SimilarityManager:
         render_path = path
         temp_file: Optional[str] = None
 
-        # Phase 98: Strip stamps before comparison
         try:
             from core.stamper import DocumentStamper
             import shutil

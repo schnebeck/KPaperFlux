@@ -94,7 +94,6 @@ class IntegrityManager:
         # 2. Get all Vault files
         vault_path = Path(self.vault.base_path)
         vault_files = list(vault_path.glob("*.pdf"))
-        # Phase 2.0: Physical files might have other extensions, but vault stores as .pdf usually
         vault_basenames = {f.name for f in vault_files}
 
         # Map basename to path for ghosts

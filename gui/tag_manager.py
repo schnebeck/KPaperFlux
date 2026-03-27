@@ -138,7 +138,7 @@ class TagManagerDialog(QDialog):
         new_tag, ok = QInputDialog.getText(self, self.tr("Rename Tag"), self.tr("New Name:"), text=old_tag)
         if ok and new_tag and new_tag != old_tag:
             count = self.db_manager.rename_tag(old_tag, new_tag)
-            show_notification(self, self.tr("Result"), self.tr("Updated %s document(s).") % count)
+            show_notification(self, self.tr("Result"), self.tr("Updated %n document(s).", "", count))
             self.refresh_tags()
 
     def merge_selected(self):
@@ -161,7 +161,7 @@ class TagManagerDialog(QDialog):
 
         if ok and target_tag:
             count = self.db_manager.merge_tags(tags, target_tag)
-            show_notification(self, self.tr("Result"), self.tr("Merged tags. Updated %s document(s).") % count)
+            show_notification(self, self.tr("Result"), self.tr("Merged tags. Updated %n document(s).", "", count))
             self.refresh_tags()
 
     def delete_selected(self):
@@ -182,7 +182,7 @@ class TagManagerDialog(QDialog):
             total = 0
             for tag in tags:
                 total += self.db_manager.delete_tag(tag)
-            show_notification(self, self.tr("Result"), self.tr("Removed tags from %s document(s).") % total)
+            show_notification(self, self.tr("Result"), self.tr("Removed tags from %n document(s).", "", total))
             self.refresh_tags()
 
     def _get_selected_rows(self):

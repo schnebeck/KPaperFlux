@@ -490,3 +490,114 @@ def test_panel_clear_removes_all_graphs(qtbot, simple_rule):
 
     panel.clear()
     assert len(panel._graphs) == 0
+
+
+# ── StateNode bounding-rect / overdraw regression tests ───────────────────────
+
+def test_state_node_bounding_rect_contains_selection_ring():
+    """boundingRect() must analytically contain the selection ring drawn in edit mode.
+
+    Regression: paint() previously used r = boundingRect() as visual base, then drew
+    the ring at r.adjusted(-4,-4,4,4) — 5px outside boundingRect() — leaving ghost
+    pixels on drag that Qt never cleared.
+    """
+    from PyQt6.QtCore import QRectF
+    from gui.widgets.workflow_graph import StateNode, NODE_W, NODE_H
+    from core.workflow import WorkflowState
+
+    state_def = WorkflowState(label="Test")
+    node = StateNode("TEST", state_def, mode="edit")
+
+    node_rect = QRectF(-NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H)
+    br = node.boundingRect()
+
+    # Selection ring: node_rect.adjusted(-4,-4,4,4) with 2px pen → outer edge 5px beyond node_rect
+    ring_outer = node_rect.adjusted(-5, -5, 5, 5)
+
+    assert br.left()   <= ring_outer.left(),   f"left: bounding {br.left()} > ring {ring_outer.left()}"
+    assert br.top()    <= ring_outer.top(),    f"top: bounding {br.top()} > ring {ring_outer.top()}"
+    assert br.right()  >= ring_outer.right(),  f"right: bounding {br.right()} < ring {ring_outer.right()}"
+    assert br.bottom() >= ring_outer.bottom(), f"bottom: bounding {br.bottom()} < ring {ring_outer.bottom()}"
+
+
+def test_state_node_bounding_rect_contains_initial_triangle():
+    """The initial-state UML triangle must lie within boundingRect()."""
+    from PyQt6.QtCore import QRectF
+    from gui.widgets.workflow_graph import StateNode, NODE_W, NODE_H
+    from core.workflow import WorkflowState
+
+    state_def = WorkflowState(label="Start", initial=True)
+    node = StateNode("START", state_def, mode="edit")
+
+    node_rect = QRectF(-NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H)
+    br = node.boundingRect()
+
+    # Triangle left tip: node_rect.left() + 9 - 5 = node_rect.left() + 4
+    tri_left = node_rect.left() + 4
+    assert br.left() <= tri_left, f"left: bounding {br.left()} > triangle tip {tri_left}"
+
+
+def test_state_node_no_overdraw_render(qtbot):
+    """Pixel-level smoke test: nothing painted outside boundingRect() when selected.
+
+    Renders StateNode to a QImage and verifies that all pixels strictly outside
+    the bounding rect remain the background colour. This catches any paint()
+    geometry that analytically fits but actually overdraws due to anti-aliasing
+    or pen rounding.
+    """
+    from PyQt6.QtCore import QRectF, Qt
+    from PyQt6.QtGui import QColor, QImage, QPainter
+    from gui.widgets.workflow_graph import StateNode, NODE_W, NODE_H
+    from core.workflow import WorkflowState
+
+    # Build a selected node in edit mode
+    state_def = WorkflowState(label="Selected", initial=True, final=False)
+    node = StateNode("SEL", state_def, mode="edit")
+    node.setSelected(True)  # triggers selection ring
+
+    br = node.boundingRect()  # e.g. QRectF(-86, -30, 172, 60)
+
+    # Extra border around bounding rect so we can detect overdraw
+    OVERDRAW_CHECK_MARGIN = 8
+    img_w = int(br.width())  + 2 * OVERDRAW_CHECK_MARGIN
+    img_h = int(br.height()) + 2 * OVERDRAW_CHECK_MARGIN
+
+    # Background: a distinctive colour unlikely to appear in node paint
+    BG = QColor("#ffd700")  # gold
+
+    image = QImage(img_w, img_h, QImage.Format.Format_ARGB32)
+    image.fill(BG)
+
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    # Translate so boundingRect's top-left lands at (OVERDRAW_CHECK_MARGIN, OVERDRAW_CHECK_MARGIN)
+    painter.translate(
+        OVERDRAW_CHECK_MARGIN - br.left(),
+        OVERDRAW_CHECK_MARGIN - br.top(),
+    )
+    node.paint(painter, None, None)
+    painter.end()
+
+    bg_rgb = BG.rgb()
+    overdraw_pixels: list[tuple[int, int]] = []
+    for x in range(img_w):
+        for y in range(img_h):
+            # Pixels inside the bounding-rect region (plus its mapped position in the image)
+            img_br_left   = OVERDRAW_CHECK_MARGIN
+            img_br_top    = OVERDRAW_CHECK_MARGIN
+            img_br_right  = OVERDRAW_CHECK_MARGIN + int(br.width())
+            img_br_bottom = OVERDRAW_CHECK_MARGIN + int(br.height())
+            inside_br = (img_br_left <= x <= img_br_right and
+                         img_br_top  <= y <= img_br_bottom)
+            if not inside_br:
+                pixel = image.pixel(x, y)
+                # Allow slight anti-aliasing bleed (alpha < 16 / nearly transparent)
+                alpha = (pixel >> 24) & 0xFF
+                if alpha > 16 and pixel != bg_rgb:
+                    overdraw_pixels.append((x, y))
+
+    assert not overdraw_pixels, (
+        f"StateNode.paint() drew {len(overdraw_pixels)} pixel(s) outside boundingRect().\n"
+        f"First offenders (image coords): {overdraw_pixels[:10]}\n"
+        f"boundingRect = {br}, image size = {img_w}x{img_h}"
+    )

@@ -109,7 +109,6 @@ class FilterConditionWidget(QWidget):
         if not self.field_name:
             self.btn_field_selector.setText(self.tr("Select Field..."))
         else:
-            # Phase 135: Token-driven label resolution
             registry = FilterTokenRegistry.instance()
             translator = SemanticTranslator.instance()
             token = registry.get_token(self.field_key)
@@ -193,7 +192,6 @@ class FilterConditionWidget(QWidget):
                     if k.startswith("stamp_field:"):
                         has_stamps = True
                         label = k[12:]
-                        # Phase 135: Beautify and translate
                         display_name = translator.beautify_key(label)
                         action = cat_menu.addAction(self.tr("Field: %s") % display_name)
                         action.triggered.connect(lambda checked, k=k, n=display_name: self._set_field(k, n))
@@ -220,7 +218,6 @@ class FilterConditionWidget(QWidget):
                                 action.triggered.connect(lambda checked, k=key, n=f"{type_label} > {f_label}": self._set_field(k, n))
 
             elif cat_id == "raw":
-                # Phase 135: Filter out keys already covered by other categories
                 known_keys = set()
                 # 1. Standard tokens and their semantic variations
                 registry_ids = [t.id for t in registry.get_all_tokens()]
@@ -270,7 +267,6 @@ class FilterConditionWidget(QWidget):
                     leaf_name = parts[-1]
                     display_leaf = translator.beautify_key(k).split(" > ")[-1]
                     
-                    # Phase 135: If this key is also a parent of other keys, mark it as [Total]
                     is_parent = any(sk.startswith(k + ".") for sk in sorted_keys)
                     if is_parent:
                         display_leaf = self.tr("%s [Total]") % display_leaf
@@ -378,7 +374,6 @@ class FilterConditionWidget(QWidget):
 
         self.chk_negate.setChecked(mode.get("negate", False))
 
-        # Phase 135: Resolve token to display name
         registry = FilterTokenRegistry.instance()
         translator = SemanticTranslator.instance()
         token = registry.get_token(key)
@@ -402,7 +397,6 @@ class FilterConditionWidget(QWidget):
         elif key.startswith("stamp_field:"):
              display_name = f"Stempel: {key[12:]}"
         else:
-             # Phase 135: Beautify raw keys
              display_name = translator.beautify_key(key)
 
         self._set_field(key, display_name)

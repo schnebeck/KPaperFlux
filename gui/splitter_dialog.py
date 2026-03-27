@@ -180,7 +180,6 @@ class SplitterDialog(QDialog):
 
         # Dynamic Text to be helpful
         if has_splits:
-            # Phase 105: Translatable plural format
             num_parts = len(splits) + 1
             if self.mode == "IMPORT":
                 text = self.tr("Import and Split into %n Part(s)", "", num_parts)

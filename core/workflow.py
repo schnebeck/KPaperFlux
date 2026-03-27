@@ -389,16 +389,28 @@ def completion_percent(wf_info: Any, rule: WorkflowRule) -> int:
     return min(99, round(visited / total * 100))
 
 
-def sanitize_documents_for_rule(db_manager: Any, rule: WorkflowRule) -> tuple[int, list[str]]:
-    """Reset workflow state for documents whose ``current_step`` no longer exists.
+def sanitize_documents_for_rule(
+    db_manager: Any,
+    rule: WorkflowRule,
+    stale_only: bool = False,
+) -> tuple[int, list[str]]:
+    """Reset linked documents to the initial state of *rule*.
 
-    Queries all documents that have *rule.id* in their ``semantic_data.workflows``
-    dict.  Any document whose ``current_step`` is not a valid state ID in *rule*
-    is reset to ``get_initial_state(rule)`` and a SYSTEM log entry is appended to
-    its history.
+    ``stale_only=False`` (default, used on explicit rule save):
+        Resets ALL documents whose ``current_step`` is not already the initial
+        state — even if their state is still technically valid.  Use this when
+        the rule structure changed and all in-progress journeys should restart.
 
-    Returns ``(reset_count, affected_uuids)``.  Saves each affected document to
-    the database.
+    ``stale_only=True`` (used at startup / background sweep):
+        Only resets documents whose ``current_step`` is no longer a valid state
+        ID in *rule*.  Documents in the middle of a valid journey are not touched.
+
+    Only documents using the current ``semantic_data.workflows`` (plural) structure
+    are processed.  Documents still carrying the legacy ``semantic_data.workflow``
+    (singular) key must be converted first via
+    ``scripts/migrate_workflow_to_multi.py``.
+
+    Returns ``(reset_count, affected_uuids)``.
     """
     from core.models.semantic import WorkflowLog  # local import to avoid cycles
 
@@ -421,13 +433,22 @@ def sanitize_documents_for_rule(db_manager: Any, rule: WorkflowRule) -> tuple[in
         if sd is None or not hasattr(sd, "workflows"):
             continue
         wf_info = sd.workflows.get(rule.id)
-        if wf_info is None or wf_info.current_step in valid_states:
+        if wf_info is None:
             continue
-        stale = wf_info.current_step
+        step = wf_info.current_step
+        if step == initial:
+            continue  # already at start — never reset
+        if stale_only and step in valid_states:
+            continue  # valid in-progress step — leave untouched in stale_only mode
         wf_info.history.append(WorkflowLog(
-            action=f"SYSTEM_RESET: '{stale}' -> '{initial}'",
+            action=f"SYSTEM_RESET: '{step}' -> '{initial}'",
             user="SYSTEM",
-            comment=f"State '{stale}' was removed from rule '{rule.id}'; reset to initial state.",
+            comment=(
+                f"State '{step}' is no longer valid in rule '{rule.id}'; "
+                f"reset to initial state."
+            ) if stale_only else (
+                f"Rule '{rule.id}' was updated; document reset to initial state."
+            ),
         ))
         wf_info.current_step = initial
         try:
@@ -437,3 +458,20 @@ def sanitize_documents_for_rule(db_manager: Any, rule: WorkflowRule) -> tuple[in
             logger.error(f"sanitize_documents_for_rule: failed to save {doc.uuid}: {exc}")
 
     return len(affected), affected
+
+
+def count_legacy_workflow_documents(db_manager: Any, rule_id: str) -> int:
+    """Return the number of documents still using the legacy ``workflow`` (singular) key.
+
+    A non-zero result means ``scripts/migrate_workflow_to_multi.py`` must be run
+    before those documents are visible to ``sanitize_documents_for_rule``.
+    """
+    query = {
+        "field": "semantic:workflow.rule_id",
+        "op": "equals",
+        "value": rule_id,
+    }
+    try:
+        return db_manager.count_documents_advanced(query)
+    except Exception:
+        return 0

@@ -125,7 +125,6 @@ class AuditWindow(QMainWindow):
         
         controls_layout.addStretch(1)  # Left Stretch
 
-        # Phase 113: Multi-Workflow Controls Container
         self._workflow_controls: Dict[str, WorkflowControlsWidget] = {}
         self.workflow_controls_container = QWidget()
         self._workflow_controls_layout = QHBoxLayout(self.workflow_controls_container)

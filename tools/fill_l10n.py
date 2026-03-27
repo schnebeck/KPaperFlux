@@ -133,8 +133,8 @@ def fill():
         
         # General Labels
         "Keep older duplicates (%s)": "Ältere Dubletten behalten (%s)",
-        "Really delete %s duplicates?": "Wirklich %s Dubletten löschen?",
-        "%s documents could not be deleted.": "%s Dokumente konnten nicht gelöscht werden.",
+        "Really delete %n duplicates?": ("%n Dublette wirklich löschen?", "%n Dubletten wirklich löschen?"),
+        "%n documents could not be deleted.": ("%n Dokument konnte nicht gelöscht werden.", "%n Dokumente konnten nicht gelöscht werden."),
         "Select an item to view details": "Eintrag auswählen für Details",
         "New Folder": "Neuer Ordner",
         "Export to Exchange...": "Filter exportieren",
@@ -298,7 +298,7 @@ def fill():
             "Are you sure you want to delete %s items?": "%s Element(e) wirklich löschen?",
             "Deleted %s items.": "%s Element(e) gelöscht.",
             "Reprocessing %s of %s...": "Verarbeite %s von %s...",
-            "%s error(s) occurred during reprocessing. Check logs.": "%s Fehler bei der Verarbeitung. Bitte Protokoll prüfen.",
+            "%n error(s) occurred during reprocessing. Check logs.": ("%n Fehler bei der Verarbeitung aufgetreten. Details im Log.", "%n Fehler bei der Verarbeitung aufgetreten. Details im Log."),
             "Importing %s/%s: %s": "Importiere %s/%s: %s",
             "Found %s files in transfer folder. Do you want to import them now?": "%s Dateien im Transfer-Ordner gefunden. Jetzt importieren?",
             "Queued %s docs for extraction.": "%s Dokumente für Extraktion vorgemerkt.",
@@ -308,11 +308,11 @@ def fill():
             "Comparing documents (%s/%s)...": "Dokumente werden verglichen (%s/%s)...",
             "Imported %s documents.\nBackground processing started.": "%s Dokumente importiert.\nHintergrundverarbeitung gestartet.",
             "Could not locate physical file for UUID: %s": "Physische Datei für UUID nicht gefunden: %s",
-            "Stamp applied to %s document(s).": "Stempel auf %s Dokument(e) angewendet.",
+            "Stamp applied to %n document(s).": ("Stempel auf %n Dokument angewendet.", "Stempel auf %n Dokumente angewendet."),
             "Stamping operation failed: %s": "Stempel-Operation fehlgeschlagen: %s",
-            "Updated tags for %s documents.": "Tags für %s Dokumente aktualisiert.",
-            "Restored %s document(s).": "%s Dokument(e) wiederhergestellt.",
-            "Permanently deleted %s document(s).": "%s Dokument(e) endgültig gelöscht.",
+            "Updated tags for %n documents.": ("Tags für %n Dokument aktualisiert.", "Tags für %n Dokumente aktualisiert."),
+            "Restored %n document(s).": ("%n Dokument wiederhergestellt.", "%n Dokumente wiederhergestellt."),
+            "Permanently deleted %n document(s).": ("%n Dokument endgültig gelöscht.", "%n Dokumente endgültig gelöscht."),
         },
         "MetadataEditorWidget": {
             "Extracted Data": "Extrahierte Daten",
@@ -454,6 +454,8 @@ def fill():
             "Action:": "Aktion:",
             "Auto:": "Automatisch:",
             "Required Fields:": "Pflichtfelder:",
+            "Missing fields: %s": "Fehlende Felder: %s",
+            "Unmet conditions: %s": "Nicht erfüllte Bedingungen: %s",
         },
         "WorkflowRuleFormEditor": {
             "Rule Name:": "Name des Ablaufs:",
@@ -507,6 +509,12 @@ def fill():
             "Show documents": "Dokumente anzeigen",
             "Navigate to all documents currently tracked by this workflow": "Alle Dokumente anzeigen, die diesem Ablauf zugeordnet sind",
             "Documents in workflow '%1'": "Dokumente im Ablauf '%1'",
+            "Rule Saved & Reset": "Ablauf gespeichert & zurückgesetzt",
+            "Rule '%s' saved.\n\n%n document(s) were reset to the initial state.": (
+                "Regel '%s' gespeichert.\n\n%n Dokument wurde auf den Anfangsstatus zurückgesetzt.",
+                "Regel '%s' gespeichert.\n\n%n Dokumente wurden auf den Anfangsstatus zurückgesetzt.",
+            ),
+            "Legacy Data Detected": "Veraltete Datenstruktur erkannt",
         },
         "FilterWidget": {
             "Rules...": "Sortieren...",
@@ -530,14 +538,14 @@ def fill():
             "Search": "Suche",
             "Show All": "Alle Dokumente anzeigen",
             "Hide '%1'": "'%1' ausblenden",
-            "%s document(s) are locked and cannot be deleted.": "%s Dokument(e) sind gesperrt und können nicht gelöscht werden.",
-            "Are you sure you want to permanently delete %s document(s)?\nThis cannot be undone.": "%s Dokument(e) wirklich endgültig löschen?\nDieser Vorgang kann nicht rückgängig gemacht werden.",
+            "%n document(s) are locked and cannot be deleted.": ("%n Dokument ist gesperrt und kann nicht gelöscht werden.", "%n Dokumente sind gesperrt und können nicht gelöscht werden."),
+            "Are you sure you want to permanently delete %n document(s)?\nThis cannot be undone.": ("%n Dokument endgültig löschen?\nDieser Vorgang kann nicht rückgängig gemacht werden.", "%n Dokumente endgültig löschen?\nDieser Vorgang kann nicht rückgängig gemacht werden."),
         },
         "ColumnManagerDialog": {
             "%s (Fixed)": "%s (Fest)",
         },
         "ExportDialog": {
-            "Exporting %s documents.": "%s Dokumente werden exportiert.",
+            "Exporting %n documents.": ("%n Dokument wird exportiert.", "%n Dokumente werden exportiert."),
             "Export failed:\n%s": "Export fehlgeschlagen:\n%s",
             "File '%s' already exists in transfer folder. Overwrite?": "Datei '%s' existiert bereits im Transfer-Ordner. Überschreiben?",
         },
@@ -549,8 +557,8 @@ def fill():
         },
         "MaintenanceDialog": {
             "Scan failed: %s": "Scan fehlgeschlagen: %s",
-            "Delete %s database entries?": "%s Datenbankeinträge löschen?",
-            "Permanently delete %s files?": "%s Dateien endgültig löschen?",
+            "Delete %n database entries?": ("%n Datenbankeintrag löschen?", "%n Datenbankeinträge löschen?"),
+            "Permanently delete %n files?": ("%n Datei endgültig löschen?", "%n Dateien endgültig löschen?"),
         },
         "MatchWorker": {
             "Analyzing %1 files...": "%1 Dateien werden analysiert...",
@@ -576,6 +584,7 @@ def fill():
         },
         "ReportingWidget": {
             "File is not a Layout (Type: %s)": "Datei ist kein Layout (Typ: %s)",
+            "Successfully created ZIP archive with %n documents.": ("ZIP-Archiv mit %n Dokument erfolgreich erstellt.", "ZIP-Archiv mit %n Dokumenten erfolgreich erstellt."),
         },
         "ScannerDialog": {
             "Verbinde mit %s...": "Verbinde mit %s...",
@@ -584,11 +593,11 @@ def fill():
             "Scanne Seite %s...": "Scanne Seite %s...",
         },
         "TagManagerDialog": {
-            "Updated %s document(s).": "%s Dokument(e) aktualisiert.",
+            "Updated %n document(s).": ("%n Dokument aktualisiert.", "%n Dokumente aktualisiert."),
             "Merge %s tags into:": "%s Tags zusammenführen in:",
-            "Merged tags. Updated %s document(s).": "Tags zusammengeführt. %s Dokument(e) aktualisiert.",
+            "Merged tags. Updated %n document(s).": ("Tags zusammengeführt. %n Dokument aktualisiert.", "Tags zusammengeführt. %n Dokumente aktualisiert."),
             "Are you sure you want to remove these %s tags from ALL documents?\n\n%s": "Diese %s Tags wirklich von ALLEN Dokumenten entfernen?\n\n%s",
-            "Removed tags from %s document(s).": "Tags von %s Dokument(e) entfernt.",
+            "Removed tags from %n document(s).": ("Tags von %n Dokument entfernt.", "Tags von %n Dokumenten entfernt."),
             "Search tags...": "Tags suchen...",
             "Tag Name": "Tag-Name",
             "Usage Count": "Verwendungsanzahl",
@@ -744,7 +753,7 @@ def fill():
             "No orphaned workflow references found. All rule IDs in all documents match a known rule.": "Keine verwaisten Ablauf-Referenzen gefunden. Alle Regel-IDs in allen Dokumenten entsprechen einer bekannten Regel.",
             "Prune Orphaned Workflow References": "Verwaiste Ablauf-Referenzen bereinigen",
             "Prune Orphaned Workflow References...": "Verwaiste Ablauf-Referenzen bereinigen...",
-            "Removed orphaned workflow references from %d document(s).": "Verwaiste Ablauf-Referenzen aus %d Dokument(en) entfernt.",
+            "Removed orphaned workflow references from %n document(s).": ("Verwaiste Ablauf-Referenz aus %n Dokument entfernt.", "Verwaiste Ablauf-Referenzen aus %n Dokumenten entfernt."),
             "Done": "Fertig",
             "DANGER: This will delete ALL documents, files, and database entries.\n\nThis action cannot be undone.\n\nAre you completely sure you want to reset the system?": "ACHTUNG: Alle Dokumente, Dateien und Datenbankeinträge werden gelöscht.\n\nDieser Vorgang kann nicht rückgängig gemacht werden.\n\nSind Sie sicher?",
         },
@@ -972,7 +981,7 @@ def fill():
         "WorkflowSummaryWidget": {
             "No active workflows": "Keine aktiven Abläufe",
             "Click to open this workflow in the Process view": "Klicken, um diesen Ablauf in der Prozessansicht zu öffnen",
-            "%n step(s)": "%n Schritt(e)",
+            "%n step(s)": ("%n Schritt", "%n Schritte"),
         },
 
     }
@@ -984,13 +993,17 @@ def fill():
 
     def ensure_translation(ctx_node, src, trans):
         nonlocal modified
+        # trans can be a str (both numerus forms identical) or (sg, pl) tuple
+        sg_trans = trans[0] if isinstance(trans, tuple) else trans
+        pl_trans = trans[1] if isinstance(trans, tuple) else trans
+
         # Find message
         msg_found = None
         for msg in ctx_node.findall("message"):
             if msg.findtext("source") == src:
                 msg_found = msg
                 break
-        
+
         if msg_found is None:
             # Skip adding missing non-translated strings silently if they are not in common?
             # No, if it's in contexts list, we want it.
@@ -998,28 +1011,29 @@ def fill():
             s = ET.SubElement(msg_found, "source")
             s.text = src
             t = ET.SubElement(msg_found, "translation")
-            t.text = trans
+            t.text = sg_trans
             modified = True
             return
 
         t_node = msg_found.find("translation")
         if t_node is None:
             t_node = ET.SubElement(msg_found, "translation")
-        
+
         # Determine if we need to update
         needs_update = False
         is_unfinished = t_node.get("type") == "unfinished"
         is_vanished = t_node.get("type") == "vanished"
-        
+
         is_numerus = msg_found.get("numerus") == "yes"
-        
+
         if is_numerus:
-            # Check if all numerusforms have the correct text
             forms = t_node.findall("numerusform")
-            if not forms or any(f.text != trans for f in forms) or is_unfinished:
+            expected = [sg_trans, pl_trans]
+            actual = [f.text for f in forms]
+            if actual != expected or is_unfinished:
                 needs_update = True
         else:
-            if not t_node.text or is_unfinished or is_vanished or t_node.text != trans:
+            if not t_node.text or is_unfinished or is_vanished or t_node.text != sg_trans:
                 needs_update = True
 
         if needs_update:
@@ -1027,12 +1041,12 @@ def fill():
                 t_node.text = None
                 for child in list(t_node): t_node.remove(child)
                 nf1 = ET.SubElement(t_node, "numerusform")
-                nf1.text = trans
+                nf1.text = sg_trans
                 nf2 = ET.SubElement(t_node, "numerusform")
-                nf2.text = trans
+                nf2.text = pl_trans
             else:
-                t_node.text = trans
-                
+                t_node.text = sg_trans
+
             if "type" in t_node.attrib:
                 del t_node.attrib["type"]
             modified = True
@@ -1073,7 +1087,9 @@ def fill():
     for ctx_node in root.findall("context"):
         ctx_name = ctx_node.findtext("name")
         res = contexts.get(ctx_name, {})
-        tool.resolve_shortcuts_for_context(ctx_name, reserved=res)
+        # Flatten tuple (sg, pl) values to the singular form for shortcut resolution
+        res_flat = {src: (t[0] if isinstance(t, tuple) else t) for src, t in res.items()}
+        tool.resolve_shortcuts_for_context(ctx_name, reserved=res_flat)
 
     print("Success: Localization library synchronized (Delta-Safe).")
 

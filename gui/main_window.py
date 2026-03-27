@@ -348,6 +348,25 @@ class MainWindow(QMainWindow):
         if self.db_manager and hasattr(self, 'list_widget') and isinstance(self.list_widget, DocumentListWidget):
             self.list_widget.refresh_list()
 
+        # Sweep for stale workflow states after UI is up.  Any document whose
+        # current_step no longer exists in the rule is silently reset to the
+        # initial state.  Runs deferred so it never delays startup.
+        if self.db_manager:
+            QTimer.singleShot(0, self._sweep_stale_workflow_states)
+
+    def _sweep_stale_workflow_states(self) -> None:
+        """Background sweep: reset stale workflow states across all rules."""
+        from core.workflow import WorkflowRuleRegistry, sanitize_documents_for_rule
+        registry = WorkflowRuleRegistry()
+        total = 0
+        for rule in registry.list_rules():
+            count, _ = sanitize_documents_for_rule(self.db_manager, rule, stale_only=True)
+            total += count
+        if total:
+            logger.info(f"Startup sweep: reset {total} document(s) with stale workflow states.")
+            if hasattr(self, "list_widget"):
+                self.list_widget.refresh_list()
+
     def setup_shortcuts(self):
         # Global shortcuts for main navigation
         QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(lambda: self.central_stack.setCurrentIndex(0))
@@ -852,7 +871,7 @@ class MainWindow(QMainWindow):
                 logger.error(f"Failed to prune orphaned workflows from {uuid}: {e}")
                 errors.append(uuid)
 
-        summary = self.tr("Removed orphaned workflow references from %d document(s).") % pruned_docs
+        summary = self.tr("Removed orphaned workflow references from %n document(s).", "", pruned_docs)
         if errors:
             summary += f"\n\nFailed for {len(errors)} document(s) — see log for details."
         show_selectable_message_box(self, self.tr("Done"), summary, icon=QMessageBox.Icon.Information)
@@ -1158,7 +1177,7 @@ class MainWindow(QMainWindow):
             show_notification(
                 self, 
                 self.tr("Processing Error"), 
-                self.tr("%s error(s) occurred during reprocessing. Check logs.") % error_count,
+                self.tr("%n error(s) occurred during reprocessing. Check logs.", "", error_count),
                 duration=5000
             )
             # Clear errors for next run
@@ -1844,7 +1863,7 @@ class MainWindow(QMainWindow):
                 if action == "remove":
                      msg = self.tr("Stamp removed.")
                 else:
-                     msg = self.tr("Stamp applied to %s document(s).") % successful_count
+                     msg = self.tr("Stamp applied to %n document(s).", "", successful_count)
 
                 show_notification(self, self.tr("Success"), msg)
 
@@ -1904,7 +1923,7 @@ class MainWindow(QMainWindow):
 
             if count > 0:
                 self.list_widget.refresh_list()
-                show_notification(self, self.tr("Tags Updated"), self.tr("Updated tags for %s documents.") % count)
+                show_notification(self, self.tr("Tags Updated"), self.tr("Updated tags for %n documents.", "", count))
 
     def toggle_editor_visibility(self, checked: bool):
         """Toggle the visibility of the metadata editor widget."""
@@ -2048,7 +2067,7 @@ class MainWindow(QMainWindow):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
-            show_notification(self, self.tr("Restored"), self.tr("Restored %s document(s).") % count)
+            show_notification(self, self.tr("Restored"), self.tr("Restored %n document(s).", "", count))
 
     def archive_document_slot(self, uuids: list[str], archive: bool = True):
         """Handles archiving or restoring documents from the archive."""
@@ -2144,7 +2163,7 @@ class MainWindow(QMainWindow):
                 count += 1
         if count > 0:
             self.list_widget.refresh_list()
-            show_notification(self, self.tr("Deleted"), self.tr("Permanently deleted %s document(s).") % count)
+            show_notification(self, self.tr("Deleted"), self.tr("Permanently deleted %n document(s).", "", count))
     def open_debug_audit_window(self, uuid: str):
         """Opens the Audit Window in debug/generic mode with only a Close button."""
         doc = self.db_manager.get_document_by_uuid(uuid)

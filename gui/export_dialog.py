@@ -69,7 +69,7 @@ class ExportDialog(QDialog):
         layout = QVBoxLayout(self)
         
         # Info
-        layout.addWidget(QLabel(self.tr("Exporting %s documents.") % len(self.documents)))
+        layout.addWidget(QLabel(self.tr("Exporting %n documents.", "", len(self.documents))))
         
         # Options
         self.chk_pdfs = QCheckBox(self.tr("Include PDF files (in 'documents/' folder)"))

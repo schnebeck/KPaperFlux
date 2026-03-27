@@ -1787,18 +1787,29 @@ class WorkflowManagerWidget(QWidget):
             self.registry.load_from_directory(self.workflow_dir)
             self.load_workflows()
 
-            # Sanitize documents: reset any current_step that no longer exists
-            from core.workflow import sanitize_documents_for_rule
+            # Reset all linked documents to the initial state
+            from core.workflow import sanitize_documents_for_rule, count_legacy_workflow_documents
             db_manager = self.filter_tree.db_manager if self.filter_tree else None
             reset_count = 0
             if db_manager:
                 reset_count, _ = sanitize_documents_for_rule(db_manager, rule)
+                # Warn if legacy-structure documents exist that the reset cannot reach
+                legacy_count = count_legacy_workflow_documents(db_manager, rule.id)
+                if legacy_count:
+                    QMessageBox.warning(
+                        self, self.tr("Legacy Data Detected"),
+                        self.tr(
+                            "%1 document(s) reference rule '%2' in the outdated "
+                            "single-workflow structure and were not reset.\n\n"
+                            "Run the migration script to fix them:\n"
+                            "python scripts/migrate_workflow_to_multi.py --db <path>"
+                        ).replace("%1", str(legacy_count)).replace("%2", rule.id)
+                    )
 
             if reset_count:
                 QMessageBox.information(
-                    self, self.tr("Rule Saved & Sanitized"),
-                    self.tr("Rule '%1' saved.\n\n%2 document(s) had their workflow reset to the initial state because their previous state no longer exists in the updated rule.")
-                    .replace("%1", rule.name).replace("%2", str(reset_count))
+                    self, self.tr("Rule Saved & Reset"),
+                    self.tr("Rule '%s' saved.\n\n%n document(s) were reset to the initial state.", "", reset_count) % rule.name
                 )
             else:
                 QMessageBox.information(self, self.tr("Success"), self.tr("Rule '%1' saved and activated.").replace("%1", rule.name))

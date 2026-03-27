@@ -151,7 +151,7 @@ class MaintenanceDialog(QDialog):
         reply = show_selectable_message_box(
             self,
             self.tr("Confirm"),
-            self.tr("Delete %s database entries?") % len(items),
+            self.tr("Delete %n database entries?", "", len(items)),
             icon=QMessageBox.Icon.Question,
             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -174,7 +174,7 @@ class MaintenanceDialog(QDialog):
         reply = show_selectable_message_box(
             self,
             self.tr("Confirm"),
-            self.tr("Permanently delete %s files?") % len(items),
+            self.tr("Permanently delete %n files?", "", len(items)),
             icon=QMessageBox.Icon.Question,
             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )

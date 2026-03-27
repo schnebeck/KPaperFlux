@@ -6,7 +6,7 @@
   "l10n": {},
   "states": {
     "s_00387ce1": {
-      "label": "Posteingang",
+      "label": "Eingang",
       "transitions": [
         {
           "action": "t_d084d6d2",
@@ -22,7 +22,8 @@
           "icon": null
         }
       ],
-      "final": false
+      "final": false,
+      "initial": true
     },
     "s_11285185": {
       "label": "Warten auf Zahlung",
@@ -54,17 +55,20 @@
           "icon": null
         }
       ],
-      "final": false
+      "final": false,
+      "initial": false
     },
     "s_29669884": {
       "label": "Abgeschlossen",
       "transitions": [],
-      "final": true
+      "final": true,
+      "initial": false
     },
     "s_89fd76ba": {
       "label": "Inkasso / Recht",
       "transitions": [],
-      "final": true
+      "final": true,
+      "initial": false
     },
     "s_a02eec87": {
       "label": "1. Mahnstufe",
@@ -94,9 +98,20 @@
           "user_interaction": false,
           "auto": false,
           "icon": null
+        },
+        {
+          "action": "t_18e4b9db",
+          "label": "Zur\u00fccksetzen",
+          "target": "s_00387ce1",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
         }
       ],
-      "final": false
+      "final": false,
+      "initial": false
     }
   },
   "triggers": {
@@ -107,24 +122,24 @@
   },
   "node_positions": {
     "s_00387ce1": [
-      31.083024098455887,
-      56.53208223733251
+      26.911395830819487,
+      57.57498930424161
     ],
     "s_11285185": [
       276.45908183632724,
       56.40918163672654
     ],
     "s_29669884": [
-      583.086964834718,
-      54.23190622591456
+      859.4573375656294,
+      55.27481329282366
     ],
     "s_89fd76ba": [
-      864.4191616766468,
-      -65.97005988023952
+      862.3333475428286,
+      -64.92715281333041
     ],
     "s_a02eec87": [
-      580.9560878243512,
-      -66.07784431137725
+      472.4937528658047,
+      -65.03493724446817
     ]
   },
   "transition_anchors": {
@@ -143,20 +158,30 @@
     "s_a02eec87:t_f0dbd311": [
       "bottom",
       "top"
+    ],
+    "s_a02eec87:t_18e4b9db": [
+      "top",
+      "top"
     ]
   },
   "transition_bends": {
     "s_a02eec87:t_f0dbd311": [
-      3.0687705429612606,
-      31.710628943933123,
-      0.0,
-      0.0
+      -26.114657406870094,
+      -95.48874486847745,
+      19.83320419489644,
+      99.40028147833445
     ],
     "s_11285185:t_5ae16405": [
-      0.0,
-      -15.343852714806353,
+      -5.214535334545474,
+      6.557195690284747,
       -29.66478191529228,
       0.0
+    ],
+    "s_a02eec87:t_18e4b9db": [
+      9.404750064760435,
+      121.2167786124684,
+      -27.169277964863593,
+      39.70894471787757
     ]
   }
 }

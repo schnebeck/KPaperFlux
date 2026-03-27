@@ -194,7 +194,7 @@ class DuplicateFinderDialog(QDialog):
         
         if not items: return
         
-        msg = self.tr("Really delete %s duplicates?").replace("%s", str(len(items)))
+        msg = self.tr("Really delete %n duplicates?", "", len(items))
         if show_selectable_message_box(self, self.tr("Confirm"), msg, icon=QMessageBox.Icon.Question, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return
             
@@ -214,7 +214,7 @@ class DuplicateFinderDialog(QDialog):
                 error_count += 1
                 
         if error_count > 0:
-            show_selectable_message_box(self, self.tr("Error"), self.tr("%s documents could not be deleted.").replace("%s", str(error_count)), icon=QMessageBox.Icon.Warning)
+            show_selectable_message_box(self, self.tr("Error"), self.tr("%n documents could not be deleted.", "", error_count), icon=QMessageBox.Icon.Warning)
         
         if self.pair_list.count() == 0:
             self.close()

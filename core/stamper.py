@@ -55,7 +55,6 @@ class DocumentStamper:
         temp_envelope = None
 
         try:
-            # Phase 1: Preparation for Protected Documents
             if p_class in [PDFClass.SIGNED, PDFClass.SIGNED_ZUGFERD]:
                 logger.info(f"Protected Document detected ({p_class.name}). Preparing Hybrid Envelope...")
                 fd, temp_envelope = tempfile.mkstemp(suffix=".pdf", prefix="hybrid_prep_")
@@ -65,10 +64,8 @@ class DocumentStamper:
                 else:
                     logger.warning("Failed to create hybrid envelope. Proceeding with caution.")
             
-            # Phase 2: Native Stamping
             self._apply_native_stamp(working_input, output_path, text, position, color, rotation)
             
-            # Phase 3: Post-Processing / Restoration
             if p_class == PDFClass.ZUGFERD:
                 logger.info("ZUGFeRD document detected. Restoring XML data...")
                 restore_zugferd_xml(input_path, output_path)

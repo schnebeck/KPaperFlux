@@ -1351,6 +1351,10 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
             <source>File '%s' already exists in transfer folder. Overwrite?</source>
             <translation>Datei '%s' existiert bereits im Transfer-Ordner. Überschreiben?</translation>
         </message>
+        <message>
+            <source>Exporting %n documents.</source>
+            <translation>%n Dokument wird exportiert.</translation>
+        </message>
     </context>
     <context>
         <name>FilterConditionWidget</name>
@@ -2905,6 +2909,10 @@ Sind Sie sicher?</translation>
 Dieser Vorgang kann nicht rückgängig gemacht werden.
 
 Sind Sie sicher?</translation>
+        </message>
+        <message>
+            <source>Removed orphaned workflow references from %n document(s).</source>
+            <translation>Verwaiste Ablauf-Referenz aus %n Dokument entfernt.</translation>
         </message>
     </context>
     <context>
@@ -6266,6 +6274,18 @@ Geschäftsführer: ...</translation>
             <source>Removed tags from %s document(s).</source>
             <translation>Tags von %s Dokument(e) entfernt.</translation>
         </message>
+        <message>
+            <source>Updated %n document(s).</source>
+            <translation>%n Dokument aktualisiert.</translation>
+        </message>
+        <message>
+            <source>Merged tags. Updated %n document(s).</source>
+            <translation>Tags zusammengeführt. %n Dokument aktualisiert.</translation>
+        </message>
+        <message>
+            <source>Removed tags from %n document(s).</source>
+            <translation>Tags von %n Dokument entfernt.</translation>
+        </message>
     </context>
     <context>
         <name>ViewManagerDialog</name>
@@ -7251,8 +7271,8 @@ Geschäftsführer: ...</translation>
             <location filename="../../../gui/widgets/workflow_summary.py" line="149" />
             <source>%n step(s)</source>
             <translation>
-                <numerusform>%n Schritt(e)</numerusform>
-                <numerusform>%n Schritt(e)</numerusform>
+                <numerusform>%n Schritt</numerusform>
+                <numerusform>%n Schritte</numerusform>
             </translation>
         </message>
     </context>

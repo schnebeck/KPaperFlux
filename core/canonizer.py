@@ -82,7 +82,6 @@ class CanonizerService:
         self.visual_auditor = VisualAuditor(self.analyzer)
         self.rules_engine = RulesEngine(db, filter_tree) if filter_tree else None
         
-        # Phase 3: Workflow Engine
         self.workflow_registry = WorkflowRuleRegistry()
         # Note: In production, the path might be different, but for now we use relative
         self.workflow_registry.load_from_directory("resources/workflows")
@@ -521,7 +520,6 @@ class CanonizerService:
             target_doc.export_filename = smart_name
             target_doc.cached_full_text = semantic_extraction.get("repaired_text") or entity_text
             
-            # Phase 3: Workflow Assignment — assign ALL matching rules
             if target_doc.semantic_data:
                 for rule in self.workflow_registry.find_rules_for_tags(target_doc.type_tags):
                     if rule.id not in target_doc.semantic_data.workflows:

@@ -219,12 +219,17 @@ class StateNode(QGraphicsItem):
     # ── QGraphicsItem interface ───────────────────────────────────────────────
 
     def boundingRect(self) -> QRectF:
-        # Extra margin accounts for the selection ring drawn 4px outside the
-        # node rect with a 2px pen (4 + ceil(2/2) + 1px safety = 6px each side).
-        return QRectF(-NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H).adjusted(-6, -6, 6, 6)
+        # All painting is relative to the node visual rect (base).
+        # Largest outward extent: hover ring at base.adjusted(-7,-7,7,7) with
+        # 2px pen → 7 + 1 = 8px beyond base. +2px safety → 10px margin each side.
+        # Margin is permanent (not hover-conditional) to avoid geometry changes.
+        return QRectF(-NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H).adjusted(-10, -10, 10, 10)
 
     def paint(self, painter: QPainter, option, widget=None) -> None:
-        r = self.boundingRect()
+        # IMPORTANT: use the node visual rect as the drawing base — NOT boundingRect().
+        # boundingRect() is larger (adds clip margin); using it as base would push
+        # the selection ring outside boundingRect() on every call, causing drag artifacts.
+        r = QRectF(-NODE_W / 2, -NODE_H / 2, NODE_W, NODE_H)
 
         # Background — pending (orange selection) takes highest priority,
         # including when the current state IS the pending state (initial / deselected).
@@ -239,19 +244,21 @@ class StateNode(QGraphicsItem):
         else:
             bg = C_BG_DEF
 
-        # Border colour
+        # Border colour — is_target (clickable) beats state_def.final so that
+        # available final states show a blue "clickable" border, not the green
+        # UML final-state decoration (which confused all states into looking green).
         if self.is_pending:
             border_c = C_PENDING   # teal — active selection
             bw = 2.5
         elif self.is_current:
             border_c = C_CURRENT
             bw = 2.5
-        elif self.state_def.final:
-            border_c = C_FINAL_NG if self._is_error_final() else C_FINAL_OK
-            bw = 2.0
         elif self.is_target:
             border_c = C_AVAIL     # blue border — signals clickability
             bw = 1.5
+        elif self.state_def.final:
+            border_c = C_FINAL_NG if self._is_error_final() else C_FINAL_OK
+            bw = 2.0
         elif self.is_visited:
             border_c = C_VISITED
             bw = 1.5
@@ -259,8 +266,8 @@ class StateNode(QGraphicsItem):
             border_c = C_DEFAULT
             bw = 1.5
 
-        if self._hovered and self.mode == "edit":
-            bw += 0.8
+        if self._hovered and (self.mode == "edit" or self._click_cb):
+            bw += 0.5
 
         # Selection highlight (edit mode)
         if self.isSelected() and self.mode == "edit":
@@ -271,6 +278,14 @@ class StateNode(QGraphicsItem):
         painter.setBrush(QBrush(bg))
         painter.setPen(QPen(border_c, bw))
         painter.drawRoundedRect(r, BORDER_R, BORDER_R)
+
+        # Hover ring: dashed outer border to give clear click-affordance feedback
+        if self._hovered and self._click_cb:
+            hover_pen = QPen(border_c, 1.5, Qt.PenStyle.DashLine)
+            hover_pen.setDashPattern([4.0, 3.0])
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(hover_pen)
+            painter.drawRoundedRect(r.adjusted(-7, -7, 7, 7), BORDER_R + 6, BORDER_R + 6)
 
         # Double border: final states (UML convention) AND active pending selection
         if self.state_def.final or self.is_pending:
@@ -504,8 +519,13 @@ class TransitionEdge(QGraphicsItem):
     # ── QGraphicsItem interface ───────────────────────────────────────────────
 
     def boundingRect(self) -> QRectF:
-        path, _ = self._path_and_label()
-        return path.boundingRect().adjusted(-20, -20, 20, 20)
+        path, label_pos = self._path_and_label()
+        r = path.boundingRect().adjusted(-20, -20, 20, 20)
+        # Label background rect is drawn up to ~104 px either side of label_pos and
+        # ~12 px above/below it.  Omitting it from boundingRect() caused ghost labels
+        # when connected nodes were moved (old area never invalidated by Qt).
+        label_r = QRectF(label_pos.x() - 104, label_pos.y() - 12, 208, 24)
+        return r.united(label_r)
 
     def shape(self) -> QPainterPath:
         path, _ = self._path_and_label()
@@ -1224,20 +1244,8 @@ class WorkflowGraphWidget(QWidget):
         else:
             self._rebuild_edit_full(rule)
 
-        # Header badge — resolve step via same logic as _rebuild_run_slice
-        raw_step = (wi.current_step if wi else "NEW") if self.mode == "run" else ""
-        current_step = self._resolve_step(rule, raw_step) if raw_step else ""
-        sdef_cur = rule.states.get(current_step) if current_step else None
-        badge_text = rule.get_state_label(current_step) if current_step else ""
-        badge_col = self._state_color(current_step, sdef_cur) if current_step else "#607d8b"
         self._rule_lbl.setText(rule.get_display_name())
-        self._badge.setVisible(self.mode == "run")
-        self._badge.setText(badge_text)
-        from gui.theme import CLR_TEXT_ON_COLOR, FONT_BASE, RADIUS_SM
-        self._badge.setStyleSheet(
-            f"font-size:{FONT_BASE}px; padding:2px 8px; border-radius:{RADIUS_SM}px;"
-            f" background:{badge_col}; color:{CLR_TEXT_ON_COLOR}; font-weight:bold;"
-        )
+        self._badge.setVisible(False)
 
         QTimer.singleShot(50, self._fit_view)
 
@@ -1269,7 +1277,7 @@ class WorkflowGraphWidget(QWidget):
                 if f not in self._doc_data or self._doc_data.get(f) is None
             ]
             if missing_fields:
-                parts.append("Missing fields: " + ", ".join(missing_fields))
+                parts.append(self.tr("Missing fields: %s") % ", ".join(missing_fields))
             unmet_conds = [
                 f"{c.field} {c.op} {c.value}"
                 for c in trans.conditions
@@ -1283,7 +1291,7 @@ class WorkflowGraphWidget(QWidget):
                 )
             ]
             if unmet_conds:
-                parts.append("Unmet: " + ", ".join(unmet_conds))
+                parts.append(self.tr("Unmet conditions: %s") % ", ".join(unmet_conds))
             return "\n".join(parts)
 
         # Per-node display properties — computed before any addItem call so that
@@ -1419,8 +1427,13 @@ class WorkflowGraphWidget(QWidget):
                 self._scene.addItem(edge)
                 self._edges.append(edge)
 
-            src_node._connected_edges = [
-                e for e in self._edges if e.src is src_node or e.tgt is src_node
+        # Build connected-edge lists for ALL nodes (source AND target) after all
+        # edges are added.  Doing this inside the loop only updated src_node, so
+        # pure-target nodes (e.g. final states) never got any entries and their
+        # arrows were not redrawn when those nodes were moved.
+        for _node in self._nodes.values():
+            _node._connected_edges = [
+                e for e in self._edges if e.src is _node or e.tgt is _node
             ]
 
         # ── Fanout spread (same as before) ────────────────────────────────────
@@ -1439,8 +1452,9 @@ class WorkflowGraphWidget(QWidget):
             for _i, _e in enumerate(_group):
                 _e.src_spread = (_i - (len(_group) - 1) / 2.0) * _FANOUT
 
-        # Initial orange: the current state starts as the pending/selected state
-        # so the user immediately sees which state is active.
+        # Current state starts as the active selection (teal).
+        # Clicking an available target shifts selection to that target;
+        # clicking the current-state node again clears back to current-state selected.
         cur_node = self._nodes.get(current_step)
         if cur_node:
             cur_node.is_pending = True
@@ -1489,22 +1503,26 @@ class WorkflowGraphWidget(QWidget):
             )
 
     def _clear_pending(self) -> None:
-        """Clear any pending transition selection and return orange to current state."""
+        """Clear any pending transition selection and re-select the current state."""
         self._pending_action = None
         self._pending_target = None
         self._pending_rule_id = None
         for _e in self._edges:
-            _e.is_pending = False
+            if _e.is_pending:
+                _e.is_pending = False
+                _e.update()
         for _n in self._nodes.values():
-            _n.is_pending = False
-        if self._btn_apply:
-            self._btn_apply.setEnabled(False)
-            self._btn_apply.setStyleSheet("padding:0 12px; font-weight:bold;")
-        # Restore orange highlight on the current state node
-        cur_node = self._nodes.get(self._current_step)
+            if _n.is_pending:
+                _n.is_pending = False
+                _n.update()
+        # Return visual selection focus to the current state
+        cur_node = next((_n for _n in self._nodes.values() if _n.is_current), None)
         if cur_node:
             cur_node.is_pending = True
             cur_node.update()
+        if self._btn_apply:
+            self._btn_apply.setEnabled(False)
+            self._btn_apply.setStyleSheet("padding:0 12px; font-weight:bold;")
 
     def _on_apply(self) -> None:
         """Commit the pending transition."""
@@ -1588,8 +1606,12 @@ class WorkflowGraphWidget(QWidget):
                 self._scene.addItem(edge)
                 self._edges.append(edge)
 
-            src_node._connected_edges = [
-                e for e in self._edges if e.src is src_node or e.tgt is src_node
+        # Build connected-edge lists for ALL nodes after all edges are added.
+        # Pure-target nodes (final states) were never assigned entries by the
+        # old in-loop src_node update, so their arrows were not redrawn on drag.
+        for _node in self._nodes.values():
+            _node._connected_edges = [
+                e for e in self._edges if e.src is _node or e.tgt is _node
             ]
 
         # Fanout spread
@@ -1853,6 +1875,11 @@ class WorkflowGraphWidget(QWidget):
         if self._rule is not None:
             self._rule.node_positions[state_id] = [new_pos.x(), new_pos.y()]
             self.rule_changed.emit()
+        # Snap endpoint and ctrl-point handles to the updated edge geometry.
+        # Without this, orange ctrl diamonds stay at their old positions while
+        # the underlying Bezier curve moves, leaving visual artifacts.
+        for h in self._handles:
+            h._snap_to_edge()
 
     # ── Edit mode — anchor-committed callback ─────────────────────────────────
 

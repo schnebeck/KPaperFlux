@@ -93,11 +93,11 @@ class DocumentListWidget(QWidget):
     tags_update_requested = pyqtSignal(list)
     document_count_changed = pyqtSignal(int, int) # visible_count, total_count
     save_list_requested = pyqtSignal(str, list) # name, uuids
-    restore_requested = pyqtSignal(list) # Phase 92: Trash Restore
+    restore_requested = pyqtSignal(list)
     apply_rule_requested = pyqtSignal(object, str) # rule_node, scope ("SELECTED")
     re_ocr_requested = pyqtSignal(list)
     show_generic_requested = pyqtSignal(str) # UUID
-    purge_requested = pyqtSignal(list)   # Phase 92: Permanent Delete
+    purge_requested = pyqtSignal(list)
     archive_requested = pyqtSignal(list, bool) # [NEW] Archive/Unarchive
     search_cleared = pyqtSignal()       # Signal for global reset sync
     TAG_MAPPING = {
@@ -167,10 +167,10 @@ class DocumentListWidget(QWidget):
         self.current_filter = {}
         self.current_filter_text = ""
         self.current_advanced_query = None
-        self.current_cockpit_query = None # Phase 105: Cockpit Precedence
-        self.advanced_filter_active = True   # Phase 105: Active Rule Toggle
-        self.target_uuid_to_restore = None   # Phase 105: Programmatic override
-        self.current_hit_map: Dict[str, int] = {} # Phase 106: hit counts
+        self.current_cockpit_query = None
+        self.advanced_filter_active = True
+        self.target_uuid_to_restore = None
+        self.current_hit_map: Dict[str, int] = {}
         self.dynamic_columns = []
         self.is_trash_mode = False
         self.is_archive_mode = False
@@ -266,7 +266,6 @@ class DocumentListWidget(QWidget):
 
         layout.addWidget(self.tree)
 
-        # Phase 113: Lazy Loading / Infinite Scroll
         self.CHUNK_SIZE = 100
         self._all_docs = []
         self._loaded_count = 0
@@ -584,7 +583,7 @@ class DocumentListWidget(QWidget):
              show_selectable_message_box(
                  self,
                  self.tr("Locked Documents"),
-                 self.tr("%s document(s) are locked and cannot be deleted.") % skipped,
+                 self.tr("%n document(s) are locked and cannot be deleted.", "", skipped),
                  icon=QMessageBox.Icon.Information
              )
 
@@ -618,7 +617,6 @@ class DocumentListWidget(QWidget):
         reprocess_action = menu.addAction(self.tr("Reprocess / Re-Analyze"))
         re_ocr_action = menu.addAction(self.tr("Force OCR / Searchable PDF"))
         
-        # Phase 112: Debug Option
         debug_action = None
         if len(selected_items) == 1:
             menu.addSeparator()
@@ -636,7 +634,6 @@ class DocumentListWidget(QWidget):
         tags_action = menu.addAction(self.tr("Manage Tags..."))
         stamp_action = menu.addAction(self.tr("Stamp..."))
 
-        # Phase 106: Apply Rules
         if self.filter_tree:
             rules_menu = menu.addMenu(self.tr("Apply Rule..."))
             active_rules = self.filter_tree.get_active_rules(only_auto=False)
@@ -765,7 +762,6 @@ class DocumentListWidget(QWidget):
             docs = self.get_visible_documents()
             self.open_export_dialog(docs)
 
-        # Phase 92: Trash Actions
         elif self.is_trash_mode:
             if action == restore_action:
                 self.restore_requested.emit(uuids)
@@ -773,7 +769,7 @@ class DocumentListWidget(QWidget):
                 confirm = show_selectable_message_box(
                     self,
                     self.tr("Delete Permanently"),
-                    self.tr("Are you sure you want to permanently delete %s document(s)?\nThis cannot be undone.") % len(uuids),
+                    self.tr("Are you sure you want to permanently delete %n document(s)?\nThis cannot be undone.", "", len(uuids)),
                     icon=QMessageBox.Icon.Question,
                     buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
@@ -1244,7 +1240,6 @@ class DocumentListWidget(QWidget):
                  self.current_advanced_query = None
 
         self.update_breadcrumb()
-        # Phase 105: Handled inside refresh_list logic
         self.refresh_list(force_select_first=True)
         self.tree.setFocus()
 
@@ -1451,7 +1446,6 @@ class DocumentListWidget(QWidget):
         v_bar = self.tree.verticalScrollBar()
         scroll_val = v_bar.value()
 
-        # Phase 113: Load first chunk and reset state
         self._load_next_chunk(reset=True)
         self._update_workflow_footer(docs)
 
@@ -1509,7 +1503,6 @@ class DocumentListWidget(QWidget):
 
         dlg = ExportDialog(self, documents, path_resolver=path_resolver)
         if dlg.exec():
-            # Phase 106: Mark documents as exported
             if self.db_manager:
                 now = datetime.datetime.now().isoformat()
                 for doc in documents:
@@ -1574,7 +1567,6 @@ class DocumentListWidget(QWidget):
         self.current_filter_text = ""
         self.view_context = "All Documents"
         
-        # Phase 110: Comprehensive reset including Trash and Archive
         self.is_trash_mode = False
         self.is_archive_mode = False
         

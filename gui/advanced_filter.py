@@ -206,7 +206,6 @@ class AdvancedFilterWidget(QWidget):
 
         opt_layout.addStretch()
 
-        # Phase 106: Search Hit Navigation (moved from PDF Viewer)
         self.btn_hit_prev = QPushButton("▲")
         self.btn_hit_prev.setFixedSize(24, 24)
         self.btn_hit_prev.setVisible(False)
@@ -436,7 +435,6 @@ class AdvancedFilterWidget(QWidget):
         meta_row.addWidget(self.edit_tags_rem, 1)
         editor_layout.addLayout(meta_row)
 
-        # Phase 126: Workflow Assignment Row
         wf_row = QHBoxLayout()
         self.lbl_assign_wf = QLabel("")
         self.lbl_assign_wf.setFixedWidth(110)
@@ -576,7 +574,6 @@ class AdvancedFilterWidget(QWidget):
             self.clear_rule()
             return
 
-        # Phase 107: Usage Tracking
         if isinstance(data, FilterNode) and data.node_type == NodeType.FILTER:
             data.usage_count += 1
             if self.save_callback:
@@ -979,13 +976,11 @@ class AdvancedFilterWidget(QWidget):
                 if other != btn:
                     other.setChecked(False)
             self.stack.setCurrentIndex(index)
-            # Phase 131: Trigger breadcrumb update on tab change
             if index == 0: # Search
                 self.search_triggered.emit(self.txt_smart_search.text())
             elif index == 1: # Filter
                 self._emit_change()
             
-            # Phase 131: Literal for l10n tool detection
             _ = self.tr("Filter")
         
         self._update_stack_visibility()
@@ -1070,11 +1065,9 @@ class AdvancedFilterWidget(QWidget):
         # Process UI updates immediately
         QCoreApplication.processEvents()
 
-        # Phase 106: Force Literal Text Search (No semantic interpretation as requested)
         criteria = {"fulltext": text}
         logger.debug(f"[Search] Literal Search Criteria: {criteria}")
 
-        # Phase 106: Deep Search for fulltext using Raw Data if available
         if criteria.get("fulltext") and self.db_manager:
              logger.debug(f"[Search] Performing Deep Search for text: '{criteria['fulltext']}'")
              # Find UUIDs that match the text in RAW or CACHE
@@ -1120,7 +1113,6 @@ class AdvancedFilterWidget(QWidget):
             status_msg = self.tr("%1 documents found").replace("%1", str(count))
             
             if self.db_manager and text:
-                # Phase 106: Count total occurrences
                 total_hits = self.db_manager.count_total_text_occurrences_advanced(final_query, text)
                 if total_hits >= count:
                     # Clearer format: "X documents found (Y occurrences)"
@@ -1427,7 +1419,6 @@ class AdvancedFilterWidget(QWidget):
             self.clear_all(reset_combo=True) # Reset if nothing to load
             return
 
-        # Phase 107: Usage Tracking for Top 3
         if isinstance(data, FilterNode) and data.node_type == NodeType.FILTER:
             data.usage_count += 1
             if self.save_callback:
@@ -1832,7 +1823,6 @@ class AdvancedFilterWidget(QWidget):
         
         # Search Tab
         self.lbl_search_header.setText(self.tr("Query:"))
-        # Phase 131: Explicitly set "Advanced Filter" translation for breadcrumb context
         # This will be picked up by DocumentListWidget.update_breadcrumb indirectly
         self.txt_smart_search.setPlaceholderText(self.tr("e.g. Amazon 2024 Invoice..."))
         self.btn_apply_search.setText("🔍")

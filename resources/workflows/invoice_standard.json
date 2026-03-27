@@ -34,7 +34,8 @@
           "icon": null
         }
       ],
-      "final": false
+      "final": false,
+      "initial": true
     },
     "s_2b61003e": {
       "label": "Gepr\u00fcft",
@@ -60,17 +61,20 @@
           "icon": null
         }
       ],
-      "final": false
+      "final": false,
+      "initial": false
     },
     "s_2dc6045d": {
       "label": "Bezahlt -> Archiv",
       "transitions": [],
-      "final": true
+      "final": true,
+      "initial": false
     },
     "s_60c10d5d": {
       "label": "Zur\u00fcckgewiesen -> Spam",
       "transitions": [],
-      "final": true
+      "final": true,
+      "initial": false
     }
   },
   "triggers": {
