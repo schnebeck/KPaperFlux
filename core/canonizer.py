@@ -163,6 +163,27 @@ class CanonizerService:
 
         return processed_count
 
+    def _detect_zugferd_type_tags(self, v_doc: VirtualDocument) -> Optional[List[str]]:
+        """
+        Check whether the document's first physical file embeds a ZUGFeRD / Factur-X
+        XML and return the derived type_tags list (e.g. ``["INVOICE"]``).
+
+        Returns ``None`` if no ZUGFeRD XML is found or the physical file is unavailable.
+        Never raises — errors are swallowed and logged.
+        """
+        if not v_doc.source_mapping:
+            return None
+        pf = self.physical_repo.get_by_uuid(v_doc.source_mapping[0].file_uuid)
+        if not pf or not getattr(pf, "file_path", None):
+            return None
+        try:
+            from core.utils.zugferd_extractor import ZugferdExtractor
+            data = ZugferdExtractor.extract_from_pdf(pf.file_path)
+            return data.get("type_tags") if data else None
+        except Exception as exc:
+            logger.warning(f"ZUGFeRD pre-classification failed for {v_doc.uuid}: {exc}")
+            return None
+
     def _atomic_transition(self, v_doc: VirtualDocument, allowed_old: List[str], target_status: str) -> bool:
         """
         Atomically transitions the document status in the DB.
@@ -286,89 +307,116 @@ class CanonizerService:
                 logger.info(f"Document {v_doc.uuid[:8]} is already {status}. Skipping to avoid overlap.")
                 return False
 
-            # 2. AI Analysis (Stage 1: Classification & Split)
-            priv_json = self.config.get_private_profile_json()
-            bus_json = self.config.get_business_profile_json()
-            priv_id = IdentityProfile.model_validate_json(priv_json) if priv_json else None
-            bus_id = IdentityProfile.model_validate_json(bus_json) if bus_json else None
-
-            struct_res = self.analyzer.run_stage_1_adaptive(pages_text, priv_id, bus_id)
-            logger.info("Stage 1.1 (Classification) [DONE]")
-
-            if struct_res is None:
-                logger.error(f"Stage 1.1 AI Analysis failed after all retries. Setting STAGE1_HOLD for {v_doc.uuid}.")
-                v_doc.status = DocumentStatus.STAGE1_HOLD
-                self.logical_repo.save(v_doc)
-                return False
-
-            # Protection override: Locked documents (Class A/B) cannot be split by AI
-            if getattr(v_doc, 'is_immutable', False):
-                logger.info(f"Document {v_doc.uuid} is PROTECTED. Forcing 1:1 mapping.")
-                # We use the classification from AI if available
-                if struct_res.get("detected_entities"):
-                    ent = struct_res["detected_entities"][0]
-                    ent["page_indices"] = list(range(1, len(pages_text) + 1))
-                    struct_res["detected_entities"] = [ent]
-                else:
-                    # Fallback if AI found nothing but document is protected
-                    struct_res["detected_entities"] = [{
-                        "type_tags": v_doc.type_tags or ["OTHER"],
-                        "page_indices": list(range(1, len(pages_text) + 1)),
-                        "confidence": 1.0
-                    }]
-
-            detected_entities = struct_res.get("detected_entities", [])
-            is_hybrid = struct_res.get("source_file_summary", {}).get("is_hybrid_document", False)
-
-            if not detected_entities:
-                logger.info(f"Stage 1.1: No entities detected for {v_doc.uuid}.")
-                v_doc.status = DocumentStatus.PROCESSED
-                v_doc.last_processed_at = datetime.now().isoformat()
-                self.logical_repo.save(v_doc)
-                return True
-
-            all_tags: List[str] = []
-            for ent in detected_entities:
-                # Strictly use type_tags from AI response
-                types = ent.get("type_tags") or []
-                for t in types:
-                    if t and t not in all_tags:
-                        all_tags.append(t)
-            v_doc.type_tags = all_tags
-
-            if is_manual:
-                logger.info(f"Manually edited doc {v_doc.uuid} detected. Skipping auto-split.")
-                # We still need to proceed to Stage 2 for this manual document.
-                # So we simply set split_candidates to a single entry representing the whole doc.
-                split_candidates = [
-                    {
-                        "types": v_doc.type_tags or ["OTHER"],
+            # Stage 0: ZUGFeRD pre-classification — skip Stage 1 AI when XML is present.
+            # ZUGFeRD / Factur-X PDFs are exclusively financial documents; the document
+            # type code in the XML (BT-3) gives authoritative type_tags with zero tokens.
+            # Manual edits are excluded: the user's intent takes precedence over the XML.
+            if not is_manual:
+                zugferd_type_tags = self._detect_zugferd_type_tags(v_doc)
+                if zugferd_type_tags:
+                    logger.info(
+                        f"[{v_doc.uuid[:8]}] Stage 0 — ZUGFeRD pre-classification "
+                        f"{zugferd_type_tags}: Stage 1 AI skipped."
+                    )
+                    v_doc.type_tags = zugferd_type_tags
+                    split_candidates = [{
+                        "types": zugferd_type_tags,
                         "pages": list(range(1, len(pages_text) + 1)),
                         "confidence": 1.0,
-                    }
-                ]
-            else:
-                has_clear_boundaries = all(ent.get("page_indices") for ent in detected_entities)
-                if is_hybrid and not has_clear_boundaries:
-                    logger.info("Stage 1.1 found hybrid but no clear boundaries. Triggering Stage 1.2.")
-                    split_candidates = self.analyzer.identify_entities(full_text, detected_entities=detected_entities)
-
-                    if split_candidates is None:
-                        logger.error("Stage 1.2 AI Analysis returned None. Aborting.")
-                        return False
+                    }]
+                    # Jump directly to Apply Splits (Stage 2 will handle extraction).
+                    # Fall through to the code block after the else branch.
                 else:
-                    split_candidates = []
-                    for ent in detected_entities:
-                        c_types = ent.get("type_tags") or ["OTHER"]
-                        split_candidates.append(
-                            {
-                                "types": c_types,
-                                "pages": ent.get("page_indices", list(range(1, len(pages_text) + 1))),
-                                "confidence": ent.get("confidence", 1.0),
-                                "direction": ent.get("direction"),
-                                "tenant_context": ent.get("tenant_context"),
-                            }
-                        )
+                    zugferd_type_tags = None
+            else:
+                zugferd_type_tags = None
+
+            if not zugferd_type_tags:
+                # 2. AI Analysis (Stage 1: Classification & Split)
+                priv_json = self.config.get_private_profile_json()
+                bus_json = self.config.get_business_profile_json()
+                priv_id = IdentityProfile.model_validate_json(priv_json) if priv_json else None
+                bus_id = IdentityProfile.model_validate_json(bus_json) if bus_json else None
+
+                struct_res = self.analyzer.run_stage_1_adaptive(pages_text, priv_id, bus_id)
+                logger.info("Stage 1.1 (Classification) [DONE]")
+
+                if struct_res is None:
+                    logger.error(f"Stage 1.1 AI Analysis failed after all retries. Setting STAGE1_HOLD for {v_doc.uuid}.")
+                    v_doc.status = DocumentStatus.STAGE1_HOLD
+                    self.logical_repo.save(v_doc)
+                    return False
+
+                # Protection override: Locked documents (Class A/B) cannot be split by AI
+                if getattr(v_doc, 'is_immutable', False):
+                    logger.info(f"Document {v_doc.uuid} is PROTECTED. Forcing 1:1 mapping.")
+                    # We use the classification from AI if available
+                    if struct_res.get("detected_entities"):
+                        ent = struct_res["detected_entities"][0]
+                        ent["page_indices"] = list(range(1, len(pages_text) + 1))
+                        struct_res["detected_entities"] = [ent]
+                    else:
+                        # Fallback if AI found nothing but document is protected
+                        struct_res["detected_entities"] = [{
+                            "type_tags": v_doc.type_tags or ["OTHER"],
+                            "page_indices": list(range(1, len(pages_text) + 1)),
+                            "confidence": 1.0
+                        }]
+
+                detected_entities = struct_res.get("detected_entities", [])
+                is_hybrid = struct_res.get("source_file_summary", {}).get("is_hybrid_document", False)
+
+                if not detected_entities:
+                    logger.info(f"Stage 1.1: No entities detected for {v_doc.uuid}.")
+                    v_doc.status = DocumentStatus.PROCESSED
+                    v_doc.last_processed_at = datetime.now().isoformat()
+                    self.logical_repo.save(v_doc)
+                    return True
+
+                all_tags: List[str] = []
+                for ent in detected_entities:
+                    # Strictly use type_tags from AI response
+                    types = ent.get("type_tags") or []
+                    for t in types:
+                        if t and t not in all_tags:
+                            all_tags.append(t)
+                v_doc.type_tags = all_tags
+
+            if not zugferd_type_tags:
+                # split_candidates not yet set — build from Stage 1 result.
+                if is_manual:
+                    logger.info(f"Manually edited doc {v_doc.uuid} detected. Skipping auto-split.")
+                    # We still need to proceed to Stage 2 for this manual document.
+                    # So we simply set split_candidates to a single entry representing the whole doc.
+                    split_candidates = [
+                        {
+                            "types": v_doc.type_tags or ["OTHER"],
+                            "pages": list(range(1, len(pages_text) + 1)),
+                            "confidence": 1.0,
+                        }
+                    ]
+                else:
+                    has_clear_boundaries = all(ent.get("page_indices") for ent in detected_entities)
+                    if is_hybrid and not has_clear_boundaries:
+                        logger.info("Stage 1.1 found hybrid but no clear boundaries. Triggering Stage 1.2.")
+                        split_candidates = self.analyzer.identify_entities(full_text, detected_entities=detected_entities)
+
+                        if split_candidates is None:
+                            logger.error("Stage 1.2 AI Analysis returned None. Aborting.")
+                            return False
+                    else:
+                        split_candidates = []
+                        for ent in detected_entities:
+                            c_types = ent.get("type_tags") or ["OTHER"]
+                            split_candidates.append(
+                                {
+                                    "types": c_types,
+                                    "pages": ent.get("page_indices", list(range(1, len(pages_text) + 1))),
+                                    "confidence": ent.get("confidence", 1.0),
+                                    "direction": ent.get("direction"),
+                                    "tenant_context": ent.get("tenant_context"),
+                                }
+                            )
 
         # 4. Apply Splits
         original_source_map = v_doc.source_mapping

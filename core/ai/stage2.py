@@ -252,10 +252,10 @@ class Stage2Processor:
                         "repaired_text": "",
                         "ai_confidence": 1.0,
                         "extraction_source": "ZUGFERD_NATIVE",
-                        # Carry type_tags from Stage 1 so semantic_data.type_tags is
-                        # not lost (virtual_documents.type_tags is set separately in
-                        # CanonizerService, but the SemanticExtraction copy must match).
-                        "type_tags": stage_1_result.get("type_tags", [entity_type]),
+                        # Carry type_tags so semantic_data.type_tags is not empty.
+                        # For ZUGFeRD-native: stage_1_result already contains the
+                        # type_tags derived from the XML type code (BT-3).
+                        "type_tags": stage_1_result.get("type_tags") or [entity_type],
                     }
                     extraction = self._apply_zugferd_overlay(extraction, zugferd_data, entity_type)
 

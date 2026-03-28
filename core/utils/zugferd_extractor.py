@@ -65,6 +65,18 @@ class ZugferdExtractor:
             # If it's an element, return its text content
             return res.text if hasattr(res, 'text') else str(res)
 
+        # --- 0. Document Type Code (BT-3) ---
+        # UN/CEFACT code list: 380=Invoice, 381=CreditNote, 383=DebitNote, etc.
+        _TYPE_CODE_MAP: dict[str, list[str]] = {
+            "380": ["INVOICE"],
+            "381": ["CREDIT_NOTE"],
+            "383": ["INVOICE"],   # Debit note → treat as invoice
+            "386": ["INVOICE"],   # Prepayment invoice
+            "389": ["INVOICE"],   # Self-billing invoice
+        }
+        raw_type_code = t("//rsm:ExchangedDocument/ram:TypeCode")
+        type_tags = _TYPE_CODE_MAP.get(str(raw_type_code).strip() if raw_type_code else "", ["INVOICE"])
+
         # --- 1. Basic Header (BT-1, BT-2, BT-9) ---
         invoice_number = t("//rsm:ExchangedDocument/ram:ID")
         raw_date = t("//rsm:ExchangedDocument/ram:IssueDateTime/udt:DateTimeString")
@@ -166,6 +178,7 @@ class ZugferdExtractor:
             }
 
         return {
+            "type_tags": type_tags,
             "meta_data": {
                 "sender": parse_party(seller),
                 "recipient": parse_party(buyer),
