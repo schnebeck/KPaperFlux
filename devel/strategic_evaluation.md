@@ -1,7 +1,7 @@
 # KPaperFlux: Strategic Evaluation & Roadmap
 
-**Date:** 2026-03-27
-**Status:** Workflow Engine Mature — Transitioning to Document Intelligence & Deadline Management
+**Date:** 2026-03-28
+**Status:** Architecture Refactoring Complete — Transitioning to Document Intelligence & Deadline Management
 
 ---
 
@@ -11,9 +11,9 @@
 - **Three-Layer Document Model:** `PhysicalDocument` (vault/WORM) → `VirtualDocument` (state/pipeline) → `SemanticDocument` (extracted JSON) — proven and stable.
 - **Multi-Stage Pipeline (Stage 0–2):** Ingestion, PDF splitting, adaptive AI preflight (`SANDWICH` / `HEADER_SCAN` / `FULL_READ`), forensic visual audit (Stage 1.5), semantic extraction (Stage 2).
 - **Local AI Sovereignty:** Multi-backend support — Gemini, OpenAI, Anthropic, Ollama. 100% local processing possible.
-- **SQLite + FTS5:** Full-text search, semantic JSON querying via `json_extract` / `json_each`, schema migrations, virtual columns.
+- **SQLite + FTS5:** Full-text search, semantic JSON querying via `json_extract` / `json_each`, schema migrations. `QueryBuilder` extracted into `core/query_builder.py`.
 - **Vault (WORM):** UUID-based immutable file storage. Files are never modified after write.
-- **404 unit and GUI tests**, single remaining TODO in codebase. Quality gate enforced via `test_code_quality.py`.
+- **455 unit and GUI tests**, zero TODOs in production code. Quality gate enforced via `test_code_quality.py`.
 
 ### Reporting & Analytics (Stable)
 - **Reporting Canvas (WYSIWYG):** Reorderable, annotatable report components (charts, tables, text). Real-time drag-and-drop layout.
@@ -35,6 +35,12 @@
 ### GiroCode & Payment (Stable)
 - **EPC QR Code generation** (`core/utils/girocode.py`) fully wired into the payment tab of `MetadataEditor` with live-refresh on field changes.
 
+### GUI Architecture (Refactored — March 2026)
+- **`DocumentActionController`** (`gui/controllers/document_action_controller.py`, 599 lines): All document operations (import, delete, reprocess, stamp, archive, purge, restore) extracted from `MainWindow`. Communicates back via signals only — no widget references.
+- **`MainWindowMenuMixin`** (`gui/main_menu.py`, 501 lines): All menu bar, toolbar, tab navigation, and `retranslate_ui` logic extracted as a Python mixin.
+- **`DebugController`** (`gui/controllers/debug_controller.py`, 196 lines): All debug/maintenance operations extracted from `MainWindow` into a signal-based controller.
+- **`main_window.py` reduced** from 2641 → 1625 lines (−38%). Now acts as an orchestration shell only.
+
 ### Forensic / Hybrid PDF (Partial)
 - `HybridEngine`, `ForegroundDetector`, forensic ink extraction: complete.
 - `ZugferdExtractor` (`core/utils/zugferd_extractor.py`): complete and tested.
@@ -50,17 +56,23 @@
 
 ## 2. Known Architectural Weaknesses
 
-### 1. `main_window.py` is a God-Object (2600+ lines)
-Directly coordinates signals between all subsystems. Risk of circular dependency growth as the project scales. Mitigation: introduce a central `ApplicationController` or thin event-bus layer for cross-subsystem signals.
+### 1. `main_window.py` still coordinates too much (1625 lines)
+The God-Object problem is substantially reduced but not eliminated. `MainWindow.__init__` still chains ~15 `_setup_*` calls and routes cross-subsystem signals directly. The remaining 1625 lines contain: setup helpers, signal wiring for every subsystem, search/filter coordination, splitter dialog, and scanner/cockpit integration. A central `ApplicationBus` (thin event broker) would decouple subsystems without requiring widgets to know about each other. **Risk level: medium** — the current structure is maintainable but will resist further feature additions.
 
-### 2. Pipeline has no real cancellation protocol
+### 2. `DocumentActionController` is too large (599 lines)
+While a clear improvement over inline code in `MainWindow`, the controller handles 10 distinct operations. Each operation (import, delete, reprocess, stamp, archive…) has its own worker thread, signals, and error handling. As complexity grows, this class risks becoming the next God-Object. Candidate split: `ImportController`, `LifecycleController` (delete/archive/purge/restore), `ProcessingController` (reprocess/stage2/stamp).
+
+### 3. Pipeline has no real cancellation protocol
 `PipelineProcessor.process_document()` is a single synchronous call. `terminate_activity()` is a soft-stop flag, not a true cooperative cancellation. Large batches block until the current document finishes. Mitigation: structured cancellation tokens per stage.
 
-### 3. `core/database.py` is monolithic (1700+ lines)
-Schema migrations, query builder, virtual column definitions, and `json_each` special-case handlers coexist in one class. `_build_where_clause()` accumulates special cases. Mitigation (future): extract a `QueryBuilder` class.
+### 4. `core/database.py` is still monolithic (1392 lines)
+`QueryBuilder` was extracted into `core/query_builder.py` (354 lines), which resolved the `_build_where_clause` accumulation problem. However, schema migrations, virtual column definitions, and the hydration/repository layer still coexist in `database.py`. The `repositories/` layer (`logical_repo.py`, `physical_repo.py`) exists but is not fully used — `DatabaseManager` still performs direct hydration in many places. Full separation of concerns would require routing all reads through the repository layer.
 
-### 4. Plugin system is opaque to the user
+### 5. Plugin system is opaque to the user
 No settings panel showing installed plugins, their version, or on/off toggle. Plugins cannot be added/removed at runtime.
+
+### 6. No background scheduler
+Timed workflow transitions (e.g., "30 days no payment → DUNNING") and deadline monitoring both require periodic evaluation. There is no background scheduler or daemon thread. Each check currently happens only on document open or explicit user action. A lightweight scheduler (`APScheduler` or a simple `QTimer`-based interval) would enable proactive alerting.
 
 ---
 
@@ -171,4 +183,9 @@ The engine itself is stable. Open work is at the edges:
 
 ## 6. Conclusion
 
-KPaperFlux has successfully transitioned from **Data Acquisition** to **Task-Based Knowledge Management**. The workflow engine, multi-backend AI, and forensic hybrid pipeline are production-ready. The next phase focuses on closing the gap between *data that is extracted* and *insight that is surfaced* — specifically deadline awareness, ZUGFeRD-native accuracy, and navigable document relationships.
+KPaperFlux has successfully completed its **architecture refactoring phase** (March 2026): `MainWindow` reduced by 38%, three controller/mixin extractions, `QueryBuilder` separation, multi-workflow model. The codebase now has 455 tests and zero production TODOs.
+
+The next phase focuses on closing the gap between *data that is extracted* and *insight that is surfaced* — specifically:
+1. **ZUGFeRD-native accuracy** (eliminate redundant AI calls on structured documents)
+2. **Deadline awareness** (proactive traffic-light alerting from already-extracted date fields)
+3. **Forensic transparency** (surface signature/ZUGFeRD status directly in the PDF viewer)
