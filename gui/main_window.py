@@ -749,7 +749,8 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
             # Load via UUID (PdfViewer handles resolution and stitching internally)
             self.pdf_viewer.load_document(uuid, uuid=uuid, jump_to_index=target_index)
-            
+            self.pdf_viewer.set_integrity_info(primary_doc)
+
             # Apply current global search highlight if any
             if self.current_search_text:
                 self.pdf_viewer.set_highlight_text(self.current_search_text)

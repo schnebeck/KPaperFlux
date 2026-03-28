@@ -39,6 +39,7 @@ import fitz
 from core.models.virtual import SourceReference
 from core.utils.hybrid_engine import HybridEngine
 from gui.workers import MatchAnalysisWorker
+from gui.widgets.integrity_status_bar import IntegrityStatusBar
 
 class ToastOverlay(QLabel):
     """
@@ -1132,6 +1133,7 @@ class PdfViewerWidget(QWidget):
         
         self.canvas = PdfCanvas(self)
         self.toast = ToastOverlay(self)
+        self.integrity_bar = IntegrityStatusBar(self)
         self._init_ui()
         
         self.canvas.page_changed.connect(self.on_page_changed)
@@ -1283,6 +1285,7 @@ class PdfViewerWidget(QWidget):
             
             t_layout.addWidget(ctrl)
         layout.addWidget(self.toolbar)
+        layout.addWidget(self.integrity_bar)
         layout.addWidget(self.canvas)
 
     def _on_viewport_resized(self) -> None:
@@ -1634,9 +1637,19 @@ class PdfViewerWidget(QWidget):
         """Gracefully terminates background threads and clears references."""
         self.clear()
 
+    def set_integrity_info(self, v_doc: Optional[Any]) -> None:
+        """Updates the integrity status bar from a VirtualDocument.
+
+        Call this after load_document() whenever a real document object is
+        available. Passing None or a document with no forensic metadata hides
+        the bar automatically.
+        """
+        self.integrity_bar.update_from_document(v_doc)
+
     def clear(self) -> None:
         """Closes the current document and clears the display."""
         self.current_uuid = None
+        self.integrity_bar.clear()
         self.canvas.set_document(None)
         
         # Cleanup temporary PDF if it exists
