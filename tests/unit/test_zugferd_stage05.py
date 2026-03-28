@@ -153,6 +153,24 @@ class TestZugferdStage05NativeInjection:
         assert finance.get("invoice_number") == "INV-2025-001"
         assert finance.get("due_date") == "2025-02-14"
 
+    def test_type_tags_carried_from_stage1(self):
+        """type_tags from Stage 1 must appear in semantic_data even when AI is skipped."""
+        proc = _make_stage2_processor()
+        zugferd_data = _make_zugferd_data()
+
+        stage_1_result = {"type_tags": ["INVOICE"], "detected_entities": [{"type_tags": ["INVOICE"]}]}
+
+        with patch("core.utils.zugferd_extractor.ZugferdExtractor.extract_from_pdf",
+                   return_value=zugferd_data):
+            result = proc.run_stage_2(
+                raw_ocr_pages=["Rechnung"],
+                stage_1_result=stage_1_result,
+                stage_1_5_result={},
+                pdf_path="/tmp/test.pdf",
+            )
+
+        assert "INVOICE" in result.get("type_tags", [])
+
     def test_sender_populated_from_xml_meta(self):
         """meta_header.sender must be set from ZUGFeRD meta_data."""
         proc = _make_stage2_processor()

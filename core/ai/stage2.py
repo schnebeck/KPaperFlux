@@ -252,6 +252,10 @@ class Stage2Processor:
                         "repaired_text": "",
                         "ai_confidence": 1.0,
                         "extraction_source": "ZUGFERD_NATIVE",
+                        # Carry type_tags from Stage 1 so semantic_data.type_tags is
+                        # not lost (virtual_documents.type_tags is set separately in
+                        # CanonizerService, but the SemanticExtraction copy must match).
+                        "type_tags": stage_1_result.get("type_tags", [entity_type]),
                     }
                     extraction = self._apply_zugferd_overlay(extraction, zugferd_data, entity_type)
 
@@ -328,6 +332,13 @@ class Stage2Processor:
 
                     if extraction.get("extraction_source"):
                         final_semantic_data["extraction_source"] = extraction["extraction_source"]
+
+                    if extraction.get("type_tags"):
+                        existing = final_semantic_data.get("type_tags", [])
+                        for tag in extraction["type_tags"]:
+                            if tag not in existing:
+                                existing.append(tag)
+                        final_semantic_data["type_tags"] = existing
 
                     if extraction.get("repaired_text"):
                         if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
