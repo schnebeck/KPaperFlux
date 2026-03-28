@@ -64,6 +64,7 @@ from gui.workflow_manager import WorkflowManagerWidget
 from gui.reporting import ReportingWidget
 from gui.audit_window import AuditWindow
 from gui.main_menu import MainWindowMenuMixin
+from gui.widgets.group_tree import GroupTreeWidget, _ALL_DOCS_ID as _GROUP_ALL
 from core.plugins.manager import PluginManager
 from core.plugins.base import ApiContext
 
@@ -201,7 +202,15 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.central_stack.currentChanged.connect(self._on_tab_changed)
 
     def _setup_explorer_pane(self) -> None:
-        """Build left pane (filter | list | editor) and right pane (viewer)."""
+        """Build group panel | left pane (filter | list | editor) | right pane (viewer)."""
+
+        # Group sidebar (index 0 — collapsible)
+        if self.db_manager:
+            self.group_tree = GroupTreeWidget(self.db_manager)
+            self.group_tree.group_selected.connect(self._on_group_selected)
+            self.main_splitter.addWidget(self.group_tree)
+
+        # Left pane: filter | list | editor (index 1)
         self.left_pane_splitter = QSplitter(Qt.Orientation.Vertical)
 
         self.advanced_filter = AdvancedFilterWidget(
@@ -216,7 +225,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self.main_splitter.addWidget(self.left_pane_splitter)
 
-        # Right pane: PDF viewer
+        # Right pane: PDF viewer (index 2)
         self.pdf_viewer = PdfViewerWidget(self.pipeline)
         self.pdf_viewer.stamp_requested.connect(self.stamp_document_slot)
         self.pdf_viewer.tags_update_requested.connect(self.manage_tags_slot)
@@ -232,8 +241,15 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self.left_pane_splitter.setSizes([70, 420, 210])
         self.left_pane_splitter.setCollapsible(0, False)
-        self.main_splitter.setSizes([400, 600])
-        self.main_splitter.setCollapsible(1, True)
+
+        if self.db_manager:
+            # group panel | left pane | viewer
+            self.main_splitter.setSizes([160, 380, 560])
+            self.main_splitter.setCollapsible(0, True)   # group panel collapsible
+            self.main_splitter.setCollapsible(2, True)   # pdf viewer collapsible
+        else:
+            self.main_splitter.setSizes([400, 600])
+            self.main_splitter.setCollapsible(1, True)
         self.main_splitter.setHandleWidth(4)
 
     def _setup_list_and_editor(self) -> None:
@@ -611,6 +627,15 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
     def _debug_prune_orphan_workflows_slot(self) -> None:
         self.debug_controller.prune_orphan_workflows()
+
+    def _on_group_selected(self, group_id: str) -> None:
+        """Filter the document list to show only members of the selected group."""
+        if not hasattr(self, "list_widget"):
+            return
+        if group_id == _GROUP_ALL:
+            self.list_widget.set_group_filter(None)
+        else:
+            self.list_widget.set_group_filter(group_id)
 
     def _on_filter_changed(self, criteria: dict):
         """Update local state when filter changes."""

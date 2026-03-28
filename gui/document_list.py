@@ -170,6 +170,7 @@ class DocumentListWidget(QWidget):
         self.current_filter_text = ""
         self.current_advanced_query = None
         self.current_cockpit_query = None
+        self._current_group_filter: Optional[str] = None
         self.advanced_filter_active = True
         self.target_uuid_to_restore = None
         self.current_hit_map: Dict[str, int] = {}
@@ -841,7 +842,17 @@ class DocumentListWidget(QWidget):
 
             if not search_text and active_query:
                 search_text = active_query.get('_meta_fulltext')
-            
+
+            # Group filter: restrict to members of selected group
+            if self._current_group_filter and self.db_manager:
+                from core.repositories.group_repo import GroupRepository
+                group_uuids = set(
+                    GroupRepository(self.db_manager).get_document_uuids_in_group(
+                        self._current_group_filter
+                    )
+                )
+                docs = [d for d in docs if d.uuid in group_uuids]
+
             self.current_hit_map = {}
             if search_text and len(search_text.strip()) >= 2:
                 uuids = [d.uuid for d in docs]
@@ -1250,6 +1261,14 @@ class DocumentListWidget(QWidget):
         self.advanced_filter_active = active
         self.refresh_list(force_select_first=True)
         self.tree.setFocus()
+
+    def set_group_filter(self, group_id: Optional[str]) -> None:
+        """
+        Restrict the document list to members of the given group.
+        Pass None to clear the group filter and show all documents.
+        """
+        self._current_group_filter = group_id
+        self.refresh_list(force_select_first=True)
 
     def _check_scroll_bottom(self, value):
         """Infinite Scroll Trigger: Loads more data if user reaches 90% of current view."""

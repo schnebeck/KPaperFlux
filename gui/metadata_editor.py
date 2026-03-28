@@ -35,6 +35,7 @@ from gui.utils import format_datetime, show_selectable_message_box, show_notific
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.tag_input import TagInputWidget
 from gui.widgets.workflow_summary import WorkflowSummaryWidget
+from gui.widgets.group_membership_chips import GroupMembershipWidget
 
 # Core Models
 from core.models.semantic import SemanticExtraction, WorkflowInfo, WorkflowLog, SubscriptionInfo
@@ -250,7 +251,8 @@ class MetadataEditorWidget(QWidget):
         self.tags_edit.setToolTip(self.tr("Custom Tags: Enter keywords, separated by commas or Enter."))
         self.archived_chk.setText(self.tr("Archived"))
         self.lbl_storage_location_prefix.setText(self.tr("Storage Location:"))
-        
+        self.lbl_groups_prefix.setText(self.tr("Groups:"))
+
         # Status Combo
         current_data = self.status_combo.currentData()
         self.status_combo.blockSignals(True)
@@ -452,6 +454,14 @@ class MetadataEditorWidget(QWidget):
         self.lbl_storage_location_prefix = QLabel()
         self.storage_location_edit = QLineEdit()
         general_layout.addRow(self.lbl_storage_location_prefix, self.storage_location_edit)
+
+        self.lbl_groups_prefix = QLabel()
+        if self.db_manager:
+            self.group_membership_widget = GroupMembershipWidget(self.db_manager)
+        else:
+            self.group_membership_widget = None
+        if self.group_membership_widget:
+            general_layout.addRow(self.lbl_groups_prefix, self.group_membership_widget)
 
         self.tab_widget.addTab(self.general_scroll, "")
 
@@ -1061,6 +1071,9 @@ class MetadataEditorWidget(QWidget):
             self.tags_edit.setTags(user_tags)
         else:
             self.tags_edit.setText(str(user_tags))
+
+        if self.group_membership_widget:
+            self.group_membership_widget.set_document(doc.uuid)
 
         # AI / Analysis Fields
         sd = doc.semantic_data  # This is a SemanticExtraction object in V2

@@ -27,13 +27,18 @@ def test_layout_structure(qtbot, mock_db):
     assert isinstance(main_splitter, QSplitter)
     assert main_splitter.orientation() == Qt.Orientation.Horizontal
     
-    # Check Left Pane (Vertical Splitter)
-    left_pane = main_splitter.widget(0)
+    # Check Group Sidebar (index 0)
+    from gui.widgets.group_tree import GroupTreeWidget
+    group_panel = main_splitter.widget(0)
+    assert isinstance(group_panel, GroupTreeWidget)
+
+    # Check Left Pane (Vertical Splitter, index 1)
+    left_pane = main_splitter.widget(1)
     assert isinstance(left_pane, QSplitter)
     assert left_pane.orientation() == Qt.Orientation.Vertical
-    
-    # Check Right Pane (Viewer)
-    right_pane = main_splitter.widget(1)
+
+    # Check Right Pane / Viewer (index 2)
+    right_pane = main_splitter.widget(2)
     assert isinstance(right_pane, PdfViewerWidget)
     
     # Check Left Pane Widgets

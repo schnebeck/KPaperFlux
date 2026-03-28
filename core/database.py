@@ -127,6 +127,28 @@ class DatabaseManager:
         );
         """
 
+        create_document_groups_table = """
+        CREATE TABLE IF NOT EXISTS document_groups (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            parent_id   TEXT REFERENCES document_groups(id) ON DELETE SET NULL,
+            color       TEXT,
+            icon        TEXT,
+            description TEXT,
+            sort_order  INTEGER DEFAULT 0,
+            filter_query TEXT
+        );
+        """
+
+        create_document_group_memberships_table = """
+        CREATE TABLE IF NOT EXISTS document_group_memberships (
+            document_uuid TEXT NOT NULL,
+            group_id      TEXT NOT NULL REFERENCES document_groups(id) ON DELETE CASCADE,
+            added_at      TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (document_uuid, group_id)
+        );
+        """
+
         # Using FTS5 for efficient full-text search across content and metadata
         create_virtual_documents_fts = """
         CREATE VIRTUAL TABLE IF NOT EXISTS virtual_documents_fts USING fts5(
@@ -143,6 +165,8 @@ class DatabaseManager:
         with self._write() as conn:
             self.connection.execute(create_physical_files_table)
             self.connection.execute(create_virtual_documents_table)
+            self.connection.execute(create_document_groups_table)
+            self.connection.execute(create_document_group_memberships_table)
             self.connection.execute(create_virtual_documents_fts)
             self._create_fts_triggers()
             self._create_usage_triggers()
