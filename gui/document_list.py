@@ -570,6 +570,21 @@ class DocumentListWidget(QWidget):
         # But here we can return the filter to the caller.
         return state.get("filter")
 
+    def _add_to_group(self, uuids: list[str]) -> None:
+        """Open a group picker and add all given documents to the chosen group."""
+        from gui.widgets.group_membership_chips import _GroupPickerDialog
+        from core.repositories.group_repo import GroupRepository
+        repo = GroupRepository(self.db_manager)
+        dlg = _GroupPickerDialog(repo, self)
+        if dlg.exec() and dlg.selected_group_id():
+            group_id = dlg.selected_group_id()
+            for uuid in uuids:
+                repo.add_membership(uuid, group_id)
+            # Refresh group tree if present in parent hierarchy
+            mw = self.window()
+            if hasattr(mw, "group_tree"):
+                mw.group_tree.refresh()
+
     def delete_selected_documents(self, uuids: list[str]):
         """Filter out locked documents before requesting deletion."""
         to_delete = []
@@ -635,6 +650,7 @@ class DocumentListWidget(QWidget):
             extract_selection_action.setEnabled(False)
 
         tags_action = menu.addAction(self.tr("Manage Tags..."))
+        group_action = menu.addAction(self.tr("Add to Group...")) if self.db_manager else None
         stamp_action = menu.addAction(self.tr("Stamp..."))
 
         if self.filter_tree:
@@ -749,6 +765,8 @@ class DocumentListWidget(QWidget):
              self.merge_requested.emit(uuids)
         elif action == tags_action:
              self.tags_update_requested.emit(uuids)
+        elif group_action and action == group_action:
+            self._add_to_group(uuids)
         elif action == stamp_action:
             self.stamp_requested.emit(uuids)
         elif action == debug_action:
