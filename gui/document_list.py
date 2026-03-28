@@ -22,6 +22,7 @@ import datetime
 import os
 import json
 from core.logger import get_logger
+from core.deadline_monitor import compute_tier, URGENCY_ICON, URGENCY_TOOLTIP
 
 logger = get_logger("gui.document_list")
 
@@ -138,7 +139,8 @@ class DocumentListWidget(QWidget):
             9: st.translate("field_exported_at"),
             10: st.translate("field_status"),
             11: st.translate("field_type_tags"),
-            12: st.translate("field_tags")
+            12: st.translate("field_tags"),
+            13: st.translate("field_urgency"),
         }
 
     def _get_semantic_labels(self):
@@ -1334,7 +1336,12 @@ class DocumentListWidget(QWidget):
             status,             # 10: Status
             ", ".join(self.format_tag(t) for t in combined_types if t), # 11: Type Tags
             ", ".join(str(t) for t in (doc.tags or []) if t), # 12: Tags
+            "",                                                  # 13: Urgency (set below)
         ]
+
+        # Urgency column (col 13)
+        urgency_tier = compute_tier(getattr(doc, "expiry_date", None))
+        col_data[13] = URGENCY_ICON[urgency_tier]
 
         # Dynamic Columns
         num_fixed = len(self.fixed_columns)
@@ -1370,6 +1377,9 @@ class DocumentListWidget(QWidget):
         item.setData(9, Qt.ItemDataRole.UserRole, str(doc.exported_at or ""))
         item.setData(10, Qt.ItemDataRole.UserRole, doc.status)
         item.setData(2, Qt.ItemDataRole.UserRole, p_class)
+        item.setData(13, Qt.ItemDataRole.UserRole, int(urgency_tier))
+        if URGENCY_TOOLTIP[urgency_tier]:
+            item.setToolTip(13, self.tr(URGENCY_TOOLTIP[urgency_tier]))
 
         if p_class != "C":
             tips = {

@@ -70,6 +70,12 @@ class SemanticTranslator(QObject):
                 return self.tr("Invoice Date")
             case "field_due_date":
                 return self.tr("Due Date")
+            case "field_expiry_date":
+                return self.tr("Expiry Date")
+            case "field_service_period_end":
+                return self.tr("Service Period End")
+            case "field_urgency":
+                return self.tr("Urgency")
             case "field_customer_id":
                 return self.tr("Customer ID")
             case "field_order_id":

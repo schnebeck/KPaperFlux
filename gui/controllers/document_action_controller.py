@@ -254,7 +254,7 @@ class DocumentActionController(QObject):
         """
         from gui.workers import ImportWorker
         from gui.splitter_dialog import SplitterDialog
-        from core.pdf_utils import get_pdf_class, PDFClass
+        from core.utils.forensics import get_pdf_class, PDFClass
 
         if not files or not self.pipeline:
             return

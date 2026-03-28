@@ -287,7 +287,9 @@ class CockpitWidget(QWidget):
                 {"title": self.tr("Inbox"), "preset_id": "NEW", "color": "#3b82f6", "row": 0, "col": 0},
                 {"title": self.tr("Urgent"), "preset_id": "WORKFLOW_URGENT", "color": "#ef4444", "row": 0, "col": 1},
                 {"title": self.tr("Total Documents"), "preset_id": "ALL", "color": "#10b981", "row": 0, "col": 2},
-                {"title": self.tr("Total Invoiced"), "preset_id": "INVOICES", "color": "#f59e0b", "aggregation": "sum", "row": 0, "col": 3}
+                {"title": self.tr("Total Invoiced"), "preset_id": "INVOICES", "color": "#f59e0b", "aggregation": "sum", "row": 0, "col": 3},
+                {"title": self.tr("Overdue"), "preset_id": "DEADLINE_OVERDUE", "color": "#dc2626", "row": 1, "col": 0},
+                {"title": self.tr("Due This Week"), "preset_id": "DEADLINE_DUE_SOON", "color": "#d97706", "row": 1, "col": 1}
             ]
 
     def save_config(self):
@@ -347,6 +349,10 @@ class CockpitWidget(QWidget):
                     title = self.tr("Urgent")
                 elif pid == "WORKFLOW_REVIEW":
                     title = self.tr("Review")
+                elif pid == "DEADLINE_OVERDUE":
+                    title = self.tr("Overdue")
+                elif pid == "DEADLINE_DUE_SOON":
+                    title = self.tr("Due This Week")
 
                 if self.db_manager:
                     if pid == "NEW":
@@ -359,6 +365,13 @@ class CockpitWidget(QWidget):
                         query = {"field": "workflow_step", "op": "equals", "value": "URGENT"}
                     elif pid == "WORKFLOW_REVIEW":
                         query = {"field": "workflow_step", "op": "equals", "value": "REVIEW"}
+                    elif pid == "DEADLINE_OVERDUE":
+                        query = {"field": "expiry_date", "op": "lt", "value": "TODAY"}
+                    elif pid == "DEADLINE_DUE_SOON":
+                        query = {"operator": "AND", "conditions": [
+                            {"field": "expiry_date", "op": "gte", "value": "TODAY"},
+                            {"field": "expiry_date", "op": "lte", "value": "relative:7d"},
+                        ]}
                     else:
                         query = {}
                     

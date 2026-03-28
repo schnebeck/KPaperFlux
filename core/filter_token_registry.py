@@ -91,5 +91,12 @@ class FilterTokenRegistry:
             FilterToken("deleted", "sys", "field_in_trash", "list", "🗑️ "),
         ]
 
-        for t in basis_tokens + ai_tokens + stamp_tokens + sys_tokens:
+        # Deadline
+        deadline_tokens = [
+            FilterToken("expiry_date", "deadline", "field_expiry_date", "date", "⏳ "),
+            FilterToken("due_date", "deadline", "field_due_date", "date", "📅 "),
+            FilterToken("service_period_end", "deadline", "field_service_period_end", "date", "📅 "),
+        ]
+
+        for t in basis_tokens + ai_tokens + stamp_tokens + sys_tokens + deadline_tokens:
             self.register(t)

@@ -253,6 +253,7 @@ class QueryBuilder:
         today = datetime.now().date()
 
         _LITERALS: Dict[str, Any] = {
+            "TODAY":        today.isoformat(),
             "LAST_7_DAYS":  ((today - timedelta(days=7)).isoformat(), today.isoformat()),
             "LAST_30_DAYS": ((today - timedelta(days=30)).isoformat(), today.isoformat()),
             "LAST_90_DAYS": ((today - timedelta(days=90)).isoformat(), today.isoformat()),
