@@ -1,7 +1,7 @@
 # KPaperFlux: Strategic Evaluation & Roadmap
 
 **Date:** 2026-03-28
-**Status:** Architecture Refactoring Complete — ZUGFeRD Pipeline, Deadline Monitor & PDF Integrity Bar Implemented
+**Status:** Architecture Refactoring Complete — ZUGFeRD Pipeline, Deadline Monitor, PDF Integrity Bar & Document Grouping Implemented
 
 ---
 
@@ -13,7 +13,7 @@
 - **Local AI Sovereignty:** Multi-backend support — Gemini, OpenAI, Anthropic, Ollama. 100% local processing possible.
 - **SQLite + FTS5:** Full-text search, semantic JSON querying via `json_extract` / `json_each`, schema migrations. `QueryBuilder` extracted into `core/query_builder.py`.
 - **Vault (WORM):** UUID-based immutable file storage. Files are never modified after write.
-- **513 unit and GUI tests**, zero TODOs in production code. Quality gate enforced via `test_code_quality.py`.
+- **536 unit and GUI tests**, zero TODOs in production code. Quality gate enforced via `test_code_quality.py`.
 
 ### Reporting & Analytics (Stable)
 - **Reporting Canvas (WYSIWYG):** Reorderable, annotatable report components (charts, tables, text). Real-time drag-and-drop layout.
@@ -63,6 +63,15 @@
 - **📎 Hybrid chip** (purple): shown for `pdf_class` H. Click → explanation dialog.
 - Bar hidden automatically for plain scanned/standard PDFs — no visual noise.
 
+### Document Grouping (New — March 2026)
+- **Label metaphor:** One document can belong to many groups simultaneously. No filesystem exclusivity.
+- **`DocumentGroup` model** (`core/models/group.py`): `id`, `name`, `parent_id` (hierarchy), `color`, `icon`, `description`, `sort_order`, `filter_query` (reserved for future partial-automation).
+- **`GroupRepository`** (`core/repositories/group_repo.py`): full CRUD + membership operations. Two new tables added to DB schema init: `document_groups`, `document_group_memberships` (CASCADE on delete).
+- **`GroupTreeWidget`** (`gui/widgets/group_tree.py`): collapsible sidebar panel (first widget in `main_splitter`). Hierarchy tree with document counts, right-click CRUD, drag-and-drop membership from DocumentList. `group_selected` signal filters DocumentList instantly.
+- **`GroupMembershipWidget`** (`gui/widgets/group_membership_chips.py`): tag-cloud chips in MetadataEditor General tab. Breadcrumb display (`Parent / Child`), `+` button opens `GroupPickerDialog`, `×` removes membership.
+- **Context menu:** "Add to Group…" in DocumentList right-click menu — works for single and multi-selection.
+- Three assignment paths: context menu, drag-and-drop onto tree, `+` chip in MetadataEditor.
+
 ### Plugin System
 - Interface defined, `hybrid_assembler` and `order_collection_linker` implemented.
 - Runtime loading at startup. No hot-reload, no settings-UI for installed plugins.
@@ -108,6 +117,12 @@ Implemented: `core/deadline_monitor.py` (`UrgencyTier`, `compute_tier`), urgency
 ### ~~Priority 3 — PDF-Viewer Integrity Status Bar~~ ✅ DONE
 
 Implemented: `gui/widgets/integrity_status_bar.py`. Signature (green/amber), ZUGFeRD (blue, "(native)" hint), Hybrid (purple) chips. Bar hidden for plain PDFs. Click handlers open detail dialogs. 22 new unit tests added.
+
+---
+
+### ~~Priority 3.5 — Document Grouping~~ ✅ DONE
+
+Implemented: `DocumentGroup` model + `GroupRepository`, `GroupTreeWidget` (collapsible sidebar), `GroupMembershipWidget` (chips in MetadataEditor), context menu "Add to Group…". Label metaphor (many groups per document), optional hierarchy, `filter_query` field reserved for future auto-membership. 23 new unit tests added.
 
 ---
 
@@ -174,12 +189,13 @@ The engine itself is stable. Open work is at the edges:
 
 ## 6. Conclusion
 
-KPaperFlux has successfully completed its **architecture refactoring phase** (March 2026) and subsequently delivered three document intelligence features. `MainWindow` reduced by 38%, three controller/mixin extractions, `QueryBuilder` separation, multi-workflow model. The codebase now has **513 tests** and zero production TODOs.
+KPaperFlux has successfully completed its **architecture refactoring phase** (March 2026) and subsequently delivered four document intelligence and organisation features. `MainWindow` reduced by 38%, three controller/mixin extractions, `QueryBuilder` separation, multi-workflow model. The codebase now has **536 tests** and zero production TODOs.
 
 **March 2026 additions:**
-- **ZUGFeRD zero-token pipeline:** Stage 0 (TypeCode → skip Stage 1) + Stage 0.5 (XML injection → skip Stage 2). All ZUGFeRD documents processed with zero LLM tokens. `extraction_source` field on `SemanticExtraction` tracks data provenance.
+- **ZUGFeRD zero-token pipeline:** Stage 0 (TypeCode → skip Stage 1) + Stage 0.5 (XML injection → skip Stage 2). All ZUGFeRD documents processed with zero LLM tokens.
 - **Deadline Monitor:** `UrgencyTier`-based traffic-light system surfaced in document list, cockpit, and filter tokens.
-- **PDF-Viewer Integrity Status Bar:** Signature / ZUGFeRD / Hybrid chips with detail dialogs — forensic document status visible at a glance, hidden for plain PDFs.
+- **PDF-Viewer Integrity Status Bar:** Signature / ZUGFeRD / Hybrid chips with detail dialogs.
+- **Document Grouping:** Label-metaphor hierarchy (many groups per document), `GroupTreeWidget` sidebar, chips in MetadataEditor, context menu, drag-and-drop. `filter_query` reserved for future auto-membership.
 
 The next phase focuses on:
 1. **Report persistence** (save/load report canvas configurations — Priority 4)
