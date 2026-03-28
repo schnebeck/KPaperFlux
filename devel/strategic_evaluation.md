@@ -1,7 +1,7 @@
 # KPaperFlux: Strategic Evaluation & Roadmap
 
 **Date:** 2026-03-28
-**Status:** Architecture Refactoring Complete — ZUGFeRD Zero-Token Pipeline & Deadline Monitor Implemented
+**Status:** Architecture Refactoring Complete — ZUGFeRD Pipeline, Deadline Monitor & PDF Integrity Bar Implemented
 
 ---
 
@@ -13,7 +13,7 @@
 - **Local AI Sovereignty:** Multi-backend support — Gemini, OpenAI, Anthropic, Ollama. 100% local processing possible.
 - **SQLite + FTS5:** Full-text search, semantic JSON querying via `json_extract` / `json_each`, schema migrations. `QueryBuilder` extracted into `core/query_builder.py`.
 - **Vault (WORM):** UUID-based immutable file storage. Files are never modified after write.
-- **476 unit and GUI tests**, zero TODOs in production code. Quality gate enforced via `test_code_quality.py`.
+- **513 unit and GUI tests**, zero TODOs in production code. Quality gate enforced via `test_code_quality.py`.
 
 ### Reporting & Analytics (Stable)
 - **Reporting Canvas (WYSIWYG):** Reorderable, annotatable report components (charts, tables, text). Real-time drag-and-drop layout.
@@ -55,6 +55,13 @@
 - `Cockpit`: two default cards — "Overdue Documents" (red) and "Due Soon" (amber) — using `expiry_date` queries.
 - `FilterTokenRegistry`: `deadline` category with `expiry_date`, `due_date`, `service_period_end` tokens.
 - `QueryBuilder`: `"TODAY"` relative date literal resolves to `date.today().isoformat()`.
+
+### PDF-Viewer Integrity Status Bar (New — March 2026)
+- `gui/widgets/integrity_status_bar.py`: `IntegrityStatusBar` — slim 28px bar inserted between PDF viewer toolbar and canvas.
+- **🛡 Signature chip** (green = immutable-locked, amber = unverified): shown for `pdf_class` A / AB or when `visual_audit.signatures` is present. Click → signature detail dialog.
+- **⚙ ZUGFeRD chip** (blue): shown for `pdf_class` B / AB or `extraction_source == "ZUGFERD_NATIVE"`. Label shows "(native)" for XML-injected documents. Click → finance data detail dialog.
+- **📎 Hybrid chip** (purple): shown for `pdf_class` H. Click → explanation dialog.
+- Bar hidden automatically for plain scanned/standard PDFs — no visual noise.
 
 ### Plugin System
 - Interface defined, `hybrid_assembler` and `order_collection_linker` implemented.
@@ -98,16 +105,9 @@ Implemented: `core/deadline_monitor.py` (`UrgencyTier`, `compute_tier`), urgency
 
 ---
 
-### Priority 3 — PDF-Viewer Integrity Status Bar (Medium Impact)
+### ~~Priority 3 — PDF-Viewer Integrity Status Bar~~ ✅ DONE
 
-**Problem:** `PdfViewerWidget` renders documents but communicates nothing about their forensic status. Users cannot see if a document has a verified digital signature, embedded ZUGFeRD XML, or forensic attachments.
-
-**Design:** Slim overlay bar at the top of `PdfViewerWidget`:
-- 🛡️ **Signature**: PAdES/digital signature status (verified / unverified / absent). Click → details dialog.
-- ⚙️ **Data**: ZUGFeRD / EN 16931 structured data present. Click → show raw XML.
-- 📎 **Attachment**: embedded original PDF or XML. Click → Save-As dialog.
-
-Icons are greyed-out when not applicable (no visual noise for unstructured scans).
+Implemented: `gui/widgets/integrity_status_bar.py`. Signature (green/amber), ZUGFeRD (blue, "(native)" hint), Hybrid (purple) chips. Bar hidden for plain PDFs. Click handlers open detail dialogs. 22 new unit tests added.
 
 ---
 
@@ -174,13 +174,14 @@ The engine itself is stable. Open work is at the edges:
 
 ## 6. Conclusion
 
-KPaperFlux has successfully completed its **architecture refactoring phase** (March 2026) and subsequently delivered two high-impact document intelligence features: `MainWindow` reduced by 38%, three controller/mixin extractions, `QueryBuilder` separation, multi-workflow model. The codebase now has **476 tests** and zero production TODOs.
+KPaperFlux has successfully completed its **architecture refactoring phase** (March 2026) and subsequently delivered three document intelligence features. `MainWindow` reduced by 38%, three controller/mixin extractions, `QueryBuilder` separation, multi-workflow model. The codebase now has **513 tests** and zero production TODOs.
 
 **March 2026 additions:**
 - **ZUGFeRD zero-token pipeline:** Stage 0 (TypeCode → skip Stage 1) + Stage 0.5 (XML injection → skip Stage 2). All ZUGFeRD documents processed with zero LLM tokens. `extraction_source` field on `SemanticExtraction` tracks data provenance.
 - **Deadline Monitor:** `UrgencyTier`-based traffic-light system surfaced in document list, cockpit, and filter tokens.
+- **PDF-Viewer Integrity Status Bar:** Signature / ZUGFeRD / Hybrid chips with detail dialogs — forensic document status visible at a glance, hidden for plain PDFs.
 
 The next phase focuses on:
-1. **Forensic transparency** (surface signature/ZUGFeRD status directly in the PDF viewer — Priority 3)
-2. **Report persistence** (save/load report canvas configurations — Priority 4)
+1. **Report persistence** (save/load report canvas configurations — Priority 4)
+2. **Document Reference Browser** (clickable reference chips → filtered list — Priority 5)
 3. **Background scheduler** (timed workflow transitions, proactive deadline alerting)
