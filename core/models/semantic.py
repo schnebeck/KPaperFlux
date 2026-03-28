@@ -181,6 +181,7 @@ class SemanticExtraction(BaseModel):
     direction: Optional[str] = "INBOUND"
     tenant_context: Optional[str] = "PRIVATE"
     ai_confidence: float = Field(1.0, description="Confidence score for the overall extraction (0.0 - 1.0)")
+    extraction_source: Optional[str] = Field(None, description="Data source: 'AI', 'ZUGFERD_NATIVE', or None")
     visual_audit: Optional[VisualAuditResult] = None
 
     @field_validator("bodies", mode="after")

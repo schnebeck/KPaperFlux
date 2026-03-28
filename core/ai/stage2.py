@@ -23,13 +23,20 @@ from core.logger import get_logger
 
 logger = get_logger("ai.stage2")
 
+# Document types for which ZUGFeRD XML data is authoritative ground truth.
+# When ZUGFeRD XML is detected for these types, the AI extraction call is
+# skipped entirely (Stage 0.5) — saving ~80% of tokens for these documents.
+_ZUGFERD_NATIVE_TYPES: frozenset[str] = frozenset(
+    {"INVOICE", "CREDIT_NOTE", "RECEIPT", "UTILITY_BILL"}
+)
+
 import fitz
 from pydantic import ValidationError
 
 from core.ai import prompts
 from core.models.types import DocType
 from core.models.identity import IdentityProfile
-from core.models.semantic import SemanticExtraction, FinanceBody, LegalBody
+from core.models.semantic import SemanticExtraction, FinanceBody, LegalBody, SubscriptionInfo
 from core.utils.validation import validate_iban
 
 
@@ -227,32 +234,54 @@ class Stage2Processor:
             )
             
             try:
-                max_s2_retries = self.config.get_ai_retries()
-                s2_attempt = 0
                 extraction = None
-                
-                while s2_attempt <= max_s2_retries:
-                    extraction = self.client.generate_json(prompt, stage_label=f"STAGE 2: {entity_type}", images=images_payload)
-                    if not extraction:
-                        return None
 
-                    original_ai_extraction = copy.deepcopy(extraction)
+                # -- Stage 0.5: ZUGFeRD native injection --
+                # If the PDF embeds a ZUGFeRD / Factur-X XML and the entity type
+                # is a structured finance document, the XML is 100% authoritative.
+                # Skip the LLM call entirely and build SemanticExtraction directly
+                # from the XML data (~80% token saving for these documents).
+                if zugferd_data and entity_type.upper() in _ZUGFERD_NATIVE_TYPES:
+                    logger.info(
+                        f"[AI] Stage 0.5 — ZUGFeRD native injection ({entity_type}): "
+                        f"AI extraction skipped, XML is authoritative ground truth."
+                    )
+                    extraction = {
+                        "meta_header": {},
+                        "bodies": {},
+                        "repaired_text": "",
+                        "ai_confidence": 1.0,
+                        "extraction_source": "ZUGFERD_NATIVE",
+                    }
+                    extraction = self._apply_zugferd_overlay(extraction, zugferd_data, entity_type)
 
-                    if zugferd_data:
-                        extraction = self._apply_zugferd_overlay(extraction, zugferd_data, entity_type)
+                else:
+                    # Normal adaptive AI extraction flow with optional retry loop.
+                    max_s2_retries = self.config.get_ai_retries()
+                    s2_attempt = 0
 
-                    s2_errors = self.validate_semantic_extraction(extraction, entity_type)
-                    if not s2_errors:
-                        break
-                    
-                    s2_attempt += 1
-                    if s2_attempt <= max_s2_retries:
-                        error_msg = "\n".join(f"- {e}" for e in s2_errors)
-                        faulty_json_str = json.dumps(original_ai_extraction, indent=2, ensure_ascii=False)
-                        prompt += prompts.PROMPT_STAGE_2_CORRECTION.format(
-                            faulty_json_str=faulty_json_str,
-                            error_msg=error_msg
-                        )
+                    while s2_attempt <= max_s2_retries:
+                        extraction = self.client.generate_json(prompt, stage_label=f"STAGE 2: {entity_type}", images=images_payload)
+                        if not extraction:
+                            return None
+
+                        original_ai_extraction = copy.deepcopy(extraction)
+
+                        if zugferd_data:
+                            extraction = self._apply_zugferd_overlay(extraction, zugferd_data, entity_type)
+
+                        s2_errors = self.validate_semantic_extraction(extraction, entity_type)
+                        if not s2_errors:
+                            break
+
+                        s2_attempt += 1
+                        if s2_attempt <= max_s2_retries:
+                            error_msg = "\n".join(f"- {e}" for e in s2_errors)
+                            faulty_json_str = json.dumps(original_ai_extraction, indent=2, ensure_ascii=False)
+                            prompt += prompts.PROMPT_STAGE_2_CORRECTION.format(
+                                faulty_json_str=faulty_json_str,
+                                error_msg=error_msg
+                            )
 
                 if extraction:
                     if hasattr(extraction, "model_dump"):
@@ -297,6 +326,9 @@ class Stage2Processor:
                         curr_conf = final_semantic_data.get("ai_confidence", 1.0)
                         final_semantic_data["ai_confidence"] = min(curr_conf, float(extraction["ai_confidence"]))
 
+                    if extraction.get("extraction_source"):
+                        final_semantic_data["extraction_source"] = extraction["extraction_source"]
+
                     if extraction.get("repaired_text"):
                         if not final_semantic_data["repaired_text"] or len(extraction["repaired_text"]) > len(final_semantic_data["repaired_text"]):
                             final_semantic_data["repaired_text"] = extraction["repaired_text"]
@@ -314,7 +346,7 @@ class Stage2Processor:
         """
         Deep merge ZUGFeRD ground truth into an extraction result.
         """
-        if not zugferd_data or entity_type.upper() not in ["INVOICE", "RECEIPT", "UTILITY_BILL"]:
+        if not zugferd_data or entity_type.upper() not in _ZUGFERD_NATIVE_TYPES:
             return extraction
             
         logger.info(f"[AI] Applying ZUGFeRD Ground-Truth Overlay...")
