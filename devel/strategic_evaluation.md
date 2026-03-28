@@ -1,7 +1,7 @@
 # KPaperFlux: Strategic Evaluation & Roadmap
 
 **Date:** 2026-03-28
-**Status:** Architecture Refactoring Complete — Transitioning to Document Intelligence & Deadline Management
+**Status:** Architecture Refactoring Complete — ZUGFeRD Zero-Token Pipeline & Deadline Monitor Implemented
 
 ---
 
@@ -13,7 +13,7 @@
 - **Local AI Sovereignty:** Multi-backend support — Gemini, OpenAI, Anthropic, Ollama. 100% local processing possible.
 - **SQLite + FTS5:** Full-text search, semantic JSON querying via `json_extract` / `json_each`, schema migrations. `QueryBuilder` extracted into `core/query_builder.py`.
 - **Vault (WORM):** UUID-based immutable file storage. Files are never modified after write.
-- **455 unit and GUI tests**, zero TODOs in production code. Quality gate enforced via `test_code_quality.py`.
+- **476 unit and GUI tests**, zero TODOs in production code. Quality gate enforced via `test_code_quality.py`.
 
 ### Reporting & Analytics (Stable)
 - **Reporting Canvas (WYSIWYG):** Reorderable, annotatable report components (charts, tables, text). Real-time drag-and-drop layout.
@@ -41,12 +41,20 @@
 - **`DebugController`** (`gui/controllers/debug_controller.py`, 196 lines): All debug/maintenance operations extracted from `MainWindow` into a signal-based controller.
 - **`main_window.py` reduced** from 2641 → 1625 lines (−38%). Now acts as an orchestration shell only.
 
-### Forensic / Hybrid PDF (Partial)
+### Forensic / Hybrid PDF (Complete)
 - `HybridEngine`, `ForegroundDetector`, forensic ink extraction: complete.
 - `ZugferdExtractor` (`core/utils/zugferd_extractor.py`): complete and tested.
 - `PAdES` signature detection: complete.
 - Immutability protection (UI locks, pipeline routing): complete.
-- **Missing:** ZUGFeRD/PAdES data is NOT yet injected into `SemanticExtraction` before the AI call (Stage 0.5). See Section 3.
+- **Stage 0 (ZUGFeRD TypeCode):** `Canonizer._detect_zugferd_type_tags()` reads BT-3 TypeCode from embedded XML before Stage 1. If found, `type_tags` are set from the XML (e.g. `INVOICE`, `CREDIT_NOTE`) and the Stage 1 AI classification call is skipped entirely.
+- **Stage 0.5 (ZUGFeRD Finance Injection):** In `Stage2Processor.run_stage_2()`, if ZUGFeRD XML is found and `entity_type` is in `_ZUGFERD_NATIVE_TYPES` (`INVOICE`, `CREDIT_NOTE`, `RECEIPT`, `UTILITY_BILL`), `SemanticExtraction` is built directly from the XML via `_apply_zugferd_overlay()`. The AI extraction LLM call is skipped. `extraction_source = "ZUGFERD_NATIVE"`, `ai_confidence = 1.0`. Zero LLM tokens for ZUGFeRD documents.
+
+### Deadline Monitor (New — March 2026)
+- `core/deadline_monitor.py`: `UrgencyTier(IntEnum)` (OVERDUE=0, DUE_SOON=1, OK=2, NONE=3), `compute_tier()`, icon/tooltip maps.
+- `DocumentListWidget`: urgency column 13 with traffic-light emoji, sortable via `Qt.ItemDataRole.UserRole`.
+- `Cockpit`: two default cards — "Overdue Documents" (red) and "Due Soon" (amber) — using `expiry_date` queries.
+- `FilterTokenRegistry`: `deadline` category with `expiry_date`, `due_date`, `service_period_end` tokens.
+- `QueryBuilder`: `"TODAY"` relative date literal resolves to `date.today().isoformat()`.
 
 ### Plugin System
 - Interface defined, `hybrid_assembler` and `order_collection_linker` implemented.
@@ -78,32 +86,15 @@ Timed workflow transitions (e.g., "30 days no payment → DUNNING") and deadline
 
 ## 3. Roadmap: Open Feature Work
 
-### Priority 1 — ZUGFeRD Stage 0.5 Injection (High Impact)
+### ~~Priority 1 — ZUGFeRD Stage 0.5 Injection~~ ✅ DONE
 
-**Problem:** `ZugferdExtractor` exists and works, but the pipeline calls the AI unconditionally. For ZUGFeRD/Factur-X PDFs, the embedded XML already contains 100% accurate structured data (amounts, dates, parties, line items). Running a full AI extraction wastes tokens and introduces potential hallucinations.
-
-**Design:**
-1. In `PipelineProcessor._run_ai_analysis()` (or a new pre-stage before it): call `ZugferdExtractor.extract(path)`.
-2. If XML data is found: populate `SemanticExtraction` fields directly from XML. Set `ai_confidence = 1.0`, `source = "ZUGFERD_NATIVE"`.
-3. Switch AI to **Audit Mode**: instead of full extraction, the AI only verifies visual text vs. XML data and reports discrepancies as red flags.
-4. If no XML: normal AI extraction flow unchanged.
-
-**Benefit:** Token savings ~80% for ZUGFeRD documents; zero hallucination risk on structured data.
+Implemented as **Stage 0** (TypeCode → skip Stage 1 AI) and **Stage 0.5** (XML finance injection → skip Stage 2 AI). Zero LLM tokens for all ZUGFeRD/Factur-X documents. `extraction_source = "ZUGFERD_NATIVE"`. 21 new unit tests added.
 
 ---
 
-### Priority 2 — Deadline Monitor / Traffic-Light in DocumentList (High Impact)
+### ~~Priority 2 — Deadline Monitor / Traffic-Light in DocumentList~~ ✅ DONE
 
-**Problem:** `due_date`, `service_period_end`, and Skonto deadlines are extracted and stored, but there is no proactive warning system. The user discovers overdue documents by accident.
-
-**Design:**
-- Add a `DeadlineMonitor` service (`core/deadline_monitor.py`) that computes urgency tiers:
-  - 🔴 **Overdue** — due date in the past
-  - 🟡 **Due soon** — within configurable days (default: 7)
-  - 🟢 **OK** — no deadline or deadline far away
-- `DocumentListWidget` gets an optional urgency column (traffic-light icon). Sortable.
-- `Cockpit` gets a "Due Today / This Week" card pulling from the same monitor.
-- Filter system gets a `deadline` operator (`overdue`, `due_within_N_days`).
+Implemented: `core/deadline_monitor.py` (`UrgencyTier`, `compute_tier`), urgency column in `DocumentListWidget` (sortable), two Cockpit cards (Overdue / Due Soon), `deadline` filter tokens, `TODAY` literal in `QueryBuilder`. 16 new unit tests added.
 
 ---
 
@@ -164,7 +155,7 @@ KPaperFlux treats "Digital Originals" (signed, XML-enriched) and "Scanned Copies
 - Immutable documents bypass Stage 0 splitter, proceed directly to semantic analysis.
 
 ### Standards Supported
-- **ZUGFeRD 2.2 / Factur-X / EN 16931:** High-fidelity XML extraction (extractor complete; pipeline injection pending — see Priority 1).
+- **ZUGFeRD 2.2 / Factur-X / EN 16931:** High-fidelity XML extraction (complete); Stage 0 TypeCode-based classification (complete); Stage 0.5 zero-token finance injection (complete).
 - **PAdES:** Signature detection and preservation (complete).
 - **Hybrid PDF V3:** Overlay strategy ~150KB overhead.
 
@@ -183,9 +174,13 @@ The engine itself is stable. Open work is at the edges:
 
 ## 6. Conclusion
 
-KPaperFlux has successfully completed its **architecture refactoring phase** (March 2026): `MainWindow` reduced by 38%, three controller/mixin extractions, `QueryBuilder` separation, multi-workflow model. The codebase now has 455 tests and zero production TODOs.
+KPaperFlux has successfully completed its **architecture refactoring phase** (March 2026) and subsequently delivered two high-impact document intelligence features: `MainWindow` reduced by 38%, three controller/mixin extractions, `QueryBuilder` separation, multi-workflow model. The codebase now has **476 tests** and zero production TODOs.
 
-The next phase focuses on closing the gap between *data that is extracted* and *insight that is surfaced* — specifically:
-1. **ZUGFeRD-native accuracy** (eliminate redundant AI calls on structured documents)
-2. **Deadline awareness** (proactive traffic-light alerting from already-extracted date fields)
-3. **Forensic transparency** (surface signature/ZUGFeRD status directly in the PDF viewer)
+**March 2026 additions:**
+- **ZUGFeRD zero-token pipeline:** Stage 0 (TypeCode → skip Stage 1) + Stage 0.5 (XML injection → skip Stage 2). All ZUGFeRD documents processed with zero LLM tokens. `extraction_source` field on `SemanticExtraction` tracks data provenance.
+- **Deadline Monitor:** `UrgencyTier`-based traffic-light system surfaced in document list, cockpit, and filter tokens.
+
+The next phase focuses on:
+1. **Forensic transparency** (surface signature/ZUGFeRD status directly in the PDF viewer — Priority 3)
+2. **Report persistence** (save/load report canvas configurations — Priority 4)
+3. **Background scheduler** (timed workflow transitions, proactive deadline alerting)
