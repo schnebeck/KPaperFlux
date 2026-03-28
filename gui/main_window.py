@@ -11,13 +11,12 @@ Description:    Main application window orchestrating the UI and backend logic.
 
 from typing import Optional, List, Any, Dict
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog,
-    QMessageBox, QSplitter, QMenuBar, QMenu, QCheckBox, QDialog, QDialogButtonBox, QStatusBar,
-    QStackedWidget, QToolBar, QAbstractItemView, QProgressDialog, QToolButton, QSizePolicy,
-    QButtonGroup, QFrame
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog,
+    QMessageBox, QSplitter, QCheckBox, QDialog, QDialogButtonBox, QStatusBar,
+    QStackedWidget, QProgressDialog,
 )
-from PyQt6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent, QCloseEvent, QKeySequence, QShortcut
-from PyQt6.QtCore import Qt, QSettings, QSize, QCoreApplication, QTimer, PYQT_VERSION_STR
+from PyQt6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QCloseEvent, QKeySequence, QShortcut
+from PyQt6.QtCore import Qt, QSettings, QCoreApplication, QTimer, PYQT_VERSION_STR
 import PyQt6
 import platform
 import os
@@ -40,8 +39,6 @@ from core.filter_tree import FilterTree, NodeType
 from core.config import AppConfig
 from core.integrity import IntegrityManager
 from core.exchange import ExchangeService, ExchangePayload
-from core.scanner import SANE_AVAILABLE
-
 # GUI Imports
 from gui.workers import MainLoopWorker, SimilarityWorker
 from gui.document_list import DocumentListWidget
@@ -66,6 +63,7 @@ from gui.utils import (
 from gui.workflow_manager import WorkflowManagerWidget
 from gui.reporting import ReportingWidget
 from gui.audit_window import AuditWindow
+from gui.main_menu import MainWindowMenuMixin
 from core.plugins.manager import PluginManager
 from core.plugins.base import ApiContext
 
@@ -90,7 +88,7 @@ class MergeConfirmDialog(QDialog):
     def keep_originals(self):
         return self.check_keep.isChecked()
 
-class MainWindow(QMainWindow):
+class MainWindow(MainWindowMenuMixin, QMainWindow):
     """
     Main application window for KPaperFlux.
     """
@@ -135,6 +133,7 @@ class MainWindow(QMainWindow):
         self._setup_explorer_pane()
         self._setup_status_bar()
         self._setup_doc_controller()
+        self._setup_debug_controller()
 
         self.create_tool_bar()
         self.retranslate_ui()
@@ -368,6 +367,15 @@ class MainWindow(QMainWindow):
             if docs:
                 self.editor_widget.display_documents(docs)
 
+    def _setup_debug_controller(self) -> None:
+        """Instantiate DebugController and wire its signals."""
+        from gui.controllers.debug_controller import DebugController
+
+        self.debug_controller = DebugController(self, self.pipeline, self.db_manager)
+        self.debug_controller.list_refresh_requested.connect(
+            self.list_widget.refresh_list if hasattr(self, "list_widget") else lambda: None
+        )
+
     def _sweep_stale_workflow_states(self) -> None:
         """Background sweep: reset stale workflow states across all rules."""
         from core.workflow import WorkflowRuleRegistry, sanitize_documents_for_rule
@@ -583,315 +591,26 @@ class MainWindow(QMainWindow):
         except Exception as e:
              logger.error(f"Error saving filter tree: {e}")
 
-    def create_menu_bar(self):
-        menubar = self.menuBar()
 
-        # -- File Menu --
-        self.file_menu = menubar.addMenu("")
+    # --- Debug Handlers (delegate to DebugController) ---
 
-        self.action_import = QAction("", self)
-        self.action_import.setShortcut("Ctrl+O")
-        self.action_import.triggered.connect(self.import_document_slot)
-        self.file_menu.addAction(self.action_import)
+    def _debug_show_orphans_slot(self) -> None:
+        self.debug_controller.show_orphans()
 
-        self.action_import_transfer = QAction("", self)
-        self.action_import_transfer.triggered.connect(self.import_from_transfer_slot)
-        self.file_menu.addAction(self.action_import_transfer)
-        self._update_transfer_menu_visibility()
+    def _debug_show_broken_slot(self) -> None:
+        self.debug_controller.show_broken()
 
-        self.action_scan = QAction("", self)
-        self.action_scan.setShortcut("Ctrl+S")
-        self.action_scan.triggered.connect(self.open_scanner_slot)
-        if SANE_AVAILABLE:
-            self.file_menu.addAction(self.action_scan)
-        else:
-            self.action_scan.setVisible(False)
-            logger.info("Scanner functionality disabled: SANE_AVAILABLE is False")
+    def _debug_prune_orphans_slot(self) -> None:
+        self.debug_controller.prune_orphans()
 
-        self.action_print = QAction("", self)
-        self.action_print.setShortcut("Ctrl+P")
-        self.action_print.setEnabled(False) # Placeholder
-        self.file_menu.addAction(self.action_print)
+    def _debug_prune_broken_slot(self) -> None:
+        self.debug_controller.prune_broken()
 
-        self.file_menu.addSeparator()
-
-        self.action_delete = QAction("", self)
-        self.action_delete.setShortcut("Del")
-        self.action_delete.triggered.connect(self.delete_selected_slot)
-        self.file_menu.addAction(self.action_delete)
-
-        self.file_menu.addSeparator()
-
-        self.action_export = QAction("", self)
-        self.action_export.triggered.connect(self.export_visible_documents_slot)
-        self.file_menu.addAction(self.action_export)
-
-        self.file_menu.addSeparator()
-
-        self.action_exit = QAction("", self)
-        self.action_exit.setShortcut("Ctrl+Q")
-        self.action_exit.triggered.connect(self.close)
-        self.file_menu.addAction(self.action_exit)
-
-
-        self.view_menu = menubar.addMenu("")
-
-        self.action_refresh = QAction("", self)
-        self.action_refresh.setShortcut("F5")
-        self.action_refresh.triggered.connect(self.refresh_list_slot)
-        self.view_menu.addAction(self.action_refresh)
-
-        self.action_extra = QAction("", self)
-        self.action_extra.setShortcut("Ctrl+E")
-        self.action_extra.setCheckable(True)
-        self.action_extra.setChecked(True)
-        self.action_extra.triggered.connect(self.toggle_editor_visibility)
-        self.view_menu.addAction(self.action_extra)
-
-        self.view_menu.addSeparator()
-
-        # Action toggle_filter is created later in create_tool_bar, but we need it here
-        # or we create it here and reuse it there. Let's move its creation here.
-        self.action_toggle_filter = QAction("", self)
-        self.action_toggle_filter.setCheckable(True)
-        self.action_toggle_filter.setChecked(True)
-        self.action_toggle_filter.setShortcut(QKeySequence("Ctrl+Shift+F"))
-        self.action_toggle_filter.triggered.connect(self._toggle_filter_view)
-        self.view_menu.addAction(self.action_toggle_filter)
-
-        # -- Maintenance Menu --
-        self.maintenance_menu = menubar.addMenu("")
-
-        self.action_maintenance = QAction("", self)
-        self.action_maintenance.triggered.connect(self.open_maintenance_slot)
-        self.maintenance_menu.addAction(self.action_maintenance)
-
-        self.action_duplicates = QAction("", self)
-        self.action_duplicates.triggered.connect(self.find_duplicates_slot)
-        self.maintenance_menu.addAction(self.action_duplicates)
-
-        self.action_tag_manager = QAction("", self)
-        self.action_tag_manager.triggered.connect(self.open_tag_manager_slot)
-        self.maintenance_menu.addAction(self.action_tag_manager)
-
-        # -- Tools Menu --
-        self.tools_menu = menubar.addMenu("")
-
-        self.action_purge_data = QAction("", self)
-        self.action_purge_data.triggered.connect(self.purge_data_slot)
-        self.tools_menu.addAction(self.action_purge_data)
-        
-        self.tools_menu.addSeparator()
-        self.plugin_submenu = self.tools_menu.addMenu("")
-        self._refresh_plugin_menu()
-
-        # -- Debug Menu (Phase 102) --
-        self.debug_menu = menubar.addMenu("")
-
-        self.action_debug_orphans = QAction("", self)
-        self.action_debug_orphans.triggered.connect(self._debug_show_orphans_slot)
-        self.debug_menu.addAction(self.action_debug_orphans)
-
-        self.action_prune_orphans = QAction("", self)
-        self.action_prune_orphans.triggered.connect(self._debug_prune_orphans_slot)
-        self.debug_menu.addAction(self.action_prune_orphans)
-
-        self.debug_menu.addSeparator()
-
-        self.action_debug_broken = QAction("", self)
-        self.action_debug_broken.triggered.connect(self._debug_show_broken_slot)
-        self.debug_menu.addAction(self.action_debug_broken)
-
-        self.action_prune_broken = QAction("", self)
-        self.action_prune_broken.triggered.connect(self._debug_prune_broken_slot)
-        self.debug_menu.addAction(self.action_prune_broken)
-
-        self.debug_menu.addSeparator()
-
-        self.action_debug_dedup = QAction("", self)
-        self.action_debug_dedup.triggered.connect(self._debug_deduplicate_vault_slot)
-        self.debug_menu.addAction(self.action_debug_dedup)
-
-        self.debug_menu.addSeparator()
-
-        self.action_prune_orphan_workflows = QAction("", self)
-        self.action_prune_orphan_workflows.triggered.connect(self._debug_prune_orphan_workflows_slot)
-        self.debug_menu.addAction(self.action_prune_orphan_workflows)
-
-        # -- Config Menu --
-        self.config_menu = menubar.addMenu("")
-
-        self.action_settings = QAction("", self)
-        self.action_settings.triggered.connect(self.open_settings_slot)
-        self.config_menu.addAction(self.action_settings)
-
-        # -- Semantic Data Menu (Phase 107) --
-        self.semantic_menu = menubar.addMenu("")
-
-        self.action_missing_semantic = QAction("", self)
-        self.action_missing_semantic.triggered.connect(self.list_missing_semantic_data_slot)
-        self.semantic_menu.addAction(self.action_missing_semantic)
-
-        self.action_mismatched_semantic = QAction("", self)
-        self.action_mismatched_semantic.triggered.connect(self.list_mismatched_semantic_data_slot)
-        self.semantic_menu.addAction(self.action_mismatched_semantic)
-
-        self.semantic_menu.addSeparator()
-
-        self.action_run_stage2_selected = QAction("", self)
-        self.action_run_stage2_selected.triggered.connect(self.run_stage_2_selected_slot)
-        self.semantic_menu.addAction(self.action_run_stage2_selected)
-
-        self.action_run_stage2_missing = QAction("", self)
-        self.action_run_stage2_missing.triggered.connect(self.run_stage_2_all_missing_slot)
-        self.semantic_menu.addAction(self.action_run_stage2_missing)
-
-        # -- Help Menu --
-        self.help_menu = menubar.addMenu("")
-
-        self.action_about = QAction("", self)
-        self.action_about.triggered.connect(self.show_about_dialog)
-        self.help_menu.addAction(self.action_about)
-
-    def _refresh_plugin_menu(self):
-        """Populates the Plugins submenu with actions from loaded plugins."""
-        if not hasattr(self, 'plugin_submenu') or not self.plugin_manager:
-            return
-            
-        self.plugin_submenu.clear()
-        
-        found_any = False
-        for plugin in self.plugin_manager.plugins:
-            try:
-                actions = plugin.get_tool_actions(parent=self)
-                if actions:
-                    found_any = True
-                    for action in actions:
-                        self.plugin_submenu.addAction(action)
-            except Exception as e:
-                logger.error(f"Error loading tools from {plugin.__class__.__name__}: {e}")
-                
-        if not found_any:
-            load_errors = getattr(self.plugin_manager, 'load_errors', {})
-            if load_errors:
-                self.plugin_submenu.addAction(self.tr("Plugin Loading Errors...")).setEnabled(False)
-                self.plugin_submenu.addSeparator()
-                err_menu = self.plugin_submenu.addMenu(self.tr("Details"))
-                for path, err in load_errors.items():
-                    err_menu.addAction(f"{Path(path).name}: {err}").setEnabled(False)
-            else:
-                self.plugin_submenu.addAction(self.tr("No plugin actions")).setEnabled(False)
-
-
-    # --- Debug Handlers ---
-    def _debug_show_orphans_slot(self):
-        mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
-        mgr.show_orphaned_vault_files()
-
-    def _debug_show_broken_slot(self):
-        mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
-        mgr.show_broken_entity_references()
-
-    def _debug_prune_orphans_slot(self):
-        msg = "Permanently delete ALL files in the vault that are NOT referenced by any entity? Check console for progress."
-        if show_selectable_message_box(self, "Prune Vault", msg, icon=QMessageBox.Icon.Warning, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
-            mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
-            mgr.prune_orphaned_vault_files()
-
-    def _debug_prune_broken_slot(self):
-        msg = "Permanently delete ALL database entries (entities) that point to missing files? Check console for progress."
-        if show_selectable_message_box(self, "Prune Database", msg, icon=QMessageBox.Icon.Warning, buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
-            mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
-            mgr.prune_broken_entity_references()
-            if self.list_widget:
-                self.list_widget.refresh_list()
-
-    def _debug_deduplicate_vault_slot(self):
-        msg = ("This will IDENTIFY duplicates by HASH and SIZE.\n\n"
-               "STEP 1: Delete newer duplicate files from Vault.\n"
-               "STEP 2: Remove ALL entities from the list that pointed to these files.\n\n"
-               "This is DESTRUCTIVE. Continue?")
-        reply = show_selectable_message_box(self, "Physical Deduplication", msg,
-                                           icon=QMessageBox.Icon.Question,
-                                           buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
-        if reply == QMessageBox.StandardButton.Yes:
-            mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
-            mgr.deduplicate_vault()
-            if self.list_widget:
-                self.list_widget.refresh_list()
+    def _debug_deduplicate_vault_slot(self) -> None:
+        self.debug_controller.deduplicate_vault()
 
     def _debug_prune_orphan_workflows_slot(self) -> None:
-        """Remove workflow entries from documents whose rule no longer exists in the registry."""
-        from core.workflow import WorkflowRuleRegistry
-        from core.models.semantic import SemanticExtraction
-
-        if not self.db_manager:
-            return
-
-        registry = WorkflowRuleRegistry()
-        known_ids = set(registry.rules.keys())
-
-        all_docs = self.db_manager.get_all_entities_view()
-        affected: list[tuple] = []  # (uuid, list[orphaned_rule_ids])
-
-        for doc in all_docs:
-            sd = getattr(doc, "semantic_data", None)
-            if not sd or not hasattr(sd, "workflows") or not sd.workflows:
-                continue
-            orphaned = [rid for rid in sd.workflows if rid not in known_ids]
-            if orphaned:
-                affected.append((doc.uuid, orphaned))
-
-        if not affected:
-            show_selectable_message_box(
-                self,
-                self.tr("Orphaned Workflow References"),
-                self.tr("No orphaned workflow references found. All rule IDs in all documents match a known rule."),
-                icon=QMessageBox.Icon.Information,
-            )
-            return
-
-        total_entries = sum(len(ids) for _, ids in affected)
-        all_orphaned_ids = sorted({rid for _, ids in affected for rid in ids})
-        detail = "\n".join(f"  • {rid}" for rid in all_orphaned_ids)
-        msg = (
-            f"Found {total_entries} orphaned workflow reference(s) in {len(affected)} document(s).\n\n"
-            f"Unknown rule IDs:\n{detail}\n\n"
-            "Remove these entries from all affected documents?"
-        )
-        reply = show_selectable_message_box(
-            self,
-            self.tr("Prune Orphaned Workflow References"),
-            msg,
-            icon=QMessageBox.Icon.Warning,
-            buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-
-        pruned_docs = 0
-        errors: list[str] = []
-        for uuid, orphaned_ids in affected:
-            try:
-                doc = self.db_manager.get_document_by_uuid(uuid)
-                sd = getattr(doc, "semantic_data", None)
-                if sd and hasattr(sd, "workflows"):
-                    for rid in orphaned_ids:
-                        sd.workflows.pop(rid, None)
-                    self.db_manager.update_document_metadata(uuid, {"semantic_data": sd})
-                    pruned_docs += 1
-            except Exception as e:
-                logger.error(f"Failed to prune orphaned workflows from {uuid}: {e}")
-                errors.append(uuid)
-
-        summary = self.tr("Removed orphaned workflow references from %n document(s).", "", pruned_docs)
-        if errors:
-            summary += f"\n\nFailed for {len(errors)} document(s) — see log for details."
-        show_selectable_message_box(self, self.tr("Done"), summary, icon=QMessageBox.Icon.Information)
-
-        if self.list_widget:
-            self.list_widget.refresh_list()
+        self.debug_controller.prune_orphan_workflows()
 
     def _on_filter_changed(self, criteria: dict):
         """Update local state when filter changes."""
@@ -1879,242 +1598,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "cockpit_widget") and self.cockpit_widget:
             self.cockpit_widget.refresh_stats()
 
-    def create_tool_bar(self):
-        self.navbar = QToolBar("Navigation")
-        self.navbar.setIconSize(QSize(20, 20))
-        self.navbar.setMovable(False)
-        from gui.theme import (
-            CLR_NAV_BG, CLR_BORDER, CLR_SURFACE, CLR_SURFACE_ROW, CLR_SURFACE_HOVER,
-            CLR_PRIMARY_NAV, CLR_PRIMARY_LIGHT, CLR_TEXT, CLR_TEXT_SECONDARY,
-            FONT_BASE, RADIUS_SM, NAV_HEIGHT,
-        )
-        self.navbar.setStyleSheet(f"""
-            QToolBar {{
-                background-color: {CLR_NAV_BG};
-                border-bottom: 1px solid {CLR_BORDER};
-                padding-top: 12px;
-                spacing: 2px;
-            }}
-            QToolButton {{
-                padding: 6px 15px;
-                border: 1px solid transparent;
-                border-bottom: 3px solid transparent;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                font-weight: 500;
-                font-size: {FONT_BASE}px;
-                color: {CLR_TEXT_SECONDARY};
-            }}
-            QToolButton:hover {{
-                background-color: {CLR_SURFACE_HOVER};
-            }}
-            /* Tab Container Styling */
-            QWidget#tabContainer {{
-                background-color: transparent;
-                border: 1px solid transparent;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                margin-bottom: -1px;
-                margin-top: 10px;
-                min-height: {NAV_HEIGHT}px;
-            }}
-            QWidget#tabContainer[active="true"] {{
-                background-color: {CLR_SURFACE};
-                border-color: {CLR_BORDER};
-                border-bottom: 1px solid {CLR_SURFACE};
-            }}
-            QWidget#tabContainer[active="true"] QToolButton {{
-                background-color: transparent;
-                border: 1px solid transparent;
-                color: {CLR_PRIMARY_NAV};
-                font-weight: bold;
-            }}
-            /* Underline for the main tab button when active */
-            QToolButton#mainTabBtn[active="true"] {{
-                border-bottom: 3px solid {CLR_PRIMARY_NAV};
-                color: {CLR_PRIMARY_NAV};
-            }}
 
-            /* Filter Button specific styling */
-            QWidget#tabContainer QToolButton#filterBtn {{
-                margin: 0px 6px;
-                padding: 4px 10px;
-                border: 1px solid {CLR_BORDER};
-                border-radius: {RADIUS_SM}px;
-                background-color: {CLR_SURFACE_ROW};
-                font-size: {FONT_BASE}px;
-                color: {CLR_TEXT};
-            }}
-            QWidget#tabContainer QToolButton#filterBtn:hover {{
-                background-color: {CLR_SURFACE_HOVER};
-                border-color: {CLR_BORDER};
-            }}
-            QWidget#tabContainer QToolButton#filterBtn:checked {{
-                background-color: {CLR_PRIMARY_LIGHT};
-                border: 1px solid {CLR_PRIMARY_NAV};
-                color: {CLR_PRIMARY_NAV};
-                font-weight: bold;
-            }}
-            /* Sub-mode buttons */
-            QWidget#tabContainer QToolButton#subModeBtn {{
-                background: transparent;
-                border: none;
-                border-bottom: 3px solid transparent;
-                border-radius: 0px;
-                padding: 6px 15px;
-                color: {CLR_TEXT_SECONDARY};
-                font-size: {FONT_BASE}px;
-            }}
-            QWidget#tabContainer QToolButton#subModeBtn:hover {{
-                background-color: {CLR_SURFACE_HOVER};
-                color: {CLR_PRIMARY_NAV};
-            }}
-            QWidget#tabContainer QToolButton#subModeBtn:checked {{
-                color: {CLR_PRIMARY_NAV};
-                border-bottom: 3px solid {CLR_PRIMARY_NAV};
-                background-color: {CLR_PRIMARY_LIGHT};
-                font-weight: bold;
-            }}
-        """)
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.navbar)
-
-        # Tab: Cockpit
-        self.cockpit_nav_container = QWidget()
-        self.cockpit_nav_container.setObjectName("tabContainer")
-        cockpit_nav_layout = QHBoxLayout(self.cockpit_nav_container)
-        cockpit_nav_layout.setContentsMargins(0, 0, 0, 0)
-        cockpit_nav_layout.setSpacing(0)
-        cockpit_nav_layout.setAlignment(Qt.AlignmentFlag.AlignBottom) # Consistent bottom alignment
-        
-        self.btn_cockpit = QToolButton()
-        self.btn_cockpit.setObjectName("mainTabBtn")
-        self.btn_cockpit.setCheckable(True)
-        self.btn_cockpit.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_cockpit.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
-        self.btn_cockpit.clicked.connect(self.go_home_slot)
-        cockpit_nav_layout.addWidget(self.btn_cockpit)
-        self.navbar.addWidget(self.cockpit_nav_container)
-
-        # Tab Area: Documents
-        self.doc_container = QWidget()
-        self.doc_container.setObjectName("tabContainer")
-        doc_layout = QHBoxLayout(self.doc_container)
-        doc_layout.setContentsMargins(0, 0, 0, 0)
-        doc_layout.setSpacing(0)
-        doc_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
-        
-        self.btn_documents = QToolButton()
-        self.btn_documents.setObjectName("mainTabBtn")
-        self.btn_documents.setCheckable(True)
-        self.btn_documents.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_documents.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileIcon))
-        self.btn_documents.clicked.connect(lambda: self.central_stack.setCurrentIndex(1))
-        doc_layout.addWidget(self.btn_documents)
-
-        self.navbar.addWidget(self.doc_container)
-        
-        # Tab Area: Workflows
-        self.wf_container = QWidget()
-        self.wf_container.setObjectName("tabContainer")
-        wf_layout = QHBoxLayout(self.wf_container)
-        wf_layout.setContentsMargins(0, 0, 0, 0)
-        wf_layout.setSpacing(0)
-        wf_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
-        
-        self.btn_workflows = QToolButton()
-        self.btn_workflows.setObjectName("mainTabBtn")
-        self.btn_workflows.setCheckable(True)
-        self.btn_workflows.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_workflows.setIcon(QIcon()) # Remove the arrow icon
-        self.btn_workflows.clicked.connect(lambda: self.central_stack.setCurrentIndex(2))
-        wf_layout.addWidget(self.btn_workflows)
-        self.navbar.addWidget(self.wf_container)
-
-        # Tab Area: Reporting
-        self.report_container = QWidget()
-        self.report_container.setObjectName("tabContainer")
-        report_layout = QHBoxLayout(self.report_container)
-        report_layout.setContentsMargins(0, 0, 0, 0)
-        report_layout.setSpacing(0)
-        report_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
-        
-        self.btn_reports = QToolButton()
-        self.btn_reports.setObjectName("mainTabBtn")
-        self.btn_reports.setCheckable(True)
-        self.btn_reports.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn_reports.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView))
-        self.btn_reports.clicked.connect(lambda: self.central_stack.setCurrentIndex(3))
-        report_layout.addWidget(self.btn_reports)
-        self.navbar.addWidget(self.report_container)
-
-        # Spacer
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.navbar.addWidget(spacer)
-
-    def _on_tab_changed(self, index):
-        """Update navigation UI when stack changes."""
-        is_cockpit = (index == 0)
-        is_explorer = (index == 1)
-        is_workflow = (index == 2)
-        is_reporting = (index == 3)
-        
-        # Update Tab Highlighting
-        self.cockpit_nav_container.setProperty("active", is_cockpit)
-        self.doc_container.setProperty("active", is_explorer)
-        self.wf_container.setProperty("active", is_workflow)
-        self.report_container.setProperty("active", is_reporting)
-        
-        # Force Style Refresh
-        for btn in [self.btn_cockpit, self.btn_documents, self.btn_reports, self.btn_workflows]:
-            btn.setProperty("active", False)
-            if (is_cockpit and btn == self.btn_cockpit) or \
-               (is_explorer and btn == self.btn_documents) or \
-               (is_reporting and btn == self.btn_reports) or \
-               (is_workflow and btn == self.btn_workflows):
-                btn.setProperty("active", True)
-            
-        for container in [self.cockpit_nav_container, self.doc_container, self.report_container, self.wf_container]:
-            container.style().unpolish(container)
-            container.style().polish(container)
-
-        self.btn_cockpit.setChecked(is_cockpit)
-        self.btn_documents.setChecked(is_explorer)
-        self.btn_reports.setChecked(is_reporting)
-        self.btn_workflows.setChecked(is_workflow)
-        
-        # Sub-mode visibility is now handled internally in Documents and Workflows
-        
-        # Refresh Data for specific tabs
-        if is_cockpit:
-            self.cockpit_widget.refresh_stats()
-        elif is_reporting:
-            self.reporting_widget.refresh_data()
-        elif is_workflow:
-            self.workflow_manager.load_workflows()
-        if index == 1 and hasattr(self, 'list_widget'):
-            if self._last_selected_uuid:
-                self.list_widget.target_uuid_to_restore = self._last_selected_uuid
-                # Don't force-select-first when a specific UUID should be restored —
-                # force_select_first=True would take priority and override the UUID.
-                self.list_widget.refresh_list(force_select_first=False)
-            else:
-                self.list_widget.refresh_list(force_select_first=True)
-
-        for container in [self.cockpit_nav_container, self.doc_container, self.report_container, self.wf_container]:
-            container.style().unpolish(container)
-            container.style().polish(container)
-            # Ensure children are also refreshed specifically for text colors
-            for child in container.findChildren(QToolButton):
-                child.style().unpolish(child)
-                child.style().polish(child)
-
-    def _toggle_filter_view(self, checked):
-        """Toggle visibility of the unified filter console."""
-        if hasattr(self, "advanced_filter"):
-            self.advanced_filter.setVisible(checked)
-            if hasattr(self, "action_toggle_filter"):
-                self.action_toggle_filter.setChecked(checked)
 
     def open_tag_manager_slot(self):
         """Open the Tag Manager dialog."""
@@ -2139,65 +1623,3 @@ class MainWindow(QMainWindow):
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
-        """Updates all UI strings for on-the-fly localization."""
-        if not hasattr(self, "file_menu"):
-            return # UI not fully constructed yet
-            
-        self.setWindowTitle("KPaperFlux v2")
-        
-        # Menus
-        self.file_menu.setTitle(self.tr("&File"))
-        self.action_import.setText(self.tr("&Import Document"))
-        self.action_import_transfer.setText(self.tr("Import from Transfer"))
-        self.action_scan.setText(self.tr("&Scan..."))
-        self.action_print.setText(self.tr("&Print"))
-        self.action_delete.setText(self.tr("&Delete Selected"))
-        self.action_export.setText(self.tr("Export shown List..."))
-        self.action_exit.setText(self.tr("E&xit"))
-
-        self.view_menu.setTitle(self.tr("&View"))
-        self.action_refresh.setText(self.tr("&Refresh List"))
-        self.action_extra.setText(self.tr("Show Extra Data"))
-        self.action_toggle_filter.setText("🗂️ " + self.tr("Filter Panel"))
-
-        self.maintenance_menu.setTitle(self.tr("&Maintenance"))
-        self.action_maintenance.setText(self.tr("Check Integrity (Orphans/Ghosts)"))
-        self.action_duplicates.setText(self.tr("Find Duplicates"))
-        self.action_tag_manager.setText(self.tr("Manage Tags"))
-
-        self.tools_menu.setTitle(self.tr("&Tools"))
-        self.action_purge_data.setText(self.tr("Purge All Data (Reset)"))
-        self.plugin_submenu.setTitle(self.tr("External Plugins"))
-
-        self.debug_menu.setTitle(self.tr("&Debug"))
-        self.action_debug_orphans.setText(self.tr("Show Orphaned Vault Files"))
-        self.action_prune_orphans.setText(self.tr("Prune Orphaned Vault Files (Console)"))
-        self.action_debug_broken.setText(self.tr("Show Broken Entity References"))
-        self.action_prune_broken.setText(self.tr("Prune Broken Entity References (Console)"))
-        self.action_debug_dedup.setText(self.tr("Deduplicate Vault (Inhaltsbasiert)"))
-        self.action_prune_orphan_workflows.setText(self.tr("Prune Orphaned Workflow References..."))
-
-        self.config_menu.setTitle(self.tr("&Config"))
-        self.action_settings.setText(self.tr("&Settings..."))
-
-        self.semantic_menu.setTitle(self.tr("&Semantic Data"))
-        self.action_missing_semantic.setText(self.tr("List Missing"))
-        self.action_mismatched_semantic.setText(self.tr("List Mismatched"))
-        self.action_run_stage2_selected.setText(self.tr("Run Extraction (Selected)"))
-        self.action_run_stage2_missing.setText(self.tr("Process empty Documents"))
-
-        self.help_menu.setTitle(self.tr("&Help"))
-        self.action_about.setText(self.tr("&About"))
-
-        # Navbar Tabs
-        self.btn_cockpit.setText(self.tr("Cockpit"))
-        self.btn_cockpit.setToolTip(self.tr("Main overview and statistics"))
-        self.btn_documents.setText(self.tr("Documents"))
-        self.btn_documents.setToolTip(self.tr("Browse and manage document list"))
-        self.btn_workflows.setText("🤖 " + self.tr("Workflows"))
-        self.btn_reports.setText(self.tr("Reports"))
-
-        # Status Bar Items (Initial or static ones)
-        if hasattr(self, 'main_status_label') and self.main_status_label:
-             self._refresh_status_bar() # Refresh counts
