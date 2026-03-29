@@ -848,6 +848,16 @@ class WorkflowRuleFormEditor(QWidget):
         cond_vbox.setSpacing(3)
 
         _OPS = [">", "<", ">=", "<=", "=", "!="]
+        _FIELD_KEYS = [fk for _, fk, _ in WORKFLOW_FIELD_CATALOG]
+
+        def _make_field_combo(selected_key: str) -> QComboBox:
+            combo = QComboBox()
+            for _, fk, fl in WORKFLOW_FIELD_CATALOG:
+                combo.addItem(self.tr(fl), userData=fk)
+            idx = _FIELD_KEYS.index(selected_key) if selected_key in _FIELD_KEYS else 0
+            combo.setCurrentIndex(idx)
+            combo.currentIndexChanged.connect(lambda _: QTimer.singleShot(0, _apply))
+            return combo
 
         cond_table = QTableWidget(0, 3)
         cond_table.setHorizontalHeaderLabels([
@@ -867,12 +877,13 @@ class WorkflowRuleFormEditor(QWidget):
             for cond in t.conditions:
                 row = cond_table.rowCount()
                 cond_table.insertRow(row)
-                cond_table.setItem(row, 0, QTableWidgetItem(cond.field))
+                cond_table.setCellWidget(row, 0, _make_field_combo(cond.field))
                 op_combo = QComboBox()
                 for op in _OPS:
                     op_combo.addItem(op)
                 if cond.op in _OPS:
                     op_combo.setCurrentIndex(_OPS.index(cond.op))
+                op_combo.currentIndexChanged.connect(lambda _: QTimer.singleShot(0, _apply))
                 cond_table.setCellWidget(row, 1, op_combo)
                 cond_table.setItem(row, 2, QTableWidgetItem(str(cond.value)))
                 cond_table.setRowHeight(row, 24)
@@ -898,10 +909,10 @@ class WorkflowRuleFormEditor(QWidget):
         def _read_conditions() -> list:
             rows = []
             for r in range(cond_table.rowCount()):
-                field_item = cond_table.item(r, 0)
+                field_widget = cond_table.cellWidget(r, 0)
                 op_widget = cond_table.cellWidget(r, 1)
                 val_item = cond_table.item(r, 2)
-                field = field_item.text().strip() if field_item else ""
+                field = field_widget.currentData() if field_widget else ""
                 op = op_widget.currentText() if op_widget else "="
                 val_raw = val_item.text().strip() if val_item else ""
                 if not field or not val_raw:
@@ -916,14 +927,17 @@ class WorkflowRuleFormEditor(QWidget):
         def _on_add_condition():
             row = cond_table.rowCount()
             cond_table.insertRow(row)
-            cond_table.setItem(row, 0, QTableWidgetItem("DAYS_IN_STATE"))
+            # Default to DAYS_IN_STATE — the most common timed condition
+            default_key = "DAYS_IN_STATE"
+            cond_table.setCellWidget(row, 0, _make_field_combo(default_key))
             op_combo = QComboBox()
             for op in _OPS:
                 op_combo.addItem(op)
+            op_combo.currentIndexChanged.connect(lambda _: QTimer.singleShot(0, _apply))
             cond_table.setCellWidget(row, 1, op_combo)
             cond_table.setItem(row, 2, QTableWidgetItem("0"))
             cond_table.setRowHeight(row, 24)
-            cond_table.setCurrentCell(row, 0)
+            cond_table.setCurrentCell(row, 2)
             QTimer.singleShot(0, _apply)
 
         def _on_del_condition():

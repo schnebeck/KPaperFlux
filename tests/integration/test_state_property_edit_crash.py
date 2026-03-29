@@ -312,8 +312,11 @@ def rule_with_conditions() -> WorkflowRule:
 
 
 def test_existing_conditions_shown_in_table(qtbot, rule_with_conditions):
-    """Conditions already on a transition must be pre-populated in the table."""
-    from PyQt6.QtWidgets import QTableWidget
+    """Conditions already on a transition must be pre-populated in the table.
+
+    Column 0 is now a QComboBox cell widget (field picker), not a plain item.
+    """
+    from PyQt6.QtWidgets import QTableWidget, QComboBox
     editor = WorkflowRuleFormEditor()
     qtbot.addWidget(editor)
     editor.load_rule(rule_with_conditions)
@@ -325,7 +328,9 @@ def test_existing_conditions_shown_in_table(qtbot, rule_with_conditions):
 
     assert table is not None
     assert table.rowCount() == 1
-    assert table.item(0, 0).text() == "DAYS_IN_STATE"
+    field_combo = table.cellWidget(0, 0)
+    assert isinstance(field_combo, QComboBox)
+    assert field_combo.currentData() == "DAYS_IN_STATE"
     assert table.item(0, 2).text() == "10"
 
 
@@ -360,8 +365,9 @@ def test_add_condition_button_appends_row(qtbot, rule_with_conditions):
 
 
 def test_conditions_persist_in_rule_after_edit(qtbot, rule_with_conditions):
-    """After editing the condition field cell the rule model must update."""
-    from PyQt6.QtWidgets import QTableWidget
+    """After editing the value cell and changing the field combo the model must update."""
+    from PyQt6.QtWidgets import QTableWidget, QComboBox
+    from core.workflow import WORKFLOW_FIELD_CATALOG
     editor = WorkflowRuleFormEditor()
     qtbot.addWidget(editor)
     editor.load_rule(rule_with_conditions)
@@ -380,6 +386,21 @@ def test_conditions_persist_in_rule_after_edit(qtbot, rule_with_conditions):
     conds = rule.states["WAIT"].transitions[0].conditions
     assert len(conds) == 1
     assert conds[0].value == 30.0
+    assert conds[0].field == "DAYS_IN_STATE"
+
+    # Also verify: switching field combo to a different field persists
+    _select_edge(editor, "WAIT", "escalate")
+    cond_container2 = fl.itemAt(3, QFormLayout.ItemRole.FieldRole).widget()
+    table2 = cond_container2.findChild(QTableWidget)
+    field_combo = table2.cellWidget(0, 0)
+    assert isinstance(field_combo, QComboBox)
+    # Select "total_gross" (first entry in catalog)
+    keys = [fk for _, fk, _ in WORKFLOW_FIELD_CATALOG]
+    field_combo.setCurrentIndex(keys.index("total_gross"))
+    qtbot.wait(80)
+
+    rule2 = editor.get_rule()
+    assert rule2.states["WAIT"].transitions[0].conditions[0].field == "total_gross"
 
 
 def test_remove_condition_updates_rule(qtbot, rule_with_conditions):
