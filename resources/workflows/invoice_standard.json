@@ -1,7 +1,7 @@
 {
   "id": "invoice_standard",
   "name": "Standard Rechnungsmanager",
-  "description": "Pr\u00fcfung der semantischen Daten einer Rechnung",
+  "description": "Prüfung der semantischen Daten einer Rechnung",
   "creator_locale": "de",
   "l10n": {},
   "states": {
@@ -10,7 +10,7 @@
       "transitions": [
         {
           "action": "t_a461f1d8",
-          "label": "pr\u00fcfen",
+          "label": "prüfen",
           "target": "s_2b61003e",
           "required_fields": [
             "total_gross",
@@ -35,10 +35,11 @@
         }
       ],
       "final": false,
-      "initial": true
+      "initial": true,
+      "state_type": "START"
     },
     "s_2b61003e": {
-      "label": "Gepr\u00fcft",
+      "label": "Geprüft",
       "transitions": [
         {
           "action": "t_6bb74cb1",
@@ -52,7 +53,7 @@
         },
         {
           "action": "t_e2844500",
-          "label": "zur\u00fccksetzen",
+          "label": "zurücksetzen",
           "target": "s_2030361d",
           "required_fields": [],
           "conditions": [],
@@ -62,19 +63,22 @@
         }
       ],
       "final": false,
-      "initial": false
+      "initial": false,
+      "state_type": "NORMAL"
     },
     "s_2dc6045d": {
       "label": "Bezahlt -> Archiv",
       "transitions": [],
       "final": true,
-      "initial": false
+      "initial": false,
+      "state_type": "END_OK"
     },
     "s_60c10d5d": {
-      "label": "Zur\u00fcckgewiesen -> Spam",
+      "label": "Zurückgewiesen -> Spam",
       "transitions": [],
       "final": true,
-      "initial": false
+      "initial": false,
+      "state_type": "END_NOK"
     }
   },
   "triggers": {

@@ -146,6 +146,11 @@ class WorkflowInfo(BaseModel):
     verified_by: Optional[str] = None
     rule_id: Optional[str] = None
     current_step: str = "NEW"
+    current_step_entered_at: Optional[str] = None
+    """ISO 8601 timestamp of when the document entered ``current_step``.
+    Set automatically by ``apply_transition()``.  Used to compute
+    ``DAYS_IN_STATE`` for timed workflow conditions without relying on the
+    (fragile) last history-entry timestamp."""
     history: List[WorkflowLog] = Field(default_factory=list)
 
     def apply_transition(self, action: str, next_state: str, user: Optional[str] = "USER", comment: Optional[str] = None):
@@ -155,6 +160,7 @@ class WorkflowInfo(BaseModel):
             comment=comment
         ))
         self.current_step = next_state
+        self.current_step_entered_at = datetime.now().isoformat()
     
     pkv_eligible: bool = False
     pkv_status: Optional[str] = None 

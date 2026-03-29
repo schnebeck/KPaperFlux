@@ -34,7 +34,7 @@ from PyQt6.QtWidgets import (
 from core.logger import get_logger
 from core.workflow import (
     WorkflowEngine, WorkflowRule, WorkflowState, WorkflowTransition,
-    make_state_id, make_action_id,
+    StateType, make_state_id, make_action_id,
 )
 
 logger = get_logger("gui.widgets.workflow_graph")
@@ -149,7 +149,7 @@ def _compute_layout(rule: WorkflowRule) -> Dict[str, QPointF]:
     for sid, layer in layers.items():
         by_layer.setdefault(layer, []).append(sid)
     for layer in by_layer:
-        by_layer[layer].sort(key=lambda s: (rule.states[s].final, s))
+        by_layer[layer].sort(key=lambda s: (rule.states[s].is_terminal, s))
 
     # Assign positions centred vertically, but prefer stored positions
     positions: Dict[str, QPointF] = {}
@@ -256,7 +256,7 @@ class StateNode(QGraphicsItem):
         elif self.is_target:
             border_c = C_AVAIL     # blue border — signals clickability
             bw = 1.5
-        elif self.state_def.final:
+        elif self.state_def.is_terminal:
             border_c = C_FINAL_NG if self._is_error_final() else C_FINAL_OK
             bw = 2.0
         elif self.is_visited:
@@ -287,8 +287,8 @@ class StateNode(QGraphicsItem):
             painter.setPen(hover_pen)
             painter.drawRoundedRect(r.adjusted(-7, -7, 7, 7), BORDER_R + 6, BORDER_R + 6)
 
-        # Double border: final states (UML convention) AND active pending selection
-        if self.state_def.final or self.is_pending:
+        # Double border: terminal states (UML convention) AND active pending selection
+        if self.state_def.is_terminal or self.is_pending:
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.setPen(QPen(border_c, 1.0))
             painter.drawRoundedRect(r.adjusted(4, 4, -4, -4), BORDER_R - 3, BORDER_R - 3)
@@ -369,6 +369,11 @@ class StateNode(QGraphicsItem):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _is_error_final(self) -> bool:
+        if self.state_def.state_type == StateType.END_NOK:
+            return True
+        if self.state_def.state_type in (StateType.END_OK, StateType.END_NEUTRAL):
+            return False
+        # Fallback heuristic for legacy states without state_type
         return any(k in self.state_id.upper() for k in ("REJECT", "ERROR", "FAIL", "SPAM", "CANCEL"))
 
 
@@ -1658,10 +1663,19 @@ class WorkflowGraphWidget(QWidget):
 
     @staticmethod
     def _state_color(step: str, sdef: Optional[WorkflowState]) -> str:
-        if sdef and sdef.final:
-            return ("#c62828"
-                    if any(k in step.upper() for k in ("REJECT", "ERROR", "FAIL", "SPAM", "CANCEL"))
-                    else "#2e7d32")
+        if sdef:
+            type_colors = {
+                StateType.START: "#1565c0",
+                StateType.END_OK: "#2e7d32",
+                StateType.END_NOK: "#c62828",
+                StateType.END_NEUTRAL: "#607d8b",
+            }
+            if sdef.state_type in type_colors:
+                return type_colors[sdef.state_type]
+            if sdef.final:
+                return ("#c62828"
+                        if any(k in step.upper() for k in ("REJECT", "ERROR", "FAIL", "SPAM", "CANCEL"))
+                        else "#2e7d32")
         sl = step.lower()
         if "new" in sl:     return "#1565c0"
         if "pending" in sl or "wait" in sl: return "#f57c00"
@@ -1823,16 +1837,30 @@ class WorkflowGraphWidget(QWidget):
         lbl_edit = QLineEdit(node.state_def.label)
         fl.addRow(self.tr("Label:"), lbl_edit)
 
-        final_chk = QCheckBox()
-        final_chk.setChecked(node.state_def.final)
-        fl.addRow(self.tr("Final state:"), final_chk)
+        type_combo = QComboBox()
+        _type_labels = {
+            StateType.START: self.tr("START — Entry point"),
+            StateType.NORMAL: self.tr("NORMAL — Intermediate"),
+            StateType.END_OK: self.tr("END OK — Positive terminal"),
+            StateType.END_NOK: self.tr("END NOK — Negative terminal"),
+            StateType.END_NEUTRAL: self.tr("END NEUTRAL — Neutral terminal"),
+        }
+        for st, label in _type_labels.items():
+            type_combo.addItem(label, userData=st)
+        current_type = node.state_def.state_type
+        idx = list(_type_labels.keys()).index(current_type) if current_type in _type_labels else 1
+        type_combo.setCurrentIndex(idx)
+        fl.addRow(self.tr("Type:"), type_combo)
 
         def _apply():
             if not self._rule:
                 return
             node.state_def.label = lbl_edit.text().strip()
             node.display_label = node.state_def.label or node.state_id
-            node.state_def.final = final_chk.isChecked()
+            chosen_type: StateType = type_combo.currentData()
+            node.state_def.state_type = chosen_type
+            node.state_def.final = chosen_type in (StateType.END_OK, StateType.END_NOK, StateType.END_NEUTRAL)
+            node.state_def.initial = chosen_type == StateType.START
             node.update()
             self._rebuild()
             self.rule_changed.emit()

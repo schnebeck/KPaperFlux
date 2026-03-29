@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QVBoxLayout, QMenu
 from PyQt6.QtCore import pyqtSignal, Qt
-from core.workflow import WorkflowRuleRegistry, WorkflowEngine, WorkflowState
+from core.workflow import WorkflowRuleRegistry, WorkflowEngine, WorkflowState, StateType
 from typing import Dict, Any, Optional
 from core.logger import get_logger
 
@@ -154,25 +154,38 @@ class WorkflowControlsWidget(QWidget):
                 btn.clicked.connect(lambda checked, a=trans.action, t=trans.target: self.transition_triggered.emit(self.rule_id, a, t, False))
                 self.buttons_layout.addWidget(btn)
         
-        if state_def and state_def.final:
-            self.status_lbl.setText(f"✓ {rule.get_state_label(self.current_step)}")
-            # Final states are typically green-ish
+        if state_def and state_def.is_terminal:
+            prefix = {
+                StateType.END_OK: "✓",
+                StateType.END_NOK: "✗",
+                StateType.END_NEUTRAL: "○",
+            }.get(state_def.state_type, "✓")
+            self.status_lbl.setText(f"{prefix} {rule.get_state_label(self.current_step)}")
             self.status_lbl.setFixedHeight(28)
-            self.status_lbl.setStyleSheet("font-weight: bold; color: white; background: #2e7d32; padding: 0px 15px; border-radius: 14px;")
-            
+            color = self._get_status_color(self.current_step, state_def)
+            self.status_lbl.setStyleSheet(f"font-weight: bold; color: white; background: {color}; padding: 0px 15px; border-radius: 14px;")
+
     def _get_status_color(self, step: str, state_def: Optional[WorkflowState]) -> str:
-        """Returns a harmonized color for the status badge."""
-        if state_def and state_def.final:
-            return "#2e7d32" # Emerald
-        
-        # Semantic mapping
+        """Returns a harmonized color for the status badge based on state_type."""
+        if state_def:
+            type_colors = {
+                StateType.START: "#1565c0",       # Blue
+                StateType.END_OK: "#2e7d32",      # Emerald
+                StateType.END_NOK: "#c62828",     # Red
+                StateType.END_NEUTRAL: "#607d8b", # Blue Grey
+            }
+            if state_def.state_type in type_colors:
+                return type_colors[state_def.state_type]
+            if state_def.final:
+                return "#2e7d32"  # legacy final → green
+
+        # Fallback: heuristic from step ID (for NORMAL states without type)
         step_lower = step.lower()
-        if "new" in step_lower: return "#1565c0" # Blue
-        if "pending" in step_lower or "wait" in step_lower: return "#f57c00" # Orange
-        if "urgent" in step_lower or "error" in step_lower: return "#c62828" # Red
-        if "review" in step_lower or "check" in step_lower: return "#7b1fa2" # Purple
-        
-        return "#607d8b" # Blue Grey default
+        if "new" in step_lower: return "#1565c0"
+        if "pending" in step_lower or "wait" in step_lower: return "#f57c00"
+        if "urgent" in step_lower or "error" in step_lower: return "#c62828"
+        if "review" in step_lower or "check" in step_lower: return "#7b1fa2"
+        return "#607d8b"
 
     def _show_assignment_menu(self):
         menu = QMenu(self)

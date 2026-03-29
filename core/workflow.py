@@ -14,6 +14,7 @@ Description:    Workflow data models, engine, registry, and locale-aware
 
 import json
 import locale as _locale_mod
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -56,6 +57,28 @@ def get_user_locale() -> str:
 # Data models
 # ---------------------------------------------------------------------------
 
+
+class StateType(str, Enum):
+    """Semantic classification of a workflow state.
+
+    Every state in a rule must have exactly one type.  The type drives colour
+    coding, terminal detection, and analytics queries — without relying on
+    fragile label-string heuristics.
+
+    ``START``       — entry point (at most one per rule).
+    ``NORMAL``      — intermediate task / waiting state.
+    ``END_OK``      — positive terminal (paid, approved, completed).
+    ``END_NOK``     — negative terminal (rejected, written-off, escalated).
+    ``END_NEUTRAL`` — neutral terminal (cancelled, archived without outcome).
+    """
+
+    START = "START"
+    NORMAL = "NORMAL"
+    END_OK = "END_OK"
+    END_NOK = "END_NOK"
+    END_NEUTRAL = "END_NEUTRAL"
+
+
 class WorkflowCondition(BaseModel):
     """Specific logical condition for a transition."""
     field: str
@@ -89,12 +112,27 @@ class WorkflowTransition(BaseModel):
 class WorkflowState(BaseModel):
     label: str = ""
     transitions: List[WorkflowTransition] = Field(default_factory=list)
+    state_type: StateType = StateType.NORMAL
+    """Semantic type of this state.  Drives colour coding, terminal detection,
+    and analytics.  ``END_*`` types imply ``final=True``; ``START`` implies
+    ``initial=True`` — those legacy flags are still honoured for rules that
+    pre-date ``state_type``."""
     final: bool = False
     initial: bool = False
     """Explicit start-state marker.  At most one state per rule should be True.
     When present, ``get_initial_state()`` returns this state without falling back
     to topology detection.  Existing rules without this flag continue to work
     via the topology heuristic (state with no incoming transitions)."""
+
+    @property
+    def is_terminal(self) -> bool:
+        """True for any state from which no further transitions are expected."""
+        return self.state_type in (StateType.END_OK, StateType.END_NOK, StateType.END_NEUTRAL) or self.final
+
+    @property
+    def is_start(self) -> bool:
+        """True if this is the designated entry point of the workflow."""
+        return self.state_type == StateType.START or self.initial
 
 
 class WorkflowL10nPatch(BaseModel):
@@ -361,9 +399,9 @@ def get_initial_state(rule: WorkflowRule) -> Optional[str]:
     """
     if not rule.states:
         return None
-    # 1. Explicit marker
+    # 1. Explicit START type or initial marker
     for sid, state in rule.states.items():
-        if state.initial:
+        if state.is_start:
             return sid
     # 2. Topology: state that is not the target of any transition
     targeted: set[str] = {
@@ -380,7 +418,7 @@ def completion_percent(wf_info: Any, rule: WorkflowRule) -> int:
     calculated from visited states vs. total states in the rule.
     """
     state = rule.states.get(wf_info.current_step)
-    if state and state.final:
+    if state and state.is_terminal:
         return 100
     total = len(rule.states)
     if not total:

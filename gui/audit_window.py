@@ -281,9 +281,11 @@ class AuditWindow(QMainWindow):
 
             wf_doc_data = dict(doc_data_for_wf)
             try:
-                if wf_info.history:
-                    last_ts = wf_info.history[-1].timestamp
-                    wf_doc_data["DAYS_IN_STATE"] = (now - datetime.fromisoformat(last_ts)).days
+                entered_ts = wf_info.current_step_entered_at or (
+                    wf_info.history[-1].timestamp if wf_info.history else None
+                )
+                if entered_ts:
+                    wf_doc_data["DAYS_IN_STATE"] = (now - datetime.fromisoformat(entered_ts)).days
             except Exception as e:
                 logger.debug(f"DAYS_IN_STATE skipped for {rid}: {e}")
 

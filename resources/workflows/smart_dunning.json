@@ -1,7 +1,7 @@
 {
   "id": "smart_dunning",
   "name": "Intelligenter Mahn-Agent",
-  "description": "Automatische Eskalationsstufen basierend auf Liegezeit und F\u00e4lligkeit.",
+  "description": "Automatische Eskalationsstufen basierend auf Liegezeit und Fälligkeit.",
   "creator_locale": "de",
   "l10n": {},
   "states": {
@@ -10,7 +10,7 @@
       "transitions": [
         {
           "action": "t_d084d6d2",
-          "label": "pr\u00fcfen",
+          "label": "prüfen",
           "target": "s_11285185",
           "required_fields": [
             "total_gross",
@@ -23,7 +23,8 @@
         }
       ],
       "final": false,
-      "initial": true
+      "initial": true,
+      "state_type": "START"
     },
     "s_11285185": {
       "label": "Warten auf Zahlung",
@@ -56,19 +57,22 @@
         }
       ],
       "final": false,
-      "initial": false
+      "initial": false,
+      "state_type": "NORMAL"
     },
     "s_29669884": {
       "label": "Abgeschlossen",
       "transitions": [],
       "final": true,
-      "initial": false
+      "initial": false,
+      "state_type": "END_OK"
     },
     "s_89fd76ba": {
       "label": "Inkasso / Recht",
       "transitions": [],
       "final": true,
-      "initial": false
+      "initial": false,
+      "state_type": "END_NOK"
     },
     "s_a02eec87": {
       "label": "1. Mahnstufe",
@@ -101,7 +105,7 @@
         },
         {
           "action": "t_18e4b9db",
-          "label": "Zur\u00fccksetzen",
+          "label": "Zurücksetzen",
           "target": "s_00387ce1",
           "required_fields": [],
           "conditions": [],
@@ -111,7 +115,8 @@
         }
       ],
       "final": false,
-      "initial": false
+      "initial": false,
+      "state_type": "NORMAL"
     }
   },
   "triggers": {
