@@ -7090,23 +7090,23 @@ Geschäftsführer: ...</translation>
         </message>
         <message>
             <source>START — Entry point</source>
-            <translation>START — Einstiegspunkt</translation>
+            <translation>Einstiegspunkt</translation>
         </message>
         <message>
             <source>NORMAL — Intermediate</source>
-            <translation>NORMAL — Zwischenzustand</translation>
+            <translation>Zwischenzustand</translation>
         </message>
         <message>
             <source>END OK — Positive terminal</source>
-            <translation>ENDE OK — Positiver Abschluss</translation>
+            <translation>Positiver Abschluss</translation>
         </message>
         <message>
             <source>END NOK — Negative terminal</source>
-            <translation>ENDE NOK — Negativer Abschluss</translation>
+            <translation>Negativer Abschluss</translation>
         </message>
         <message>
             <source>END NEUTRAL — Neutral terminal</source>
-            <translation>ENDE NEUTRAL — Neutraler Abschluss</translation>
+            <translation>Neutraler Abschluss</translation>
         </message>
         <message>
             <source>Type:</source>
@@ -7234,27 +7234,27 @@ Geschäftsführer: ...</translation>
         <message>
             <location filename="../../../gui/widgets/workflow_graph.py" line="1842" />
             <source>START — Entry point</source>
-            <translation>START — Einstiegspunkt</translation>
+            <translation>Einstiegspunkt</translation>
         </message>
         <message>
             <location filename="../../../gui/widgets/workflow_graph.py" line="1843" />
             <source>NORMAL — Intermediate</source>
-            <translation>NORMAL — Zwischenzustand</translation>
+            <translation>Zwischenzustand</translation>
         </message>
         <message>
             <location filename="../../../gui/widgets/workflow_graph.py" line="1844" />
             <source>END OK — Positive terminal</source>
-            <translation>ENDE OK — Positiver Abschluss</translation>
+            <translation>Positiver Abschluss</translation>
         </message>
         <message>
             <location filename="../../../gui/widgets/workflow_graph.py" line="1845" />
             <source>END NOK — Negative terminal</source>
-            <translation>ENDE NOK — Negativer Abschluss</translation>
+            <translation>Negativer Abschluss</translation>
         </message>
         <message>
             <location filename="../../../gui/widgets/workflow_graph.py" line="1846" />
             <source>END NEUTRAL — Neutral terminal</source>
-            <translation>ENDE NEUTRAL — Neutraler Abschluss</translation>
+            <translation>Neutraler Abschluss</translation>
         </message>
         <message>
             <location filename="../../../gui/widgets/workflow_graph.py" line="1853" />
@@ -7693,27 +7693,27 @@ python scripts/migrate_workflow_to_multi.py --db &lt;path&gt;</source>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="758" />
             <source>START — Entry point</source>
-            <translation>START — Einstiegspunkt</translation>
+            <translation>Einstiegspunkt</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="759" />
             <source>NORMAL — Intermediate</source>
-            <translation>NORMAL — Zwischenzustand</translation>
+            <translation>Zwischenzustand</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="760" />
             <source>END OK — Positive terminal</source>
-            <translation>ENDE OK — Positiver Abschluss</translation>
+            <translation>Positiver Abschluss</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="761" />
             <source>END NOK — Negative terminal</source>
-            <translation>ENDE NOK — Negativer Abschluss</translation>
+            <translation>Negativer Abschluss</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="762" />
             <source>END NEUTRAL — Neutral terminal</source>
-            <translation>ENDE NEUTRAL — Neutraler Abschluss</translation>
+            <translation>Neutraler Abschluss</translation>
         </message>
         <message>
             <location filename="../../../gui/workflow_manager.py" line="769" />
