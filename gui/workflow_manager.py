@@ -8,12 +8,17 @@ from PyQt6.QtWidgets import (
     QPushButton, QLabel, QMessageBox, QSplitter, QFrame,
     QLineEdit, QPlainTextEdit, QFormLayout, QTableWidget, QTableWidgetItem, QHeaderView,
     QCheckBox, QToolButton, QDialog, QComboBox, QInputDialog,
+    QTreeWidget, QTreeWidgetItem,
     QStackedWidget, QButtonGroup, QScrollArea, QSizePolicy, QProgressBar,
     QDialogButtonBox, QTabWidget,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize, QEvent, QTimer, QSettings, QPoint, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QCursor
-from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition, WorkflowEngine, WorkflowL10nPatch, StateType
+from core.workflow import (
+    WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition,
+    WorkflowCondition, WorkflowEngine, WorkflowL10nPatch, StateType,
+    WORKFLOW_FIELD_CATALOG, WORKFLOW_FIELD_GROUPS,
+)
 from gui.widgets.workflow_graph import WorkflowGraphWidget, StateNode, TransitionEdge
 from gui.cockpit import CELL_WIDTH, CELL_HEIGHT, SPACING, MARGIN, StatCard
 from typing import Dict, List, Any, Optional
@@ -808,9 +813,33 @@ class WorkflowRuleFormEditor(QWidget):
         auto_chk.setChecked(t.auto)
         fl.addRow(self.tr("Auto:"), auto_chk)
 
-        req_edit = QLineEdit(", ".join(t.required_fields))
-        req_edit.setPlaceholderText("iban, total_gross, …")
-        fl.addRow(self.tr("Required Fields:"), req_edit)
+        # ── Required-fields picker ────────────────────────────────────────────
+        req_tree = QTreeWidget()
+        req_tree.setHeaderHidden(True)
+        req_tree.setRootIsDecorated(False)
+        req_tree.setIndentation(16)
+        req_tree.setMinimumHeight(120)
+        req_tree.setMaximumHeight(180)
+
+        _field_items: dict[str, QTreeWidgetItem] = {}
+        _groups_seen: dict[str, QTreeWidgetItem] = {}
+        for group_key, field_key, field_label in WORKFLOW_FIELD_CATALOG:
+            if group_key not in _groups_seen:
+                grp_item = QTreeWidgetItem(req_tree, [self.tr(WORKFLOW_FIELD_GROUPS[group_key])])
+                grp_item.setFlags(grp_item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
+                grp_item.setExpanded(True)
+                font = grp_item.font(0)
+                font.setBold(True)
+                grp_item.setFont(0, font)
+                _groups_seen[group_key] = grp_item
+            child = QTreeWidgetItem(_groups_seen[group_key], [self.tr(field_label)])
+            child.setData(0, Qt.ItemDataRole.UserRole, field_key)
+            child.setFlags(child.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            checked = Qt.CheckState.Checked if field_key in t.required_fields else Qt.CheckState.Unchecked
+            child.setCheckState(0, checked)
+            _field_items[field_key] = child
+        fl.addRow(self.tr("Required Fields:"), req_tree)
+        # ── End required-fields picker ────────────────────────────────────────
 
         # ── Condition editor ──────────────────────────────────────────────────
         cond_container = QWidget()
@@ -907,6 +936,16 @@ class WorkflowRuleFormEditor(QWidget):
         btn_del.clicked.connect(_on_del_condition)
         # ── End condition editor ──────────────────────────────────────────────
 
+        def _read_required_fields() -> list[str]:
+            result = []
+            for i in range(req_tree.topLevelItemCount()):
+                grp = req_tree.topLevelItem(i)
+                for j in range(grp.childCount()):
+                    child = grp.child(j)
+                    if child.checkState(0) == Qt.CheckState.Checked:
+                        result.append(child.data(0, Qt.ItemDataRole.UserRole))
+            return result
+
         def _apply():
             try:
                 new_label = label_edit.text().strip()
@@ -914,7 +953,7 @@ class WorkflowRuleFormEditor(QWidget):
                 return  # stale deferred call — widgets already deleted
             t.label = new_label
             t.auto = auto_chk.isChecked()
-            t.required_fields = [f.strip() for f in req_edit.text().split(",") if f.strip()]
+            t.required_fields = _read_required_fields()
             t.conditions = _read_conditions()
             self._graph_widget._rebuild()
             self._on_changed()
@@ -930,7 +969,7 @@ class WorkflowRuleFormEditor(QWidget):
 
         label_edit.editingFinished.connect(lambda: QTimer.singleShot(0, _apply))
         auto_chk.stateChanged.connect(lambda _: QTimer.singleShot(0, _apply))
-        req_edit.editingFinished.connect(lambda: QTimer.singleShot(0, _apply))
+        req_tree.itemChanged.connect(lambda _: QTimer.singleShot(0, _apply))
         cond_table.itemChanged.connect(lambda _: QTimer.singleShot(0, _apply))
 
 

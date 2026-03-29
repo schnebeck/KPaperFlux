@@ -265,23 +265,27 @@ def test_double_deferred_apply_no_segfault(qtbot, two_state_rule):
 
 
 def test_transition_required_fields_no_segfault(qtbot, two_state_rule):
-    """Editing required fields (editingFinished) must not segfault."""
+    """Toggling required-field checkboxes (itemChanged) must not segfault."""
+    from PyQt6.QtWidgets import QTreeWidget
     editor = WorkflowRuleFormEditor()
     qtbot.addWidget(editor)
     editor.load_rule(two_state_rule)
     _select_edge(editor, "NEW", "go")
 
     fl = editor._detail_form_layout
-    req_edit = fl.itemAt(2, QFormLayout.ItemRole.FieldRole).widget()
+    req_tree = fl.itemAt(2, QFormLayout.ItemRole.FieldRole).widget()
+    assert isinstance(req_tree, QTreeWidget)
 
-    req_edit.setText("iban, total_gross")
-    QTest.keyClick(req_edit, Qt.Key.Key_Return)
+    # Check the first field in the first group (total_gross / Gross Amount)
+    first_group = req_tree.topLevelItem(0)
+    first_field = first_group.child(0)
+    first_field.setCheckState(0, Qt.CheckState.Checked)
 
-    qtbot.wait(50)
+    qtbot.wait(80)
 
     assert not editor._detail_form.isHidden()
     rule = editor.get_rule()
-    assert rule.states["NEW"].transitions[0].required_fields == ["iban", "total_gross"]
+    assert "total_gross" in rule.states["NEW"].transitions[0].required_fields
 
 
 # ── Condition editor ──────────────────────────────────────────────────────────

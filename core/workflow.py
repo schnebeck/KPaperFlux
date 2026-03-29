@@ -54,6 +54,30 @@ def get_user_locale() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Workflow field catalog
+# ---------------------------------------------------------------------------
+
+# Fields available in document_data when the workflow engine evaluates
+# conditions and required_fields.  Each entry: (group_key, field_key, label).
+# Labels are English source strings — translated in the GUI via tr().
+WORKFLOW_FIELD_CATALOG: list[tuple[str, str, str]] = [
+    ("finance", "total_gross",    "Gross Amount"),
+    ("finance", "iban",           "IBAN"),
+    ("finance", "doc_date",       "Document Date"),
+    ("finance", "doc_number",     "Document Number"),
+    ("finance", "sender_name",    "Sender Name"),
+    ("time",    "AGE_DAYS",       "Document Age (days)"),
+    ("time",    "DAYS_IN_STATE",  "Days in Current State"),
+    ("time",    "DAYS_UNTIL_DUE", "Days Until Due"),
+]
+
+WORKFLOW_FIELD_GROUPS: dict[str, str] = {
+    "finance": "Finance Data",
+    "time":    "Time-based",
+}
+
+
+# ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
 

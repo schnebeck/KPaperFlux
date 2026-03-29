@@ -7116,22 +7116,22 @@ Geschäftsführer: ...</translation>
     <context>
         <name>WorkflowDashboardWidget</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1435" />
+            <location filename="../../../gui/workflow_manager.py" line="1474" />
             <source>Total in Pipeline</source>
             <translation>Gesamt im Ablauf</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1436" />
+            <location filename="../../../gui/workflow_manager.py" line="1475" />
             <source>Urgent Actions</source>
             <translation>Dringende Aufgaben</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1437" />
+            <location filename="../../../gui/workflow_manager.py" line="1476" />
             <source>New Tasks</source>
             <translation>Neue Aufgaben</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1525" />
+            <location filename="../../../gui/workflow_manager.py" line="1564" />
             <source>Processing: %s</source>
             <translation>Verarbeitung: %s</translation>
         </message>
@@ -7301,97 +7301,97 @@ Geschäftsführer: ...</translation>
     <context>
         <name>WorkflowLocaleDialog</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="70" />
+            <location filename="../../../gui/workflow_manager.py" line="75" />
             <source>Workflow Localizations</source>
             <translation>Ablauf-Übersetzungen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="90" />
+            <location filename="../../../gui/workflow_manager.py" line="95" />
             <source>Locales</source>
             <translation>Sprachen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="108" />
+            <location filename="../../../gui/workflow_manager.py" line="113" />
             <source>Add</source>
             <translation>Hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="113" />
+            <location filename="../../../gui/workflow_manager.py" line="118" />
             <source>Remove</source>
             <translation>Entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="132" />
+            <location filename="../../../gui/workflow_manager.py" line="137" />
             <source>Creator locale:</source>
             <translation>Originalsprache:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="133" />
+            <location filename="../../../gui/workflow_manager.py" line="138" />
             <source>ISO 639-1 code of the language used to write the original rule.</source>
             <translation>ISO-639-1-Code der Sprache, in der die Regel ursprünglich verfasst wurde.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="148" />
+            <location filename="../../../gui/workflow_manager.py" line="153" />
             <source>Select a locale from the list, or add one.</source>
             <translation>Sprache aus der Liste auswählen oder hinzufügen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="162" />
+            <location filename="../../../gui/workflow_manager.py" line="167" />
             <source>Translated rule name</source>
             <translation>Übersetzter Ablaufname</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="164" />
+            <location filename="../../../gui/workflow_manager.py" line="169" />
             <source>Name:</source>
             <translation>Name:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="168" />
+            <location filename="../../../gui/workflow_manager.py" line="173" />
             <source>Translated description</source>
             <translation>Übersetzte Beschreibung</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="170" />
+            <location filename="../../../gui/workflow_manager.py" line="175" />
             <source>Description:</source>
             <translation>Beschreibung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="174" />
+            <location filename="../../../gui/workflow_manager.py" line="179" />
             <source>State labels:</source>
             <translation>Status-Bezeichnungen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="179" />
+            <location filename="../../../gui/workflow_manager.py" line="184" />
             <source>State ID</source>
             <translation>Status-ID</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="179" />
+            <location filename="../../../gui/workflow_manager.py" line="184" />
             <source>Translated label</source>
             <translation>Übersetzte Bezeichnung</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="252" />
+            <location filename="../../../gui/workflow_manager.py" line="257" />
             <source>Native label: %s</source>
             <translation>Originalbezeichnung: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="275" />
+            <location filename="../../../gui/workflow_manager.py" line="280" />
             <source>Add Locale</source>
             <translation>Sprache hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="277" />
+            <location filename="../../../gui/workflow_manager.py" line="282" />
             <source>Choose locale to add:</source>
             <translation>Sprache zum Hinzufügen wählen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="311" />
+            <location filename="../../../gui/workflow_manager.py" line="316" />
             <source>Remove Locale</source>
             <translation>Sprache entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="312" />
+            <location filename="../../../gui/workflow_manager.py" line="317" />
             <source>Remove all translations for locale '%s'?</source>
             <translation>Alle Übersetzungen für die Sprache '%s' entfernen?</translation>
         </message>
@@ -7399,136 +7399,136 @@ Geschäftsführer: ...</translation>
     <context>
         <name>WorkflowManagerWidget</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1726" />
-            <location filename="../../../gui/workflow_manager.py" line="1573" />
+            <location filename="../../../gui/workflow_manager.py" line="1765" />
+            <location filename="../../../gui/workflow_manager.py" line="1612" />
             <source>Dashboard</source>
             <translation>Dashboard</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1728" />
-            <location filename="../../../gui/workflow_manager.py" line="1585" />
+            <location filename="../../../gui/workflow_manager.py" line="1767" />
+            <location filename="../../../gui/workflow_manager.py" line="1624" />
             <source>Process</source>
             <translation>Verarbeiten</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1727" />
-            <location filename="../../../gui/workflow_manager.py" line="1597" />
+            <location filename="../../../gui/workflow_manager.py" line="1766" />
+            <location filename="../../../gui/workflow_manager.py" line="1636" />
             <source>Rule Editor</source>
             <translation>Ablaufeditor</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1730" />
-            <location filename="../../../gui/workflow_manager.py" line="1638" />
+            <location filename="../../../gui/workflow_manager.py" line="1769" />
+            <location filename="../../../gui/workflow_manager.py" line="1677" />
             <source>Select Rule:</source>
             <translation>Ablauf wählen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1732" />
-            <location filename="../../../gui/workflow_manager.py" line="1646" />
+            <location filename="../../../gui/workflow_manager.py" line="1771" />
+            <location filename="../../../gui/workflow_manager.py" line="1685" />
             <source>New Rule</source>
             <translation>Neuer Ablauf</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1733" />
-            <location filename="../../../gui/workflow_manager.py" line="1647" />
+            <location filename="../../../gui/workflow_manager.py" line="1772" />
+            <location filename="../../../gui/workflow_manager.py" line="1686" />
             <source>Create a new workflow rule</source>
             <translation>Neuen Ablauf erstellen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1738" />
-            <location filename="../../../gui/workflow_manager.py" line="1651" />
+            <location filename="../../../gui/workflow_manager.py" line="1777" />
+            <location filename="../../../gui/workflow_manager.py" line="1690" />
             <source>Manage...</source>
             <translation>Verwalten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1739" />
-            <location filename="../../../gui/workflow_manager.py" line="1652" />
+            <location filename="../../../gui/workflow_manager.py" line="1778" />
+            <location filename="../../../gui/workflow_manager.py" line="1691" />
             <source>Manage rule files (delete, rename, import)</source>
             <translation>Ablauf-Dateien verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1740" />
-            <location filename="../../../gui/workflow_manager.py" line="1656" />
+            <location filename="../../../gui/workflow_manager.py" line="1779" />
+            <location filename="../../../gui/workflow_manager.py" line="1695" />
             <source>Show documents</source>
             <translation>Dokumente anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1741" />
-            <location filename="../../../gui/workflow_manager.py" line="1657" />
+            <location filename="../../../gui/workflow_manager.py" line="1780" />
+            <location filename="../../../gui/workflow_manager.py" line="1696" />
             <source>Navigate to all documents currently tracked by this workflow</source>
             <translation>Alle Dokumente anzeigen, die diesem Ablauf zugeordnet sind</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1734" />
-            <location filename="../../../gui/workflow_manager.py" line="1691" />
+            <location filename="../../../gui/workflow_manager.py" line="1773" />
+            <location filename="../../../gui/workflow_manager.py" line="1730" />
             <source>Revert</source>
             <translation>Zurücksetzen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1735" />
-            <location filename="../../../gui/workflow_manager.py" line="1692" />
+            <location filename="../../../gui/workflow_manager.py" line="1774" />
+            <location filename="../../../gui/workflow_manager.py" line="1731" />
             <source>Discard unsaved changes</source>
             <translation>Änderungen verwerfen</translation>
         </message>
         <message>
+            <location filename="../../../gui/workflow_manager.py" line="1775" />
             <location filename="../../../gui/workflow_manager.py" line="1736" />
-            <location filename="../../../gui/workflow_manager.py" line="1697" />
             <source>Save Rule</source>
             <translation>Ablauf speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1737" />
-            <location filename="../../../gui/workflow_manager.py" line="1699" />
+            <location filename="../../../gui/workflow_manager.py" line="1776" />
+            <location filename="../../../gui/workflow_manager.py" line="1738" />
             <source>Save and activate the current rule</source>
             <translation>Ablauf speichern und aktivieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1777" />
+            <location filename="../../../gui/workflow_manager.py" line="1816" />
             <source>Processing: %s</source>
             <translation>Verarbeitung: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1812" />
+            <location filename="../../../gui/workflow_manager.py" line="1851" />
             <source>--- Select Rule ---</source>
             <translation>--- Ablauf wählen ---</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1833" />
+            <location filename="../../../gui/workflow_manager.py" line="1872" />
             <source>Rule deleted.</source>
             <translation>Ablauf gelöscht.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1839" />
+            <location filename="../../../gui/workflow_manager.py" line="1878" />
             <source>Unsaved Changes</source>
             <translation>Ungespeicherte Änderungen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1840" />
+            <location filename="../../../gui/workflow_manager.py" line="1879" />
             <source>You have unsaved changes. Discard them?</source>
             <translation>Es gibt ungespeicherte Änderungen. Verwerfen?</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1860" />
+            <location filename="../../../gui/workflow_manager.py" line="1899" />
             <source>Editing: %1</source>
             <translation>Bearbeite: %1</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1886" />
+            <location filename="../../../gui/workflow_manager.py" line="1925" />
             <source>Duplicate Name</source>
             <translation>Name bereits vergeben</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1887" />
+            <location filename="../../../gui/workflow_manager.py" line="1926" />
             <source>A rule with the name '%1' already exists.</source>
             <translation>Eine Regel mit dem Namen '%1' existiert bereits.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1910" />
+            <location filename="../../../gui/workflow_manager.py" line="1949" />
             <source>Legacy Data Detected</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1911" />
+            <location filename="../../../gui/workflow_manager.py" line="1950" />
             <source>%1 document(s) reference rule '%2' in the outdated single-workflow structure and were not reset.
 
 Run the migration script to fix them:
@@ -7536,12 +7536,12 @@ python scripts/migrate_workflow_to_multi.py --db &lt;path&gt;</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1921" />
+            <location filename="../../../gui/workflow_manager.py" line="1960" />
             <source>Rule Saved &amp; Reset</source>
             <translation type="unfinished" />
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/workflow_manager.py" line="1922" />
+            <location filename="../../../gui/workflow_manager.py" line="1961" />
             <source>Rule '%s' saved.
 
 %n document(s) were reset to the initial state.</source>
@@ -7550,27 +7550,27 @@ python scripts/migrate_workflow_to_multi.py --db &lt;path&gt;</source>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1925" />
+            <location filename="../../../gui/workflow_manager.py" line="1964" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1925" />
+            <location filename="../../../gui/workflow_manager.py" line="1964" />
             <source>Rule '%1' saved and activated.</source>
             <translation>Regel '%1' gespeichert und aktiviert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1933" />
+            <location filename="../../../gui/workflow_manager.py" line="1972" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1933" />
+            <location filename="../../../gui/workflow_manager.py" line="1972" />
             <source>Failed to save rule: %1</source>
             <translation>Fehler beim Speichern der Regel: %1</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1954" />
+            <location filename="../../../gui/workflow_manager.py" line="1993" />
             <source>Documents in workflow '%1'</source>
             <translation>Dokumente im Ablauf '%1'</translation>
         </message>
@@ -7598,22 +7598,22 @@ python scripts/migrate_workflow_to_multi.py --db &lt;path&gt;</source>
     <context>
         <name>WorkflowProcessingWidget</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="990" />
+            <location filename="../../../gui/workflow_manager.py" line="1029" />
             <source>Prev</source>
             <translation>Zurück</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1000" />
+            <location filename="../../../gui/workflow_manager.py" line="1039" />
             <source>Next</source>
             <translation>Weiter</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1153" />
+            <location filename="../../../gui/workflow_manager.py" line="1192" />
             <source>Transition Failed</source>
             <translation>Übergang fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1154" />
+            <location filename="../../../gui/workflow_manager.py" line="1193" />
             <source>Could not apply workflow transition: %1</source>
             <translation>Ablauf-Übergang konnte nicht angewendet werden: %1</translation>
         </message>
@@ -7621,7 +7621,7 @@ python scripts/migrate_workflow_to_multi.py --db &lt;path&gt;</source>
     <context>
         <name>WorkflowRuleCard</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="1222" />
+            <location filename="../../../gui/workflow_manager.py" line="1261" />
             <source>open</source>
             <translation>offen</translation>
         </message>
@@ -7629,134 +7629,134 @@ python scripts/migrate_workflow_to_multi.py --db &lt;path&gt;</source>
     <context>
         <name>WorkflowRuleFormEditor</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="572" />
-            <location filename="../../../gui/workflow_manager.py" line="430" />
+            <location filename="../../../gui/workflow_manager.py" line="577" />
+            <location filename="../../../gui/workflow_manager.py" line="435" />
             <source>What does this rule do?</source>
             <translation>Was macht dieser Ablauf?</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="560" />
+            <location filename="../../../gui/workflow_manager.py" line="565" />
             <source>Workflow</source>
             <translation>Ablauf</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="561" />
+            <location filename="../../../gui/workflow_manager.py" line="566" />
             <source>Properties</source>
             <translation>Eigenschaften</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="562" />
+            <location filename="../../../gui/workflow_manager.py" line="567" />
             <source>Select a state or transition to edit its properties.</source>
             <translation>Status oder Übergang auswählen, um Eigenschaften zu bearbeiten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="563" />
+            <location filename="../../../gui/workflow_manager.py" line="568" />
             <source>Manage localizations</source>
             <translation>Übersetzungen verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="566" />
+            <location filename="../../../gui/workflow_manager.py" line="571" />
             <source>Rule Name:</source>
             <translation>Name des Ablaufs:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="567" />
+            <location filename="../../../gui/workflow_manager.py" line="572" />
             <source>Description:</source>
             <translation>Beschreibung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="568" />
+            <location filename="../../../gui/workflow_manager.py" line="573" />
             <source>Tag Triggers:</source>
             <translation>Tag-Auslöser:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="569" />
+            <location filename="../../../gui/workflow_manager.py" line="574" />
             <source>Comma-separated type_tags that activate this rule (e.g. INVOICE, ORDER_CONFIRMATION). Multiple rules may share the same tag.</source>
             <translation>Kommagetrennte Typ-Tags, die diese Regel auslösen (z.B. RECHNUNG, AUFTRAGSBESTÄTIGUNG). Mehrere Regeln dürfen denselben Tag verwenden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="571" />
+            <location filename="../../../gui/workflow_manager.py" line="576" />
             <source>Enter rule name...</source>
             <translation>Ablaufname eingeben...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="573" />
+            <location filename="../../../gui/workflow_manager.py" line="578" />
             <source>INVOICE, ORDER_CONFIRMATION, ...</source>
             <translation>RECHNUNG, AUFTRAGSBESTÄTIGUNG, ...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="805" />
-            <location filename="../../../gui/workflow_manager.py" line="754" />
+            <location filename="../../../gui/workflow_manager.py" line="810" />
+            <location filename="../../../gui/workflow_manager.py" line="759" />
             <source>Label:</source>
             <translation>Bezeichnung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="758" />
+            <location filename="../../../gui/workflow_manager.py" line="763" />
             <source>START — Entry point</source>
             <translation>Einstiegspunkt</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="759" />
+            <location filename="../../../gui/workflow_manager.py" line="764" />
             <source>NORMAL — Intermediate</source>
             <translation>Zwischenzustand</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="760" />
+            <location filename="../../../gui/workflow_manager.py" line="765" />
             <source>END OK — Positive terminal</source>
             <translation>Positiver Abschluss</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="761" />
+            <location filename="../../../gui/workflow_manager.py" line="766" />
             <source>END NOK — Negative terminal</source>
             <translation>Negativer Abschluss</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="762" />
+            <location filename="../../../gui/workflow_manager.py" line="767" />
             <source>END NEUTRAL — Neutral terminal</source>
             <translation>Neutraler Abschluss</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="769" />
+            <location filename="../../../gui/workflow_manager.py" line="774" />
             <source>Type:</source>
             <translation>Typ:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="809" />
+            <location filename="../../../gui/workflow_manager.py" line="814" />
             <source>Auto:</source>
             <translation>Automatisch:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="813" />
+            <location filename="../../../gui/workflow_manager.py" line="841" />
             <source>Required Fields:</source>
             <translation>Pflichtfelder:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="825" />
+            <location filename="../../../gui/workflow_manager.py" line="854" />
             <source>Field</source>
             <translation>Feld</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="825" />
+            <location filename="../../../gui/workflow_manager.py" line="854" />
             <source>Op</source>
             <translation>Op.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="825" />
+            <location filename="../../../gui/workflow_manager.py" line="854" />
             <source>Value</source>
             <translation>Wert</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="858" />
+            <location filename="../../../gui/workflow_manager.py" line="887" />
             <source>+ Condition</source>
             <translation>+ Bedingung</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="860" />
+            <location filename="../../../gui/workflow_manager.py" line="889" />
             <source>− Remove</source>
             <translation>− Entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="867" />
+            <location filename="../../../gui/workflow_manager.py" line="896" />
             <source>Conditions:</source>
             <translation>Bedingungen:</translation>
         </message>
@@ -7876,120 +7876,160 @@ python scripts/migrate_workflow_to_multi.py --db &lt;path&gt;</source>
             <source>Action:</source>
             <translation type="vanished">Aktion:</translation>
         </message>
+        <message>
+            <source>Finance Data</source>
+            <translation>Rechnungsdaten</translation>
+        </message>
+        <message>
+            <source>Time-based</source>
+            <translation>Zeitbasiert</translation>
+        </message>
+        <message>
+            <source>Gross Amount</source>
+            <translation>Bruttobetrag</translation>
+        </message>
+        <message>
+            <source>IBAN</source>
+            <translation>IBAN</translation>
+        </message>
+        <message>
+            <source>Document Date</source>
+            <translation>Dokumentdatum</translation>
+        </message>
+        <message>
+            <source>Document Number</source>
+            <translation>Dokumentnummer</translation>
+        </message>
+        <message>
+            <source>Sender Name</source>
+            <translation>Absender</translation>
+        </message>
+        <message>
+            <source>Document Age (days)</source>
+            <translation>Dokumentalter (Tage)</translation>
+        </message>
+        <message>
+            <source>Days in Current State</source>
+            <translation>Tage im aktuellen Zustand</translation>
+        </message>
+        <message>
+            <source>Days Until Due</source>
+            <translation>Tage bis Fälligkeit</translation>
+        </message>
     </context>
     <context>
         <name>WorkflowRuleManagerDialog</name>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2019" />
-            <location filename="../../../gui/workflow_manager.py" line="1976" />
+            <location filename="../../../gui/workflow_manager.py" line="2058" />
+            <location filename="../../../gui/workflow_manager.py" line="2015" />
             <source>Manage Rules</source>
             <translation>Regeln verwalten</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2020" />
+            <location filename="../../../gui/workflow_manager.py" line="2059" />
             <source>New...</source>
             <translation>Neu...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2021" />
+            <location filename="../../../gui/workflow_manager.py" line="2060" />
             <source>Create a new rule file</source>
             <translation>Neue Regeldatei erstellen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2022" />
+            <location filename="../../../gui/workflow_manager.py" line="2061" />
             <source>Rename...</source>
             <translation>Umbenennen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2023" />
+            <location filename="../../../gui/workflow_manager.py" line="2062" />
             <source>Rename the selected rule's display name</source>
             <translation>Anzeigenamen ändern</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2024" />
+            <location filename="../../../gui/workflow_manager.py" line="2063" />
             <source>Delete</source>
             <translation>Löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2025" />
+            <location filename="../../../gui/workflow_manager.py" line="2064" />
             <source>Delete selected rule files (DEL)</source>
             <translation>Gewählte Regeln löschen (ENTF)</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2026" />
+            <location filename="../../../gui/workflow_manager.py" line="2065" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2052" />
+            <location filename="../../../gui/workflow_manager.py" line="2091" />
             <source>New Workflow</source>
             <translation>Neuer Ablauf</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2052" />
+            <location filename="../../../gui/workflow_manager.py" line="2091" />
             <source>Enter display name:</source>
             <translation>Anzeigename eingeben:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2096" />
-            <location filename="../../../gui/workflow_manager.py" line="2058" />
+            <location filename="../../../gui/workflow_manager.py" line="2135" />
+            <location filename="../../../gui/workflow_manager.py" line="2097" />
             <source>Duplicate Name</source>
             <translation>Name bereits vergeben</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2059" />
+            <location filename="../../../gui/workflow_manager.py" line="2098" />
             <source>A workflow with the name '%1' already exists.</source>
             <translation>Ein Ablauf mit dem Namen '%1' existiert bereits.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2088" />
+            <location filename="../../../gui/workflow_manager.py" line="2127" />
             <source>Rename Workflow</source>
             <translation>Ablauf umbenennen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2088" />
+            <location filename="../../../gui/workflow_manager.py" line="2127" />
             <source>New display name:</source>
             <translation>Neuer Anzeigename:</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2097" />
+            <location filename="../../../gui/workflow_manager.py" line="2136" />
             <source>A rule with the name '%1' already exists.</source>
             <translation>Eine Regel mit dem Namen '%1' existiert bereits.</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2106" />
+            <location filename="../../../gui/workflow_manager.py" line="2145" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2113" />
+            <location filename="../../../gui/workflow_manager.py" line="2152" />
             <source>Delete Rule</source>
             <translation>Regel löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2114" />
+            <location filename="../../../gui/workflow_manager.py" line="2153" />
             <source>Are you sure you want to delete the rule '%1'?</source>
             <translation>Soll die Regel '%1' gelöscht werden?</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2116" />
+            <location filename="../../../gui/workflow_manager.py" line="2155" />
             <source>Delete Rules</source>
             <translation>Regeln löschen</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/workflow_manager.py" line="2117" />
+            <location filename="../../../gui/workflow_manager.py" line="2156" />
             <source>Are you sure you want to delete %n selected rule(s)?</source>
             <translation>
                 <numerusform>Sind Sie sicher, dass Sie %n ausgewählte Regel löschen möchten?</numerusform>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2130" />
+            <location filename="../../../gui/workflow_manager.py" line="2169" />
             <source>Rules in Use</source>
             <translation>Regeln in Benutzung</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2131" />
+            <location filename="../../../gui/workflow_manager.py" line="2170" />
             <source>The following rules cannot be deleted because they are still in use:
 
 %1</source>
@@ -7998,12 +8038,12 @@ python scripts/migrate_workflow_to_multi.py --db &lt;path&gt;</source>
 %1</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2153" />
+            <location filename="../../../gui/workflow_manager.py" line="2192" />
             <source>Delete Failed</source>
             <translation>Löschen fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../../gui/workflow_manager.py" line="2154" />
+            <location filename="../../../gui/workflow_manager.py" line="2193" />
             <source>Could not delete rule(s): %1</source>
             <translation>Regel(n) konnten nicht gelöscht werden: %1</translation>
         </message>
