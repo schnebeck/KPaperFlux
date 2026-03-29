@@ -21,6 +21,7 @@ except ImportError as e:
 from core.models.virtual import VirtualDocument as Document
 from core.semantic_renderer import SemanticRenderer
 from core.pdf_renderer import ProfessionalPdfRenderer
+from core.workflow import build_workflow_data
 from gui.widgets.workflow_controls import WorkflowControlsWidget
 from gui.pdf_viewer import PdfViewerWidget
 from gui.workers import SemanticRenderingWorker
@@ -242,28 +243,6 @@ class AuditWindow(QMainWindow):
             return
 
         now = datetime.now()
-        doc_data_for_wf = {
-            "total_gross": doc.total_amount,
-            "iban": doc.iban,
-            "sender_name": doc.sender_name,
-            "doc_date": doc.doc_date,
-            "doc_number": doc.doc_number,
-            "AGE_DAYS": 0,
-            "DAYS_IN_STATE": 0,
-            "DAYS_UNTIL_DUE": 999
-        }
-
-        try:
-            if doc.created_at:
-                doc_data_for_wf["AGE_DAYS"] = (now - datetime.fromisoformat(doc.created_at)).days
-            if doc.due_date:
-                dd_str = doc.due_date
-                if len(dd_str) == 10:
-                    dd_str += "T00:00:00"
-                doc_data_for_wf["DAYS_UNTIL_DUE"] = (datetime.fromisoformat(dd_str) - now).days
-        except Exception as e:
-            logger.debug(f"Time calculation failed: {e}")
-
         workflows = doc.semantic_data.workflows if doc.semantic_data else {}
 
         # Remove stale controls
@@ -279,16 +258,17 @@ class AuditWindow(QMainWindow):
                 self._workflow_controls[rid] = ctrl
                 self._workflow_controls_layout.addWidget(ctrl)
 
-            wf_doc_data = dict(doc_data_for_wf)
+            days_in_state = 0
             try:
                 entered_ts = wf_info.current_step_entered_at or (
                     wf_info.history[-1].timestamp if wf_info.history else None
                 )
                 if entered_ts:
-                    wf_doc_data["DAYS_IN_STATE"] = (now - datetime.fromisoformat(entered_ts)).days
+                    days_in_state = (now - datetime.fromisoformat(entered_ts)).days
             except Exception as e:
                 logger.debug(f"DAYS_IN_STATE skipped for {rid}: {e}")
 
+            wf_doc_data = build_workflow_data(doc, days_in_state)
             self._workflow_controls[rid].update_workflow(rid, wf_info.current_step, wf_doc_data)
 
     def _on_rendering_finished(self, pdf_path: str):

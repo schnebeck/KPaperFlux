@@ -61,19 +61,44 @@ def get_user_locale() -> str:
 # conditions and required_fields.  Each entry: (group_key, field_key, label).
 # Labels are English source strings — translated in the GUI via tr().
 WORKFLOW_FIELD_CATALOG: list[tuple[str, str, str]] = [
+    # Finance / accounting
     ("finance", "total_gross",    "Gross Amount"),
+    ("finance", "total_net",      "Net Amount"),
+    ("finance", "total_tax",      "Tax Amount"),
     ("finance", "iban",           "IBAN"),
-    ("finance", "doc_date",       "Document Date"),
-    ("finance", "doc_number",     "Document Number"),
-    ("finance", "sender_name",    "Sender Name"),
-    ("time",    "AGE_DAYS",       "Document Age (days)"),
-    ("time",    "DAYS_IN_STATE",  "Days in Current State"),
-    ("time",    "DAYS_UNTIL_DUE", "Days Until Due"),
+    ("finance", "bic",            "BIC"),
+    ("finance", "currency",       "Currency"),
+    ("finance", "order_number",   "Order Number"),
+    ("finance", "customer_id",    "Customer ID"),
+    ("finance", "payment_terms",  "Payment Terms"),
+    # Document metadata
+    ("document", "doc_date",       "Document Date"),
+    ("document", "doc_number",     "Document Number"),
+    ("document", "sender_name",    "Sender Name"),
+    ("document", "recipient_name", "Recipient Name"),
+    ("document", "direction",      "Direction"),
+    ("document", "effective_type", "Document Type"),
+    ("document", "pdf_class",      "PDF Class"),
+    ("document", "ai_confidence",  "AI Confidence"),
+    ("document", "page_count",     "Page Count"),
+    # Contract / subscription
+    ("contract", "termination_date",   "Termination Date"),
+    ("contract", "valid_until",        "Valid Until"),
+    ("contract", "service_period_end", "Service Period End"),
+    ("contract", "is_recurring",       "Is Recurring"),
+    ("contract", "frequency",          "Recurrence Frequency"),
+    # Time-based computed values
+    ("time", "AGE_DAYS",          "Document Age (days)"),
+    ("time", "DAYS_IN_STATE",     "Days in Current State"),
+    ("time", "DAYS_UNTIL_DUE",    "Days Until Due"),
+    ("time", "DAYS_UNTIL_EXPIRY", "Days Until Expiry"),
 ]
 
 WORKFLOW_FIELD_GROUPS: dict[str, str] = {
-    "finance": "Finance Data",
-    "time":    "Time-based",
+    "finance":  "Finance",
+    "document": "Document",
+    "contract": "Contract / Subscription",
+    "time":     "Time-based",
 }
 
 
@@ -339,10 +364,15 @@ class WorkflowEngine:
                 elif cond.op == "!=" and str(val) == str(cond.value):
                     return False
             except (ValueError, TypeError):
+                # Non-numeric fallback: only = and != make sense for strings
                 if cond.op == "=":
                     if str(val) != str(cond.value):
                         return False
+                elif cond.op == "!=":
+                    if str(val) == str(cond.value):
+                        return False
                 else:
+                    # Ordering operators on non-numeric values are undefined → block
                     return False
         return True
 
@@ -537,3 +567,103 @@ def count_legacy_workflow_documents(db_manager: Any, rule_id: str) -> int:
         return db_manager.count_documents_advanced(query)
     except Exception:
         return 0
+
+
+def build_workflow_data(doc: Any, days_in_state: int = 0) -> dict:
+    """Build the ``document_data`` dict passed to :class:`WorkflowEngine`.
+
+    Extracts all fields listed in :data:`WORKFLOW_FIELD_CATALOG` from a
+    ``VirtualDocument`` instance.  Uses the document's computed properties
+    (``doc.total_gross``, ``doc.iban``, etc.) which already handle the
+    deep navigation into nested semantic bodies — so this function never
+    reaches into raw nested dicts itself.
+
+    Computed time-based values (``AGE_DAYS``, ``DAYS_IN_STATE``,
+    ``DAYS_UNTIL_DUE``, ``DAYS_UNTIL_EXPIRY``) are derived on the fly.
+
+    *doc* — a ``VirtualDocument`` instance.
+    *days_in_state* — how many days the document has been in its current
+    workflow state; pass 0 when the caller does not track this.
+    """
+    from datetime import date as _date
+
+    sd = getattr(doc, "semantic_data", None)
+    today = _date.today()
+
+    def _prop(attr: str, default: Any = None) -> Any:
+        """Read a property from doc (preferred) or fall back to sd."""
+        val = getattr(doc, attr, None)
+        if val is not None:
+            return val
+        return getattr(sd, attr, default) if sd is not None else default
+
+    def _body(body_key: str, field: str, default: Any = None) -> Any:
+        """Read a field from a named semantic body dict."""
+        if sd is None:
+            return default
+        bodies = getattr(sd, "bodies", {})
+        body = bodies.get(body_key)
+        if body is None:
+            return default
+        if isinstance(body, dict):
+            return body.get(field, default)
+        return getattr(body, field, default)
+
+    def _financial(field: str) -> Any:
+        """Read a field via SemanticExtraction.get_financial_value()."""
+        if sd is None or not hasattr(sd, "get_financial_value"):
+            return None
+        return sd.get_financial_value(field)
+
+    def _days_until(date_str: Any) -> Optional[int]:
+        if not date_str:
+            return None
+        try:
+            d = _date.fromisoformat(str(date_str)[:10])
+            return (d - today).days
+        except (ValueError, TypeError):
+            return None
+
+    # Document age from doc_date property (already resolved via meta_header)
+    age_days: Optional[int] = None
+    raw_date = _prop("doc_date") or getattr(doc, "created_at", None)
+    if raw_date:
+        try:
+            d = _date.fromisoformat(str(raw_date)[:10])
+            age_days = (today - d).days
+        except (ValueError, TypeError) as exc:
+            logger.debug(f"build_workflow_data: could not parse doc_date '{raw_date}': {exc}")
+
+    return {
+        # Finance — resolved via VirtualDocument properties and get_financial_value
+        "total_gross":   _prop("total_gross"),
+        "total_net":     _prop("total_net"),
+        "total_tax":     _prop("total_tax"),
+        "iban":          _prop("iban"),
+        "bic":           _prop("bic"),
+        "currency":      _prop("currency"),
+        "order_number":  _financial("order_number"),
+        "customer_id":   _financial("customer_id"),
+        "payment_terms": _financial("payment_terms"),
+        # Document metadata — resolved via VirtualDocument properties
+        "doc_date":       _prop("doc_date"),
+        "doc_number":     _prop("doc_number"),
+        "sender_name":    _prop("sender_name"),
+        "recipient_name": _prop("recipient_name"),
+        "direction":      getattr(sd, "direction", None) if sd else None,
+        "effective_type": _prop("effective_type"),
+        "pdf_class":      getattr(doc, "pdf_class", None),
+        "ai_confidence":  getattr(sd, "ai_confidence", None) if sd else None,
+        "page_count":     getattr(doc, "page_count", None) or getattr(doc, "page_count_virt", None),
+        # Contract — from legal_body and subscription_info bodies
+        "termination_date":   _body("legal_body", "termination_date"),
+        "valid_until":        _body("legal_body", "valid_until"),
+        "service_period_end": _body("subscription_info", "service_period_end"),
+        "is_recurring":       _body("subscription_info", "is_recurring"),
+        "frequency":          _body("subscription_info", "frequency"),
+        # Time-based
+        "AGE_DAYS":          age_days,
+        "DAYS_IN_STATE":     days_in_state,
+        "DAYS_UNTIL_DUE":    _days_until(_sem("due_date")),
+        "DAYS_UNTIL_EXPIRY": _days_until(_sem("valid_until") or _sem("termination_date")),
+    }

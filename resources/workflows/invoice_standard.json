@@ -45,8 +45,10 @@
           "action": "t_6bb74cb1",
           "label": "bezahlen",
           "target": "s_2dc6045d",
-          "required_fields": [],
-          "conditions": [],
+          "required_fields": ["iban"],
+          "conditions": [
+            {"field": "total_gross", "op": ">", "value": 0}
+          ],
           "user_interaction": false,
           "auto": false,
           "icon": null

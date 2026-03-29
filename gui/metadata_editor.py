@@ -23,7 +23,6 @@ import logging
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.metadata_editor")
-from datetime import datetime
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale, QSize, QEvent
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
@@ -35,6 +34,7 @@ from gui.utils import format_datetime, show_selectable_message_box, show_notific
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.tag_input import TagInputWidget
 from gui.widgets.workflow_summary import WorkflowSummaryWidget
+from gui.widgets.workflow_history_widget import WorkflowHistoryWidget
 from gui.widgets.group_membership_chips import GroupMembershipWidget
 
 # Core Models
@@ -343,6 +343,8 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.setTabText(6, self.tr("Source Mapping"))
         self.tab_widget.setTabText(7, self.tr("Debug Data"))
         self.tab_widget.setTabText(8, self.tr("Workflows"))
+        self._workflow_tab_widget.setTabText(0, self.tr("Graph"))
+        self._workflow_tab_widget.setTabText(1, self.tr("History"))
 
         # Subscription & Contract Labels
         self.lbl_sub_recurring_header.setText("--- " + self.tr("Subscription / Recurring") + " ---")
@@ -809,11 +811,15 @@ class MetadataEditorWidget(QWidget):
         semantic_layout.addWidget(self.full_text_viewer)
         self.tab_widget.addTab(self.semantic_tab, "")
 
-        # --- Tab 8: Workflows (read-only progress summary) ---
+        # --- Tab 8: Workflows (graph + history sub-tabs) ---
+        self._workflow_tab_widget = QTabWidget()
         self._workflow_summary = WorkflowSummaryWidget()
         self._workflow_summary.workflow_clicked.connect(self._on_workflow_row_clicked)
-        self.tab_widget.addTab(self._workflow_summary, "")
-        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self._workflow_summary), False)
+        self._workflow_history = WorkflowHistoryWidget()
+        self._workflow_tab_widget.addTab(self._workflow_summary, "")
+        self._workflow_tab_widget.addTab(self._workflow_history, "")
+        self.tab_widget.addTab(self._workflow_tab_widget, "")
+        self.tab_widget.setTabVisible(self.tab_widget.indexOf(self._workflow_tab_widget), False)
 
         # Buttons
         self.btn_save = QPushButton()
@@ -1209,39 +1215,16 @@ class MetadataEditorWidget(QWidget):
                     sd.workflows[rule.id] = WorkflowInfo(rule_id=rule.id, current_step=initial_step)
                     self._mark_dirty()
 
-        now = datetime.now()
-        doc_data_for_wf = {
-            "total_gross": doc.total_amount,
-            "iban": doc.iban,
-            "sender_name": doc.sender_name,
-            "doc_date": doc.doc_date,
-            "doc_number": doc.doc_number,
-            "AGE_DAYS": 0,
-            "DAYS_IN_STATE": 0,
-            "DAYS_UNTIL_DUE": 999
-        }
-
-        try:
-            if doc.created_at:
-                doc_data_for_wf["AGE_DAYS"] = (now - datetime.fromisoformat(doc.created_at)).days
-            if doc.due_date:
-                dd_str = doc.due_date
-                if len(dd_str) == 10:
-                    dd_str += "T00:00:00"
-                doc_data_for_wf["DAYS_UNTIL_DUE"] = (datetime.fromisoformat(dd_str) - now).days
-        except Exception as e:
-            logger.debug(f"Workflow date calculation skipped: {e}")
-
         # PKV checkbox: show state of first workflow that has pkv_eligible set
         first_wf = next(iter(sd.workflows.values()), None) if sd else None
         with QSignalBlocker(self.chk_pkv):
             self.chk_pkv.setChecked(first_wf.pkv_eligible if first_wf else False)
 
-        # Update workflow summary tab (tab 9)
+        # Update workflow summary and history tabs
         registry = WorkflowRuleRegistry()
-        self._workflow_summary.update_workflows(
-            sd.workflows if sd else {}, registry
-        )
+        workflows = sd.workflows if sd else {}
+        self._workflow_summary.update_workflows(workflows, registry)
+        self._workflow_history.update_workflows(workflows, registry)
 
         # Extracted Data
         self.sender_edit.setText(doc.sender_name or "")
@@ -1382,7 +1365,7 @@ class MetadataEditorWidget(QWidget):
         #    unless suppressed by the embedding context)
         has_workflows = bool(doc.semantic_data and doc.semantic_data.workflows)
         self.tab_widget.setTabVisible(
-            self.tab_widget.indexOf(self._workflow_summary),
+            self.tab_widget.indexOf(self._workflow_tab_widget),
             has_workflows and not self._suppress_workflow_ui,
         )
 
@@ -1643,7 +1626,7 @@ class MetadataEditorWidget(QWidget):
         """
         self._suppress_workflow_ui = not visible
         self.tab_widget.setTabVisible(
-            self.tab_widget.indexOf(self._workflow_summary), False
+            self.tab_widget.indexOf(self._workflow_tab_widget), False
         )
 
     def clear(self):

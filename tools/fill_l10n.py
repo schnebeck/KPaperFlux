@@ -352,6 +352,7 @@ def fill():
             "Source Mapping": "Quell-Komponenten",
             "Debug Data": "Debug-Daten",
             "History": "Historie",
+            "Graph": "Graph",
         },
         "CockpitWidget": {
             "Inbox": "Unbearbeitete Dokumente",
@@ -512,16 +513,42 @@ def fill():
             "+ Condition": "+ Bedingung",
             "− Remove": "− Entfernen",
             "Required Fields:": "Pflichtfelder:",
-            "Finance Data": "Rechnungsdaten",
+            # Field groups
+            "Finance": "Finanzen",
+            "Document": "Dokument",
+            "Contract / Subscription": "Vertrag / Abonnement",
             "Time-based": "Zeitbasiert",
+            # Finance fields
             "Gross Amount": "Bruttobetrag",
+            "Net Amount": "Nettobetrag",
+            "Tax Amount": "Steuerbetrag",
             "IBAN": "IBAN",
+            "BIC": "BIC",
+            "Currency": "Währung",
+            "Order Number": "Bestellnummer",
+            "Customer ID": "Kundennummer",
+            "Payment Terms": "Zahlungsbedingungen",
+            # Document fields
             "Document Date": "Dokumentdatum",
             "Document Number": "Dokumentnummer",
             "Sender Name": "Absender",
+            "Recipient Name": "Empfänger",
+            "Direction": "Richtung",
+            "Document Type": "Dokumenttyp",
+            "PDF Class": "PDF-Klasse",
+            "AI Confidence": "KI-Konfidenz",
+            "Page Count": "Seitenanzahl",
+            # Contract fields
+            "Termination Date": "Kündigungsdatum",
+            "Valid Until": "Gültig bis",
+            "Service Period End": "Leistungszeitraum Ende",
+            "Is Recurring": "Wiederkehrend",
+            "Recurrence Frequency": "Abrechnungsintervall",
+            # Time-based fields
             "Document Age (days)": "Dokumentalter (Tage)",
             "Days in Current State": "Tage im aktuellen Zustand",
             "Days Until Due": "Tage bis Fälligkeit",
+            "Days Until Expiry": "Tage bis Ablauf",
         },
         "WorkflowManagerWidget": {
             "Dashboard": "Dashboard",
@@ -620,6 +647,16 @@ def fill():
         "ReportingWidget": {
             "File is not a Layout (Type: %s)": "Datei ist kein Layout (Typ: %s)",
             "Successfully created ZIP archive with %n documents.": ("ZIP-Archiv mit %n Dokument erfolgreich erstellt.", "ZIP-Archiv mit %n Dokumenten erfolgreich erstellt."),
+            "Saved Layouts": "Gespeicherte Layouts",
+            "Save As...": "Speichern als...",
+            "Delete": "Löschen",
+            "Save Layout As": "Layout speichern als",
+            "Enter a name for this layout:": "Name für dieses Layout:",
+            "Layout '%s' saved.": "Layout '%s' gespeichert.",
+            "Delete Layout": "Layout löschen",
+            "Delete layout '%s'?": "Layout '%s' löschen?",
+            "Layout deleted.": "Layout gelöscht.",
+            "Canvas is empty — nothing to save.": "Canvas ist leer – nichts zu speichern.",
         },
         "ScannerDialog": {
             "Verbinde mit %s...": "Verbinde mit %s...",
@@ -1025,6 +1062,14 @@ def fill():
             "No active workflows": "Keine aktiven Abläufe",
             "Click to open this workflow in the Process view": "Klicken, um diesen Ablauf in der Prozessansicht zu öffnen",
             "%n step(s)": ("%n Schritt", "%n Schritte"),
+        },
+        "WorkflowHistoryWidget": {
+            "No workflow history yet.": "Noch keine Workflow-Historie vorhanden.",
+            "Timestamp": "Zeitpunkt",
+            "Step / Action": "Schritt / Aktion",
+            "User": "Benutzer",
+            "Comment": "Kommentar",
+            "Workflow History": "Workflow-Verlauf",
         },
 
     }

@@ -159,6 +159,16 @@ class DatabaseManager:
         );
         """
 
+        create_saved_layouts_table = """
+CREATE TABLE IF NOT EXISTS saved_layouts (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    json_config TEXT NOT NULL,
+    created_at  TEXT DEFAULT (datetime('now')),
+    last_used_at TEXT
+);
+"""
+
         if not self.connection:
             return
 
@@ -167,6 +177,7 @@ class DatabaseManager:
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_document_groups_table)
             self.connection.execute(create_document_group_memberships_table)
+            self.connection.execute(create_saved_layouts_table)
             self.connection.execute(create_virtual_documents_fts)
             self._create_fts_triggers()
             self._create_usage_triggers()
@@ -1372,6 +1383,67 @@ class DatabaseManager:
             except Exception:
                 continue
         return count
+
+    # --- Saved Layouts ---
+
+    def save_layout(self, name: str, reports: List[dict]) -> str:
+        """Persist a named canvas layout to the database. Returns the new layout ID."""
+        layout_id = str(uuid.uuid4())
+        json_config = json.dumps(reports)
+        sql = "INSERT INTO saved_layouts (id, name, json_config) VALUES (?, ?, ?)"
+        with self._write() as conn:
+            conn.execute(sql, (layout_id, name, json_config))
+        logger.info(f"Saved layout '{name}' with id={layout_id}")
+        return layout_id
+
+    def list_layouts(self) -> List[dict]:
+        """Return all saved layouts as list of {id, name, created_at, last_used_at}."""
+        if not self.connection:
+            return []
+        sql = """
+            SELECT id, name, created_at, last_used_at
+            FROM saved_layouts
+            ORDER BY last_used_at DESC NULLS LAST, created_at DESC
+        """
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "created_at": row["created_at"],
+                "last_used_at": row["last_used_at"],
+            }
+            for row in rows
+        ]
+
+    def load_layout(self, layout_id: str) -> Optional[List[dict]]:
+        """Load report dicts for a layout; updates last_used_at. Returns None if not found."""
+        if not self.connection:
+            return None
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT json_config FROM saved_layouts WHERE id = ?", (layout_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        try:
+            result: List[dict] = json.loads(row["json_config"])
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Failed to parse saved layout {layout_id}: {e}")
+            return None
+        with self._write() as conn:
+            conn.execute(
+                "UPDATE saved_layouts SET last_used_at = datetime('now') WHERE id = ?",
+                (layout_id,),
+            )
+        return result
+
+    def delete_layout(self, layout_id: str) -> None:
+        """Delete a saved layout by ID."""
+        with self._write() as conn:
+            conn.execute("DELETE FROM saved_layouts WHERE id = ?", (layout_id,))
+        logger.info(f"Deleted layout id={layout_id}")
 
     # --- Backwards Compatibility ---
     def get_all_documents(self) -> List[Document]:

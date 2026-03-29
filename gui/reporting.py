@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QTableWidget, QTableWidgetItem,
                              QHeaderView, QFrame, QScrollArea, QComboBox, QSizePolicy,
                              QMenu, QTextEdit, QToolButton, QFileDialog, QMessageBox, QLineEdit,
-                             QInputDialog, QDialog)
+                             QInputDialog, QDialog, QListWidget, QListWidgetItem, QSplitter)
 from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer, QThread, QEvent
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush, QIcon
 
@@ -405,6 +405,7 @@ class ReportingWidget(QWidget):
         self.init_ui()
         self.retranslate_ui()
         self.load_available_reports()
+        self._refresh_layout_list()
 
     def _stop_all_workers(self) -> None:
         """Stops and cleans up all pending report workers."""
@@ -463,6 +464,11 @@ class ReportingWidget(QWidget):
         self.act_csv.setText("📊 " + self.tr("Export as CSV (Data)"))
         self.act_pdf.setText("📄 " + self.tr("Export as PDF (Report)"))
         self.act_zip.setText("📦 " + self.tr("Export as ZIP (Documents)"))
+
+        # Sidebar labels
+        self.lbl_saved_layouts.setText(self.tr("Saved Layouts"))
+        self.btn_save_as.setText(self.tr("Save As..."))
+        self.btn_delete_layout.setText(self.tr("Delete"))
 
         # Refresh the list to translate names
         self.load_available_reports()
@@ -573,14 +579,47 @@ class ReportingWidget(QWidget):
         toolbar_container.addLayout(row2)
         self.main_layout.addLayout(toolbar_container)
 
-        # Main Content area (Scrollable)
+        # Main Content area: splitter with sidebar on the left and scroll area on the right
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # --- Sidebar ---
+        sidebar_widget = QWidget()
+        sidebar_widget.setFixedWidth(200)
+        sidebar_layout = QVBoxLayout(sidebar_widget)
+        sidebar_layout.setContentsMargins(0, 0, 4, 0)
+        sidebar_layout.setSpacing(6)
+
+        self.lbl_saved_layouts = QLabel()
+        sidebar_layout.addWidget(self.lbl_saved_layouts)
+
+        self.layout_list = QListWidget()
+        self.layout_list.itemDoubleClicked.connect(self._load_layout_from_db)
+        sidebar_layout.addWidget(self.layout_list)
+
+        sidebar_btn_row = QHBoxLayout()
+        self.btn_save_as = QPushButton()
+        self.btn_save_as.clicked.connect(self._save_layout_to_db)
+        self.btn_delete_layout = QPushButton()
+        self.btn_delete_layout.clicked.connect(self._delete_layout_from_db)
+        sidebar_btn_row.addWidget(self.btn_save_as)
+        sidebar_btn_row.addWidget(self.btn_delete_layout)
+        sidebar_layout.addLayout(sidebar_btn_row)
+
+        self.splitter.addWidget(sidebar_widget)
+
+        # --- Scrollable Canvas ---
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout(self.content_widget)
         self.scroll.setWidget(self.content_widget)
-        self.main_layout.addWidget(self.scroll)
+
+        self.splitter.addWidget(self.scroll)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+
+        self.main_layout.addWidget(self.splitter)
 
         # Result Placeholder
         self.clear_results()
@@ -1253,6 +1292,101 @@ class ReportingWidget(QWidget):
                     QMessageBox.information(self, self.tr("Export ZIP"), self.tr("Successfully created ZIP archive with %n documents.", "", len(docs)))
                 except Exception as e:
                     QMessageBox.critical(self, self.tr("Error"), f"Failed to create ZIP: {str(e)}")
+
+    def _refresh_layout_list(self) -> None:
+        """Reload the sidebar list from DB."""
+        self.layout_list.clear()
+        if not self.db_manager:
+            self.btn_save_as.setEnabled(False)
+            self.btn_delete_layout.setEnabled(False)
+            return
+        self.btn_save_as.setEnabled(True)
+        self.btn_delete_layout.setEnabled(True)
+        try:
+            layouts = self.db_manager.list_layouts()
+        except Exception as e:
+            logger.error(f"Failed to list saved layouts: {e}")
+            return
+        for layout in layouts:
+            item = QListWidgetItem(layout["name"])
+            item.setData(Qt.ItemDataRole.UserRole, layout["id"])
+            self.layout_list.addItem(item)
+
+    def _save_layout_to_db(self) -> None:
+        """Prompt for name, serialize active_definitions, save to DB, refresh list."""
+        if not self.active_definitions:
+            QMessageBox.warning(
+                self,
+                self.tr("Save Layout As"),
+                self.tr("Canvas is empty — nothing to save."),
+            )
+            return
+        name, ok = QInputDialog.getText(
+            self,
+            self.tr("Save Layout As"),
+            self.tr("Enter a name for this layout:"),
+        )
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+        try:
+            self.db_manager.save_layout(name, [d.model_dump() for d in self.active_definitions])
+        except Exception as e:
+            logger.error(f"Failed to save layout to DB: {e}")
+            QMessageBox.critical(self, self.tr("Error"), str(e))
+            return
+        self._refresh_layout_list()
+        show_notification(self, self.tr("Save Layout As"), self.tr("Layout '%s' saved.") % name)
+
+    def _load_layout_from_db(self, item: QListWidgetItem) -> None:
+        """Load layout from DB and render it."""
+        layout_id = item.data(Qt.ItemDataRole.UserRole)
+        if not layout_id or not self.db_manager:
+            return
+        try:
+            reports = self.db_manager.load_layout(layout_id)
+        except Exception as e:
+            logger.error(f"Failed to load layout {layout_id} from DB: {e}")
+            QMessageBox.critical(self, self.tr("Error"), str(e))
+            return
+        if reports is None:
+            return
+        self.clear_results()
+        # Remove placeholder added by clear_results
+        if self.content_layout.count() > 0:
+            first = self.content_layout.itemAt(0)
+            if first and first.widget() and isinstance(first.widget(), QLabel):
+                first.widget().setParent(None)
+        for r_data in reports:
+            try:
+                definition = ReportDefinition(**r_data)
+                self._generate_report_for_definition(definition)
+            except Exception as e:
+                logger.error(f"Failed to load report from saved layout: {e}")
+
+    def _delete_layout_from_db(self) -> None:
+        """Delete selected layout after confirmation."""
+        item = self.layout_list.currentItem()
+        if not item or not self.db_manager:
+            return
+        layout_id = item.data(Qt.ItemDataRole.UserRole)
+        name = item.text()
+        reply = QMessageBox.question(
+            self,
+            self.tr("Delete Layout"),
+            self.tr("Delete layout '%s'?") % name,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.db_manager.delete_layout(layout_id)
+        except Exception as e:
+            logger.error(f"Failed to delete layout {layout_id}: {e}")
+            QMessageBox.critical(self, self.tr("Error"), str(e))
+            return
+        self._refresh_layout_list()
+        show_notification(self, self.tr("Delete Layout"), self.tr("Layout deleted."))
 
     def save_layout(self):
         """Saves current canvas state via ExchangeService."""
