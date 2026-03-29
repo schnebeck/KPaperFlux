@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize, QEvent, QTimer, QSettings, QPoint, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QCursor
-from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowEngine, WorkflowL10nPatch
+from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowEngine, WorkflowL10nPatch, StateType
 from gui.widgets.workflow_graph import WorkflowGraphWidget, StateNode, TransitionEdge
 from gui.cockpit import CELL_WIDTH, CELL_HEIGHT, SPACING, MARGIN, StatCard
 from typing import Dict, List, Any, Optional
@@ -753,28 +753,39 @@ class WorkflowRuleFormEditor(QWidget):
         lbl_edit = QLineEdit(node.state_def.label)
         fl.addRow(self.tr("Label:"), lbl_edit)
 
-        initial_chk = QCheckBox()
-        initial_chk.setChecked(node.state_def.initial)
-        initial_chk.setToolTip(self.tr("Mark as the designated start state of this workflow (only one per rule)."))
-        fl.addRow(self.tr("Initial state:"), initial_chk)
-
-        final_chk = QCheckBox()
-        final_chk.setChecked(node.state_def.final)
-        final_chk.setToolTip(self.tr("Mark as a terminal state (workflow complete)."))
-        fl.addRow(self.tr("Final state:"), final_chk)
+        type_combo = QComboBox()
+        _type_labels = {
+            StateType.START: self.tr("START — Entry point"),
+            StateType.NORMAL: self.tr("NORMAL — Intermediate"),
+            StateType.END_OK: self.tr("END OK — Positive terminal"),
+            StateType.END_NOK: self.tr("END NOK — Negative terminal"),
+            StateType.END_NEUTRAL: self.tr("END NEUTRAL — Neutral terminal"),
+        }
+        for st, label in _type_labels.items():
+            type_combo.addItem(label, userData=st)
+        current_type = node.state_def.state_type
+        idx = list(_type_labels.keys()).index(current_type) if current_type in _type_labels else 1
+        type_combo.setCurrentIndex(idx)
+        fl.addRow(self.tr("Type:"), type_combo)
 
         def _apply():
             try:
                 new_label = lbl_edit.text().strip()
+                chosen_type: StateType = type_combo.currentData()
             except RuntimeError:
                 return  # stale deferred call — widgets already deleted
             node.state_def.label = new_label
-            # Radio semantics: only one initial state per rule
-            if initial_chk.isChecked():
+            node.state_def.state_type = chosen_type
+            # Sync legacy flags
+            node.state_def.final = chosen_type in (StateType.END_OK, StateType.END_NOK, StateType.END_NEUTRAL)
+            # Radio semantics: only one START per rule
+            if chosen_type == StateType.START:
                 for sdef in self._graph_widget._rule.states.values():
-                    sdef.initial = False
-            node.state_def.initial = initial_chk.isChecked()
-            node.state_def.final = final_chk.isChecked()
+                    if sdef is not node.state_def:
+                        sdef.initial = False
+                        if sdef.state_type == StateType.START:
+                            sdef.state_type = StateType.NORMAL
+            node.state_def.initial = (chosen_type == StateType.START)
             self._graph_widget._rebuild()
             self._on_changed()
             QTimer.singleShot(0, lambda nid=node.state_id: (
@@ -783,8 +794,7 @@ class WorkflowRuleFormEditor(QWidget):
             ))
 
         lbl_edit.editingFinished.connect(lambda: QTimer.singleShot(0, _apply))
-        initial_chk.stateChanged.connect(lambda _: QTimer.singleShot(0, _apply))
-        final_chk.stateChanged.connect(lambda _: QTimer.singleShot(0, _apply))
+        type_combo.currentIndexChanged.connect(lambda _: QTimer.singleShot(0, _apply))
 
     def _fill_transition_detail(self, edge: "TransitionEdge", fl) -> None:
         t = edge.transition

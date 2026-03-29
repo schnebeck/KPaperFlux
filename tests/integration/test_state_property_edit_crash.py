@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import QFormLayout
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtTest import QTest
 
-from core.workflow import WorkflowRule, WorkflowState, WorkflowTransition
+from core.workflow import WorkflowRule, WorkflowState, WorkflowTransition, StateType
 from gui.workflow_manager import WorkflowRuleFormEditor
 
 
@@ -77,17 +77,20 @@ def test_label_edit_no_segfault(qtbot, two_state_rule):
     assert editor._detail_hint.isHidden()
 
 
-def test_final_checkbox_toggle_no_segfault(qtbot, two_state_rule):
-    """Toggling 'Final state' checkbox (stateChanged) must not segfault."""
+def test_state_type_combo_change_no_segfault(qtbot, two_state_rule):
+    """Changing the state type combo (currentIndexChanged) must not segfault."""
+    from PyQt6.QtWidgets import QComboBox
     editor = WorkflowRuleFormEditor()
     qtbot.addWidget(editor)
     editor.load_rule(two_state_rule)
     _select_node(editor, "NEW")
 
     fl = editor._detail_form_layout
-    final_chk = fl.itemAt(1, QFormLayout.ItemRole.FieldRole).widget()  # row 1: Final
+    type_combo = fl.itemAt(1, QFormLayout.ItemRole.FieldRole).widget()  # row 1: Type
+    assert isinstance(type_combo, QComboBox)
 
-    final_chk.setChecked(True)
+    # Select END_OK (index 2 in the combo)
+    type_combo.setCurrentIndex(2)
 
     qtbot.wait(50)
 
@@ -96,6 +99,27 @@ def test_final_checkbox_toggle_no_segfault(qtbot, two_state_rule):
 
 
 # ── Positive: semantics after edit ────────────────────────────────────────────
+
+def test_state_type_combo_persists_in_rule(qtbot, two_state_rule):
+    """After selecting END_OK the rule model must reflect state_type and final."""
+    from PyQt6.QtWidgets import QComboBox
+    editor = WorkflowRuleFormEditor()
+    qtbot.addWidget(editor)
+    editor.load_rule(two_state_rule)
+    _select_node(editor, "NEW")
+
+    fl = editor._detail_form_layout
+    type_combo = fl.itemAt(1, QFormLayout.ItemRole.FieldRole).widget()
+    assert isinstance(type_combo, QComboBox)
+    # END_OK is at index 2 in the _type_labels dict
+    type_combo.setCurrentIndex(2)
+
+    qtbot.wait(50)
+
+    rule = editor.get_rule()
+    assert rule.states["NEW"].state_type == StateType.END_OK
+    assert rule.states["NEW"].is_terminal is True
+
 
 def test_label_edit_persists_in_rule(qtbot, two_state_rule):
     """After editing a label the rule model must reflect the new value."""
