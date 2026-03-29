@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QSize, QEvent, QTimer, QSettings, QPoint, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QCursor
-from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowEngine, WorkflowL10nPatch, StateType
+from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition, WorkflowEngine, WorkflowL10nPatch, StateType
 from gui.widgets.workflow_graph import WorkflowGraphWidget, StateNode, TransitionEdge
 from gui.cockpit import CELL_WIDTH, CELL_HEIGHT, SPACING, MARGIN, StatCard
 from typing import Dict, List, Any, Optional
@@ -800,14 +800,112 @@ class WorkflowRuleFormEditor(QWidget):
         t = edge.transition
         src_id = edge.src.state_id
         action_id = t.action  # captured now — stable ID for re-select after rebuild
+
         label_edit = QLineEdit(t.label or t.action)
         fl.addRow(self.tr("Label:"), label_edit)
+
         auto_chk = QCheckBox()
         auto_chk.setChecked(t.auto)
         fl.addRow(self.tr("Auto:"), auto_chk)
+
         req_edit = QLineEdit(", ".join(t.required_fields))
         req_edit.setPlaceholderText("iban, total_gross, …")
         fl.addRow(self.tr("Required Fields:"), req_edit)
+
+        # ── Condition editor ──────────────────────────────────────────────────
+        cond_container = QWidget()
+        cond_vbox = QVBoxLayout(cond_container)
+        cond_vbox.setContentsMargins(0, 0, 0, 0)
+        cond_vbox.setSpacing(3)
+
+        _OPS = [">", "<", ">=", "<=", "=", "!="]
+
+        cond_table = QTableWidget(0, 3)
+        cond_table.setHorizontalHeaderLabels([
+            self.tr("Field"), self.tr("Op"), self.tr("Value"),
+        ])
+        cond_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        cond_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        cond_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        cond_table.setColumnWidth(1, 50)
+        cond_table.verticalHeader().setVisible(False)
+        cond_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        cond_table.setMinimumHeight(80)
+        cond_table.setMaximumHeight(160)
+
+        def _populate_cond_table():
+            cond_table.setRowCount(0)
+            for cond in t.conditions:
+                row = cond_table.rowCount()
+                cond_table.insertRow(row)
+                cond_table.setItem(row, 0, QTableWidgetItem(cond.field))
+                op_combo = QComboBox()
+                for op in _OPS:
+                    op_combo.addItem(op)
+                if cond.op in _OPS:
+                    op_combo.setCurrentIndex(_OPS.index(cond.op))
+                cond_table.setCellWidget(row, 1, op_combo)
+                cond_table.setItem(row, 2, QTableWidgetItem(str(cond.value)))
+                cond_table.setRowHeight(row, 24)
+
+        _populate_cond_table()
+        cond_vbox.addWidget(cond_table)
+
+        btn_row = QWidget()
+        btn_hbox = QHBoxLayout(btn_row)
+        btn_hbox.setContentsMargins(0, 0, 0, 0)
+        btn_hbox.setSpacing(4)
+        btn_add = QPushButton(self.tr("+ Condition"))
+        btn_add.setFixedHeight(22)
+        btn_del = QPushButton(self.tr("− Remove"))
+        btn_del.setFixedHeight(22)
+        btn_hbox.addWidget(btn_add)
+        btn_hbox.addWidget(btn_del)
+        btn_hbox.addStretch()
+        cond_vbox.addWidget(btn_row)
+
+        fl.addRow(self.tr("Conditions:"), cond_container)
+
+        def _read_conditions() -> list:
+            rows = []
+            for r in range(cond_table.rowCount()):
+                field_item = cond_table.item(r, 0)
+                op_widget = cond_table.cellWidget(r, 1)
+                val_item = cond_table.item(r, 2)
+                field = field_item.text().strip() if field_item else ""
+                op = op_widget.currentText() if op_widget else "="
+                val_raw = val_item.text().strip() if val_item else ""
+                if not field or not val_raw:
+                    continue
+                try:
+                    val: float | str = float(val_raw)
+                except ValueError:
+                    val = val_raw
+                rows.append(WorkflowCondition(field=field, op=op, value=val))
+            return rows
+
+        def _on_add_condition():
+            row = cond_table.rowCount()
+            cond_table.insertRow(row)
+            cond_table.setItem(row, 0, QTableWidgetItem("DAYS_IN_STATE"))
+            op_combo = QComboBox()
+            for op in _OPS:
+                op_combo.addItem(op)
+            cond_table.setCellWidget(row, 1, op_combo)
+            cond_table.setItem(row, 2, QTableWidgetItem("0"))
+            cond_table.setRowHeight(row, 24)
+            cond_table.setCurrentCell(row, 0)
+            QTimer.singleShot(0, _apply)
+
+        def _on_del_condition():
+            rows = sorted({i.row() for i in cond_table.selectedItems()}, reverse=True)
+            for r in rows:
+                cond_table.removeRow(r)
+            QTimer.singleShot(0, _apply)
+
+        btn_add.clicked.connect(_on_add_condition)
+        btn_del.clicked.connect(_on_del_condition)
+        # ── End condition editor ──────────────────────────────────────────────
 
         def _apply():
             try:
@@ -817,6 +915,7 @@ class WorkflowRuleFormEditor(QWidget):
             t.label = new_label
             t.auto = auto_chk.isChecked()
             t.required_fields = [f.strip() for f in req_edit.text().split(",") if f.strip()]
+            t.conditions = _read_conditions()
             self._graph_widget._rebuild()
             self._on_changed()
             def _reselect_edge(sid=src_id, aid=action_id):
@@ -832,6 +931,7 @@ class WorkflowRuleFormEditor(QWidget):
         label_edit.editingFinished.connect(lambda: QTimer.singleShot(0, _apply))
         auto_chk.stateChanged.connect(lambda _: QTimer.singleShot(0, _apply))
         req_edit.editingFinished.connect(lambda: QTimer.singleShot(0, _apply))
+        cond_table.itemChanged.connect(lambda _: QTimer.singleShot(0, _apply))
 
 
 class WorkflowProcessingWidget(QWidget):

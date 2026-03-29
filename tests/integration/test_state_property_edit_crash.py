@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import QFormLayout
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtTest import QTest
 
-from core.workflow import WorkflowRule, WorkflowState, WorkflowTransition, StateType
+from core.workflow import WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition, StateType
 from gui.workflow_manager import WorkflowRuleFormEditor
 
 
@@ -282,3 +282,123 @@ def test_transition_required_fields_no_segfault(qtbot, two_state_rule):
     assert not editor._detail_form.isHidden()
     rule = editor.get_rule()
     assert rule.states["NEW"].transitions[0].required_fields == ["iban", "total_gross"]
+
+
+# ── Condition editor ──────────────────────────────────────────────────────────
+
+@pytest.fixture()
+def rule_with_conditions() -> WorkflowRule:
+    """Rule whose transition already carries a WorkflowCondition."""
+    return WorkflowRule(
+        id="cond_rule",
+        name="Condition Rule",
+        states={
+            "WAIT": WorkflowState(label="Waiting", transitions=[
+                WorkflowTransition(
+                    action="escalate",
+                    target="DONE",
+                    conditions=[
+                        WorkflowCondition(field="DAYS_IN_STATE", op=">", value=10),
+                    ],
+                ),
+            ]),
+            "DONE": WorkflowState(label="Done", state_type="END_OK", final=True),
+        },
+    )
+
+
+def test_existing_conditions_shown_in_table(qtbot, rule_with_conditions):
+    """Conditions already on a transition must be pre-populated in the table."""
+    from PyQt6.QtWidgets import QTableWidget
+    editor = WorkflowRuleFormEditor()
+    qtbot.addWidget(editor)
+    editor.load_rule(rule_with_conditions)
+    _select_edge(editor, "WAIT", "escalate")
+
+    fl = editor._detail_form_layout
+    cond_container = fl.itemAt(3, QFormLayout.ItemRole.FieldRole).widget()
+    table = cond_container.findChild(QTableWidget)
+
+    assert table is not None
+    assert table.rowCount() == 1
+    assert table.item(0, 0).text() == "DAYS_IN_STATE"
+    assert table.item(0, 2).text() == "10"
+
+
+def test_add_condition_button_appends_row(qtbot, rule_with_conditions):
+    """Clicking '+ Condition' must add a row to the conditions table.
+
+    After _apply() runs, _rebuild() recreates the graph and the edge is
+    re-selected — the table widget is replaced, so we check via the rule model
+    rather than the stale widget reference.
+    """
+    from PyQt6.QtWidgets import QPushButton
+    editor = WorkflowRuleFormEditor()
+    qtbot.addWidget(editor)
+    editor.load_rule(rule_with_conditions)
+    _select_edge(editor, "WAIT", "escalate")
+
+    fl = editor._detail_form_layout
+    cond_container = fl.itemAt(3, QFormLayout.ItemRole.FieldRole).widget()
+
+    btn_add = next(
+        (b for b in cond_container.findChildren(QPushButton) if "+" in b.text()), None
+    )
+    assert btn_add is not None
+    btn_add.click()
+
+    qtbot.wait(80)
+
+    # New default row has field="DAYS_IN_STATE", value="0" — verify via model
+    rule = editor.get_rule()
+    conds = rule.states["WAIT"].transitions[0].conditions
+    assert len(conds) == 2
+
+
+def test_conditions_persist_in_rule_after_edit(qtbot, rule_with_conditions):
+    """After editing the condition field cell the rule model must update."""
+    from PyQt6.QtWidgets import QTableWidget
+    editor = WorkflowRuleFormEditor()
+    qtbot.addWidget(editor)
+    editor.load_rule(rule_with_conditions)
+    _select_edge(editor, "WAIT", "escalate")
+
+    fl = editor._detail_form_layout
+    cond_container = fl.itemAt(3, QFormLayout.ItemRole.FieldRole).widget()
+    table = cond_container.findChild(QTableWidget)
+
+    # Change the value cell from "10" to "30"
+    table.item(0, 2).setText("30")
+    # Trigger itemChanged → deferred _apply
+    qtbot.wait(80)
+
+    rule = editor.get_rule()
+    conds = rule.states["WAIT"].transitions[0].conditions
+    assert len(conds) == 1
+    assert conds[0].value == 30.0
+
+
+def test_remove_condition_updates_rule(qtbot, rule_with_conditions):
+    """Selecting a condition row and clicking '− Remove' must delete it."""
+    from PyQt6.QtWidgets import QTableWidget, QPushButton
+    editor = WorkflowRuleFormEditor()
+    qtbot.addWidget(editor)
+    editor.load_rule(rule_with_conditions)
+    _select_edge(editor, "WAIT", "escalate")
+
+    fl = editor._detail_form_layout
+    cond_container = fl.itemAt(3, QFormLayout.ItemRole.FieldRole).widget()
+    table = cond_container.findChild(QTableWidget)
+    assert table.rowCount() == 1
+
+    table.selectRow(0)
+    btn_del = next(
+        (b for b in cond_container.findChildren(QPushButton) if "−" in b.text()), None
+    )
+    assert btn_del is not None
+    btn_del.click()
+
+    qtbot.wait(80)
+
+    rule = editor.get_rule()
+    assert rule.states["WAIT"].transitions[0].conditions == []
