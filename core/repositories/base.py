@@ -11,9 +11,10 @@ Description:    Base class for repository implementations. Provides shared
 """
 
 import sqlite3
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-from core.database import DatabaseManager
+if TYPE_CHECKING:
+    from core.database import DatabaseManager
 
 
 class BaseRepository:
@@ -21,14 +22,14 @@ class BaseRepository:
     Abstract-style base repository providing shared database access.
     """
 
-    def __init__(self, db_manager: DatabaseManager) -> None:
+    def __init__(self, db_manager: "DatabaseManager") -> None:
         """
         Initializes the repository with a database manager.
 
         Args:
             db_manager: The central database management instance.
         """
-        self.db: DatabaseManager = db_manager
+        self.db: Any = db_manager
 
     @property
     def conn(self) -> sqlite3.Connection:

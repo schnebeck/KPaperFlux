@@ -114,6 +114,31 @@ class PhysicalRepository(BaseRepository):
             return PhysicalFile.from_row(row)
         return None
 
+    def get_as_dict(self, uuid: str) -> Optional[dict]:
+        """
+        Retrieves a physical file record by UUID and returns it as a plain dict.
+        Provides backwards-compatible dict access for callers that use key-based lookup.
+
+        Args:
+            uuid: The unique identifier of the physical file.
+
+        Returns:
+            A dict of physical file fields if found, else None.
+        """
+        file = self.get_by_uuid(uuid)
+        if file is None:
+            return None
+        return {
+            "uuid": file.uuid,
+            "phash": file.phash,
+            "file_path": file.file_path,
+            "original_filename": file.original_filename,
+            "file_size": file.file_size,
+            "page_count_phys": file.page_count_phys,
+            "raw_ocr_data": file.raw_ocr_data,
+            "created_at": file.created_at,
+        }
+
     def get_all(self) -> List[PhysicalFile]:
         """
         Fetches all physical file records from the database.

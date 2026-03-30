@@ -31,6 +31,8 @@ from core.models.semantic import SemanticExtraction
 from core.logger import get_logger, log_sql_query, get_silent_logger
 from core.query_builder import QueryBuilder
 from core.document_hydrator import DocumentHydrator
+from core.repositories.logical_repo import LogicalRepository
+from core.repositories.physical_repo import PhysicalRepository
 
 # --- Central Logging Setup ---
 logger = get_logger("database")
@@ -64,6 +66,8 @@ class DatabaseManager:
         """
         self._qb = QueryBuilder()
         self._hydrator = DocumentHydrator()
+        self.logical_repo: LogicalRepository = LogicalRepository(self)
+        self.physical_repo: PhysicalRepository = PhysicalRepository(self)
 
     def _connect(self) -> None:
         """
@@ -315,17 +319,8 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         if not self.connection:
             return None
 
-        sql = f"""
-            SELECT {self._doc_select}
-            FROM virtual_documents
-            WHERE uuid = ?
-        """
-        cursor = self.connection.cursor()
-        cursor.execute(sql, (uuid,))
-        row = cursor.fetchone()
-        if row:
-            return self._hydrator.hydrate(row)
-        return None
+        # Routed via LogicalRepository
+        return self.logical_repo.get_by_uuid(uuid)
 
     def get_physical_file(self, uuid: str) -> Optional[Dict[str, Any]]:
         """
@@ -333,11 +328,9 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         """
         if not self.connection:
             return None
-        sql = "SELECT * FROM physical_files WHERE uuid = ?"
-        cursor = self.connection.cursor()
-        cursor.execute(sql, (uuid,))
-        row = cursor.fetchone()
-        return dict(row) if row else None
+
+        # Routed via PhysicalRepository
+        return self.physical_repo.get_as_dict(uuid)
 
     def reset_document_for_reanalysis(self, uuid: str) -> None:
         """
@@ -817,21 +810,8 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         Returns:
             List of referencing documents.
         """
-        sql = """SELECT uuid FROM virtual_documents
-                 WHERE EXISTS (
-                     SELECT 1 FROM json_each(source_mapping)
-                     WHERE json_extract(value, '$.file_uuid') = ?
-                 )"""
-        cursor = self.connection.cursor()
-        cursor.execute(sql, (source_uuid,))
-        uuids = [row[0] for row in cursor.fetchall()]
-        
-        results = []
-        for v_uuid in uuids:
-            doc = self.get_document_by_uuid(v_uuid)
-            if doc:
-                results.append(doc)
-        return results
+        # Routed via LogicalRepository
+        return self.logical_repo.get_by_source_file(source_uuid)
 
     def get_all_tags_with_counts(self) -> Dict[str, int]:
         """

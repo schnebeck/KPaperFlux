@@ -67,6 +67,7 @@ from gui.main_menu import MainWindowMenuMixin
 from gui.widgets.group_tree import GroupTreeWidget, _ALL_DOCS_ID as _GROUP_ALL
 from core.plugins.manager import PluginManager
 from core.plugins.base import ApiContext
+from gui.app_bus import ApplicationBus
 
 class MergeConfirmDialog(QDialog):
     def __init__(self, count, parent=None):
@@ -124,6 +125,8 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.resize(1000, 700)
         self.setAcceptDrops(True)
 
+        self.bus = ApplicationBus(self)
+
         self._setup_plugins()
         self.create_menu_bar()
 
@@ -135,6 +138,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self._setup_status_bar()
         self._setup_doc_controller()
         self._setup_debug_controller()
+        self._wire_signals()
 
         self.create_tool_bar()
         self.retranslate_ui()
@@ -148,6 +152,9 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         if self.db_manager:
             QTimer.singleShot(0, self._sweep_stale_workflow_states)
+
+        if self.db_manager:
+            self._setup_scheduler()
 
     # ── Setup helpers (called once from __init__) ─────────────────────────────
 
@@ -166,6 +173,20 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         )
         self.plugin_manager = PluginManager(plugin_dirs=plugin_dirs, api_context=self.plugin_api)
         self.plugin_manager.discover_plugins()
+
+    def _setup_scheduler(self) -> None:
+        """Initialise and start the background workflow auto-transition scheduler."""
+        from core.workflow_scheduler import WorkflowScheduler
+        self.workflow_scheduler = WorkflowScheduler(self.db_manager, interval_minutes=15)
+        self.workflow_scheduler.transitions_applied.connect(self._on_scheduler_transitions)
+        self.workflow_scheduler.start()
+
+    def _on_scheduler_transitions(self, count: int) -> None:
+        """React to a completed scheduler run that applied at least one transition."""
+        if count > 0:
+            logger.info(f"[Scheduler] Applied {count} auto-transitions")
+            if hasattr(self, "list_widget"):
+                self.list_widget.refresh_list()
 
     def _setup_pages(self) -> None:
         """Build the central QStackedWidget with all top-level pages."""
@@ -276,8 +297,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.list_widget.show_generic_requested.connect(self.open_debug_audit_window)
         self.list_widget.search_cleared.connect(self._on_search_cleared)
 
-        self.advanced_filter.filter_changed.connect(self._on_filter_changed)
-        self.advanced_filter.filter_changed.connect(self.list_widget.apply_advanced_filter)
+        # filter_changed has 2 subscribers — routed through bus in _wire_signals()
         self.advanced_filter.search_triggered.connect(self._on_global_search_triggered)
         self.advanced_filter.prev_hit_requested.connect(lambda: self.pdf_viewer.canvas.prev_hit())
         self.advanced_filter.next_hit_requested.connect(lambda: self.pdf_viewer.canvas.next_hit())
@@ -293,9 +313,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.left_pane_splitter.setStretchFactor(1, 1)
 
         self.editor_widget = MetadataEditorWidget(self.db_manager, pipeline=self.pipeline)
-        self.editor_widget.metadata_saved.connect(self.list_widget.refresh_list)
-        self.editor_widget.metadata_saved.connect(self.cockpit_widget.refresh_stats)
-        self.editor_widget.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
+        # metadata_saved has 3 subscribers — routed through bus in _wire_signals()
         self.editor_widget.open_workflow_process.connect(self._navigate_to_workflow_process)
         self.left_pane_splitter.addWidget(self.editor_widget)
         self.editor_widget.setVisible(False)
@@ -391,6 +409,58 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.debug_controller.list_refresh_requested.connect(
             self.list_widget.refresh_list if hasattr(self, "list_widget") else lambda: None
         )
+
+    def _wire_signals(self) -> None:
+        """Consolidate ALL cross-subsystem signal wiring in one explicit place.
+
+        Called once from ``__init__`` after all setup helpers have run.
+        ``self.bus`` must exist before this method is called.
+
+        Layout:
+          Section A — multi-subscriber signals routed through ApplicationBus
+          Section B — single-subscriber cross-subsystem signals (direct connections)
+        """
+        # ── Section A: multi-subscriber signals through ApplicationBus ────────
+
+        # editor_widget.metadata_saved → bus → 3 subscribers
+        if hasattr(self, "editor_widget"):
+            self.editor_widget.metadata_saved.connect(self.bus.metadata_saved)
+        if hasattr(self, "list_widget"):
+            self.bus.metadata_saved.connect(self.list_widget.refresh_list)
+        if hasattr(self, "cockpit_widget"):
+            self.bus.metadata_saved.connect(self.cockpit_widget.refresh_stats)
+        if hasattr(self, "advanced_filter"):
+            self.bus.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
+
+        # advanced_filter.filter_changed → bus → 2 subscribers
+        if hasattr(self, "advanced_filter"):
+            self.advanced_filter.filter_changed.connect(self.bus.filter_changed)
+        self.bus.filter_changed.connect(self._on_filter_changed)
+        if hasattr(self, "list_widget"):
+            self.bus.filter_changed.connect(self.list_widget.apply_advanced_filter)
+
+        # ── Section B: single-subscriber cross-subsystem signals (direct) ─────
+        # (already wired in setup helpers; listed here for reference completeness)
+        # cockpit_widget.navigation_requested  → navigate_to_list_filter  (in _setup_pages)
+        # workflow_manager.navigation_requested → navigate_to_list_filter  (in _setup_pages)
+        # reporting_widget.filter_requested    → navigate_to_list_filter  (in _setup_pages)
+        # central_stack.currentChanged         → _on_tab_changed          (in _setup_pages)
+        # group_tree.group_selected            → _on_group_selected       (in _setup_explorer_pane)
+        # pdf_viewer signals                   → slot methods             (in _setup_explorer_pane)
+        # list_widget signals                  → slot methods             (in _setup_list_and_editor)
+        # advanced_filter.search_triggered     → _on_global_search_triggered (in _setup_list_and_editor)
+        # advanced_filter.prev/next_hit        → pdf_viewer.canvas        (in _setup_list_and_editor)
+        # advanced_filter.trash_mode_changed   → set_trash_mode           (in _setup_list_and_editor)
+        # advanced_filter.archive_mode_changed → set_archive_mode         (in _setup_list_and_editor)
+        # advanced_filter.filter_active_changed → list_widget             (in _setup_list_and_editor)
+        # advanced_filter.size_changed         → left_pane_splitter       (in _setup_list_and_editor)
+        # advanced_filter.request_apply_rule   → _on_rule_apply_requested (in _setup_list_and_editor)
+        # editor_widget.open_workflow_process  → _navigate_to_workflow_process (in _setup_list_and_editor)
+        # workflow_manager.status_message      → main_status_label.setText (in _setup_status_bar)
+        # doc_controller signals               → slot methods             (in _setup_doc_controller)
+        # debug_controller signals             → slot methods             (in _setup_debug_controller)
+        # main_loop_worker signals             → slot methods             (in _init_main_loop_worker)
+        # workflow_scheduler.transitions_applied → _on_scheduler_transitions (in _setup_scheduler)
 
     def _sweep_stale_workflow_states(self) -> None:
         """Background sweep: reset stale workflow states across all rules."""
@@ -828,7 +898,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             self.list_widget.refresh_list()
 
     def open_settings_slot(self):
-        dialog = SettingsDialog(self)
+        dialog = SettingsDialog(self, plugin_manager=self.plugin_manager)
         dialog.settings_changed.connect(self.on_settings_changed)
         dialog.exec()
 

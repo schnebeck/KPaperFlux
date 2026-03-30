@@ -6,7 +6,7 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
     QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
-    QSpinBox, QLayout, QCheckBox
+    QSpinBox, QLayout, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QEvent, QCoreApplication
 from core.logger import get_logger
@@ -41,9 +41,10 @@ class SettingsDialog(QDialog):
     """
     settings_changed = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, plugin_manager=None):
         super().__init__(parent)
         self.config = parent.app_config if parent and hasattr(parent, 'app_config') else AppConfig()
+        self.plugin_manager = plugin_manager
         self.setWindowTitle(self.tr("Settings"))
 
         self._setup_ui()
@@ -254,6 +255,30 @@ class SettingsDialog(QDialog):
  
         self.tabs.addTab(logging_tab, "")
 
+        # --- Plugins Tab ---
+        plugins_tab = QWidget()
+        plugins_layout = QVBoxLayout(plugins_tab)
+
+        self.lbl_plugins_count = QLabel("")
+        plugins_layout.addWidget(self.lbl_plugins_count)
+
+        self.tbl_plugins = QTableWidget()
+        self.tbl_plugins.setColumnCount(4)
+        self.tbl_plugins.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tbl_plugins.setAlternatingRowColors(True)
+        self.tbl_plugins.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tbl_plugins.horizontalHeader().setStretchLastSection(True)
+        self.tbl_plugins.verticalHeader().setVisible(False)
+        plugins_layout.addWidget(self.tbl_plugins)
+
+        self.lbl_plugin_dirs = QLabel("")
+        self.lbl_plugin_dirs.setWordWrap(True)
+        plugins_layout.addWidget(self.lbl_plugin_dirs)
+
+        self._populate_plugins_tab()
+
+        self.tabs.addTab(plugins_tab, self.tr("Plugins"))
+
         # Buttons
         btn_box = QHBoxLayout()
         self.btn_save = QPushButton(self.tr("Save"))
@@ -265,6 +290,47 @@ class SettingsDialog(QDialog):
         btn_box.addWidget(self.btn_save)
         btn_box.addWidget(self.btn_cancel)
         layout.addLayout(btn_box)
+
+    def _populate_plugins_tab(self):
+        """Fills the plugins table with data from the plugin manager."""
+        col_headers = [
+            self.tr("Name"),
+            self.tr("Version"),
+            self.tr("Author"),
+            self.tr("Description"),
+        ]
+        self.tbl_plugins.setHorizontalHeaderLabels(col_headers)
+
+        if self.plugin_manager is None:
+            self.lbl_plugins_count.setText(self.tr("Loaded Plugins (%d)") % 0)
+            self.tbl_plugins.setRowCount(1)
+            item = QTableWidgetItem(self.tr("Plugin manager not available."))
+            self.tbl_plugins.setItem(0, 0, item)
+            self.lbl_plugin_dirs.setText("")
+            return
+
+        plugin_list = self.plugin_manager.get_plugin_info_list()
+        count = len(plugin_list)
+        self.lbl_plugins_count.setText(self.tr("Loaded Plugins (%d)") % count)
+
+        if count == 0:
+            self.tbl_plugins.setRowCount(1)
+            item = QTableWidgetItem(self.tr("No plugins loaded."))
+            self.tbl_plugins.setItem(0, 0, item)
+        else:
+            self.tbl_plugins.setRowCount(count)
+            for row, info in enumerate(plugin_list):
+                self.tbl_plugins.setItem(row, 0, QTableWidgetItem(info.get("name", "")))
+                self.tbl_plugins.setItem(row, 1, QTableWidgetItem(info.get("version", "")))
+                self.tbl_plugins.setItem(row, 2, QTableWidgetItem(info.get("author", "")))
+                self.tbl_plugins.setItem(row, 3, QTableWidgetItem(info.get("description", "")))
+
+        dirs = getattr(self.plugin_manager, "plugin_dirs", [])
+        if dirs:
+            dirs_str = ", ".join(str(d) for d in dirs)
+            self.lbl_plugin_dirs.setText(f"{self.tr('Plugin directory:')} {dirs_str}")
+        else:
+            self.lbl_plugin_dirs.setText("")
 
     def _load_settings(self):
         self.combo_lang.setCurrentText(self.config.get_language())
@@ -582,6 +648,7 @@ class SettingsDialog(QDialog):
         self.tabs.setTabText(1, self.tr("Vocabulary"))
         self.tabs.setTabText(2, self.tr("Identity"))
         self.tabs.setTabText(3, self.tr("Logging"))
+        self.tabs.setTabText(4, self.tr("Plugins"))
 
         # General Tab Labels
         self.lbl_lang.setText(self.tr("Language:"))

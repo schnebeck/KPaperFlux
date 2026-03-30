@@ -615,6 +615,25 @@ def build_workflow_data(doc: Any, days_in_state: int = 0) -> dict:
             return None
         return sd.get_financial_value(field)
 
+    def _sem(field: str, default: Any = None) -> Any:
+        """Read a top-level attribute or body field from SemanticExtraction."""
+        if sd is None:
+            return default
+        val = getattr(sd, field, None)
+        if val is not None:
+            return val
+        # Fallback: search all bodies for the field
+        bodies = getattr(sd, "bodies", {})
+        for body in bodies.values():
+            if isinstance(body, dict):
+                if field in body:
+                    return body[field]
+            else:
+                bval = getattr(body, field, None)
+                if bval is not None:
+                    return bval
+        return default
+
     def _days_until(date_str: Any) -> Optional[int]:
         if not date_str:
             return None

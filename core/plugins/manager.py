@@ -111,6 +111,31 @@ class PluginManager:
             self.load_errors[str(plugin_path)] = error_msg
             logger.error(f"{error_msg} from {plugin_path}")
 
+    def get_plugin_info_list(self) -> List[Dict[str, Any]]:
+        """Return info dicts for all loaded plugins, from manifest + get_info()."""
+        result = []
+        for plugin in self.plugins:
+            try:
+                info = plugin.get_info()
+            except Exception as e:
+                logger.warning(f"Could not get info from plugin {plugin.__class__.__name__}: {e}")
+                info = {}
+            try:
+                settings_widget = plugin.get_settings_widget(None)
+                has_settings = settings_widget is not None
+            except Exception as e:
+                logger.warning(f"Could not check settings widget for plugin {plugin.__class__.__name__}: {e}")
+                has_settings = False
+            result.append({
+                "id": info.get("id", ""),
+                "name": info.get("name", plugin.__class__.__name__),
+                "version": info.get("version", ""),
+                "author": info.get("author", ""),
+                "description": info.get("description", ""),
+                "has_settings": has_settings,
+            })
+        return result
+
     def trigger_hook(self, hook: str, data: Any = None) -> List[Any]:
         """
         Triggers a hook on all loaded plugins.

@@ -17,7 +17,9 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
 import uuid
+from concurrent.futures import CancelledError
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from core.logger import get_logger, get_silent_logger
@@ -36,6 +38,39 @@ from core.repositories import LogicalRepository, PhysicalRepository
 from core.vault import DocumentVault
 from core.vocabulary import VocabularyManager
 from core.canonizer import CanonizerService
+
+
+class CancellationToken:
+    """Cooperative cancellation token for pipeline operations.
+
+    Usage::
+
+        token = CancellationToken()
+        # in worker thread:
+        token.cancel()
+        # in pipeline:
+        token.check()  # raises CancelledError if cancelled
+    """
+
+    def __init__(self) -> None:
+        self._event = threading.Event()
+
+    def cancel(self) -> None:
+        """Signal cancellation."""
+        self._event.set()
+
+    @property
+    def is_cancelled(self) -> bool:
+        return self._event.is_set()
+
+    def check(self) -> None:
+        """Raise ``CancelledError`` if cancelled."""
+        if self._event.is_set():
+            raise CancelledError("Pipeline operation cancelled by user")
+
+    def reset(self) -> None:
+        """Reset token so it can be reused (call before starting a new operation)."""
+        self._event.clear()
 
 
 class PipelineProcessor:
@@ -68,9 +103,11 @@ class PipelineProcessor:
         self.physical_repo = PhysicalRepository(self.db)
         self.logical_repo = LogicalRepository(self.db)
         self.current_process: Optional[subprocess.Popen] = None
+        self._token: CancellationToken = CancellationToken()
 
     def terminate_activity(self) -> None:
-        """Forcefully terminates any running subprocess."""
+        """Forcefully terminates any running subprocess and signals cooperative cancellation."""
+        self._token.cancel()
         if self.current_process:
             try:
                 logger.info(f"[Pipeline] Terminating subprocess PID {self.current_process.pid}...")
@@ -81,6 +118,10 @@ class PipelineProcessor:
             except Exception as e:
                 get_silent_logger().debug(f"Error killing process: {e}")
             self.current_process = None
+
+    def reset_cancellation(self) -> None:
+        """Reset the cancellation token before starting a new operation."""
+        self._token.reset()
 
     def _compute_sha256(self, path: Path) -> str:
         """
@@ -179,6 +220,8 @@ class PipelineProcessor:
         if not phys_file:
             raise ValueError(f"Ingestion failed for {file_path}")
 
+        self._token.check()
+
         # --- Phase B: Logic ---
         # Create VirtualDocument (1:1 Mapping initially)
         new_uuid = str(uuid.uuid4())
@@ -196,7 +239,7 @@ class PipelineProcessor:
         # --- Phase C: Persistence ---
         v_doc.last_processed_at = datetime.datetime.now().isoformat()
         v_doc.export_filename = self._generate_export_filename(v_doc)
-        
+
         # 1.5 Populate Search Cache (Early fulltext availability)
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
         v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
@@ -205,8 +248,11 @@ class PipelineProcessor:
         self.logical_repo.save(v_doc)
         logger.info(f"[Phase C] Persisted VirtualDocument: {new_uuid} (with {len(v_doc.cached_full_text)} chars text)")
 
+        self._token.check()
+
         # 3. AI Analysis
         if not skip_ai:
+            self._token.check()
             self._run_ai_analysis(v_doc, file_path)
 
         return v_doc
@@ -238,6 +284,8 @@ class PipelineProcessor:
         v_doc = self.logical_repo.get_by_uuid(uuid_str)
 
         if v_doc:
+            self._token.check()
+
             if force_ocr:
                 logger.info(f"[Pipeline] Forcing re-OCR for {v_doc.uuid}...")
                 for ref in v_doc.source_mapping:
@@ -249,11 +297,13 @@ class PipelineProcessor:
                             pf.raw_ocr_data = new_text_map
                             self.physical_repo.save(pf)
                             logger.info(f"  -> OCR data updated for {pf.uuid}")
-                
+
                 # Refresh cache after physical update
                 canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
                 v_doc.cached_full_text = canonizer.reconstruct_document_text(v_doc)
                 self.logical_repo.save(v_doc)
+
+            self._token.check()
 
             if not skip_ai:
                 # Helper to get file path for visual audit
@@ -263,6 +313,7 @@ class PipelineProcessor:
                     if pf:
                         f_path = pf.file_path
 
+                self._token.check()
                 # AI analysis logic handling (v_doc is passed to _run_ai_analysis)
                 self._run_ai_analysis(v_doc, f_path)
 
@@ -507,6 +558,7 @@ class PipelineProcessor:
         new_uuids: List[str] = []
 
         for instr in instructions:
+            self._token.check()
             mapping: List[SourceReference] = []
             if "pages" in instr:
                 page_data = instr["pages"]

@@ -381,6 +381,7 @@ class VirtualDocument(BaseModel):
             deleted=data.get("deleted", False),
             deleted_at=data.get("deleted_at"),
             exported_at=data.get("exported_at"),
+            page_count=data.get("page_count_virt"),
             page_count_virt=data.get("page_count_virt", 0),
             pdf_class=data.get("pdf_class", "C"),
             archived=bool(data.get("archived", False)),

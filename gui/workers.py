@@ -13,6 +13,7 @@ import os
 import tempfile
 import traceback
 import time
+from concurrent.futures import CancelledError
 from typing import Any, Optional, Union, List, Dict
 
 import cv2
@@ -103,7 +104,9 @@ class ImportWorker(QThread):
     def run(self):
         success_count = 0
         imported_uuids = []
-        
+
+        self.pipeline.reset_cancellation()
+
         # Calculate effective total for progress reporting
         effective_total = 0
         for item in self.items:
@@ -117,7 +120,7 @@ class ImportWorker(QThread):
                 effective_total += len(unique_files) + len(item[1])
             else:
                 effective_total += 1
-        
+
         current_global_idx = 0
 
         try:
@@ -148,8 +151,8 @@ class ImportWorker(QThread):
                                     all_paths.add(pg["file_path"])
 
                         uuids = self.pipeline.process_batch_with_instructions(
-                            list(all_paths), 
-                            instructions, 
+                            list(all_paths),
+                            instructions,
                             move_source=self.move_source,
                             progress_callback=batch_progress_cb,
                             entity_callback=batch_entity_cb
@@ -159,6 +162,9 @@ class ImportWorker(QThread):
                             imported_uuids.extend(uuids)
                             # current_global_idx is handled by the batch_progress_cb for UI
                             current_global_idx += (len(all_paths) + len(instructions))
+                    except CancelledError:
+                        logger.info("[ImportWorker] Batch import cancelled by user.")
+                        break
                     except Exception as e:
                         logger.error(f"Batch Import Error: {e}")
                     continue
@@ -169,8 +175,8 @@ class ImportWorker(QThread):
                     if instructions:
                         # Pre-Flight Instruction Mode (Single File)
                         uuids = self.pipeline.process_document_with_instructions(
-                            fpath, 
-                            instructions, 
+                            fpath,
+                            instructions,
                             move_source=self.move_source,
                             entity_callback=lambda uid: self.document_imported.emit(uid)
                         )
@@ -184,15 +190,21 @@ class ImportWorker(QThread):
                             self.document_imported.emit(doc.uuid)
                             success_count += 1
                             imported_uuids.append(doc.uuid)
-                    
+
                     current_global_idx += 1
 
+                except CancelledError:
+                    logger.info(f"[ImportWorker] Import of {fpath} cancelled by user.")
+                    break
                 except Exception as e:
                     logger.error(f"Error importing {fpath}: {e}")
                     current_global_idx += 1
 
             self.finished.emit(success_count, effective_total, imported_uuids, "")
 
+        except CancelledError:
+            logger.info("[ImportWorker] Import cancelled by user (outer).")
+            self.finished.emit(success_count, effective_total, imported_uuids, "")
         except Exception as e:
             traceback.print_exc()
             self.finished.emit(success_count, effective_total, [], str(e))
@@ -221,6 +233,8 @@ class ReprocessWorker(QThread):
         total = len(self.uuids)
         processed_uuids = []
 
+        self.pipeline.reset_cancellation()
+
         try:
             for i, uuid in enumerate(self.uuids):
                 if self.is_cancelled:
@@ -236,6 +250,9 @@ class ReprocessWorker(QThread):
                         processed_uuids.append(uuid)
                     else:
                         self.error.emit(uuid, "Document skip or logic error (returned None)")
+                except CancelledError:
+                    logger.info(f"[ReprocessWorker] Reprocessing of {uuid} cancelled by user.")
+                    break
                 except Exception as e:
                     err_msg = str(e)
                     logger.error(f"Error reprocessing {uuid}: {err_msg}")
@@ -243,6 +260,9 @@ class ReprocessWorker(QThread):
 
             self.finished.emit(success_count, total, processed_uuids)
 
+        except CancelledError:
+            logger.info("[ReprocessWorker] Reprocessing cancelled by user (outer).")
+            self.finished.emit(success_count, total, processed_uuids)
         except Exception as e:
             err_msg = f"Fatal Worker Error: {e}"
             traceback.print_exc()
