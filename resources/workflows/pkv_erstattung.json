@@ -1,0 +1,145 @@
+{
+  "id": "pkv_erstattung",
+  "name": "PKV Erstattungsantrag",
+  "description": "Verfolgung von Arzt- und Krankenhausrechnungen von Eingang bis zur Erstattung durch die private Krankenversicherung.",
+  "creator_locale": "de",
+  "l10n": {},
+  "states": {
+    "s_a1b2c3d4": {
+      "label": "Neue Arztrechnung",
+      "transitions": [
+        {
+          "action": "t_11223344",
+          "label": "einreichen",
+          "target": "s_b2c3d4e5",
+          "required_fields": [
+            "total_gross",
+            "doc_date",
+            "sender_name"
+          ],
+          "conditions": [
+            {"field": "total_gross", "op": ">", "value": 0}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_aabbccdd",
+          "label": "nicht erstattungsfähig",
+          "target": "s_e5f6a7b8",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": true,
+      "state_type": "START"
+    },
+    "s_b2c3d4e5": {
+      "label": "Bei PKV eingereicht",
+      "transitions": [
+        {
+          "action": "t_22334455",
+          "label": "erstattet",
+          "target": "s_c3d4e5f6",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_33445566",
+          "label": "Nachreichung nötig",
+          "target": "s_d4e5f6a7",
+          "required_fields": [],
+          "conditions": [
+            {"field": "DAYS_IN_STATE", "op": ">", "value": 28}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_44556677",
+          "label": "abgelehnt",
+          "target": "s_e5f6a7b8",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_d4e5f6a7": {
+      "label": "Nachreichung läuft",
+      "transitions": [
+        {
+          "action": "t_55667788",
+          "label": "erneut einreichen",
+          "target": "s_b2c3d4e5",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_66778899",
+          "label": "Widerspruch einlegen",
+          "target": "s_e5f6a7b8",
+          "required_fields": [],
+          "conditions": [
+            {"field": "DAYS_IN_STATE", "op": ">", "value": 60}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_c3d4e5f6": {
+      "label": "Erstattet",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_OK"
+    },
+    "s_e5f6a7b8": {
+      "label": "Abgelehnt / Archiv",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_NOK"
+    }
+  },
+  "triggers": {
+    "type_tags": [
+      "EXPENSE_REPORT",
+      "RECEIPT"
+    ]
+  },
+  "node_positions": {
+    "s_a1b2c3d4": [20.0, 50.0],
+    "s_b2c3d4e5": [270.0, 50.0],
+    "s_d4e5f6a7": [520.0, -60.0],
+    "s_c3d4e5f6": [770.0, 50.0],
+    "s_e5f6a7b8": [770.0, -60.0]
+  },
+  "transition_anchors": {
+    "s_b2c3d4e5:t_33445566": ["top", "left"],
+    "s_d4e5f6a7:t_66778899": ["right", "top"]
+  },
+  "transition_bends": {}
+}

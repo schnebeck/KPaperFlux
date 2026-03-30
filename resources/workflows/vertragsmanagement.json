@@ -1,0 +1,163 @@
+{
+  "id": "vertragsmanagement",
+  "name": "Vertragsüberwachung",
+  "description": "Lebenszyklus eines Vertrags — von der Unterzeichnung über die aktive Laufzeit bis zur Kündigung oder zum Ablauf.",
+  "creator_locale": "de",
+  "l10n": {},
+  "states": {
+    "s_f1e2d3c4": {
+      "label": "Neuer Vertrag",
+      "transitions": [
+        {
+          "action": "t_aa11bb22",
+          "label": "aktivieren",
+          "target": "s_e2d3c4b5",
+          "required_fields": [
+            "sender_name",
+            "doc_date",
+            "contract_start_date"
+          ],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_cc33dd44",
+          "label": "ablehnen",
+          "target": "s_a4b5c6d7",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": true,
+      "state_type": "START"
+    },
+    "s_e2d3c4b5": {
+      "label": "Aktiv",
+      "transitions": [
+        {
+          "action": "t_ee55ff66",
+          "label": "kündigen",
+          "target": "s_b3c4d5e6",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_11aa22bb",
+          "label": "Kündigungsfrist prüfen",
+          "target": "s_c4d5e6f7",
+          "required_fields": [],
+          "conditions": [
+            {"field": "days_until_expiry", "op": "<=", "value": 90},
+            {"field": "days_until_expiry", "op": ">", "value": 0}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_33cc44dd",
+          "label": "abgelaufen",
+          "target": "s_d5e6f7a8",
+          "required_fields": [],
+          "conditions": [
+            {"field": "days_until_expiry", "op": "<=", "value": 0}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_c4d5e6f7": {
+      "label": "Kündigungsfrist läuft",
+      "transitions": [
+        {
+          "action": "t_55ee66ff",
+          "label": "kündigen",
+          "target": "s_b3c4d5e6",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_77aa88bb",
+          "label": "verlängern",
+          "target": "s_e2d3c4b5",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_b3c4d5e6": {
+      "label": "Kündigung eingereicht",
+      "transitions": [
+        {
+          "action": "t_99cc00dd",
+          "label": "Kündigung bestätigt",
+          "target": "s_a4b5c6d7",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_d5e6f7a8": {
+      "label": "Vertragsende / Archiv",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_OK"
+    },
+    "s_a4b5c6d7": {
+      "label": "Gekündigt / Abgebrochen",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_NOK"
+    }
+  },
+  "triggers": {
+    "type_tags": [
+      "CONTRACT"
+    ]
+  },
+  "node_positions": {
+    "s_f1e2d3c4": [20.0, 50.0],
+    "s_e2d3c4b5": [270.0, 50.0],
+    "s_c4d5e6f7": [520.0, 140.0],
+    "s_b3c4d5e6": [770.0, 50.0],
+    "s_d5e6f7a8": [520.0, -60.0],
+    "s_a4b5c6d7": [1020.0, 50.0]
+  },
+  "transition_anchors": {
+    "s_e2d3c4b5:t_11aa22bb": ["bottom", "top"],
+    "s_e2d3c4b5:t_33cc44dd": ["top", "left"],
+    "s_c4d5e6f7:t_77aa88bb": ["top", "bottom"]
+  },
+  "transition_bends": {}
+}

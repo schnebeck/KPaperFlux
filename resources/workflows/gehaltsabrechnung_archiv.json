@@ -1,0 +1,120 @@
+{
+  "id": "gehaltsabrechnung_archiv",
+  "name": "Gehaltsabrechnung & Steuer",
+  "description": "Verarbeitung von Gehaltsabrechnungen: Prüfung der Bruttobeträge, Ablage und jährliche Markierung für die Einkommensteuererklärung.",
+  "creator_locale": "de",
+  "l10n": {},
+  "states": {
+    "s_ab12cd34": {
+      "label": "Neue Abrechnung",
+      "transitions": [
+        {
+          "action": "t_ef56ab78",
+          "label": "prüfen",
+          "target": "s_cd34ef56",
+          "required_fields": [
+            "total_gross",
+            "doc_date",
+            "sender_name"
+          ],
+          "conditions": [
+            {"field": "total_gross", "op": ">", "value": 0}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_1234abcd",
+          "label": "fehlerhaft",
+          "target": "s_ef56ab78",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": true,
+      "state_type": "START"
+    },
+    "s_cd34ef56": {
+      "label": "Geprüft",
+      "transitions": [
+        {
+          "action": "t_5678cdef",
+          "label": "archivieren",
+          "target": "s_ab78cd90",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_90ab12ef",
+          "label": "Differenz melden",
+          "target": "s_ef56ab78",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_ab78cd90": {
+      "label": "Archiviert",
+      "transitions": [
+        {
+          "action": "t_34ef56ab",
+          "label": "für Steuererklärung markieren",
+          "target": "s_cd90ef12",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_cd90ef12": {
+      "label": "Steuererklärung erledigt",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_OK"
+    },
+    "s_ef56ab78": {
+      "label": "Fehler / Klärung nötig",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_NOK"
+    }
+  },
+  "triggers": {
+    "type_tags": [
+      "PAYSLIP"
+    ]
+  },
+  "node_positions": {
+    "s_ab12cd34": [20.0, 50.0],
+    "s_cd34ef56": [270.0, 50.0],
+    "s_ab78cd90": [520.0, 50.0],
+    "s_cd90ef12": [770.0, 50.0],
+    "s_ef56ab78": [770.0, -60.0]
+  },
+  "transition_anchors": {
+    "s_cd34ef56:t_90ab12ef": ["top", "right"],
+    "s_ab12cd34:t_1234abcd": ["top", "right"]
+  },
+  "transition_bends": {}
+}

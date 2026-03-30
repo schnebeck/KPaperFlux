@@ -1,0 +1,134 @@
+{
+  "id": "lieferschein_abgleich",
+  "name": "Lieferschein-Abgleich",
+  "description": "3-Wege-Abgleich: Bestellung → Lieferschein → Rechnung. Stellt sicher, dass Lieferung und Rechnung übereinstimmen, bevor die Zahlung freigegeben wird.",
+  "creator_locale": "de",
+  "l10n": {},
+  "states": {
+    "s_d0c1b2a3": {
+      "label": "Lieferschein Eingang",
+      "transitions": [
+        {
+          "action": "t_fe01dc23",
+          "label": "prüfen",
+          "target": "s_c1b2a3f4",
+          "required_fields": [
+            "sender_name",
+            "doc_date"
+          ],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_ba98fe76",
+          "label": "Fehllieferung",
+          "target": "s_a3f4e5d6",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": true,
+      "state_type": "START"
+    },
+    "s_c1b2a3f4": {
+      "label": "Warten auf Rechnung",
+      "transitions": [
+        {
+          "action": "t_76543210",
+          "label": "Rechnung eingegangen",
+          "target": "s_b2a3f4e5",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_abcdef12",
+          "label": "Mahnung",
+          "target": "s_a3f4e5d6",
+          "required_fields": [],
+          "conditions": [
+            {"field": "DAYS_IN_STATE", "op": ">", "value": 45}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_b2a3f4e5": {
+      "label": "3-Wege-Abgleich",
+      "transitions": [
+        {
+          "action": "t_12345678",
+          "label": "freigeben",
+          "target": "s_f4e5d6c7",
+          "required_fields": [
+            "total_gross",
+            "iban"
+          ],
+          "conditions": [
+            {"field": "total_gross", "op": ">", "value": 0}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_87654321",
+          "label": "Differenz / Reklamation",
+          "target": "s_a3f4e5d6",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_f4e5d6c7": {
+      "label": "Freigegeben zur Zahlung",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_OK"
+    },
+    "s_a3f4e5d6": {
+      "label": "Reklamation / Klärung",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_NOK"
+    }
+  },
+  "triggers": {
+    "type_tags": [
+      "DELIVERY_NOTE"
+    ]
+  },
+  "node_positions": {
+    "s_d0c1b2a3": [20.0, 50.0],
+    "s_c1b2a3f4": [270.0, 50.0],
+    "s_b2a3f4e5": [520.0, 50.0],
+    "s_f4e5d6c7": [770.0, 50.0],
+    "s_a3f4e5d6": [770.0, -60.0]
+  },
+  "transition_anchors": {
+    "s_c1b2a3f4:t_abcdef12": ["top", "right"],
+    "s_b2a3f4e5:t_87654321": ["top", "left"]
+  },
+  "transition_bends": {}
+}

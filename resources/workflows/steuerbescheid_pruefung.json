@@ -1,0 +1,153 @@
+{
+  "id": "steuerbescheid_pruefung",
+  "name": "Steuerbescheid-Prüfung",
+  "description": "Verwaltung von Steuerbescheiden: Prüfung, Einspruchsfrist (1 Monat), Einspruchseinlegung und abschließende Archivierung.",
+  "creator_locale": "de",
+  "l10n": {},
+  "states": {
+    "s_1a2b3c4d": {
+      "label": "Neuer Bescheid",
+      "transitions": [
+        {
+          "action": "t_ff00ee11",
+          "label": "prüfen",
+          "target": "s_2b3c4d5e",
+          "required_fields": [
+            "sender_name",
+            "doc_date"
+          ],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": true,
+      "state_type": "START"
+    },
+    "s_2b3c4d5e": {
+      "label": "In Prüfung",
+      "transitions": [
+        {
+          "action": "t_dd22cc33",
+          "label": "akzeptieren",
+          "target": "s_3c4d5e6f",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_bb44aa55",
+          "label": "Einspruch einlegen",
+          "target": "s_4d5e6f7a",
+          "required_fields": [],
+          "conditions": [
+            {"field": "DAYS_IN_STATE", "op": "<=", "value": 30}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_99887766",
+          "label": "Einspruchsfrist abgelaufen",
+          "target": "s_3c4d5e6f",
+          "required_fields": [],
+          "conditions": [
+            {"field": "DAYS_IN_STATE", "op": ">", "value": 30}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_4d5e6f7a": {
+      "label": "Einspruch eingereicht",
+      "transitions": [
+        {
+          "action": "t_55443322",
+          "label": "Einspruch erfolgreich",
+          "target": "s_5e6f7a8b",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_11223300",
+          "label": "Einspruch abgewiesen",
+          "target": "s_6f7a8b9c",
+          "required_fields": [],
+          "conditions": [],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        },
+        {
+          "action": "t_aabbcc00",
+          "label": "Klage einreichen",
+          "target": "s_6f7a8b9c",
+          "required_fields": [],
+          "conditions": [
+            {"field": "DAYS_IN_STATE", "op": ">", "value": 90}
+          ],
+          "user_interaction": false,
+          "auto": false,
+          "icon": null
+        }
+      ],
+      "final": false,
+      "initial": false,
+      "state_type": "NORMAL"
+    },
+    "s_3c4d5e6f": {
+      "label": "Akzeptiert / Archiv",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_OK"
+    },
+    "s_5e6f7a8b": {
+      "label": "Einspruch erfolgreich",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_OK"
+    },
+    "s_6f7a8b9c": {
+      "label": "Abgewiesen / Rechtsmittel",
+      "transitions": [],
+      "final": true,
+      "initial": false,
+      "state_type": "END_NOK"
+    }
+  },
+  "triggers": {
+    "type_tags": [
+      "TAX_ASSESSMENT"
+    ]
+  },
+  "node_positions": {
+    "s_1a2b3c4d": [20.0, 50.0],
+    "s_2b3c4d5e": [270.0, 50.0],
+    "s_4d5e6f7a": [520.0, 50.0],
+    "s_3c4d5e6f": [270.0, -70.0],
+    "s_5e6f7a8b": [770.0, -70.0],
+    "s_6f7a8b9c": [770.0, 150.0]
+  },
+  "transition_anchors": {
+    "s_2b3c4d5e:t_dd22cc33": ["top", "right"],
+    "s_2b3c4d5e:t_99887766": ["top", "left"],
+    "s_4d5e6f7a:t_55443322": ["top", "right"],
+    "s_4d5e6f7a:t_aabbcc00": ["bottom", "left"]
+  },
+  "transition_bends": {}
+}
