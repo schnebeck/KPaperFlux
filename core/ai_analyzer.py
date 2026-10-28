@@ -131,9 +131,9 @@ class AIAnalyzer:
         """Delegates to Stage2Processor."""
         return self.stage2.get_page_image_payload(pdf_path, page_index)
 
-    def run_stage_2(self, raw_ocr_pages: List[str], stage_1_result: Dict, stage_1_5_result: Dict, pdf_path: Optional[str] = None) -> Dict:
+    def run_stage_2(self, raw_ocr_pages: List[str], stage_1_result: Dict, stage_1_5_result: Dict, pdf_path: Optional[str] = None, vision_page_index: int = 0) -> Dict:
         """Delegates to Stage2Processor."""
-        return self.stage2.run_stage_2(raw_ocr_pages, stage_1_result, stage_1_5_result, pdf_path)
+        return self.stage2.run_stage_2(raw_ocr_pages, stage_1_result, stage_1_5_result, pdf_path, vision_page_index)
 
     def _apply_zugferd_overlay(self, extraction: Dict, zugferd_data: Dict, entity_type: str) -> Dict:
         """Delegates to Stage2Processor."""

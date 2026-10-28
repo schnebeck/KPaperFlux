@@ -525,8 +525,13 @@ class CanonizerService:
 
             s1_context = {"type_tags": c_types}
 
+            # Vision context: the entity's own first physical page (1-based -> 0-based)
             semantic_extraction = self.analyzer.run_stage_2(
-                raw_ocr_pages=entity_pages, stage_1_result=s1_context, stage_1_5_result=audit_res, pdf_path=pf.file_path if pf else None
+                raw_ocr_pages=entity_pages,
+                stage_1_result=s1_context,
+                stage_1_5_result=audit_res,
+                pdf_path=pf.file_path if pf else None,
+                vision_page_index=new_source_pages[0] - 1,
             )
 
             if semantic_extraction is None:

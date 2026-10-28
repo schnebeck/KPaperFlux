@@ -115,3 +115,52 @@ def test_canonizer_passes_form_feed_pages_and_holds_on_stage_1_5_failure() -> No
     assert mock_audit.call_args[1]["text_content"] == "Page 1 Text\fPage 2 Text"
     assert logical_repo.save.call_args[0][0].status == DocumentStatus.STAGE1_5_HOLD
     analyzer.run_stage_2.assert_not_called()
+
+
+def test_stage_2_renders_requested_vision_page(two_page_pdf: Path) -> None:
+    from core.ai.stage2 import Stage2Processor
+
+    client = MagicMock()
+    client.generate_json.return_value = {"meta_header": {}, "bodies": {}}
+    config = MagicMock()
+    config.get_ai_retries.return_value = 0
+    config.get_private_profile_json.return_value = "{}"
+    config.get_business_profile_json.return_value = "{}"
+    processor = Stage2Processor(client, config)
+
+    with patch("core.utils.zugferd_extractor.ZugferdExtractor.extract_from_pdf", return_value=None):
+        processor.run_stage_2(["second page"], {"type_tags": ["OTHER"]}, {}, pdf_path=str(two_page_pdf), vision_page_index=1)
+
+    images = client.generate_json.call_args[1]["images"]
+    assert len(images) == 1
+    assert images[0]["page_index"] == 1
+
+
+def test_canonizer_uses_entity_first_page_for_stage_2_vision() -> None:
+    from core.canonizer import CanonizerService
+    from core.models.virtual import SourceReference, VirtualDocument
+
+    analyzer = MagicMock()
+    analyzer.run_stage_1_adaptive.return_value = {"detected_entities": [
+        {"type_tags": ["INVOICE"], "page_indices": [1]},
+        {"type_tags": ["DELIVERY_NOTE"], "page_indices": [2, 3]},
+    ]}
+    analyzer.run_stage_2.return_value = {"meta_header": {}, "bodies": {}}
+    analyzer.generate_smart_filename.return_value = "name"
+    logical_repo, physical_repo = MagicMock(), MagicMock()
+    phys = MagicMock()
+    phys.file_path = "/nonexistent.pdf"
+    phys.raw_ocr_data = json.dumps({"5": "A", "6": "B", "7": "C"})
+    physical_repo.get_by_uuid.return_value = phys
+
+    service = CanonizerService(MagicMock(), analyzer, physical_repo=physical_repo, logical_repo=logical_repo)
+    # Logical document covering physical pages 5-7 of a larger scan
+    v_doc = VirtualDocument(uuid="doc-2", source_mapping=[SourceReference(file_uuid="p", pages=[5, 6, 7])], status="NEW")
+
+    with patch.object(service.visual_auditor, "run_stage_1_5", return_value={"meta_mode": "NONE"}), \
+         patch.object(service, "_atomic_transition", return_value=True), \
+         patch.object(service, "_detect_zugferd_type_tags", return_value=None):
+        service.process_virtual_document(v_doc)
+
+    vision_pages = [c[1]["vision_page_index"] for c in analyzer.run_stage_2.call_args_list]
+    assert vision_pages == [4, 5]

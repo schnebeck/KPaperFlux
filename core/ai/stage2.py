@@ -134,9 +134,20 @@ class Stage2Processor:
             logger.info(f"[Stage 2] Image generation failed: {e}")
             return None
 
-    def run_stage_2(self, raw_ocr_pages: List[str], stage_1_result: Dict, stage_1_5_result: Dict, pdf_path: Optional[str] = None) -> Dict:
+    def run_stage_2(self, raw_ocr_pages: List[str], stage_1_result: Dict, stage_1_5_result: Dict, pdf_path: Optional[str] = None, vision_page_index: int = 0) -> Dict:
         """
         Phase 2.3: Master Semantic Extraction Pipeline.
+
+        Args:
+            raw_ocr_pages: OCR text of the entity's pages.
+            stage_1_result: Stage 1 classification context.
+            stage_1_5_result: Stage 1.5 visual audit result.
+            pdf_path: Optional physical PDF for vision context and ZUGFeRD.
+            vision_page_index: 0-based physical page index of the entity's first
+                page, rendered as vision context.
+
+        Returns:
+            The merged semantic extraction dict, or None on failure.
         """
         MAX_PAGES_STAGE2 = 50
         is_long_document = len(raw_ocr_pages) > 10
@@ -149,10 +160,10 @@ class Stage2Processor:
 
         images_payload = []
         if pdf_path:
-            img_data = self.get_page_image_payload(pdf_path, 0)
+            img_data = self.get_page_image_payload(pdf_path, vision_page_index)
             if img_data:
                 images_payload.append(img_data)
-                logger.info("[AI] Stage 2 -> Vision context enabled (Page 1)")
+                logger.info(f"[AI] Stage 2 -> Vision context enabled (physical page {vision_page_index + 1})")
 
         detected_entities = stage_1_result.get("detected_entities", [])
         if not detected_entities:
