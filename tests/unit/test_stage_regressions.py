@@ -28,6 +28,37 @@ def test_preflight_prompt_contains_schema_keys() -> None:
     assert "GROUNDING RULES" in prompt
 
 
+def test_classification_prompt_contains_document_continuity_rule() -> None:
+    prompt = prompts.PROMPT_STAGE_1_1_CLASSIFICATION.format(identity_json_str="{}", mode="FULL_READ_MODE", analysis_text="x")
+    assert "6. **Document Continuity (Annexes, Reports & 'OTHER' Sink):**" in prompt
+    assert "The 'OTHER' Sink" in prompt
+    assert "7. **GROUNDEDNESS & UNCERTAINTY:**" in prompt
+    assert "\n9. \n" not in prompt
+
+
+def test_split_prompt_has_allowed_types_heading() -> None:
+    prompt = prompts.PROMPT_STAGE_1_2_SPLIT.format(structural_hints="", allowed_types_str="INVOICE, OTHER", text_content="x")
+    assert "### ALLOWED TYPES\nINVOICE, OTHER" in prompt
+    assert "### DATA INTEGRITY RULES:" in prompt
+
+
+def test_stage_2_master_prompt_names_extraction_target() -> None:
+    from core.ai.stage2 import Stage2Processor
+
+    client = MagicMock()
+    client.generate_json.return_value = {"meta_header": {}, "bodies": {}}
+    config = MagicMock()
+    config.get_ai_retries.return_value = 0
+    config.get_private_profile_json.return_value = "{}"
+    config.get_business_profile_json.return_value = "{}"
+    Stage2Processor(client, config).run_stage_2(["page text"], {"type_tags": ["INVOICE"]}, {})
+
+    prompt = client.generate_json.call_args[0][0]
+    assert "### 4. EXTRACTION TARGET: INVOICE" in prompt
+    assert "- **GROUNDING & DATA INTEGRITY:**" in prompt
+    assert prompt.index("### 4. EXTRACTION TARGET") < prompt.index("GROUNDING & DATA INTEGRITY")
+
+
 @pytest.fixture
 def two_page_pdf(tmp_path: Path) -> Path:
     path = tmp_path / "two.pdf"

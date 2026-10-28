@@ -99,8 +99,11 @@ Current Scan Mode: {mode}
    - **OUTBOUND:** User Identity is in the **SENDER/HEADER** area.
    - **INTERNAL:** User Identity is both Sender and Recipient.
 
-9. 
-    - Avoid splitting a document just because the visual layout changes on subsequent pages (e.g. from tabular data to a text report).
+6. **Document Continuity (Annexes, Reports & 'OTHER' Sink):**
+   - Pages following a main document (like an INVOICE) that contain supplementary info ("Usage Report", "Einzelverbindungsnachweis", "Annex", "Appendix", "Anhang", "Detailed breakdown") and do NOT start a new document with a new header/sender MUST be grouped into the SAME logical entity as the preceding page.
+   - **The 'OTHER' Sink:** If content on subsequent pages cannot be confidently classified as a new, distinct document type (falling back to "OTHER"), these pages MUST belong to the main preceding document rather than being split into a separate entity.
+   - **Confidence Requirement for Splitting:** Only split into a new entity if there is high-confidence evidence for a distinct new document (e.g., a new Header, new Logo, or a complete change in Sender/Recipient).
+   - Avoid splitting a document just because the visual layout changes on subsequent pages (e.g. from tabular data to a text report).
 
 7. **GROUNDEDNESS & UNCERTAINTY:**
    - If you cannot determine the context or type with at least 70% confidence, use "UNKNOWN" for the field.
@@ -179,6 +182,7 @@ Analyze the text structure to identify distinct documents.
 1. Identify the boundaries (start/end pages) of each logical document.
 2. Assign one of the ALLOWED TYPES to each document.
 
+### ALLOWED TYPES
 {allowed_types_str}
 (If uncertain, use OFFICIAL_CORRESPONDENCE or OTHER only as last resort)
 
@@ -232,6 +236,7 @@ These data points have ALREADY been processed and mapped to the system.
 >>> SIGNATURES: {signature_json} <<<
 *Instruction:* STICKLY IGNORE these in your analysis. DO NOT re-extract them, DO NOT mention them in your summary or analysis. They are provided as context ONLY to avoid misinterpreting stamp noise as document content.
 {zugferd_hint}
+### 4. EXTRACTION TARGET: {entity_type}
 - **Identity Context:** {user_identity}
 - **GROUNDING & DATA INTEGRITY:**
   1. **Source Evidence:** Base your answer ONLY on the provided OCR text and image. Do not invent data.
@@ -299,6 +304,7 @@ Extract data into this exact JSON structure:
 }}
 
 ### RULES
+- Use ISO Dates (YYYY-MM-DD). Format: "2023-12-31".
 - Use Floats for money (e.g. 10.50), NOT strings.
 - **GROUNDING:** Use `null` for missing fields. **NEVER** guess or hallucinate values (e.g. don't invent VAT IDs).
 - **UNCERTAINTY:** If a value is unreadable, leave it `null` or use [Unverified] in the reasoning.
