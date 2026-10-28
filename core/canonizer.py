@@ -476,6 +476,8 @@ class CanonizerService:
 
             entity_pages = [pages_text[p - 1] for p in c_pages if 0 <= p - 1 < len(pages_text)]
             entity_text = "\n\n".join(entity_pages)
+            # Visual auditor expects form-feed separated pages to locate page 1 / signature page.
+            entity_text_paged = "\f".join(entity_pages)
 
             # [STAGE 1.5] Visual Audit
             audit_res: Optional[Dict[str, Any]] = None
@@ -485,11 +487,11 @@ class CanonizerService:
                     pdf_path=pf.file_path,
                     doc_uuid=target_doc.uuid,
                     stage_1_result={"detected_entities": [{"entity_type": t} for t in c_types]},
-                    text_content=entity_text,
+                    text_content=entity_text_paged,
                     target_pages=new_source_pages,
                 )
 
-                if audit_res is None and self.visual_auditor.is_ai_enabled():
+                if audit_res is None:
                     logger.error(f"Stage 1.5 AI Failed. Setting STAGE1_5_HOLD for {target_doc.uuid}.")
                     target_doc.status = DocumentStatus.STAGE1_5_HOLD
                     self.logical_repo.save(target_doc)

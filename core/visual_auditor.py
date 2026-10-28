@@ -267,7 +267,7 @@ class VisualAuditor:
         Args:
             pdf_path: Path to the physical PDF.
             mode: The audit mode (STAMP or FULL).
-            text_content: Optional pre-existing OCR text.
+            text_content: Optional pre-existing OCR text, pages separated by form feed ('\\f').
             target_pages: Optional list of 1-based page numbers to restrict scanning.
 
         Returns:
@@ -369,7 +369,7 @@ class VisualAuditor:
             "page1_text": page1_text
         }
 
-    def run_stage_1_5(self, pdf_path: Union[str, Path], doc_uuid: str, stage_1_result: Dict[str, Any], text_content: Optional[str] = None, target_pages: Optional[List[int]] = None) -> Dict[str, Any]:
+    def run_stage_1_5(self, pdf_path: Union[str, Path], doc_uuid: str, stage_1_result: Dict[str, Any], text_content: Optional[str] = None, target_pages: Optional[List[int]] = None) -> Optional[Dict[str, Any]]:
         """
         Executes the Stage 1.5 Forensic Audit via AI vision.
 
@@ -377,11 +377,13 @@ class VisualAuditor:
             pdf_path: Path to the physical PDF source.
             doc_uuid: Virtual document UUID.
             stage_1_result: The JSON result from Stage 1 analysis.
-            text_content: Optional full OCR text.
+            text_content: Optional OCR text of the logical document, pages separated by form feed ('\\f').
             target_pages: Optional 1-based page list for logical document.
 
         Returns:
-            A dictionary containing the audit findings.
+            A dictionary containing the audit findings ({"meta_mode": "NONE"} if no
+            audit is required or no page could be rendered), or None if an audit was
+            required but the AI request failed.
         """
         entities = stage_1_result.get('detected_entities', [])
         audit_mode = self.get_audit_mode_for_entities(entities)
@@ -427,7 +429,7 @@ class VisualAuditor:
             images=contents
         )
 
-        if res_json:
+        if isinstance(res_json, dict) and res_json:
             # SAFETY PURGE: Remove any illegal semantic bodies that AI might have hallucinated
             # despite the Exclusivity Rule in the prompt.
             illegal_keys = ["finance_body", "legal_body", "health_body", "other_body", "meta_header"]
@@ -443,4 +445,5 @@ class VisualAuditor:
             res_json["meta_mode"] = audit_mode
             return res_json
 
-        return {"meta_mode": AUDIT_MODE_NONE}
+        logger.error(f"Stage 1.5 AI audit ({audit_mode}) failed for {doc_uuid}.")
+        return None
