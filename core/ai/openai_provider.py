@@ -1,8 +1,8 @@
 
-import json
 import requests
 from typing import Any, List, Optional
 from core.ai.base import AIProvider
+from core.ai.json_repair import parse_json_response
 from core.logger import get_logger
 
 logger = get_logger("ai.openai")
@@ -57,7 +57,10 @@ class OpenAIProvider(AIProvider):
             if resp.status_code == 200:
                 result = resp.json()
                 content = result["choices"][0]["message"]["content"]
-                return json.loads(content)
+                parsed, error = parse_json_response(content)
+                if error:
+                    logger.error(f"OpenAI JSON parse failed: {error}")
+                return parsed
             else:
                 logger.error(f"OpenAI error {resp.status_code}: {resp.text}")
         except Exception as e:

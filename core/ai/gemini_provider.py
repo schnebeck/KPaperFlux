@@ -1,10 +1,18 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/ai/gemini_provider.py
+Version:        2.1.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Claude Opus 5.5
+Description:    AI provider implementation for Google Gemini (cloud) with
+                rate-limit handling, logical retries and shared JSON repair.
+------------------------------------------------------------------------------
+"""
 
 import base64
 import datetime
-import json
-import logging
 import random
-import re
 import time
 from typing import Any, List, Optional, Set, Tuple
 
@@ -12,7 +20,8 @@ from google import genai
 from google.genai import types
 
 from core.ai.base import AIProvider
-from core.logger import get_logger, log_ai_interaction
+from core.ai.json_repair import parse_json_response
+from core.logger import get_logger
 
 logger = get_logger("ai.gemini")
 
@@ -64,26 +73,23 @@ class GeminiProvider(AIProvider):
         return sorted(models)
 
     def generate_json(self, prompt: str, stage_label: str = "AI REQUEST", images: Optional[Any] = None) -> Optional[Any]:
-        """Gemini specific implementation with repair-based parsing logic."""
-        # This contains the complex balance/repair logic from the original client
-        max_logical_retries = 3
-        current_attempt = 1
-        working_prompt = prompt
+        """
+        Gemini specific implementation with logical retries and repair-based parsing.
 
-        while current_attempt <= max_logical_retries:
-            res_json, error_msg = self._generate_json_raw(working_prompt, stage_label, images)
-            if res_json is not None:
-                # High-fidelity logging for technical debugging
-                log_ai_interaction(working_prompt, str(res_json), res_json)
-                return res_json
+        Args:
+            prompt: Prompt text.
+            stage_label: Label for logging.
+            images: Optional image payload ({"base64": ...} dicts, PIL images, text parts).
 
-            logger.info(f"Logical Retry {current_attempt}/{max_logical_retries} for {stage_label} due to: {error_msg}")
-            working_prompt = prompt + f"\n\n### PREVIOUS ATTEMPT FAILED WITH ERROR:\n{error_msg}\n\nPLEASE FIX THE JSON STRUCTURE!"
-            current_attempt += 1
-            time.sleep(1)
-        return None
+        Returns:
+            Parsed JSON or None.
+        """
+        if not self.client:
+            logger.warning(f"Gemini client inactive. Skipping {stage_label}.")
+            return None
+        return self._generate_with_feedback(prompt, stage_label, images, self._generate_json_raw, max_attempts=3)
 
-    def _generate_json_raw(self, prompt: str, stage_label: str = "AI REQUEST", images=None) -> Tuple[Optional[Any], Optional[str]]:
+    def _generate_json_raw(self, prompt: str, stage_label: str = "AI REQUEST", images: Optional[Any] = None) -> Tuple[Optional[Any], Optional[str]]:
         """Internal helper to call Gemini and perform repair-based parsing."""
         if not self.client:
             return None, "Client inactive"
@@ -96,7 +102,7 @@ class GeminiProvider(AIProvider):
                     img_bytes = base64.b64decode(img["base64"])
                     contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
                 else:
-                    contents.append(img)  # already a types.Part (backwards compat)
+                    contents.append(img)  # PIL image, text part or types.Part
 
         # Force JSON via API
         full_payload = {
@@ -122,74 +128,10 @@ class GeminiProvider(AIProvider):
         except Exception as e:
             return None, f"Response text inaccessible: {e}"
 
-        if not txt:
-            return None, "Empty response"
-
-        txt = txt.replace("\x00", "") 
-        start = txt.find('{')
-        if start == -1:
-            return None, "No JSON object found (missing '{')"
-
-        def attempt_repair(s: str) -> str:
-            """Heuristic JSON repair for common AI mistakes."""
-            s = re.sub(r',\s*([\]}])', r'\1', s)  # Remove trailing commas
-            s = re.sub(r'}\s*\n\s*"', r'},\n"', s)  # Missing commas between objects
-            s = re.sub(r'\]\s*\n\s*"', r'],\n"', s) # Missing commas between arrays and items
-            return s
-
-        res_json = None
-        current_json = None
-        
-        # Tiered Parse Attempt
-        for step in range(4):
-            try:
-                if step == 0:
-                    # Attempt 0: Find last '}'
-                    end = txt.rfind('}')
-                    if end == -1: continue
-                    current_json = txt[start:end+1]
-                elif step == 1:
-                    # Attempt 1: Balanced Braces
-                    depth = 0
-                    balanced_end = -1
-                    for idx, char in enumerate(txt[start:]):
-                        if char == '{': depth += 1
-                        elif char == '}': 
-                            depth -= 1
-                            if depth == 0:
-                                balanced_end = start + idx
-                                break
-                    if balanced_end != -1:
-                        current_json = txt[start:balanced_end+1]
-                    else: continue
-                elif step == 2:
-                    # Attempt 2: Heuristic Repair
-                    if not current_json: continue
-                    current_json = attempt_repair(current_json)
-                elif step == 3:
-                    # Attempt 3: Truncated JSON fix
-                    if not current_json: continue
-                    depth = 0
-                    for char in current_json:
-                        if char == '{': depth += 1
-                        elif char == '}': depth -= 1
-                    if depth > 0:
-                         current_json += ("}" * depth)
-                    else: continue
-
-                if not current_json: continue
-                res_json = json.loads(current_json, strict=False)
-                break 
-            except json.JSONDecodeError:
-                if step < 3: continue 
-                return None, "JSON Syntax Error after repair attempts"
-
-        if res_json is not None:
-            if is_truncated:
-                 logger.info(f"Repaired truncated JSON for {stage_label}, but data might be incomplete.")
-            return res_json, None
-            
-        return None, "JSON parsing failed"
+        res_json, error = parse_json_response(txt)
+        if res_json is not None and is_truncated:
+            logger.info(f"Repaired truncated JSON for {stage_label}, but data might be incomplete.")
+        return res_json, error
 
     def _execute_generate(self, contents: Any) -> Optional[Any]:
         if not self.client: return None

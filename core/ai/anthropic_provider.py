@@ -10,11 +10,11 @@ Description:    AI provider implementation for Anthropic Claude API.
 ------------------------------------------------------------------------------
 """
 
-import json
 import requests
 from typing import Any, Dict, List, Optional
 
 from core.ai.base import AIProvider
+from core.ai.json_repair import parse_json_response
 from core.logger import get_logger
 
 logger = get_logger("ai.anthropic")
@@ -106,18 +106,15 @@ class AnthropicProvider(AIProvider):
             if resp.status_code == 200:
                 result = resp.json()
                 content = "{" + result["content"][0]["text"]
-
-                # Safety strip in case the model wrapped output despite the pre-fill
-                if "```json" in content:
-                    content = content.split("```json")[1].split("```")[0].strip()
-                elif "```" in content:
-                    content = content.split("```")[1].split("```")[0].strip()
-
-                return json.loads(content)
+                # Shared repair also strips markdown fences the model may add despite the pre-fill.
+                parsed, error = parse_json_response(content)
+                if error:
+                    logger.error(f"Anthropic JSON parse failed: {error}")
+                return parsed
             else:
                 logger.error(f"Anthropic error {resp.status_code}: {resp.text[:500]}")
-        except json.JSONDecodeError as e:
-            logger.error(f"Anthropic JSON parse failed: {e}")
+        except (KeyError, IndexError, ValueError) as e:
+            logger.error(f"Anthropic response malformed: {e}")
         except requests.RequestException as e:
             logger.error(f"Anthropic connection failed: {e}")
 
