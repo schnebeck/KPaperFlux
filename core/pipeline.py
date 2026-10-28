@@ -170,13 +170,7 @@ class PipelineProcessor:
             stored_path = Path(stored_path_str)
 
             # 2. Extract Text / OCR
-            text_map: Dict[str, str] = {}
-            if self._is_native_pdf(stored_path):
-                text_map = self._extract_text_native(stored_path)
-                if not text_map:
-                    text_map = self._run_ocr(stored_path)
-            else:
-                text_map = self._run_ocr(stored_path)
+            text_map = self._extract_text_map(stored_path)
 
             # 3. Create PhysicalFile Entry
             size = stored_path.stat().st_size
@@ -292,7 +286,7 @@ class PipelineProcessor:
                     pf = self.physical_repo.get_by_uuid(ref.file_uuid)
                     if pf and pf.file_path:
                         logger.info(f"  -> Re-running OCR on: {pf.file_path}")
-                        new_text_map = self._run_ocr(Path(pf.file_path))
+                        new_text_map = self._extract_text_map(Path(pf.file_path), force_ocr=True)
                         if new_text_map:
                             pf.raw_ocr_data = new_text_map
                             self.physical_repo.save(pf)
@@ -789,6 +783,57 @@ class PipelineProcessor:
         except Exception as e:
             logger.info(f"Extraction Error [{doc_uuid}]: {e}")
             return ""
+
+    def _extract_text_map(self, path: Path, force_ocr: bool = False) -> Dict[str, str]:
+        """
+        Extracts per-page text using the configured engine. With 'docling', the
+        docling-serve result is used for native and scanned PDFs alike; on failure
+        the local path (PyMuPDF / OCRmyPDF) is used as fallback.
+
+        Args:
+            path: Path to the PDF file.
+            force_ocr: Re-run OCR even if a text layer exists.
+
+        Returns:
+            A dictionary mapping 1-based page indices to text content.
+        """
+        if self.config.get_ocr_engine() == "docling":
+            text_map = self._extract_text_docling(path, force_ocr=force_ocr)
+            if text_map:
+                return text_map
+            logger.warning(f"[Docling] No text extracted for {path.name}. Falling back to local extraction.")
+
+        if force_ocr:
+            return self._run_ocr(path)
+        if self._is_native_pdf(path):
+            text_map = self._extract_text_native(path)
+            if text_map:
+                return text_map
+        return self._run_ocr(path)
+
+    def _extract_text_docling(self, path: Path, force_ocr: bool = False) -> Dict[str, str]:
+        """
+        Extracts per-page Markdown via docling-serve. The file is only read.
+
+        Args:
+            path: Path to the PDF file.
+            force_ocr: Ignore an existing text layer.
+
+        Returns:
+            Page mapping, or an empty dict if docling failed.
+        """
+        from core.utils.docling_extractor import DoclingError, DoclingExtractor
+
+        extractor = DoclingExtractor(
+            self.config.get_docling_url(),
+            pipeline=self.config.get_docling_pipeline(),
+            timeout=self.config.get_docling_timeout(),
+        )
+        try:
+            return extractor.extract_pages(path, force_ocr=force_ocr)
+        except DoclingError as e:
+            logger.warning(f"[Docling] Extraction failed for {path.name}: {e}")
+            return {}
 
     def _is_native_pdf(self, path: Path) -> bool:
         """
