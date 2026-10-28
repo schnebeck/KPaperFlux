@@ -15,6 +15,7 @@ import datetime
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -35,7 +36,7 @@ from core.database import DatabaseManager
 from core.models.physical import PhysicalFile
 from core.models.virtual import VirtualDocument, VirtualDocument as Document, SourceReference, DocumentStatus
 from core.repositories import LogicalRepository, PhysicalRepository
-from core.vault import DocumentVault
+from core.vault import DocumentVault, remove_derived_files, store_searchable_copy
 from core.vocabulary import VocabularyManager
 from core.canonizer import CanonizerService
 
@@ -522,6 +523,7 @@ class PipelineProcessor:
                     if pf.file_path and os.path.exists(pf.file_path):
                         try:
                             os.remove(pf.file_path)
+                            remove_derived_files(pf.file_path)
                             logger.info(f"[Pipeline] Removed file from vault: {pf.file_path}")
                         except OSError as e:
                             logger.info(f"[Pipeline] Error removing vault file: {e}")
@@ -890,12 +892,16 @@ class PipelineProcessor:
             except (ImportError, Exception):
                 return {}
 
-    def _run_ocr(self, path: Path) -> Dict[str, str]:
+    def _run_ocr(self, path: Path, store_searchable: bool = True) -> Dict[str, str]:
         """
-        Executes OCRmyPDF to extract text from a scanned document.
+        Executes OCRmyPDF on a temporary copy of the file and extracts the text.
+        The source file is never modified (vault WORM rule). The searchable
+        (sandwich) result is kept as a derived artifact next to the original
+        ('<vault>/derived/<uuid>.searchable.pdf') for viewer hit navigation.
 
         Args:
-            path: Path to the source file.
+            path: Path to the source (vault) file.
+            store_searchable: Whether to keep the OCR'd PDF as derived artifact.
 
         Returns:
             A dictionary mapping 1-based page indices to the OCR'd text.
@@ -903,7 +909,13 @@ class PipelineProcessor:
         ocr_binary = self.config.get_ocr_binary()
 
         with tempfile.TemporaryDirectory() as temp_dir:
+            work_input = Path(temp_dir) / f"input_{path.name}"
             output_pdf = Path(temp_dir) / f"ocr_{path.name}"
+            try:
+                shutil.copy2(path, work_input)
+            except OSError as e:
+                logger.error(f"[OCR] Cannot create working copy of {path}: {e}")
+                return {}
 
             # Run ocrmypdf with speed and quality optimizations
             cmd = [
@@ -914,7 +926,7 @@ class PipelineProcessor:
                 "--jobs", "4",      # Parallel processing
                 "--optimize", "1",   # Basic optimization without heavy compression
                 "-l", "deu+eng",
-                str(path),
+                str(work_input),
                 str(output_pdf),
             ]
 
@@ -936,19 +948,14 @@ class PipelineProcessor:
                 self.current_process = None
 
             if output_pdf.exists():
-                # 1. Replace the original file with the OCR'd version (Sandwich PDF)
-                # This ensures the viewer can find text hits natively.
-                try:
-                    # Sync metadata if possible (keep original timestamp for consistency)
-                    stat = path.stat()
-                    import shutil
-                    shutil.copy2(output_pdf, path)
-                    logger.info(f"[OCR] Replaced original with searchable PDF: {path}")
-                except Exception as e:
-                    logger.error(f"[OCR] Failed to replace original file: {e}")
+                if store_searchable:
+                    try:
+                        derived = store_searchable_copy(path, output_pdf)
+                        logger.info(f"[OCR] Stored searchable copy as derived artifact: {derived}")
+                    except OSError as e:
+                        logger.error(f"[OCR] Failed to store searchable copy for {path}: {e}")
 
-                # 2. Extract text from the OCR'd PDF using native extractor
-                return self._extract_text_native(path)
+                return self._extract_text_native(output_pdf)
 
         return {}
 

@@ -10,6 +10,7 @@ from pathlib import Path
 
 # Core Imports
 from core.integrity import IntegrityManager, IntegrityReport
+from core.vault import remove_derived_files
 from core.pipeline import PipelineProcessor
 
 # Hilfsfunktion für Message Boxen (Fallback)
@@ -187,6 +188,7 @@ class MaintenanceDialog(QDialog):
             path = Path(path_str)
             if path.exists():
                 path.unlink()
+                remove_derived_files(path)
 
         self.scan()
 

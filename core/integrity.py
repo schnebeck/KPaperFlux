@@ -23,7 +23,7 @@ from core.models.virtual import VirtualDocument as Document
 from core.models.virtual import VirtualDocument
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
-from core.vault import DocumentVault
+from core.vault import DocumentVault, remove_derived_files
 from core.logger import get_logger
 
 logger = get_logger("integrity")
@@ -151,6 +151,7 @@ class IntegrityManager:
             try:
                 logger.info(f"Deleting ghost file: {g.name}")
                 g.unlink()
+                remove_derived_files(g)
                 count += 1
             except Exception as e:
                 logger.info(f"Error deleting {g.name}: {e}")
@@ -231,6 +232,7 @@ class IntegrityManager:
                 if red.file_path and os.path.exists(red.file_path):
                     try:
                         os.remove(red.file_path)
+                        remove_derived_files(red.file_path)
                     except Exception as e:
                         logger.warning(f"Failed to remove physical file {red.file_path}: {e}")
                 self.phys_repo.delete(red.uuid)

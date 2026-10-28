@@ -37,6 +37,7 @@ from PyQt6.QtGui import (
 import fitz
 
 from core.models.virtual import SourceReference
+from core.vault import resolve_view_path
 from core.utils.hybrid_engine import HybridEngine
 from gui.workers import MatchAnalysisWorker
 from gui.widgets.integrity_status_bar import IntegrityStatusBar
@@ -1403,7 +1404,8 @@ class PdfViewerWidget(QWidget):
                 if phys_file:
                     for p_idx in ref.pages:
                         self.current_pages_data.append({
-                            "file_path": phys_file.file_path,
+                            # Prefer the derived searchable (OCR) copy; the WORM original stays untouched
+                            "file_path": resolve_view_path(phys_file.file_path),
                             "page_index": p_idx - 1,  # DB uses 1-based, Fitz uses 0-based
                             "rotation": ref.rotation or 0
                         })
