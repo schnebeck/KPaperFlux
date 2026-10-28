@@ -986,6 +986,13 @@ def fill():
             "Inkasso / Recht": "Inkasso / Recht",
         },
         "SettingsDialog": {
+            "llama.cpp (Local, OpenAI-compatible)": "llama.cpp (Lokal, OpenAI-kompatibel)",
+            "llama.cpp URL:": "llama.cpp-URL:",
+            "llama.cpp Model:": "llama.cpp-Modell:",
+            "llama.cpp API Key:": "llama.cpp-API-Schlüssel:",
+            "Model supports images (vision)": "Modell unterstützt Bilder (Vision)",
+            "Connected to %s. Available models:": "Verbunden mit %s. Verfügbare Modelle:",
+            "Could not list models at %s. Check URL and API key.": "Modelle unter %s konnten nicht abgerufen werden. URL und API-Schlüssel prüfen.",
             "Refresh Failed": "Aktualisierung fehlgeschlagen",
             "API returned an empty model list...": "API hat leere Modellliste zurückgegeben. Bitte API-Schlüssel prüfen.",
             "API returned an empty model list. Please check if your API Key has access to Gemini models.": "API hat leere Modellliste zurückgegeben. Bitte prüfen, ob der API-Schlüssel Zugriff auf Gemini-Modelle hat.",

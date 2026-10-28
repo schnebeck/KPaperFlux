@@ -15,6 +15,8 @@ logger = get_logger("gui.settings_dialog")
 # Core Imports
 from core.config import AppConfig
 from core.ai_analyzer import AIAnalyzer
+from core.ai.gemini_provider import GeminiProvider
+from core.ai.llamacpp_provider import LlamaCppProvider
 from core.ai.ollama_provider import OllamaProvider
 
 # GUI Imports
@@ -104,12 +106,11 @@ class SettingsDialog(QDialog):
         # AI Backend Provider
         self.lbl_provider = QLabel("")
         self.combo_provider = QComboBox()
-        self.combo_provider.addItems([
-            "Gemini (Cloud)", 
-            "Ollama (Local)", 
-            "OpenAI (Cloud)", 
-            "Anthropic (Cloud)"
-        ])
+        self.combo_provider.addItem("Gemini (Cloud)", "gemini")
+        self.combo_provider.addItem("Ollama (Local)", "ollama")
+        self.combo_provider.addItem("OpenAI (Cloud)", "openai")
+        self.combo_provider.addItem("Anthropic (Cloud)", "anthropic")
+        self.combo_provider.addItem(self.tr("llama.cpp (Local, OpenAI-compatible)"), "llamacpp")
         self.combo_provider.currentIndexChanged.connect(self._toggle_ai_provider_ui)
         form.addRow(self.lbl_provider, self.combo_provider)
 
@@ -118,7 +119,8 @@ class SettingsDialog(QDialog):
             "gemini": [],
             "ollama": [],
             "openai": [],
-            "anthropic": []
+            "anthropic": [],
+            "llamacpp": []
         }
 
         def add_provider_row(provider, label_text, widget_or_layout):
@@ -188,6 +190,29 @@ class SettingsDialog(QDialog):
         self.edit_anthropic_model = QLineEdit()
         self.edit_anthropic_model.setPlaceholderText("claude-3-5-sonnet-20240620")
         add_provider_row("anthropic", self.lbl_anthropic_model, self.edit_anthropic_model)
+
+        # llama.cpp / llama-swap (OpenAI-compatible)
+        self.lbl_llamacpp_url = QLabel("")
+        self.edit_llamacpp_url = QLineEdit()
+        self.edit_llamacpp_url.setPlaceholderText(AppConfig.DEFAULT_LLAMACPP_URL)
+        add_provider_row("llamacpp", self.lbl_llamacpp_url, self.edit_llamacpp_url)
+
+        self.lbl_llamacpp_model = QLabel("")
+        self.edit_llamacpp_model = QLineEdit()
+        self.edit_llamacpp_model.setPlaceholderText(AppConfig.DEFAULT_LLAMACPP_MODEL)
+        add_provider_row("llamacpp", self.lbl_llamacpp_model, self.edit_llamacpp_model)
+
+        self.lbl_llamacpp_key = QLabel("")
+        self.edit_llamacpp_key = QLineEdit()
+        self.edit_llamacpp_key.setEchoMode(QLineEdit.EchoMode.Password)
+        add_provider_row("llamacpp", self.lbl_llamacpp_key, self.edit_llamacpp_key)
+
+        self.cb_llamacpp_vision = QCheckBox("")
+        add_provider_row("llamacpp", "", self.cb_llamacpp_vision)
+
+        self.btn_test_llamacpp = QPushButton("")
+        self.btn_test_llamacpp.clicked.connect(self._test_llamacpp_connection)
+        add_provider_row("llamacpp", "", self.btn_test_llamacpp)
 
         # AI Retries
         self.lbl_ai_retries = QLabel("")
@@ -338,9 +363,8 @@ class SettingsDialog(QDialog):
         self.edit_ocr.setText(self.config.get_ocr_binary())
         self.edit_transfer.setText(self.config.get_transfer_path())
         
-        provider = self.config.get_ai_provider()
-        p_map = {"gemini": 0, "ollama": 1, "openai": 2, "anthropic": 3}
-        self.combo_provider.setCurrentIndex(p_map.get(provider, 0))
+        provider_idx = self.combo_provider.findData(self.config.get_ai_provider())
+        self.combo_provider.setCurrentIndex(max(0, provider_idx))
         
         self.combo_model.setCurrentText(self.config.get_gemini_model())
         self.edit_api_key.setText(self.config.get_api_key())
@@ -353,6 +377,11 @@ class SettingsDialog(QDialog):
 
         self.edit_anthropic_key.setText(self.config.get_anthropic_key())
         self.edit_anthropic_model.setText(self.config.get_anthropic_model())
+
+        self.edit_llamacpp_url.setText(self.config.get_llamacpp_url())
+        self.edit_llamacpp_model.setText(self.config.get_llamacpp_model())
+        self.edit_llamacpp_key.setText(self.config.get_llamacpp_api_key())
+        self.cb_llamacpp_vision.setChecked(self.config.get_llamacpp_vision())
         
         self.spin_ai_retries.setValue(self.config.get_ai_retries())
         self._toggle_ai_provider_ui()
@@ -396,11 +425,7 @@ class SettingsDialog(QDialog):
         self.config.set_ocr_binary(self.edit_ocr.text())
         self.config.set_transfer_path(self.edit_transfer.text())
         
-        provider = "gemini"
-        if self.combo_provider.currentIndex() == 1: provider = "ollama"
-        elif self.combo_provider.currentIndex() == 2: provider = "openai"
-        elif self.combo_provider.currentIndex() == 3: provider = "anthropic"
-        self.config.set_ai_provider(provider)
+        self.config.set_ai_provider(self.combo_provider.currentData() or "gemini")
         
         self.config.set_gemini_model(self.combo_model.currentText())
         self.config.set_api_key(self.edit_api_key.text())
@@ -413,6 +438,11 @@ class SettingsDialog(QDialog):
 
         self.config.set_anthropic_key(self.edit_anthropic_key.text())
         self.config.set_anthropic_model(self.edit_anthropic_model.text())
+
+        self.config.set_llamacpp_url(self.edit_llamacpp_url.text() or AppConfig.DEFAULT_LLAMACPP_URL)
+        self.config.set_llamacpp_model(self.edit_llamacpp_model.text() or AppConfig.DEFAULT_LLAMACPP_MODEL)
+        self.config.set_llamacpp_api_key(self.edit_llamacpp_key.text())
+        self.config.set_llamacpp_vision(self.cb_llamacpp_vision.isChecked())
         
         self.config.set_ai_retries(self.spin_ai_retries.value())
 
@@ -477,9 +507,8 @@ class SettingsDialog(QDialog):
         self.setCursor(Qt.CursorShape.WaitCursor)
         self.btn_verify_key.setEnabled(False)
         try:
-            # We use a temporary analyzer to list models
-            analyzer = AIAnalyzer(api_key, model_name=self.config.get_gemini_model())
-            models = analyzer.list_models()
+            # Gemini key verification: always query Gemini, regardless of the active provider
+            models = GeminiProvider(api_key, self.combo_model.currentText() or self.config.get_gemini_model()).list_models()
             
             if models:
                 self._last_verify_result = True
@@ -539,16 +568,15 @@ class SettingsDialog(QDialog):
             return
 
         # Instantiate AI (Blocking for MVP)
-        api_key = self.config.get_api_key()
-        if not api_key:
-             show_selectable_message_box(self, self.tr("Error"), self.tr("No API Key configured."), icon=QMessageBox.Icon.Critical)
-             return
+        if self.config.get_ai_provider() == "gemini" and not self.config.get_api_key():
+            show_selectable_message_box(self, self.tr("Error"), self.tr("No API Key configured."), icon=QMessageBox.Icon.Critical)
+            return
 
         # Show busy cursor
         self.setCursor(Qt.CursorShape.WaitCursor)
         try:
-            # We assume gemini-2.0-flash or configure model
-            analyzer = AIAnalyzer(api_key, model_name=self.config.get_gemini_model())
+            # Uses the active provider with its own configured model
+            analyzer = AIAnalyzer()
             profile = analyzer.parse_identity_signature(text)
 
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -578,16 +606,11 @@ class SettingsDialog(QDialog):
             show_selectable_message_box(self, self.tr("Error"), f"AI Error: {e}", icon=QMessageBox.Icon.Critical)
 
     def _toggle_ai_provider_ui(self):
-        idx = self.combo_provider.currentIndex()
+        active = self.combo_provider.currentData()
         form = self.tabs.widget(0).layout() # The QFormLayout on General tab
         
         for p_name, fields in self.provider_fields.items():
-            visible = False
-            if p_name == "gemini" and idx == 0: visible = True
-            elif p_name == "ollama" and idx == 1: visible = True
-            elif p_name == "openai" and idx == 2: visible = True
-            elif p_name == "anthropic" and idx == 3: visible = True
-            
+            visible = p_name == active
             for field in fields:
                 if isinstance(field, QLayout):
                     form.setRowVisible(field, visible)
@@ -619,6 +642,32 @@ class SettingsDialog(QDialog):
         except Exception as e:
             self.setCursor(Qt.CursorShape.ArrowCursor)
             show_selectable_message_box(self, self.tr("Connection Failed"), f"{self.tr('Could not connect to Ollama')}:\n{e}", icon=QMessageBox.Icon.Critical)
+
+    def _test_llamacpp_connection(self) -> None:
+        """Lists the models of the configured llama.cpp / llama-swap endpoint."""
+        url = self.edit_llamacpp_url.text().strip() or AppConfig.DEFAULT_LLAMACPP_URL
+        provider = LlamaCppProvider(url, self.edit_llamacpp_model.text().strip(), api_key=self.edit_llamacpp_key.text().strip())
+
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        try:
+            models = provider.list_models()
+        finally:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        if models:
+            show_selectable_message_box(
+                self,
+                self.tr("Success"),
+                self.tr("Connected to %s. Available models:") % url + "\n" + "\n".join(models[:20]),
+                icon=QMessageBox.Icon.Information
+            )
+        else:
+            show_selectable_message_box(
+                self,
+                self.tr("Connection Failed"),
+                self.tr("Could not list models at %s. Check URL and API key.") % url,
+                icon=QMessageBox.Icon.Warning
+            )
 
     def _open_log_file(self):
         """Attempts to open the log file with the system default viewer."""
@@ -670,6 +719,11 @@ class SettingsDialog(QDialog):
         self.lbl_openai_model.setText(self.tr("OpenAI Model:"))
         self.lbl_anthropic_key.setText(self.tr("Anthropic API Key:"))
         self.lbl_anthropic_model.setText(self.tr("Anthropic Model:"))
+        self.lbl_llamacpp_url.setText(self.tr("llama.cpp URL:"))
+        self.lbl_llamacpp_model.setText(self.tr("llama.cpp Model:"))
+        self.lbl_llamacpp_key.setText(self.tr("llama.cpp API Key:"))
+        self.cb_llamacpp_vision.setText(self.tr("Model supports images (vision)"))
+        self.btn_test_llamacpp.setText(self.tr("Test Connection"))
         self.lbl_ai_retries.setText(self.tr("AI Validation Retries:"))
         self.spin_ai_retries.setSuffix(f" {self.tr('Retries')}")
 

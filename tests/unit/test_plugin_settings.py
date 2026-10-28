@@ -125,6 +125,10 @@ def mock_parent(qtbot):
     parent.app_config.get_openai_model.return_value = ""
     parent.app_config.get_anthropic_key.return_value = ""
     parent.app_config.get_anthropic_model.return_value = ""
+    parent.app_config.get_llamacpp_url.return_value = ""
+    parent.app_config.get_llamacpp_model.return_value = ""
+    parent.app_config.get_llamacpp_api_key.return_value = ""
+    parent.app_config.get_llamacpp_vision.return_value = True
     parent.app_config.get_ai_retries.return_value = 3
     parent.app_config.get_private_signature.return_value = ""
     parent.app_config.get_business_signature.return_value = ""

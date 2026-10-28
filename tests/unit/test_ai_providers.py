@@ -54,7 +54,7 @@ class TestAIProviders(unittest.TestCase):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
-            "response": "{\"status\": \"ok\"}"
+            "message": {"role": "assistant", "content": "{\"status\": \"ok\"}"}
         }
         mock_post.return_value = mock_resp
         
@@ -63,7 +63,8 @@ class TestAIProviders(unittest.TestCase):
         
         self.assertEqual(result, {"status": "ok"})
         self.assertTrue(mock_post.called)
-        self.assertEqual(kwargs := mock_post.call_args[1], kwargs)
+        args, kwargs = mock_post.call_args
+        self.assertEqual(args[0], "http://localhost:11434/api/chat")
         self.assertEqual(kwargs["json"]["format"], "json")
 
     @patch("requests.post")

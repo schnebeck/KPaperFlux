@@ -77,7 +77,7 @@ class CanonizerService:
         if analyzer:
             self.analyzer = analyzer
         else:
-            self.analyzer = AIAnalyzer(self.config.get_api_key(), self.config.get_gemini_model())
+            self.analyzer = AIAnalyzer()
 
         self.visual_auditor = VisualAuditor(self.analyzer)
         self.rules_engine = RulesEngine(db, filter_tree) if filter_tree else None

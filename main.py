@@ -113,9 +113,8 @@ def main() -> None:
         try:
             api_key = app_config.get_api_key()
             if api_key:
-                from core.ai_analyzer import AIAnalyzer
-                analyzer = AIAnalyzer(api_key, model_name=app_config.get_gemini_model())
-                models = analyzer.list_models()
+                from core.ai.gemini_provider import GeminiProvider
+                models = GeminiProvider(api_key, app_config.get_gemini_model()).list_models()
                 if models:
                     AppConfig.set_cached_models(models)
                     logger.info(f"[AI] Domain-Discovery: {len(models)} Gemini models available.")

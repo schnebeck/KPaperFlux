@@ -33,9 +33,13 @@ class AIAnalyzer:
     and adaptive scan strategies.
     """
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash") -> None:
+    def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None) -> None:
         """
-        Initializes the AIAnalyzer.
+        Initializes the AIAnalyzer with the configured AI provider.
+
+        Args:
+            api_key: Optional Gemini API key override (ignored by other providers).
+            model_name: Optional Gemini model override (ignored by other providers).
         """
         self.config = AppConfig()
         self.client = AIClient(api_key, model_name)

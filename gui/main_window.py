@@ -909,7 +909,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
             logger.info("[Core] Settings changed. Re-initializing AI Analyzer...")
             from core.ai_analyzer import AIAnalyzer
-            new_analyzer = AIAnalyzer(self.app_config.get_api_key(), self.app_config.get_gemini_model())
+            new_analyzer = AIAnalyzer()
             # Update the canonizer's analyzer
             if hasattr(self.main_loop_worker, 'canonizer'):
                 self.main_loop_worker.canonizer.analyzer = new_analyzer

@@ -6490,6 +6490,34 @@ Geschäftsführer: ...</translation>
             <source>Connected to Ollama, but no models found...</source>
             <translation>Mit Ollama verbunden, aber keine Modelle gefunden. Bitte Modell laden (z.B. 'ollama pull llama3').</translation>
         </message>
+        <message>
+            <source>llama.cpp (Local, OpenAI-compatible)</source>
+            <translation>llama.cpp (Lokal, OpenAI-kompatibel)</translation>
+        </message>
+        <message>
+            <source>llama.cpp URL:</source>
+            <translation>llama.cpp-URL:</translation>
+        </message>
+        <message>
+            <source>llama.cpp Model:</source>
+            <translation>llama.cpp-Modell:</translation>
+        </message>
+        <message>
+            <source>llama.cpp API Key:</source>
+            <translation>llama.cpp-API-Schlüssel:</translation>
+        </message>
+        <message>
+            <source>Model supports images (vision)</source>
+            <translation>Modell unterstützt Bilder (Vision)</translation>
+        </message>
+        <message>
+            <source>Connected to %s. Available models:</source>
+            <translation>Verbunden mit %s. Verfügbare Modelle:</translation>
+        </message>
+        <message>
+            <source>Could not list models at %s. Check URL and API key.</source>
+            <translation>Modelle unter %s konnten nicht abgerufen werden. URL und API-Schlüssel prüfen.</translation>
+        </message>
     </context>
     <context>
         <name>SplitDividerWidget</name>
