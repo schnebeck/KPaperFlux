@@ -15,8 +15,9 @@ Description:    Clients for the FluxSense analysis engine: in-process library
 
 import threading
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import requests
 
@@ -51,21 +52,38 @@ class FluxSenseError(Exception):
         self.retryable: bool = retryable
 
 
+@dataclass
+class FluxSenseOutput:
+    """
+    One analysis run.
+
+    Attributes:
+        result: The FluxSense AnalysisResult as JSON dict.
+        page_texts: Best text per page of the analyzed PDF (index i = page i + 1),
+            or None if the connection cannot deliver the text layer (REST).
+    """
+
+    result: Dict[str, Any]
+    page_texts: Optional[List[str]] = None
+
+
 class FluxSenseClient(ABC):
     """Interface of a FluxSense engine connection."""
 
     mode: str = ""
+    #: True if analyze() returns the engine's text layer (Stage 0 then needs no OCR).
+    supplies_page_texts: bool = False
 
     @abstractmethod
-    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
+    def analyze(self, pdf_path: Path) -> FluxSenseOutput:
         """
-        Analyzes one PDF (never modified).
+        Analyzes one PDF (never modified). Safe to call from several threads.
 
         Args:
             pdf_path: PDF file.
 
         Returns:
-            The FluxSense AnalysisResult as JSON dict.
+            The analysis output.
 
         Raises:
             FluxSenseError: If no result could be produced.
@@ -147,9 +165,16 @@ def default_analyzer_factory(private_id: Optional[IdentityProfile] = None,
 
 
 class FluxSenseLibraryClient(FluxSenseClient):
-    """Runs FluxSense in-process (blocking; call from a worker thread)."""
+    """
+    Runs FluxSense in-process (blocking; call from worker threads).
+
+    The analysis result itself carries no page texts, so the client captures
+    the text layer FluxSense builds in Analyzer.prepare() (per thread, so
+    concurrent analyses on the shared Analyzer stay apart).
+    """
 
     mode = "library"
+    supplies_page_texts = True
 
     def __init__(self, analyzer_factory: AnalyzerFactory) -> None:
         """
@@ -159,28 +184,47 @@ class FluxSenseLibraryClient(FluxSenseClient):
         self._factory = analyzer_factory
         self._analyzer: Optional[Any] = None
         self._lock = threading.Lock()
+        self._captured = threading.local()
 
     def _get_analyzer(self) -> Any:
-        """Creates the Analyzer once (thread-safe)."""
+        """Creates the Analyzer once (thread-safe) and hooks the text layer capture."""
         with self._lock:
             if self._analyzer is None:
                 try:
-                    self._analyzer = self._factory()
+                    analyzer = self._factory()
                 except FluxSenseError:
                     raise
                 except Exception as e:  # invalid FluxSense configuration and similar
                     raise FluxSenseError(f"FluxSense could not be initialized: {e}") from e
+                self._install_capture(analyzer)
+                self._analyzer = analyzer
             return self._analyzer
 
-    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
+    def _install_capture(self, analyzer: Any) -> None:
+        """Wraps Analyzer.prepare() so analyze() keeps its own flow (deferred mode, reviews)."""
+        original = analyzer.prepare
+        captured = self._captured
+
+        def prepare(pdf_path: Path, engine: Optional[str] = None) -> Any:
+            """Delegates to FluxSense and remembers the text layer for this thread."""
+            prepared = original(pdf_path, engine)
+            captured.layer = getattr(prepared, "layer", None)
+            return prepared
+
+        analyzer.prepare = prepare
+
+    def analyze(self, pdf_path: Path) -> FluxSenseOutput:
         """Analyzes a PDF in-process. See FluxSenseClient.analyze()."""
         analyzer = self._get_analyzer()
+        self._captured.layer = None
         try:
             result = analyzer.analyze(Path(pdf_path))
         except Exception as e:  # FluxSense is an external engine: never let it crash the worker
             logger.error(f"[FluxSense] Library analysis failed for {Path(pdf_path).name}: {e}")
             raise FluxSenseError(f"FluxSense analysis failed: {e}", retryable=True) from e
-        return result.model_dump(mode="json")
+        layer, self._captured.layer = self._captured.layer, None
+        texts = [str(t or "") for t in layer.texts()] if layer is not None else None
+        return FluxSenseOutput(result=result.model_dump(mode="json"), page_texts=texts)
 
     def health(self) -> Dict[str, Any]:
         """Lists the backend models (no wake-up, no analysis). See FluxSenseClient.health()."""
@@ -230,17 +274,28 @@ class FluxSenseRestClient(FluxSenseClient):
         Args:
             base_url: Service URL, e.g. http://127.0.0.1:8765.
             timeout_s: Read timeout of one analysis in seconds.
-            session: Optional HTTP session (tests).
+            session: Optional HTTP session shared by all threads (tests); by
+                default every thread gets its own session.
         """
         self.base_url = normalize_base_url(base_url)
         self.timeout_s = float(timeout_s)
-        self._session = session or requests.Session()
+        self._shared_session = session
+        self._local = threading.local()
+
+    def _get_session(self) -> requests.Session:
+        """Returns the injected session or one per thread (requests.Session is not thread-safe)."""
+        if self._shared_session is not None:
+            return self._shared_session
+        session = getattr(self._local, "session", None)
+        if session is None:
+            session = self._local.session = requests.Session()
+        return session
 
     def _request(self, method: str, path: str, read_timeout: float, **kwargs: Any) -> Dict[str, Any]:
         """Executes a request and maps transport / HTTP failures onto FluxSenseError."""
         url = f"{self.base_url}{path}"
         try:
-            resp = self._session.request(method, url, timeout=(CONNECT_TIMEOUT_S, read_timeout), **kwargs)
+            resp = self._get_session().request(method, url, timeout=(CONNECT_TIMEOUT_S, read_timeout), **kwargs)
         except requests.exceptions.ReadTimeout as e:
             raise FluxSenseError(f"FluxSense timeout after {read_timeout:.0f}s at {url}", retryable=True) from e
         except requests.exceptions.ConnectionError as e:
@@ -259,12 +314,12 @@ class FluxSenseRestClient(FluxSenseClient):
             raise FluxSenseError(f"FluxSense returned {type(data).__name__} instead of an object at {url}")
         return data
 
-    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
-        """Uploads the PDF to POST /v1/analyze. See FluxSenseClient.analyze()."""
+    def analyze(self, pdf_path: Path) -> FluxSenseOutput:
+        """Uploads the PDF to POST /v1/analyze (no text layer in the response). See FluxSenseClient.analyze()."""
         path = Path(pdf_path)
         with path.open("rb") as handle:
             files = {"file": (path.name, handle, "application/pdf")}
-            return self._request("POST", "/v1/analyze", self.timeout_s, files=files)
+            return FluxSenseOutput(result=self._request("POST", "/v1/analyze", self.timeout_s, files=files))
 
     def health(self) -> Dict[str, Any]:
         """GET /v1/health. See FluxSenseClient.health()."""
@@ -273,6 +328,19 @@ class FluxSenseRestClient(FluxSenseClient):
     def complete_json(self, prompt: str, label: str) -> Optional[Any]:
         """The REST API has no free-prompt endpoint."""
         raise FluxSenseError("The FluxSense REST API does not offer free prompts; use library mode")
+
+
+def mode_supplies_page_texts(mode: str) -> bool:
+    """
+    Tells whether a FluxSense mode delivers the text layer with each analysis.
+
+    Args:
+        mode: 'library' or 'rest'.
+
+    Returns:
+        True for the in-process library.
+    """
+    return mode == FluxSenseLibraryClient.mode
 
 
 def create_fluxsense_client(mode: str, base_url: str, timeout_s: float,

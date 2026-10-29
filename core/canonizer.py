@@ -16,8 +16,9 @@ Description:    Canonization service: runs the FluxSense analysis engine on
 
 import re
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from core.config import AppConfig
 from core.database import DatabaseManager
@@ -30,7 +31,7 @@ from core.engines.fluxsense_adapter import (
     engine_error_info,
     flatten_source_mapping,
 )
-from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, create_fluxsense_client
+from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, FluxSenseOutput, create_fluxsense_client
 from core.models.identity import IdentityProfile
 from core.models.semantic import SemanticExtraction, WorkflowInfo
 from core.models.virtual import SourceReference, VirtualDocument, DocumentStatus
@@ -48,6 +49,27 @@ logger = get_logger("canonizer")
 # Re-extraction of an already classified document: keep its page range (no re-segmentation).
 RESUMPTION_STATES: Tuple[str, ...] = (DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S2)
 FRESH_STATES: Tuple[str, ...] = (DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE)
+# Coding errors stop the background worker instead of being logged per document.
+CRITICAL_ERRORS: Tuple[type, ...] = (NameError, AttributeError, SyntaxError, TypeError, ValueError)
+
+
+@dataclass
+class AnalysisJob:
+    """A locked document prepared for the engine; carries everything the engine call needs (no DB access)."""
+
+    v_doc: VirtualDocument
+    page_refs: List[PageRef]
+    physical: Dict[str, Tuple[str, int]]
+    resumption: bool
+    keep_single: bool
+
+
+@dataclass
+class AnalysisOutcome:
+    """Result of the engine call of one job."""
+
+    output: Optional[FluxSenseOutput] = None
+    error: Optional[str] = None
 
 
 def generate_smart_filename(semantic_data: Optional[SemanticExtraction], entity_types: List[str]) -> str:
@@ -153,16 +175,8 @@ class CanonizerService:
         """
         return v_doc.resolve_content(self._load_physical)
 
-    def process_pending_documents(self, limit: int = 10) -> int:
-        """
-        Scans for Logical Entities waiting for analysis and processes them.
-
-        Args:
-            limit: Maximum number of documents to process in one batch.
-
-        Returns:
-            The number of successfully processed documents.
-        """
+    def _lock_pending(self, limit: int) -> List[str]:
+        """Atomically locks up to `limit` waiting documents (PROCESSING_S1 / PROCESSING_S2)."""
         cursor = self.db.connection.cursor()
         # Fetch entities - but only those NOT currently being processed by another worker
         query = """
@@ -175,13 +189,10 @@ class CanonizerService:
         cursor.execute(query, (limit,))
         rows = cursor.fetchall()
 
-        # Atomic locking of all candidates
         uuids: List[str] = []
         for row in rows:
             uuid_val, current = row
             target = DocumentStatus.PROCESSING_S1 if current in [DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE] else DocumentStatus.PROCESSING_S2
-
-            # Atomic update to lock this document
             cursor.execute(
                 "UPDATE virtual_documents SET status = ? WHERE uuid = ? AND status = ?",
                 (target, uuid_val, current),
@@ -192,23 +203,53 @@ class CanonizerService:
         self.db.connection.commit()
         if uuids:
             logger.info(f"Locked {len(uuids)} documents for processing.")
+        return uuids
 
+    def process_pending_documents(self, limit: int = 10) -> int:
+        """
+        Locks waiting documents and analyzes them one after the other.
+
+        Engine calls are not run concurrently in-process: PyMuPDF, which
+        FluxSense uses for text layers, tables and page images, is not
+        thread-safe (concurrent find_tables() calls fail).
+
+        Args:
+            limit: Maximum number of documents to process in this call.
+
+        Returns:
+            The number of successfully processed documents.
+
+        Raises:
+            NameError, AttributeError, SyntaxError, TypeError, ValueError: Coding
+                errors are re-raised (after the document was put on hold) to stop the worker.
+        """
         processed_count = 0
-        for uuid_obj in uuids:
+        for uuid_obj in self._lock_pending(limit):
             v_doc = self.logical_repo.get_by_uuid(uuid_obj)
-            if v_doc:
-                # The document is already locked to PROCESSING_S1 or S2 at this point
-                try:
-                    success = self.process_virtual_document(v_doc)
-                    if success:
-                        processed_count += 1
-                except (NameError, AttributeError, SyntaxError, TypeError, ValueError) as e:
-                    logger.error(f"CRITICAL ERROR processing {uuid_obj}: {e}", exc_info=True)
-                    raise e  # Propagate critical coding/logic errors to stop the worker
-                except Exception as e:
-                    logger.error(f"ERROR processing {uuid_obj}: {e}", exc_info=True)
-
+            if not v_doc:
+                continue
+            started = self._guarded(v_doc, None, lambda doc=v_doc: self.begin_analysis(doc))
+            if isinstance(started, AnalysisJob):
+                started = self._guarded(v_doc, started, lambda j=started: self.finish_analysis(j, self.run_analysis(j)))
+            if started:
+                processed_count += 1
         return processed_count
+
+    def _guarded(self, v_doc: VirtualDocument, job: Optional[AnalysisJob], step: Callable[[], Any]) -> Any:
+        """
+        Runs one processing step of a locked document. Unexpected errors put the
+        document on hold (instead of leaving it locked); coding errors are re-raised.
+        """
+        try:
+            return step()
+        except CRITICAL_ERRORS as e:
+            logger.error(f"CRITICAL ERROR processing {v_doc.uuid}: {e}", exc_info=True)
+            self._hold(v_doc, job.resumption if job else False, f"Internal error: {e}", None)
+            raise
+        except Exception as e:  # any other failure must not leave the document locked
+            logger.error(f"ERROR processing {v_doc.uuid}: {e}", exc_info=True)
+            self._hold(v_doc, job.resumption if job else False, f"Internal error: {e}", None)
+            return False
 
     def release_interrupted_documents(self) -> int:
         """
@@ -264,7 +305,7 @@ class CanonizerService:
         if v_doc.source_mapping:
             last_ref = v_doc.source_mapping[-1]
             pf = self.physical_repo.get_by_uuid(last_ref.file_uuid)
-            if pf and pf.page_count_phys and max(last_ref.pages) == pf.page_count_phys:
+            if pf and pf.page_count_phys and last_ref.pages and max(last_ref.pages) == pf.page_count_phys:
                 is_at_end = True
 
         if is_at_end:
@@ -312,10 +353,37 @@ class CanonizerService:
         v_doc.last_processed_at = datetime.now().isoformat()
         self.logical_repo.save(v_doc)
 
-    def _analyze_pages(self, page_refs: List[PageRef]) -> Dict[str, Any]:
-        """Runs FluxSense on the PDF formed by the document's pages."""
-        with analysis_pdf(page_refs, self._resolve_physical) as pdf_path:
-            return self.get_engine_client().analyze(pdf_path)
+    def _fill_page_texts(self, page_refs: List[PageRef], page_texts: Optional[List[str]]) -> int:
+        """
+        Stores the engine's page texts as the text of physical pages that have
+        none yet (scans: Stage 0 extracts only the native text layer). Existing
+        texts (native text layer, explicit OCR) are kept.
+
+        Returns:
+            Number of pages filled.
+        """
+        if not page_texts:
+            return 0
+        changed: Dict[str, Any] = {}
+        filled = 0
+        for ref, text in zip(page_refs, page_texts):
+            if not text or not text.strip():
+                continue
+            pf = changed.get(ref.file_uuid) or self.physical_repo.get_by_uuid(ref.file_uuid)
+            if not pf:
+                continue
+            texts = pf.raw_ocr_data if isinstance(pf.raw_ocr_data, dict) else {}
+            if str(texts.get(str(ref.page), "")).strip():
+                continue
+            texts[str(ref.page)] = text.strip()
+            pf.raw_ocr_data = texts
+            changed[ref.file_uuid] = pf
+            filled += 1
+        for pf in changed.values():
+            self.physical_repo.save(pf)
+        if filled:
+            logger.info(f"Stored engine text for {filled} page(s) without a text layer.")
+        return filled
 
     def _assign_workflows(self, target_doc: VirtualDocument) -> None:
         """Assigns all workflow rules triggered by the document's type tags."""
@@ -352,46 +420,81 @@ class CanonizerService:
         if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
             self.logical_repo.save(target_doc)
 
-    def process_virtual_document(self, v_doc: VirtualDocument) -> bool:
+    def begin_analysis(self, v_doc: VirtualDocument) -> Union[AnalysisJob, bool]:
         """
-        Analyzes a VirtualDocument with FluxSense (segmentation, classification,
-        visual audit, extraction) and applies the result.
-
-        A fresh document may be split into several logical documents. Protected,
-        manually edited and re-extracted (STAGE2_PENDING) documents keep their
-        page range. Engine failures put the document on hold (STAGE1_HOLD, or
-        STAGE2_HOLD for a re-extraction); 'Reprocess' retries it.
+        Locks a document and collects what the engine call needs (database access).
 
         Args:
-            v_doc: The VirtualDocument to process.
+            v_doc: The VirtualDocument.
 
         Returns:
-            True if processing completed (status changed), False otherwise.
+            The job, or the final result if there is nothing to analyze
+            (True: handled, e.g. no pages; False: owned by another worker).
         """
         logger.info(f"Processing {v_doc.uuid}...")
-        is_manual = "MANUAL_EDIT" in (v_doc.type_tags or [])
-
-        # Stage 0 text gate: documents without any text are ADF artifacts or empty pages.
-        full_text = v_doc.resolve_content(self._load_physical)
-        if not full_text:
-            self._discard_empty(v_doc)
-            return True
-        v_doc.cached_full_text = full_text
-
         resumption = self._acquire(v_doc)
         if resumption is None:
             return False
         page_refs = flatten_source_mapping(v_doc.source_mapping)
         if not page_refs:
-            return False
+            logger.info(f"{v_doc.uuid} has no pages. Marking as SKIPPED_EMPTY.")
+            v_doc.status = DocumentStatus.SKIPPED_EMPTY
+            self.logical_repo.save(v_doc)
+            return True
+        physical = {}
+        for ref in page_refs:
+            if ref.file_uuid not in physical:
+                resolved = self._resolve_physical(ref.file_uuid)
+                if resolved:
+                    physical[ref.file_uuid] = resolved
+        is_manual = "MANUAL_EDIT" in (v_doc.type_tags or [])
+        return AnalysisJob(v_doc=v_doc, page_refs=page_refs, physical=physical, resumption=resumption,
+                           keep_single=resumption or is_manual or v_doc.is_immutable)
 
-        keep_single = resumption or is_manual or v_doc.is_immutable
-        result: Optional[Dict[str, Any]] = None
+    def run_analysis(self, job: AnalysisJob) -> AnalysisOutcome:
+        """
+        Runs the engine on the job's pages (no database access).
+
+        Args:
+            job: Prepared job.
+
+        Returns:
+            The engine output, or the error that should put the document on hold.
+        """
         try:
-            result = self._analyze_pages(page_refs)
-            entities = adapt_result(result, page_refs, keep_single=keep_single)
-        except (FluxSenseError, FluxSenseResultError, AnalysisInputError) as e:
-            self._hold(v_doc, resumption, str(e), result)
+            with analysis_pdf(job.page_refs, job.physical.get) as pdf_path:
+                return AnalysisOutcome(output=self.get_engine_client().analyze(pdf_path))
+        except (FluxSenseError, AnalysisInputError) as e:
+            return AnalysisOutcome(error=str(e))
+
+    def finish_analysis(self, job: AnalysisJob, outcome: AnalysisOutcome) -> bool:
+        """
+        Applies an engine outcome (database access): stores page texts, discards
+        empty documents, applies the segmentation and extraction, or holds the document.
+
+        Args:
+            job: The job.
+            outcome: Its engine outcome.
+
+        Returns:
+            True if processing completed (status changed), False if the document was put on hold.
+        """
+        v_doc = job.v_doc
+        if outcome.output is None:
+            self._hold(v_doc, job.resumption, outcome.error or "FluxSense returned no result", None)
+            return False
+        result = outcome.output.result
+        self._fill_page_texts(job.page_refs, outcome.output.page_texts)
+
+        # Empty-text gate (after the engine, which also reads scans): ADF artifacts and blank pages.
+        full_text = v_doc.resolve_content(self._load_physical)
+        if not full_text.strip():
+            self._discard_empty(v_doc)
+            return True
+        try:
+            entities = adapt_result(result, job.page_refs, keep_single=job.keep_single)
+        except FluxSenseResultError as e:
+            self._hold(v_doc, job.resumption, str(e), result)
             return False
 
         if not entities:
@@ -406,6 +509,27 @@ class CanonizerService:
                 uuid=str(uuid.uuid4()), status=DocumentStatus.NEW, created_at=v_doc.created_at)
             self._apply_entity(target_doc, entity)
         return True
+
+    def process_virtual_document(self, v_doc: VirtualDocument) -> bool:
+        """
+        Analyzes a VirtualDocument with FluxSense (segmentation, classification,
+        visual audit, extraction, OCR text) and applies the result.
+
+        A fresh document may be split into several logical documents. Protected,
+        manually edited and re-extracted (STAGE2_PENDING) documents keep their
+        page range. Engine failures put the document on hold (STAGE1_HOLD, or
+        STAGE2_HOLD for a re-extraction); 'Reprocess' retries it.
+
+        Args:
+            v_doc: The VirtualDocument to process.
+
+        Returns:
+            True if processing completed (status changed), False otherwise.
+        """
+        job = self.begin_analysis(v_doc)
+        if not isinstance(job, AnalysisJob):
+            return job
+        return self.finish_analysis(job, self.run_analysis(job))
 
     def split_entity(self, entity_uuid: str, split_after_page_index: int) -> Tuple[str, str]:
         """

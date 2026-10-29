@@ -11,8 +11,11 @@ Description:    Tests for the FluxSense library and REST clients. FluxSense,
 """
 
 import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -48,16 +51,54 @@ def _response(status: int, payload: Any) -> MagicMock:
 
 # ------------------------------------------------------------------ library
 
-def test_library_analyze_returns_json_dict(pdf: Path) -> None:
-    """The in-process result model is dumped to a JSON dict."""
-    analyzer = MagicMock()
-    analyzer.analyze.return_value.model_dump.return_value = {"status": "OK", "logical_documents": []}
+class FakeAnalyzer:
+    """Mimics fluxsense.pipeline.Analyzer: analyze() calls self.prepare() and returns a result model."""
+
+    def __init__(self, texts_by_name: Dict[str, List[str]], delay: float = 0.0) -> None:
+        self.texts_by_name = texts_by_name
+        self.delay = delay
+
+    def prepare(self, pdf_path: Path, engine: Any = None) -> Any:
+        layer = MagicMock()
+        layer.texts.return_value = self.texts_by_name[Path(pdf_path).name]
+        return MagicMock(layer=layer)
+
+    def analyze(self, pdf_path: Path, options: Any = None) -> Any:
+        prepared = self.prepare(Path(pdf_path), None)
+        time.sleep(self.delay)
+        result = MagicMock()
+        result.model_dump.return_value = {"status": "OK", "source": {"path": str(pdf_path)},
+                                          "pages": len(prepared.layer.texts())}
+        return result
+
+
+def test_library_analyze_returns_result_and_page_texts(pdf: Path) -> None:
+    """The result model is dumped to JSON; the text layer built in prepare() is returned alongside."""
+    analyzer = FakeAnalyzer({"doc.pdf": ["page one", None]})
     factory = MagicMock(return_value=analyzer)
     client = FluxSenseLibraryClient(factory)
-    assert client.analyze(pdf) == {"status": "OK", "logical_documents": []}
-    assert client.analyze(pdf)["status"] == "OK"
+    output = client.analyze(pdf)
+    assert output.result["status"] == "OK"
+    assert output.page_texts == ["page one", ""]
+    assert client.supplies_page_texts is True
+    client.analyze(pdf)
     factory.assert_called_once()
-    analyzer.analyze.return_value.model_dump.assert_called_with(mode="json")
+
+
+def test_library_page_texts_stay_per_thread(tmp_path: Path) -> None:
+    """Concurrent analyses on the shared Analyzer each get their own text layer."""
+    paths = []
+    texts = {}
+    for index in range(4):
+        path = tmp_path / f"doc{index}.pdf"
+        path.write_bytes(b"%PDF-1.4")
+        paths.append(path)
+        texts[path.name] = [f"text of {index}"]
+    client = FluxSenseLibraryClient(lambda: FakeAnalyzer(texts, delay=0.05))
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        outputs = list(pool.map(client.analyze, paths))
+    assert [o.page_texts for o in outputs] == [[f"text of {i}"] for i in range(4)]
+    assert [o.result["source"]["path"] for o in outputs] == [str(p) for p in paths]
 
 
 def test_library_analyze_wraps_engine_exceptions(pdf: Path) -> None:
@@ -130,7 +171,9 @@ def test_rest_analyze_uploads_pdf(pdf: Path) -> None:
     session = MagicMock()
     session.request.return_value = _response(200, {"status": "OK", "logical_documents": []})
     client = FluxSenseRestClient("http://svc:8765/v1/", 600, session=session)
-    assert client.analyze(pdf)["status"] == "OK"
+    output = client.analyze(pdf)
+    assert output.result["status"] == "OK"
+    assert output.page_texts is None and client.supplies_page_texts is False
     method, url = session.request.call_args.args
     assert (method, url) == ("POST", "http://svc:8765/v1/analyze")
     assert session.request.call_args.kwargs["timeout"] == (10.0, 600.0)
@@ -186,7 +229,27 @@ def test_rest_health_and_no_free_prompts() -> None:
         client.complete_json("p", "l")
 
 
+def test_rest_uses_one_session_per_thread() -> None:
+    """requests.Session is not thread-safe: without an injected session each thread gets its own."""
+    client = FluxSenseRestClient("http://svc", 5)
+    sessions = []
+    threads = [threading.Thread(target=lambda: sessions.append(client._get_session())) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sessions[0] is not sessions[1]
+    assert client._get_session() is client._get_session()
+
+
 # ------------------------------------------------------------------ factory
+
+def test_mode_supplies_page_texts() -> None:
+    """Only the library delivers the text layer (Stage 0 can then skip OCR)."""
+    from core.engines.fluxsense_client import mode_supplies_page_texts
+    assert mode_supplies_page_texts("library") is True
+    assert mode_supplies_page_texts("rest") is False
+
 
 def test_create_client_by_mode() -> None:
     """The mode setting selects the client implementation."""

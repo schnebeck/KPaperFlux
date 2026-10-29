@@ -38,6 +38,7 @@ from core.repositories import LogicalRepository, PhysicalRepository
 from core.vault import DocumentVault, remove_derived_files, store_searchable_copy
 from core.vocabulary import VocabularyManager
 from core.canonizer import CanonizerService
+from core.engines.fluxsense_client import mode_supplies_page_texts
 
 
 class CancellationToken:
@@ -169,8 +170,8 @@ class PipelineProcessor:
             stored_path_str = self.vault.store_file_by_uuid(file_path, file_uuid, move=move_source)
             stored_path = Path(stored_path_str)
 
-            # 2. Extract Text / OCR
-            text_map = self._extract_text_map(stored_path)
+            # 2. Extract Text (OCR only if the analysis engine does not deliver it)
+            text_map = self._extract_stage0_text(stored_path)
 
             # 3. Create PhysicalFile Entry
             size = stored_path.stat().st_size
@@ -784,6 +785,23 @@ class PipelineProcessor:
         except Exception as e:
             logger.info(f"Extraction Error [{doc_uuid}]: {e}")
             return ""
+
+    def _extract_stage0_text(self, path: Path) -> Dict[str, str]:
+        """
+        Stage 0 text of a newly ingested file. If the analysis engine returns
+        its text layer (FluxSense library mode), only the native text layer is
+        read here and scanned pages get their text from the engine; no OCR run
+        and no derived searchable PDF. Otherwise the configured OCR path runs.
+
+        Args:
+            path: Path to the vault file.
+
+        Returns:
+            A dictionary mapping 1-based page indices to text content.
+        """
+        if mode_supplies_page_texts(self.config.get_fluxsense_mode()):
+            return self._extract_text_native(path) if self._is_native_pdf(path) else {}
+        return self._extract_text_map(path)
 
     def _extract_text_map(self, path: Path, force_ocr: bool = False) -> Dict[str, str]:
         """

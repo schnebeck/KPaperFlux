@@ -22,7 +22,7 @@ import pytest
 
 from core.canonizer import CanonizerService, generate_smart_filename
 from core.database import DatabaseManager
-from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError
+from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, FluxSenseOutput
 from core.models.physical import PhysicalFile
 from core.models.semantic import FinanceBody, SemanticExtraction, StatementBody
 from core.models.virtual import DocumentStatus, SourceReference, VirtualDocument
@@ -59,7 +59,7 @@ def physical_pdf(tmp_path: Path) -> Path:
 
 
 class FakeClient(FluxSenseClient):
-    """Records analyzed PDFs (page count) and replays prepared results or errors."""
+    """Records analyzed PDFs and replays prepared outcomes: a result dict, (result, page_texts) or an exception."""
 
     mode = "fake"
 
@@ -67,14 +67,16 @@ class FakeClient(FluxSenseClient):
         self.outcomes = list(outcomes)
         self.analyzed: List[Dict[str, Any]] = []
 
-    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
+    def analyze(self, pdf_path: Path) -> FluxSenseOutput:
         with fitz.open(str(pdf_path)) as doc:
             self.analyzed.append({"path": Path(pdf_path), "pages": doc.page_count,
                                   "texts": [doc[i].get_text().strip() for i in range(doc.page_count)]})
         outcome = self.outcomes.pop(0)
         if isinstance(outcome, Exception):
             raise outcome
-        return copy.deepcopy(outcome)
+        if isinstance(outcome, tuple):
+            return FluxSenseOutput(result=copy.deepcopy(outcome[0]), page_texts=list(outcome[1]))
+        return FluxSenseOutput(result=copy.deepcopy(outcome))
 
     def health(self) -> Dict[str, Any]:
         return {"status": "ok", "llm_backend": True}
@@ -266,17 +268,84 @@ def test_no_logical_documents_marks_processed(db: DatabaseManager, physical_pdf:
     assert service.logical_repo.get_by_uuid("doc-1").status == DocumentStatus.PROCESSED
 
 
-def test_document_without_text_is_not_sent_to_the_engine(db: DatabaseManager, physical_pdf: Path) -> None:
-    """Stage 0 gate: empty trailing pages are purged without an engine call."""
-    client = FakeClient([])
+def test_blank_document_is_discarded_after_analysis(db: DatabaseManager, physical_pdf: Path,
+                                                    stack_result: Dict[str, Any]) -> None:
+    """Empty-text gate runs after the engine: a trailing page without any text is purged."""
+    blank = copy.deepcopy(stack_result)
+    blank["logical_documents"] = [blank["logical_documents"][2]]
+    blank["logical_documents"][0]["pages"] = [1]
+    client = FakeClient([(blank, ["   "])])
     service = _service(db, client)
     service.physical_repo.save(PhysicalFile(uuid="file-a", original_filename="scan.pdf", file_path=str(physical_pdf),
                                             page_count_phys=5, raw_ocr_data={}))
     v_doc = VirtualDocument(uuid="doc-1", source_mapping=[SourceReference(file_uuid="file-a", pages=[5])])
     service.logical_repo.save(v_doc)
     assert service.process_virtual_document(v_doc) is True
-    assert client.analyzed == []
+    assert len(client.analyzed) == 1
     assert service.logical_repo.get_by_uuid("doc-1") is None
+
+
+def test_document_without_pages_is_skipped(db: DatabaseManager) -> None:
+    """A document whose source has no pages (e.g. an unreadable file) is not left locked."""
+    client = FakeClient([])
+    service = _service(db, client)
+    v_doc = VirtualDocument(uuid="doc-1", source_mapping=[])
+    service.logical_repo.save(v_doc)
+    assert service.process_virtual_document(v_doc) is True
+    assert service.logical_repo.get_by_uuid("doc-1").status == DocumentStatus.SKIPPED_EMPTY
+    assert client.analyzed == []
+
+
+# ------------------------------------------------------------------ text from the engine (no Stage 0 OCR)
+
+def test_scan_text_comes_from_the_engine(db: DatabaseManager, physical_pdf: Path, stack_result: Dict[str, Any]) -> None:
+    """Scan: Stage 0 stored no text; the engine's page texts fill the physical pages, full text and FTS."""
+    texts = [f"engine ocr page {i}" for i in range(1, 6)]
+    service = _service(db, FakeClient([(stack_result, texts)]))
+    service.physical_repo.save(PhysicalFile(uuid="file-a", original_filename="scan.pdf", file_path=str(physical_pdf),
+                                            page_count_phys=5, raw_ocr_data={}))
+    v_doc = VirtualDocument(uuid="doc-1", source_mapping=[SourceReference(file_uuid="file-a", pages=[1, 2, 3, 4, 5])])
+    service.logical_repo.save(v_doc)
+
+    assert service.process_virtual_document(v_doc) is True
+    assert service.physical_repo.get_by_uuid("file-a").raw_ocr_data == {str(i): f"engine ocr page {i}" for i in range(1, 6)}
+    invoice, statement, letter = _all_docs(service)
+    assert invoice.cached_full_text == "engine ocr page 1\nengine ocr page 2"
+    assert letter.cached_full_text == "engine ocr page 5"
+    hits = db.connection.execute("SELECT uuid FROM virtual_documents_fts WHERE virtual_documents_fts MATCH ?",
+                                 ('"engine ocr page 4"',)).fetchall()
+    assert [row[0] for row in hits] == [statement.uuid]
+
+
+def test_digital_text_layer_is_kept(db: DatabaseManager, physical_pdf: Path, stack_result: Dict[str, Any]) -> None:
+    """Digital PDF: the native Stage 0 text wins; only pages without text take the engine text."""
+    texts = [f"engine page {i}" for i in range(1, 6)]
+    service = _service(db, FakeClient([(stack_result, texts)]))
+    service.physical_repo.save(PhysicalFile(uuid="file-a", original_filename="d.pdf", file_path=str(physical_pdf),
+                                            page_count_phys=5, raw_ocr_data={"1": "native 1", "2": "native 2", "3": "native 3",
+                                                                             "4": "native 4", "5": ""}))
+    v_doc = VirtualDocument(uuid="doc-1", source_mapping=[SourceReference(file_uuid="file-a", pages=[1, 2, 3, 4, 5])])
+    service.logical_repo.save(v_doc)
+    assert service.process_virtual_document(v_doc) is True
+    stored = service.physical_repo.get_by_uuid("file-a").raw_ocr_data
+    assert stored["1"] == "native 1" and stored["4"] == "native 4"
+    assert stored["5"] == "engine page 5"
+    assert _all_docs(service)[0].cached_full_text == "native 1\nnative 2"
+
+
+def test_stitched_page_texts_map_to_physical_pages(db: DatabaseManager, physical_pdf: Path,
+                                                   stack_result: Dict[str, Any]) -> None:
+    """Engine page i of a stitched input is stored on the physical page it came from."""
+    statement_only = copy.deepcopy(stack_result)
+    statement_only["logical_documents"] = [statement_only["logical_documents"][1]]
+    statement_only["logical_documents"][0]["pages"] = [1, 2]
+    service = _service(db, FakeClient([(statement_only, ["ocr of p3", "ocr of p4"])]))
+    service.physical_repo.save(PhysicalFile(uuid="file-a", original_filename="scan.pdf", file_path=str(physical_pdf),
+                                            page_count_phys=5, raw_ocr_data={}))
+    v_doc = VirtualDocument(uuid="doc-1", source_mapping=[SourceReference(file_uuid="file-a", pages=[3, 4])])
+    service.logical_repo.save(v_doc)
+    assert service.process_virtual_document(v_doc) is True
+    assert service.physical_repo.get_by_uuid("file-a").raw_ocr_data == {"3": "ocr of p3", "4": "ocr of p4"}
 
 
 def test_document_owned_by_other_worker_is_skipped(db: DatabaseManager, physical_pdf: Path) -> None:
@@ -342,3 +411,64 @@ def test_main_loop_worker_releases_locks_on_start() -> None:
         worker.is_running = False
         worker.run()
     canonizer_cls.return_value.release_interrupted_documents.assert_called_once()
+
+
+# ------------------------------------------------------------------ batches
+
+def _ingest_many(service: CanonizerService, pdf: Path, count: int) -> None:
+    """One physical file and `count` single-page documents waiting in the queue."""
+    service.physical_repo.save(PhysicalFile(uuid="file-a", original_filename="scan.pdf", file_path=str(pdf),
+                                            page_count_phys=5, raw_ocr_data={str(i): f"stage0 text {i}" for i in range(1, 6)}))
+    for index in range(count):
+        service.logical_repo.save(VirtualDocument(uuid=f"doc-{index}", status=DocumentStatus.READY_FOR_PIPELINE,
+                                                  source_mapping=[SourceReference(file_uuid="file-a", pages=[index + 1])]))
+
+
+def _single_page_result(stack_result: Dict[str, Any]) -> Dict[str, Any]:
+    """Letter result covering page 1 of a 1-page input."""
+    one = copy.deepcopy(stack_result)
+    one["logical_documents"] = [one["logical_documents"][2]]
+    one["logical_documents"][0]["pages"] = [1]
+    return one
+
+
+def test_failure_holds_only_the_failed_document(db: DatabaseManager, physical_pdf: Path,
+                                                stack_result: Dict[str, Any]) -> None:
+    """Hold logic per document within one batch."""
+    one = _single_page_result(stack_result)
+    service = _service(db, FakeClient([FluxSenseError("backend unreachable", retryable=True), one]))
+    _ingest_many(service, physical_pdf, 2)
+    assert service.process_pending_documents(limit=2) == 1
+    statuses = sorted(d.status for d in _all_docs(service))
+    assert statuses == sorted([DocumentStatus.PROCESSED, DocumentStatus.STAGE1_HOLD])
+
+
+def test_unexpected_engine_exception_holds_instead_of_locking(db: DatabaseManager, physical_pdf: Path,
+                                                              stack_result: Dict[str, Any]) -> None:
+    """A foreign exception inside the engine thread puts the document on hold."""
+    one = _single_page_result(stack_result)
+    service = _service(db, FakeClient([OSError("disk full"), one]))
+    _ingest_many(service, physical_pdf, 2)
+    assert service.process_pending_documents(limit=2) == 1
+    held = [d for d in _all_docs(service) if d.status == DocumentStatus.STAGE1_HOLD]
+    assert len(held) == 1 and "disk full" in held[0].semantic_data.engine.errors[0]
+    assert db.get_pending_pipeline_count() == 0
+
+
+def test_coding_errors_still_stop_the_worker(db: DatabaseManager, physical_pdf: Path, stack_result: Dict[str, Any]) -> None:
+    """Critical errors are re-raised (after holding the document), as before."""
+    service = _service(db, FakeClient([TypeError("bug")]))
+    _ingest_many(service, physical_pdf, 1)
+    with pytest.raises(TypeError):
+        service.process_pending_documents(limit=1)
+    assert service.logical_repo.get_by_uuid("doc-0").status == DocumentStatus.STAGE1_HOLD
+
+
+def test_interrupted_batch_is_requeued(db: DatabaseManager, physical_pdf: Path) -> None:
+    """Both documents of an interrupted batch come back to the queue."""
+    service = _service(db, FakeClient([]))
+    _ingest_many(service, physical_pdf, 2)
+    assert len(service._lock_pending(2)) == 2
+    assert db.get_pending_pipeline_count() == 0
+    assert service.release_interrupted_documents() == 2
+    assert db.get_pending_pipeline_count() == 2
