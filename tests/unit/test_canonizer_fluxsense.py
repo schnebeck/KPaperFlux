@@ -7,12 +7,13 @@ Producer:       thorsten.schnebeck@gmx.net
 Generator:      Claude Opus 5.5
 Description:    Pipeline tests: Stage 0 entity -> FluxSense (mocked client)
                 -> adapter -> persisted VirtualDocuments. Uses an in-memory
-                database, real repositories and a small generated PDF.
+                database, real repositories and generated PDFs (fluxsense.testdata).
 ------------------------------------------------------------------------------
 """
 
 import copy
 import json
+import shutil
 import threading
 import time
 from pathlib import Path
@@ -28,6 +29,9 @@ from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError
 from core.models.physical import PhysicalFile
 from core.models.semantic import FinanceBody, SemanticExtraction, StatementBody
 from core.models.virtual import DocumentStatus, SourceReference, VirtualDocument
+from tests.generated_docs import SEED_INVOICE, concat_pdfs, generate
+
+SEED_TELECOM: int = 2  # recorded: 4 pages
 
 FIXTURE = Path(__file__).parent.parent / "resources" / "fluxsense" / "synthetic_stack_result.json"
 
@@ -46,18 +50,28 @@ def db() -> DatabaseManager:
     return manager
 
 
+@pytest.fixture(scope="session")
+def generated_stack(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Generated once per session: telecom invoice (4 pages) + invoice (1 page), recorded seeds."""
+    directory = tmp_path_factory.mktemp("generated")
+    telecom = generate(directory, "telecom_invoice", SEED_TELECOM, scan=False)
+    invoice = generate(directory, "invoice", SEED_INVOICE, scan=False)
+    return concat_pdfs([telecom.path, invoice.path], directory / "stack.pdf")
+
+
 @pytest.fixture
-def physical_pdf(tmp_path: Path) -> Path:
-    """A 5-page PDF standing in for a vault original."""
-    path = tmp_path / "vault" / "file-a.pdf"
-    path.parent.mkdir()
-    doc = fitz.open()
-    for index in range(5):
-        page = doc.new_page()
-        page.insert_text((72, 72), f"page {index + 1}")
-    doc.save(str(path))
-    doc.close()
-    return path
+def physical_pdf(tmp_path: Path, generated_stack: Path) -> Path:
+    """A fresh 5-page vault original per test (copy of the generated stack)."""
+    (tmp_path / "vault").mkdir()
+    target = tmp_path / "vault" / "file-a.pdf"
+    shutil.copyfile(generated_stack, target)
+    return target
+
+
+def _page_texts(pdf: Path, pages: List[int]) -> List[str]:
+    """Native text of 1-based pages of a PDF."""
+    with fitz.open(str(pdf)) as doc:
+        return [doc[p - 1].get_text().strip() for p in pages]
 
 
 class FakeClient(FluxSenseClient):
@@ -159,7 +173,7 @@ def test_partial_selection_is_stitched_and_mapped_back(db: DatabaseManager, phys
 
     assert service.process_virtual_document(v_doc) is True
     assert client.analyzed[0]["pages"] == 2
-    assert client.analyzed[0]["texts"] == ["page 3", "page 4"]
+    assert client.analyzed[0]["texts"] == _page_texts(physical_pdf, [3, 4])
     assert client.analyzed[0]["path"] != physical_pdf
     assert not client.analyzed[0]["path"].exists()  # temporary copy removed
     doc = service.logical_repo.get_by_uuid("doc-1")
