@@ -12,10 +12,8 @@ Description:    Tests for the FluxSense library and REST clients. FluxSense,
 
 import sys
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -51,64 +49,42 @@ def _response(status: int, payload: Any) -> MagicMock:
 
 # ------------------------------------------------------------------ library
 
-class FakeAnalyzer:
-    """Mimics fluxsense.pipeline.Analyzer: analyze() calls self.prepare() and returns a result model."""
-
-    def __init__(self, texts_by_name: Dict[str, List[str]], delay: float = 0.0) -> None:
-        self.texts_by_name = texts_by_name
-        self.delay = delay
-
-    def prepare(self, pdf_path: Path, engine: Any = None) -> Any:
-        layer = MagicMock()
-        layer.texts.return_value = self.texts_by_name[Path(pdf_path).name]
-        return MagicMock(layer=layer)
-
-    def analyze(self, pdf_path: Path, options: Any = None) -> Any:
-        prepared = self.prepare(Path(pdf_path), None)
-        time.sleep(self.delay)
-        result = MagicMock()
-        result.model_dump.return_value = {"status": "OK", "source": {"path": str(pdf_path)},
-                                          "pages": len(prepared.layer.texts())}
-        return result
+def _fake_pipeline_module() -> MagicMock:
+    """fluxsense.pipeline stand-in whose AnalyzeOptions records its keyword arguments."""
+    return MagicMock(AnalyzeOptions=lambda **kw: kw)
 
 
-def test_library_analyze_returns_result_and_page_texts(pdf: Path) -> None:
-    """The result model is dumped to JSON; the text layer built in prepare() is returned alongside."""
-    analyzer = FakeAnalyzer({"doc.pdf": ["page one", None]})
+def test_library_analyze_requests_page_text(pdf: Path) -> None:
+    """analyze() passes include_page_text and returns the dumped result (text layer included)."""
+    analyzer = MagicMock()
+    analyzer.analyze.return_value.model_dump.return_value = {"status": "OK", "text_layer": {"pages": [{"page": 1, "text": "x"}]}}
     factory = MagicMock(return_value=analyzer)
     client = FluxSenseLibraryClient(factory)
-    output = client.analyze(pdf)
-    assert output.result["status"] == "OK"
-    assert output.page_texts == ["page one", ""]
-    assert client.supplies_page_texts is True
-    client.analyze(pdf)
+    with patch.dict(sys.modules, {"fluxsense.pipeline": _fake_pipeline_module()}):
+        result = client.analyze(pdf)
+        client.analyze(pdf)
+    assert result["text_layer"]["pages"][0]["text"] == "x"
+    assert analyzer.analyze.call_args.args[1] == {"include_page_text": True}
+    analyzer.analyze.return_value.model_dump.assert_called_with(mode="json")
     factory.assert_called_once()
 
 
-def test_library_page_texts_stay_per_thread(tmp_path: Path) -> None:
-    """Concurrent analyses on the shared Analyzer each get their own text layer."""
-    paths = []
-    texts = {}
-    for index in range(4):
-        path = tmp_path / f"doc{index}.pdf"
-        path.write_bytes(b"%PDF-1.4")
-        paths.append(path)
-        texts[path.name] = [f"text of {index}"]
-    client = FluxSenseLibraryClient(lambda: FakeAnalyzer(texts, delay=0.05))
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        outputs = list(pool.map(client.analyze, paths))
-    assert [o.page_texts for o in outputs] == [[f"text of {i}"] for i in range(4)]
-    assert [o.result["source"]["path"] for o in outputs] == [str(p) for p in paths]
+def test_library_error_results_are_returned_not_raised(pdf: Path) -> None:
+    """FluxSense reports engine failures as ERROR results with error_code; the client passes them on."""
+    analyzer = MagicMock()
+    analyzer.analyze.return_value.model_dump.return_value = {"status": "ERROR", "error_code": "BACKEND_UNREACHABLE"}
+    with patch.dict(sys.modules, {"fluxsense.pipeline": _fake_pipeline_module()}):
+        assert FluxSenseLibraryClient(lambda: analyzer).analyze(pdf)["error_code"] == "BACKEND_UNREACHABLE"
 
 
-def test_library_analyze_wraps_engine_exceptions(pdf: Path) -> None:
-    """Any engine exception becomes a retryable FluxSenseError."""
+def test_library_unexpected_exceptions_are_wrapped(pdf: Path) -> None:
+    """A defect inside FluxSense becomes an unclassified FluxSenseError (not retryable)."""
     analyzer = MagicMock()
     analyzer.analyze.side_effect = OSError("disk")
-    client = FluxSenseLibraryClient(lambda: analyzer)
-    with pytest.raises(FluxSenseError) as info:
-        client.analyze(pdf)
-    assert info.value.retryable is True
+    with patch.dict(sys.modules, {"fluxsense.pipeline": _fake_pipeline_module()}):
+        with pytest.raises(FluxSenseError) as info:
+            FluxSenseLibraryClient(lambda: analyzer).analyze(pdf)
+    assert info.value.error_code is None and info.value.retryable is False
 
 
 def test_library_factory_errors_are_wrapped(pdf: Path) -> None:
@@ -165,17 +141,17 @@ def test_server_url_per_mode() -> None:
     assert FluxSenseRestClient("http://svc:8765/v1", 5).server_url() == "http://svc:8765"
 
 
-def test_rest_connection_refused_is_flagged_unreachable(pdf: Path) -> None:
-    """Only a refused / failed connection sets the unreachable flag."""
-    session = MagicMock()
-    session.request.side_effect = requests.exceptions.ConnectionError("refused")
-    with pytest.raises(FluxSenseError) as info:
-        FluxSenseRestClient("http://svc", 5, session=session).analyze(pdf)
-    assert info.value.unreachable is True
-    session.request.side_effect = requests.exceptions.ReadTimeout("slow")
-    with pytest.raises(FluxSenseError) as info:
-        FluxSenseRestClient("http://svc", 5, session=session).analyze(pdf)
-    assert info.value.unreachable is False
+def test_energy_hooks_override_only_when_set() -> None:
+    """WOL settings from KPaperFlux reach FluxSense's hooks only if set (empty = FluxSense's config)."""
+    settings = MagicMock()
+    settings.hooks.wol_url = ""
+    settings.hooks.wol_device = "from-toml"
+    modules = {"fluxsense": MagicMock(), "fluxsense.config": MagicMock(load_settings=MagicMock(return_value=settings)),
+               "fluxsense.models": MagicMock(), "fluxsense.models.identity": MagicMock(), "fluxsense.pipeline": MagicMock()}
+    with patch.dict(sys.modules, modules):
+        default_analyzer_factory(None, None, "", {"wol_url": "https://wol.example.test", "wol_device": ""})()
+    assert settings.hooks.wol_url == "https://wol.example.test"
+    assert settings.hooks.wol_device == "from-toml"
 
 
 def test_library_health_reports_backend_state() -> None:
@@ -204,42 +180,51 @@ def test_library_complete_json_uses_primary_model() -> None:
 
 # ------------------------------------------------------------------ REST
 
-def test_rest_analyze_uploads_pdf(pdf: Path) -> None:
-    """POST /v1/analyze with the PDF as multipart file."""
+def test_rest_analyze_uploads_pdf_with_page_text(pdf: Path) -> None:
+    """POST /v1/analyze with the PDF as multipart file and include_page_text=true."""
     session = MagicMock()
-    session.request.return_value = _response(200, {"status": "OK", "logical_documents": []})
+    session.request.return_value = _response(200, {"status": "OK", "logical_documents": [], "text_layer": {"pages": []}})
     client = FluxSenseRestClient("http://svc:8765/v1/", 600, session=session)
-    output = client.analyze(pdf)
-    assert output.result["status"] == "OK"
-    assert output.page_texts is None and client.supplies_page_texts is False
+    assert client.analyze(pdf)["status"] == "OK"
     method, url = session.request.call_args.args
     assert (method, url) == ("POST", "http://svc:8765/v1/analyze")
     assert session.request.call_args.kwargs["timeout"] == (10.0, 600.0)
     assert session.request.call_args.kwargs["files"]["file"][0] == "doc.pdf"
+    assert session.request.call_args.kwargs["params"] == {"include_page_text": "true"}
 
 
-@pytest.mark.parametrize("error, retryable", [
-    (requests.exceptions.ConnectionError("refused"), True),
-    (requests.exceptions.ReadTimeout("slow"), True),
-    (requests.exceptions.InvalidURL("bad"), False),
+@pytest.mark.parametrize("error, code", [
+    (requests.exceptions.ConnectionError("refused"), "BACKEND_UNREACHABLE"),
+    (requests.exceptions.ReadTimeout("slow"), "BACKEND_TIMEOUT"),
+    (requests.exceptions.InvalidURL("bad"), None),
 ])
-def test_rest_transport_errors(pdf: Path, error: Exception, retryable: bool) -> None:
-    """Unreachable service and timeouts are retryable, malformed requests not."""
+def test_rest_transport_errors(pdf: Path, error: Exception, code: Any) -> None:
+    """Transport failures of the service map onto FluxSense's error codes."""
     session = MagicMock()
     session.request.side_effect = error
     with pytest.raises(FluxSenseError) as info:
         FluxSenseRestClient("http://svc", 5, session=session).analyze(pdf)
-    assert info.value.retryable is retryable
+    assert info.value.error_code == code
+    assert info.value.retryable is (code is not None)
 
 
-@pytest.mark.parametrize("status, retryable", [(503, True), (502, True), (422, False), (500, False)])
-def test_rest_http_errors(pdf: Path, status: int, retryable: bool) -> None:
-    """HTTP errors map onto FluxSenseError; gateway errors are retryable."""
+@pytest.mark.parametrize("status, code", [(503, "BACKEND_UNREACHABLE"), (504, "BACKEND_TIMEOUT"), (422, "INPUT_INVALID")])
+def test_rest_error_bodies_carry_the_error_code(pdf: Path, status: int, code: str) -> None:
+    """503/504/422 bodies {detail: {error_code, message}} keep FluxSense's code and message."""
     session = MagicMock()
-    session.request.return_value = _response(status, {"detail": "x"})
+    session.request.return_value = _response(status, {"detail": {"error_code": code, "message": "details"}})
     with pytest.raises(FluxSenseError) as info:
         FluxSenseRestClient("http://svc", 5, session=session).analyze(pdf)
-    assert info.value.retryable is retryable
+    assert info.value.error_code == code and "details" in str(info.value)
+
+
+def test_rest_other_http_errors_are_unclassified(pdf: Path) -> None:
+    """Other HTTP errors (no FluxSense error body) carry no code."""
+    session = MagicMock()
+    session.request.return_value = _response(500, "Internal Server Error")
+    with pytest.raises(FluxSenseError) as info:
+        FluxSenseRestClient("http://svc", 5, session=session).analyze(pdf)
+    assert info.value.error_code is None
 
 
 def test_rest_rejects_non_object_body(pdf: Path) -> None:
@@ -281,13 +266,6 @@ def test_rest_uses_one_session_per_thread() -> None:
 
 
 # ------------------------------------------------------------------ factory
-
-def test_mode_supplies_page_texts() -> None:
-    """Only the library delivers the text layer (Stage 0 can then skip OCR)."""
-    from core.engines.fluxsense_client import mode_supplies_page_texts
-    assert mode_supplies_page_texts("library") is True
-    assert mode_supplies_page_texts("rest") is False
-
 
 def test_create_client_by_mode() -> None:
     """The mode setting selects the client implementation."""

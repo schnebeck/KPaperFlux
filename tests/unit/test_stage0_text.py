@@ -6,7 +6,7 @@ Version:        1.0.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Claude Opus 5.5
 Description:    Stage 0 text extraction: no OCR run when the analysis engine
-                delivers the text layer (library mode), OCR kept for REST mode.
+                delivers the text layer (library and REST mode).
                 Uses generated digital and image-only (scan) PDFs.
 ------------------------------------------------------------------------------
 """
@@ -78,13 +78,13 @@ def test_library_mode_digital_keeps_native_text(tmp_path: Path, digital_pdf: Pat
     assert phys.raw_ocr_data == {"1": "digital text 1", "2": "digital text 2"}
 
 
-def test_rest_mode_still_ocrs_scans(tmp_path: Path, scan_pdf: Path) -> None:
-    """The REST API returns no text layer, so Stage 0 keeps its OCR path."""
+def test_rest_mode_also_skips_stage0_ocr(tmp_path: Path, scan_pdf: Path) -> None:
+    """REST responses carry the text layer too (include_page_text), so Stage 0 never OCRs."""
     pipeline = _pipeline(tmp_path, "rest")
-    with patch.object(pipeline, "_run_ocr", return_value={"1": "ocr text"}) as run_ocr:
+    with patch.object(pipeline, "_run_ocr") as run_ocr:
         phys = pipeline._ingest_physical_file(str(scan_pdf))
-    run_ocr.assert_called_once()
-    assert phys.raw_ocr_data == {"1": "ocr text"}
+    run_ocr.assert_not_called()
+    assert phys.raw_ocr_data == {}
 
 
 def test_explicit_force_ocr_is_unchanged(tmp_path: Path, scan_pdf: Path) -> None:

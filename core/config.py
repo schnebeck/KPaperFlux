@@ -42,6 +42,9 @@ class AppConfig:
     KEY_FLUXSENSE_URL: str = "fluxsense_url"
     KEY_FLUXSENSE_TIMEOUT: str = "fluxsense_timeout"
     KEY_FLUXSENSE_LLM_URL: str = "fluxsense_llm_url"
+    KEY_FLUXSENSE_WOL_URL: str = "fluxsense_wol_url"
+    KEY_FLUXSENSE_WOL_DEVICE: str = "fluxsense_wol_device"
+    KEY_FLUXSENSE_WOL_TOKEN_COMMAND: str = "fluxsense_wol_token_command"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
@@ -378,6 +381,45 @@ class AppConfig:
     def set_fluxsense_llm_url(self, url: str) -> None:
         """Saves the AI server URL override ("" = use FluxSense's configuration)."""
         self._set_setting("AI", self.KEY_FLUXSENSE_LLM_URL, url or "")
+
+    def get_fluxsense_wol(self) -> dict:
+        """
+        Retrieves the optional energy-management settings (WOL-Server device
+        requests for an AI server that sleeps). All empty by default = off.
+        The token is never stored, only a command that prints it.
+
+        Returns:
+            {"url": ..., "device": ..., "token_command": ...}
+        """
+        return {
+            "url": str(self._get_setting("AI", self.KEY_FLUXSENSE_WOL_URL, "") or "").strip(),
+            "device": str(self._get_setting("AI", self.KEY_FLUXSENSE_WOL_DEVICE, "") or "").strip(),
+            "token_command": str(self._get_setting("AI", self.KEY_FLUXSENSE_WOL_TOKEN_COMMAND, "") or "").strip(),
+        }
+
+    def set_fluxsense_wol(self, url: str, device: str, token_command: str) -> None:
+        """
+        Saves the energy-management settings ("" = off / keep FluxSense's configuration).
+
+        Args:
+            url: WOL-Server base URL.
+            device: Device id or name of the AI server.
+            token_command: Command printing the API token (e.g. a keyring lookup), never the token itself.
+        """
+        self._set_setting("AI", self.KEY_FLUXSENSE_WOL_URL, url or "")
+        self._set_setting("AI", self.KEY_FLUXSENSE_WOL_DEVICE, device or "")
+        self._set_setting("AI", self.KEY_FLUXSENSE_WOL_TOKEN_COMMAND, token_command or "")
+
+    def get_fluxsense_hooks(self) -> dict:
+        """
+        FluxSense hook overrides from the energy-management settings (only set values).
+
+        Returns:
+            Mapping of FluxSense hooks.* names to values.
+        """
+        wol = self.get_fluxsense_wol()
+        hooks = {"wol_url": wol["url"], "wol_device": wol["device"], "wol_token_command": wol["token_command"]}
+        return {key: value for key, value in hooks.items() if value}
 
     def get_fluxsense_timeout(self) -> int:
         """Retrieves the FluxSense request timeout in seconds (whole-document analysis)."""

@@ -2,25 +2,26 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/engines/fluxsense_client.py
-Version:        1.0.0
+Version:        1.1.0
 Producer:       thorsten.schnebeck@gmx.net
 Generator:      Claude Opus 5.5
 Description:    Clients for the FluxSense analysis engine: in-process library
                 (the 'fluxsense' package) or the FluxSense REST service.
-                Both return the AnalysisResult as a JSON dict and map every
-                failure onto FluxSenseError so callers can keep documents in
-                a retryable state.
+                Both request the per-page text layer and return the
+                AnalysisResult as a JSON dict. Engine failures arrive as an
+                ERROR result with FluxSense's error_code; transport failures
+                of the REST service raise FluxSenseError with the same codes.
 ------------------------------------------------------------------------------
 """
 
 import threading
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 import requests
 
+from core.engines.fluxsense_adapter import ERROR_BACKEND_TIMEOUT, ERROR_BACKEND_UNREACHABLE
 from core.logger import get_logger
 from core.models.identity import IdentityProfile
 
@@ -28,74 +29,60 @@ logger = get_logger("ai.fluxsense")
 
 CONNECT_TIMEOUT_S: float = 10.0
 HEALTH_TIMEOUT_S: float = 15.0
-UNAVAILABLE_STATUS: frozenset = frozenset({502, 503, 504})
+RETRYABLE_ERRORS: frozenset = frozenset({ERROR_BACKEND_UNREACHABLE, ERROR_BACKEND_TIMEOUT})
 
 
 class FluxSenseError(Exception):
     """
-    Raised when FluxSense could not deliver a result.
+    Raised when FluxSense could not be called at all (package missing, invalid
+    configuration, REST transport or HTTP errors).
 
     Attributes:
-        retryable: True if the same request may succeed later (service or
-            LLM backend temporarily unreachable).
-        unreachable: True if the server could not be reached at all.
+        error_code: FluxSense error code (see ERROR_*), None if not classified.
     """
 
-    def __init__(self, message: str, retryable: bool = False, unreachable: bool = False) -> None:
+    def __init__(self, message: str, error_code: Optional[str] = None) -> None:
         """
         Initializes the error.
 
         Args:
             message: Human readable description.
-            retryable: Whether a later retry is meaningful.
-            unreachable: Whether the server could not be reached at all.
+            error_code: FluxSense error code, if known.
         """
         super().__init__(message)
-        self.retryable: bool = retryable
-        self.unreachable: bool = unreachable
+        self.error_code: Optional[str] = error_code
 
-
-@dataclass
-class FluxSenseOutput:
-    """
-    One analysis run.
-
-    Attributes:
-        result: The FluxSense AnalysisResult as JSON dict.
-        page_texts: Best text per page of the analyzed PDF (index i = page i + 1),
-            or None if the connection cannot deliver the text layer (REST).
-    """
-
-    result: Dict[str, Any]
-    page_texts: Optional[List[str]] = None
+    @property
+    def retryable(self) -> bool:
+        """True if the same request may succeed later (server unreachable or slow)."""
+        return self.error_code in RETRYABLE_ERRORS
 
 
 class FluxSenseClient(ABC):
     """Interface of a FluxSense engine connection."""
 
     mode: str = ""
-    #: True if analyze() returns the engine's text layer (Stage 0 then needs no OCR).
-    supplies_page_texts: bool = False
 
     @abstractmethod
-    def analyze(self, pdf_path: Path) -> FluxSenseOutput:
+    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
         """
-        Analyzes one PDF (never modified). Safe to call from several threads.
+        Analyzes one PDF (never modified), including the per-page text layer.
 
         Args:
             pdf_path: PDF file.
 
         Returns:
-            The analysis output.
+            The FluxSense AnalysisResult as JSON dict (status ERROR plus
+            error_code if the engine failed).
 
         Raises:
-            FluxSenseError: If no result could be produced.
+            FluxSenseError: If FluxSense could not be called.
         """
 
     @abstractmethod
     def health(self) -> Dict[str, Any]:
         """
-        Checks engine and LLM backend availability without analyzing anything.
+        Checks engine and AI server availability without analyzing anything.
 
         Returns:
             Dict with at least 'status' ('ok' | 'degraded') and 'llm_backend' (bool).
@@ -144,19 +131,23 @@ def _profile_to_fluxsense(profile: Optional[IdentityProfile], target_cls: Any) -
 
 def default_analyzer_factory(private_id: Optional[IdentityProfile] = None,
                              business_id: Optional[IdentityProfile] = None,
-                             llm_url: Optional[str] = None) -> AnalyzerFactory:
+                             llm_url: Optional[str] = None,
+                             hooks: Optional[Dict[str, str]] = None) -> AnalyzerFactory:
     """
     Builds a factory for an in-process FluxSense Analyzer.
 
     Settings come from FluxSense's own configuration (TOML + environment).
     KPaperFlux only overrides what the user explicitly set in KPaperFlux:
-    the identity profiles (the application owns the user's identities) and
-    the AI server URL. Empty values keep FluxSense's configuration.
+    the identity profiles (the application owns the user's identities), the
+    AI server URL and the optional energy-management hooks. Empty values keep
+    FluxSense's configuration.
 
     Args:
         private_id: Private identity profile.
         business_id: Business identity profile.
         llm_url: AI server (OpenAI-compatible) base URL; empty keeps FluxSense's setting.
+        hooks: FluxSense hook settings to override (e.g. wol_url, wol_device,
+            wol_token_command); empty values are ignored.
 
     Returns:
         Callable that creates the Analyzer.
@@ -177,22 +168,18 @@ def default_analyzer_factory(private_id: Optional[IdentityProfile] = None,
             settings.identity.business = _profile_to_fluxsense(business_id, FluxIdentity)
         if llm_url and llm_url.strip():
             settings.llm.base_url = llm_url.strip()
+        for key, value in (hooks or {}).items():
+            if value and str(value).strip():
+                setattr(settings.hooks, key, str(value).strip())
         return Analyzer(settings)
 
     return create
 
 
 class FluxSenseLibraryClient(FluxSenseClient):
-    """
-    Runs FluxSense in-process (blocking; call from worker threads).
-
-    The analysis result itself carries no page texts, so the client captures
-    the text layer FluxSense builds in Analyzer.prepare() (per thread, so
-    concurrent analyses on the shared Analyzer stay apart).
-    """
+    """Runs FluxSense in-process (blocking; call from worker threads)."""
 
     mode = "library"
-    supplies_page_texts = True
 
     def __init__(self, analyzer_factory: AnalyzerFactory) -> None:
         """
@@ -202,47 +189,32 @@ class FluxSenseLibraryClient(FluxSenseClient):
         self._factory = analyzer_factory
         self._analyzer: Optional[Any] = None
         self._lock = threading.Lock()
-        self._captured = threading.local()
 
     def _get_analyzer(self) -> Any:
-        """Creates the Analyzer once (thread-safe) and hooks the text layer capture."""
+        """Creates the Analyzer once (thread-safe)."""
         with self._lock:
             if self._analyzer is None:
                 try:
-                    analyzer = self._factory()
+                    self._analyzer = self._factory()
                 except FluxSenseError:
                     raise
                 except Exception as e:  # invalid FluxSense configuration and similar
                     raise FluxSenseError(f"FluxSense could not be initialized: {e}") from e
-                self._install_capture(analyzer)
-                self._analyzer = analyzer
             return self._analyzer
 
-    def _install_capture(self, analyzer: Any) -> None:
-        """Wraps Analyzer.prepare() so analyze() keeps its own flow (deferred mode, reviews)."""
-        original = analyzer.prepare
-        captured = self._captured
-
-        def prepare(pdf_path: Path, engine: Optional[str] = None) -> Any:
-            """Delegates to FluxSense and remembers the text layer for this thread."""
-            prepared = original(pdf_path, engine)
-            captured.layer = getattr(prepared, "layer", None)
-            return prepared
-
-        analyzer.prepare = prepare
-
-    def analyze(self, pdf_path: Path) -> FluxSenseOutput:
-        """Analyzes a PDF in-process. See FluxSenseClient.analyze()."""
+    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
+        """Analyzes a PDF in-process with include_page_text. See FluxSenseClient.analyze()."""
         analyzer = self._get_analyzer()
-        self._captured.layer = None
         try:
-            result = analyzer.analyze(Path(pdf_path))
-        except Exception as e:  # FluxSense is an external engine: never let it crash the worker
+            from fluxsense.pipeline import AnalyzeOptions
+        except ImportError as e:
+            raise FluxSenseError(f"FluxSense library is not installed: {e}") from e
+        try:
+            result = analyzer.analyze(Path(pdf_path), AnalyzeOptions(include_page_text=True))
+        except Exception as e:  # FluxSense reports failures as ERROR results; anything else is a defect
             logger.error(f"[FluxSense] Library analysis failed for {Path(pdf_path).name}: {e}")
-            raise FluxSenseError(f"FluxSense analysis failed: {e}", retryable=True) from e
-        layer, self._captured.layer = self._captured.layer, None
-        texts = [str(t or "") for t in layer.texts()] if layer is not None else None
-        return FluxSenseOutput(result=result.model_dump(mode="json"), page_texts=texts)
+            raise FluxSenseError(f"FluxSense analysis failed: {e}") from e
+        return result.model_dump(mode="json")
 
     def health(self) -> Dict[str, Any]:
         """Lists the backend models (no wake-up, no analysis). See FluxSenseClient.health()."""
@@ -255,7 +227,7 @@ class FluxSenseLibraryClient(FluxSenseClient):
             models = analyzer.backend.list_models()
             backend_ok = True
         except Exception as e:  # httpx/OS errors of the external backend
-            logger.info(f"[FluxSense] LLM backend unreachable: {e}")
+            logger.info(f"[FluxSense] AI server unreachable: {e}")
             models, backend_ok = [], False
         return {"status": "ok" if backend_ok else "degraded", "version": __version__,
                 "llm_backend": backend_ok, "models": list(models), "server_url": self.server_url()}
@@ -279,7 +251,7 @@ class FluxSenseLibraryClient(FluxSenseClient):
         try:
             return analyzer.backend.generate_json(request)
         except Exception as e:  # httpx/OS errors of the external backend
-            raise FluxSenseError(f"FluxSense LLM request failed: {e}", retryable=True) from e
+            raise FluxSenseError(f"FluxSense LLM request failed: {e}", ERROR_BACKEND_UNREACHABLE) from e
 
 
 # --------------------------------------------------------------------- REST
@@ -288,6 +260,16 @@ def normalize_base_url(url: str) -> str:
     """Strips trailing slashes and a trailing '/v1' from a service URL."""
     base = (url or "").strip().rstrip("/")
     return base[:-3] if base.endswith("/v1") else base
+
+
+def _error_body(resp: requests.Response) -> Dict[str, Any]:
+    """FluxSense's error body {error_code, message} (FastAPI wraps it in 'detail')."""
+    try:
+        data = resp.json()
+    except ValueError:
+        return {}
+    detail = data.get("detail") if isinstance(data, dict) else None
+    return detail if isinstance(detail, dict) else {}
 
 
 class FluxSenseRestClient(FluxSenseClient):
@@ -318,20 +300,20 @@ class FluxSenseRestClient(FluxSenseClient):
         return session
 
     def _request(self, method: str, path: str, read_timeout: float, **kwargs: Any) -> Dict[str, Any]:
-        """Executes a request and maps transport / HTTP failures onto FluxSenseError."""
+        """Executes a request and maps transport / HTTP failures onto FluxSenseError with error codes."""
         url = f"{self.base_url}{path}"
         try:
             resp = self._get_session().request(method, url, timeout=(CONNECT_TIMEOUT_S, read_timeout), **kwargs)
         except requests.exceptions.ReadTimeout as e:
-            raise FluxSenseError(f"FluxSense timeout after {read_timeout:.0f}s at {url}", retryable=True) from e
+            raise FluxSenseError(f"FluxSense timeout after {read_timeout:.0f}s at {url}", ERROR_BACKEND_TIMEOUT) from e
         except requests.exceptions.ConnectionError as e:
-            raise FluxSenseError(f"FluxSense service unreachable at {url}: {e}", retryable=True, unreachable=True) from e
+            raise FluxSenseError(f"FluxSense service unreachable at {url}: {e}", ERROR_BACKEND_UNREACHABLE) from e
         except requests.exceptions.RequestException as e:
             raise FluxSenseError(f"FluxSense request to {url} failed: {e}") from e
         if resp.status_code != 200:
-            body = (resp.text or "")[:300]
-            raise FluxSenseError(f"FluxSense HTTP {resp.status_code} at {url}: {body}",
-                                 retryable=resp.status_code in UNAVAILABLE_STATUS)
+            body = _error_body(resp)
+            message = body.get("message") or (resp.text or "")[:300]
+            raise FluxSenseError(f"FluxSense HTTP {resp.status_code} at {url}: {message}", body.get("error_code"))
         try:
             data = resp.json()
         except ValueError as e:
@@ -340,12 +322,13 @@ class FluxSenseRestClient(FluxSenseClient):
             raise FluxSenseError(f"FluxSense returned {type(data).__name__} instead of an object at {url}")
         return data
 
-    def analyze(self, pdf_path: Path) -> FluxSenseOutput:
-        """Uploads the PDF to POST /v1/analyze (no text layer in the response). See FluxSenseClient.analyze()."""
+    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
+        """Uploads the PDF to POST /v1/analyze?include_page_text=true. See FluxSenseClient.analyze()."""
         path = Path(pdf_path)
         with path.open("rb") as handle:
             files = {"file": (path.name, handle, "application/pdf")}
-            return FluxSenseOutput(result=self._request("POST", "/v1/analyze", self.timeout_s, files=files))
+            return self._request("POST", "/v1/analyze", self.timeout_s, files=files,
+                                 params={"include_page_text": "true"})
 
     def health(self) -> Dict[str, Any]:
         """GET /v1/health. See FluxSenseClient.health()."""
@@ -360,23 +343,11 @@ class FluxSenseRestClient(FluxSenseClient):
         raise FluxSenseError("The FluxSense REST API does not offer free prompts; use library mode")
 
 
-def mode_supplies_page_texts(mode: str) -> bool:
-    """
-    Tells whether a FluxSense mode delivers the text layer with each analysis.
-
-    Args:
-        mode: 'library' or 'rest'.
-
-    Returns:
-        True for the in-process library.
-    """
-    return mode == FluxSenseLibraryClient.mode
-
-
 def create_fluxsense_client(mode: str, base_url: str, timeout_s: float,
                             private_id: Optional[IdentityProfile] = None,
                             business_id: Optional[IdentityProfile] = None,
-                            llm_url: str = "") -> FluxSenseClient:
+                            llm_url: str = "",
+                            hooks: Optional[Dict[str, str]] = None) -> FluxSenseClient:
     """
     Creates the configured FluxSense client.
 
@@ -387,6 +358,7 @@ def create_fluxsense_client(mode: str, base_url: str, timeout_s: float,
         private_id: Private identity (mode 'library').
         business_id: Business identity (mode 'library').
         llm_url: AI server URL override (mode 'library'); empty keeps FluxSense's configuration.
+        hooks: Energy-management hook overrides (mode 'library'); empty values keep FluxSense's configuration.
 
     Returns:
         The client.
@@ -395,7 +367,7 @@ def create_fluxsense_client(mode: str, base_url: str, timeout_s: float,
         ValueError: If the mode is unknown.
     """
     if mode == FluxSenseLibraryClient.mode:
-        return FluxSenseLibraryClient(default_analyzer_factory(private_id, business_id, llm_url))
+        return FluxSenseLibraryClient(default_analyzer_factory(private_id, business_id, llm_url, hooks))
     if mode == FluxSenseRestClient.mode:
         return FluxSenseRestClient(base_url, timeout_s)
     raise ValueError(f"Unknown FluxSense mode: {mode}")

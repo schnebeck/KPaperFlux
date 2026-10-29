@@ -6,7 +6,8 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
     QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
-    QSpinBox, QLayout, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
+    QSpinBox, QLayout, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
+    QToolButton, QGroupBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QEvent, QCoreApplication
 from core.logger import get_logger
@@ -14,6 +15,7 @@ logger = get_logger("gui.settings_dialog")
 
 # Core Imports
 from core.config import AppConfig
+from core.engines.fluxsense_adapter import ERROR_BACKEND_TIMEOUT, ERROR_BACKEND_UNREACHABLE
 from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, create_fluxsense_client
 from core.identity_parser import parse_identity_signature
 
@@ -132,6 +134,32 @@ class SettingsDialog(QDialog):
         self.btn_test_engine = QPushButton("")
         self.btn_test_engine.clicked.connect(self._test_engine_connection)
         form.addRow("", self.btn_test_engine)
+
+        # Advanced -> Energy management (optional, collapsed, library mode only)
+        self.btn_engine_advanced = QToolButton()
+        self.btn_engine_advanced.setCheckable(True)
+        self.btn_engine_advanced.setChecked(False)
+        self.btn_engine_advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_engine_advanced.setArrowType(Qt.ArrowType.RightArrow)
+        self.btn_engine_advanced.toggled.connect(self._toggle_engine_advanced)
+        form.addRow("", self.btn_engine_advanced)
+
+        self.box_energy = QGroupBox("")
+        energy_form = QFormLayout(self.box_energy)
+        self.lbl_energy_note = QLabel("")
+        self.lbl_energy_note.setWordWrap(True)
+        energy_form.addRow(self.lbl_energy_note)
+        self.lbl_wol_url = QLabel("")
+        self.edit_wol_url = QLineEdit()
+        energy_form.addRow(self.lbl_wol_url, self.edit_wol_url)
+        self.lbl_wol_device = QLabel("")
+        self.edit_wol_device = QLineEdit()
+        energy_form.addRow(self.lbl_wol_device, self.edit_wol_device)
+        self.lbl_wol_token = QLabel("")
+        self.edit_wol_token = QLineEdit()
+        energy_form.addRow(self.lbl_wol_token, self.edit_wol_token)
+        self.box_energy.setVisible(False)
+        form.addRow(self.box_energy)
 
         self.tabs.addTab(general_tab, self.tr("General"))
 
@@ -280,6 +308,10 @@ class SettingsDialog(QDialog):
         self.combo_engine_mode.setCurrentIndex(max(0, mode_idx))
         self.edit_engine_url.setText(self.config.get_fluxsense_url())
         self.edit_engine_llm_url.setText(self.config.get_fluxsense_llm_url())
+        wol = self.config.get_fluxsense_wol()
+        self.edit_wol_url.setText(wol["url"])
+        self.edit_wol_device.setText(wol["device"])
+        self.edit_wol_token.setText(wol["token_command"])
         self.spin_engine_timeout.setValue(self.config.get_fluxsense_timeout())
         self._toggle_engine_mode_ui()
 
@@ -332,11 +364,19 @@ class SettingsDialog(QDialog):
         self.accept()
 
     def _store_engine_settings(self) -> None:
-        """Persists the FluxSense engine settings from the dialog (empty AI server URL = FluxSense's config)."""
+        """Persists the FluxSense engine settings from the dialog (empty values = FluxSense's config)."""
         self.config.set_fluxsense_mode(self.combo_engine_mode.currentData() or AppConfig.DEFAULT_FLUXSENSE_MODE)
         self.config.set_fluxsense_url(self.edit_engine_url.text().strip() or AppConfig.DEFAULT_FLUXSENSE_URL)
         self.config.set_fluxsense_llm_url(self.edit_engine_llm_url.text().strip())
         self.config.set_fluxsense_timeout(self.spin_engine_timeout.value())
+        self.config.set_fluxsense_wol(self.edit_wol_url.text().strip(), self.edit_wol_device.text().strip(),
+                                      self.edit_wol_token.text().strip())
+
+    def _energy_hooks(self) -> dict:
+        """FluxSense hook overrides from the energy-management fields (only filled values)."""
+        hooks = {"wol_url": self.edit_wol_url.text().strip(), "wol_device": self.edit_wol_device.text().strip(),
+                 "wol_token_command": self.edit_wol_token.text().strip()}
+        return {key: value for key, value in hooks.items() if value}
 
     def _create_engine_client(self) -> FluxSenseClient:
         """Creates a FluxSense client from the values currently shown in the dialog."""
@@ -345,18 +385,34 @@ class SettingsDialog(QDialog):
             self.edit_engine_url.text().strip() or AppConfig.DEFAULT_FLUXSENSE_URL,
             self.spin_engine_timeout.value(),
             llm_url=self.edit_engine_llm_url.text().strip(),
+            hooks=self._energy_hooks(),
         )
 
     def _toggle_engine_mode_ui(self) -> None:
-        """Library mode: optional AI server URL; REST mode: the FluxSense service URL."""
+        """Library mode: AI server URL and energy management; REST mode: the FluxSense service URL."""
         form = self.tabs.widget(0).layout()
         is_rest = self.combo_engine_mode.currentData() == AppConfig.FLUXSENSE_MODE_REST
         form.setRowVisible(self.edit_engine_url, is_rest)
         form.setRowVisible(self.edit_engine_llm_url, not is_rest)
+        form.setRowVisible(self.btn_engine_advanced, not is_rest)
+        form.setRowVisible(self.box_energy, not is_rest and self.btn_engine_advanced.isChecked())
 
-    def _unreachable_text(self, url: Optional[str]) -> str:
-        """Generic message for an AI server that cannot be reached."""
-        return self.tr("AI server not reachable at %s. Please check the AI server settings.") % (url or self.tr("the configured address"))
+    def _toggle_engine_advanced(self, expanded: bool) -> None:
+        """Expands or collapses the optional energy-management section."""
+        self.btn_engine_advanced.setArrowType(Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow)
+        self.box_energy.setVisible(expanded)
+        self._toggle_engine_mode_ui()
+
+    def _failure_text(self, error_code: Optional[str], url: Optional[str]) -> str:
+        """Generic message for an unreachable or slow AI server; mentions waking only if energy management is set up."""
+        where = url or self.tr("the configured address")
+        if error_code == ERROR_BACKEND_TIMEOUT:
+            text = self.tr("AI server at %s did not answer in time. Please try again later or increase the analysis timeout.") % where
+        else:
+            text = self.tr("AI server not reachable at %s. Please check the AI server settings.") % where
+        if self._energy_hooks().get("wol_url"):
+            text += "\n" + self.tr("Energy management is configured: the AI server may still be waking up.")
+        return text
 
     def _test_engine_connection(self) -> None:
         """Checks FluxSense and its AI server (lists models, analyzes nothing)."""
@@ -366,7 +422,10 @@ class SettingsDialog(QDialog):
             health = client.health()
         except FluxSenseError as e:
             self.setCursor(Qt.CursorShape.ArrowCursor)
-            text = self._unreachable_text(client.server_url()) if e.unreachable else self.tr("FluxSense is not available:") + f"\n{e}"
+            if e.error_code in (ERROR_BACKEND_UNREACHABLE, ERROR_BACKEND_TIMEOUT):
+                text = self._failure_text(e.error_code, client.server_url())
+            else:
+                text = self.tr("FluxSense is not available:") + f"\n{e}"
             show_selectable_message_box(self, self.tr("Connection Failed"), text, icon=QMessageBox.Icon.Critical)
             return
         self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -377,7 +436,7 @@ class SettingsDialog(QDialog):
                                         self.tr("FluxSense %s is ready.") % version, icon=QMessageBox.Icon.Information)
         else:
             show_selectable_message_box(self, self.tr("Connection Failed"),
-                                        self._unreachable_text(health.get("server_url") or client.server_url()),
+                                        self._failure_text(ERROR_BACKEND_UNREACHABLE, health.get("server_url") or client.server_url()),
                                         icon=QMessageBox.Icon.Warning)
 
     def _analyze_signature(self, id_type: str) -> None:
@@ -469,6 +528,14 @@ class SettingsDialog(QDialog):
         self.spin_engine_timeout.setSuffix(f" {self.tr('s')}")
         self.lbl_engine_note.setText(self.tr("Models and all further AI settings come from the FluxSense configuration (~/.config/fluxsense/config.toml)."))
         self.btn_test_engine.setText(self.tr("Test Connection"))
+        self.btn_engine_advanced.setText(self.tr("Advanced"))
+        self.box_energy.setTitle(self.tr("Energy management"))
+        self.lbl_energy_note.setText(self.tr("Only needed for an AI server that sleeps when idle: FluxSense then requests it from a WOL-Server before analyzing. Leave empty for an always-on server."))
+        self.lbl_wol_url.setText(self.tr("WOL-Server URL:"))
+        self.lbl_wol_device.setText(self.tr("Device:"))
+        self.lbl_wol_token.setText(self.tr("Token command:"))
+        self.edit_wol_token.setPlaceholderText(self.tr("Command that prints the API token (e.g. a keyring lookup)"))
+        self.edit_wol_token.setToolTip(self.tr("The token itself is never stored, only the command that prints it."))
 
         # Identity Tab
         self.lbl_sig_private.setText(self.tr("Private Signature:\n(For Output/Debitor detection)"))

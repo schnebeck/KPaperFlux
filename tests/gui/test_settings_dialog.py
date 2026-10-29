@@ -76,7 +76,7 @@ def test_engine_connection_test_unavailable(qtbot, config: AppConfig) -> None:
     dialog = SettingsDialog()
     qtbot.addWidget(dialog)
     client = MagicMock()
-    client.health.side_effect = FluxSenseError("unreachable")
+    client.health.side_effect = FluxSenseError("not installed")
     with patch("gui.settings_dialog.create_fluxsense_client", return_value=client), \
          patch("gui.settings_dialog.show_selectable_message_box") as box:
         dialog._test_engine_connection()
@@ -125,9 +125,57 @@ def test_unreachable_messages_are_generic(qtbot, config: AppConfig) -> None:
          patch("gui.settings_dialog.show_selectable_message_box") as box:
         dialog._test_engine_connection()
         degraded = box.call_args.args[2]
-        client.health.side_effect = FluxSenseError("refused", retryable=True, unreachable=True)
+        client.health.side_effect = FluxSenseError("refused", "BACKEND_UNREACHABLE")
         dialog._test_engine_connection()
         refused = box.call_args.args[2]
     expected = "AI server not reachable at http://my-ai:8080/v1. Please check the AI server settings."
     assert degraded == expected and refused == expected
     assert "wake" not in expected.lower() and "wol" not in expected.lower()
+
+
+
+def test_energy_management_is_collapsed_and_off_by_default(qtbot, config: AppConfig) -> None:
+    """The optional WOL section starts collapsed and empty; values are saved and passed through as hooks."""
+    config.set_fluxsense_wol("", "", "")
+    config.set_fluxsense_mode("library")
+    dialog = SettingsDialog()
+    dialog.config = config
+    qtbot.addWidget(dialog)
+    dialog.combo_engine_mode.setCurrentIndex(dialog.combo_engine_mode.findData("library"))
+    form = dialog.tabs.widget(0).layout()
+    assert form.isRowVisible(dialog.btn_engine_advanced)
+    assert not dialog.btn_engine_advanced.isChecked() and not form.isRowVisible(dialog.box_energy)
+    assert (dialog.edit_wol_url.text(), dialog.edit_wol_device.text(), dialog.edit_wol_token.text()) == ("", "", "")
+    assert dialog._energy_hooks() == {}
+    assert "sleeps when idle" in dialog.lbl_energy_note.text()
+
+    dialog.btn_engine_advanced.setChecked(True)
+    assert form.isRowVisible(dialog.box_energy)
+    dialog.edit_wol_url.setText("https://wol.example.test")
+    dialog.edit_wol_device.setText("ai-server")
+    dialog.edit_wol_token.setText("secret-tool lookup service wol-server")
+    assert dialog._energy_hooks() == {"wol_url": "https://wol.example.test", "wol_device": "ai-server",
+                                      "wol_token_command": "secret-tool lookup service wol-server"}
+    with qtbot.waitSignal(dialog.settings_changed):
+        qtbot.mouseClick(dialog.btn_save, Qt.MouseButton.LeftButton)
+    assert config.get_fluxsense_hooks()["wol_token_command"] == "secret-tool lookup service wol-server"
+    config.set_fluxsense_wol("", "", "")
+
+
+def test_energy_section_hidden_in_rest_mode(qtbot, config: AppConfig) -> None:
+    """The FluxSense service has its own configuration in REST mode."""
+    dialog = SettingsDialog()
+    qtbot.addWidget(dialog)
+    dialog.combo_engine_mode.setCurrentIndex(dialog.combo_engine_mode.findData("rest"))
+    assert not dialog.tabs.widget(0).layout().isRowVisible(dialog.btn_engine_advanced)
+
+
+def test_wake_hint_only_with_energy_management(qtbot, config: AppConfig) -> None:
+    """Unreachable messages mention waking only when a WOL-Server is configured."""
+    dialog = SettingsDialog()
+    qtbot.addWidget(dialog)
+    dialog.edit_wol_url.setText("")
+    assert "waking" not in dialog._failure_text("BACKEND_UNREACHABLE", "http://ai:8080/v1")
+    dialog.edit_wol_url.setText("https://wol.example.test")
+    assert "waking up" in dialog._failure_text("BACKEND_UNREACHABLE", "http://ai:8080/v1")
+    assert "did not answer in time" in dialog._failure_text("BACKEND_TIMEOUT", "http://ai:8080/v1")

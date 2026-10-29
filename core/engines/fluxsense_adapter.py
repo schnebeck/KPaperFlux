@@ -33,9 +33,11 @@ from core.models.virtual import SourceReference
 
 ENGINE_NAME: str = "fluxsense"
 RESULT_STATUS_ERROR: str = "ERROR"
-ERROR_AI_SERVER_UNREACHABLE: str = "AI_SERVER_UNREACHABLE"
-# FluxSense marks transport failures of an AI call with this prefix (CallRecord.error).
-_UNREACHABLE_PREFIX: str = "Backend unreachable"
+# FluxSense error codes (AnalysisResult.error_code); the client raises the same codes for REST transport errors.
+ERROR_BACKEND_UNREACHABLE: str = "BACKEND_UNREACHABLE"
+ERROR_BACKEND_TIMEOUT: str = "BACKEND_TIMEOUT"
+ERROR_CONTEXT_OVERFLOW: str = "CONTEXT_OVERFLOW"
+ERROR_INPUT_INVALID: str = "INPUT_INVALID"
 UNKNOWN: str = "UNKNOWN"
 
 # Bodies that KPaperFlux hydrates into typed models (see SemanticExtraction.parse_bodies).
@@ -76,7 +78,21 @@ class AdaptedEntity:
 
 
 class FluxSenseResultError(ValueError):
-    """Raised when a FluxSense result is unusable as a whole (engine status ERROR or malformed)."""
+    """
+    Raised when a FluxSense result is unusable as a whole (engine status ERROR or malformed).
+
+    Attributes:
+        error_code: FluxSense's error_code of the result (None if not classified).
+    """
+
+    def __init__(self, message: str, error_code: Optional[str] = None) -> None:
+        """
+        Args:
+            message: Description.
+            error_code: FluxSense error code.
+        """
+        super().__init__(message)
+        self.error_code: Optional[str] = error_code
 
 
 # --------------------------------------------------------------------- pages
@@ -298,34 +314,45 @@ def failure_causes(result: Dict[str, Any], limit: int = 3) -> List[str]:
     return causes[:limit]
 
 
-def backend_unreachable(result: Optional[Dict[str, Any]]) -> bool:
+def user_message(error_code: Optional[str], server_url: Optional[str], fallback: str) -> str:
     """
-    Tells whether a failed FluxSense run could not reach its AI server.
+    Generic, user-facing text for a failed analysis (stored with the held document).
 
     Args:
-        result: The FluxSense AnalysisResult (or None).
+        error_code: FluxSense error code (None: unclassified).
+        server_url: The server the run depended on, if known.
+        fallback: Message for unclassified failures.
 
     Returns:
-        True if any failed AI call reports an unreachable backend.
-    """
-    for call in (result or {}).get("ai_calls") or []:
-        if isinstance(call, dict) and not call.get("ok", False) and str(call.get("error") or "").startswith(_UNREACHABLE_PREFIX):
-            return True
-    return False
-
-
-def unreachable_message(server_url: Optional[str]) -> str:
-    """
-    Generic, user-facing text for an unreachable AI server (stored with the held document).
-
-    Args:
-        server_url: The server address, if known.
-
-    Returns:
-        The message.
+        The message; no infrastructure-specific wording.
     """
     where = server_url or "the configured address"
-    return f"AI server not reachable at {where}. Please check the AI server settings."
+    messages = {
+        ERROR_BACKEND_UNREACHABLE: f"AI server not reachable at {where}. Please check the AI server settings.",
+        ERROR_BACKEND_TIMEOUT: f"AI server at {where} did not answer in time. Please try again later or increase the analysis timeout.",
+        ERROR_CONTEXT_OVERFLOW: "The document is too large for the AI model's context window. Split the document or use a model with a larger context.",
+        ERROR_INPUT_INVALID: "The file could not be read as a PDF.",
+    }
+    return messages.get(error_code or "", fallback)
+
+
+def page_texts_from_result(result: Dict[str, Any]) -> List[str]:
+    """
+    Per-page text of the analyzed PDF (FluxSense text_layer.pages, include_page_text).
+
+    Args:
+        result: The FluxSense AnalysisResult.
+
+    Returns:
+        Index i holds the text of page i + 1 ("" for pages without text).
+    """
+    pages = (result.get("text_layer") or {}).get("pages") or []
+    count = max([int(p.get("page") or 0) for p in pages if isinstance(p, dict)] + [0])
+    texts = [""] * count
+    for page in pages:
+        if isinstance(page, dict) and int(page.get("page") or 0) >= 1:
+            texts[int(page["page"]) - 1] = str(page.get("text") or "")
+    return texts
 
 
 def engine_error_info(message: str, result: Optional[Dict[str, Any]] = None, error_code: Optional[str] = None,
@@ -336,7 +363,7 @@ def engine_error_info(message: str, result: Optional[Dict[str, Any]] = None, err
     Args:
         message: Error description (first entry of errors).
         result: The FluxSense result, if one was returned.
-        error_code: Machine-readable reason (e.g. ERROR_AI_SERVER_UNREACHABLE).
+        error_code: FluxSense error code (e.g. ERROR_BACKEND_UNREACHABLE).
         server_url: The server the run depended on.
 
     Returns:
@@ -509,7 +536,9 @@ def adapt_result(result: Dict[str, Any], page_refs: List[PageRef], keep_single: 
         raise FluxSenseResultError("FluxSense result has no logical_documents list")
     if result.get("status") == RESULT_STATUS_ERROR:
         causes = failure_causes(result, limit=1)
-        raise FluxSenseResultError("FluxSense reported status ERROR" + (f": {causes[0]}" if causes else ""))
+        code = result.get("error_code")
+        raise FluxSenseResultError("FluxSense reported status ERROR" + (f" ({code})" if code else "")
+                                   + (f": {causes[0]}" if causes else ""), code)
     docs = [d for d in result["logical_documents"] if isinstance(d, dict)]
     if not docs:
         return []

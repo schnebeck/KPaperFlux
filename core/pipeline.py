@@ -38,7 +38,6 @@ from core.repositories import LogicalRepository, PhysicalRepository
 from core.vault import DocumentVault, remove_derived_files, store_searchable_copy
 from core.vocabulary import VocabularyManager
 from core.canonizer import CanonizerService
-from core.engines.fluxsense_client import mode_supplies_page_texts
 
 
 class CancellationToken:
@@ -788,10 +787,10 @@ class PipelineProcessor:
 
     def _extract_stage0_text(self, path: Path) -> Dict[str, str]:
         """
-        Stage 0 text of a newly ingested file. If the analysis engine returns
-        its text layer (FluxSense library mode), only the native text layer is
-        read here and scanned pages get their text from the engine; no OCR run
-        and no derived searchable PDF. Otherwise the configured OCR path runs.
+        Stage 0 text of a newly ingested file: the native text layer only.
+        Scanned pages get their text from FluxSense's text layer after the
+        analysis (library and REST), so no OCR runs at import and no derived
+        searchable PDF is written ('Force OCR / Searchable PDF' still does).
 
         Args:
             path: Path to the vault file.
@@ -799,9 +798,7 @@ class PipelineProcessor:
         Returns:
             A dictionary mapping 1-based page indices to text content.
         """
-        if mode_supplies_page_texts(self.config.get_fluxsense_mode()):
-            return self._extract_text_native(path) if self._is_native_pdf(path) else {}
-        return self._extract_text_map(path)
+        return self._extract_text_native(path) if self._is_native_pdf(path) else {}
 
     def _extract_text_map(self, path: Path, force_ocr: bool = False) -> Dict[str, str]:
         """

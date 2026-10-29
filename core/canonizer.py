@@ -24,17 +24,16 @@ from core.config import AppConfig
 from core.database import DatabaseManager
 from core.engines.analysis_input import AnalysisInputError, analysis_pdf
 from core.engines.fluxsense_adapter import (
-    ERROR_AI_SERVER_UNREACHABLE,
     AdaptedEntity,
     FluxSenseResultError,
     PageRef,
     adapt_result,
-    backend_unreachable,
     engine_error_info,
     flatten_source_mapping,
-    unreachable_message,
+    page_texts_from_result,
+    user_message,
 )
-from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, FluxSenseOutput, create_fluxsense_client
+from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, create_fluxsense_client
 from core.models.identity import IdentityProfile
 from core.models.semantic import SemanticExtraction, WorkflowInfo
 from core.models.virtual import SourceReference, VirtualDocument, DocumentStatus
@@ -71,9 +70,9 @@ class AnalysisJob:
 class AnalysisOutcome:
     """Result of the engine call of one job."""
 
-    output: Optional[FluxSenseOutput] = None
+    result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
-    unreachable: bool = False
+    error_code: Optional[str] = None
 
 
 def generate_smart_filename(semantic_data: Optional[SemanticExtraction], entity_types: List[str]) -> str:
@@ -153,6 +152,7 @@ class CanonizerService:
                 private_id=self._load_identity(self.config.get_private_profile_json()),
                 business_id=self._load_identity(self.config.get_business_profile_json()),
                 llm_url=self.config.get_fluxsense_llm_url(),
+                hooks=self.config.get_fluxsense_hooks(),
             )
         return self._engine_client
 
@@ -346,23 +346,20 @@ class CanonizerService:
         return False
 
     def _hold(self, v_doc: VirtualDocument, resumption: bool, message: str, result: Optional[Dict[str, Any]],
-              unreachable: bool = False) -> None:
+              error_code: Optional[str] = None) -> None:
         """
         Puts a document on hold after a failed engine run. Existing semantic
-        data is kept; the engine block records the error. 'Reprocess' retries.
-        An unreachable AI server is recorded with a generic, user-facing message
-        (address + hint to check the settings) and the code AI_SERVER_UNREACHABLE.
+        data is kept; the engine block records FluxSense's error code, a
+        generic user-facing message (first error) and the technical details.
+        'Reprocess' retries.
         """
-        logger.error(f"FluxSense analysis failed for {v_doc.uuid}: {message}")
+        logger.error(f"FluxSense analysis failed for {v_doc.uuid} ({error_code or 'unclassified'}): {message}")
         if v_doc.semantic_data is None:
             v_doc.semantic_data = SemanticExtraction()
-        if unreachable or backend_unreachable(result):
-            url = self._server_url()
-            info = engine_error_info(unreachable_message(url), result, error_code=ERROR_AI_SERVER_UNREACHABLE, server_url=url)
-            if message not in info.errors:
-                info.errors.insert(1, message)
-        else:
-            info = engine_error_info(message, result)
+        url = self._server_url() if error_code else None
+        info = engine_error_info(user_message(error_code, url, message), result, error_code=error_code, server_url=url)
+        if message not in info.errors:
+            info.errors.insert(1, message)
         v_doc.semantic_data.engine = info
         v_doc.status = DocumentStatus.STAGE2_HOLD if resumption else DocumentStatus.STAGE1_HOLD
         v_doc.last_processed_at = datetime.now().isoformat()
@@ -486,9 +483,9 @@ class CanonizerService:
         """
         try:
             with analysis_pdf(job.page_refs, job.physical.get) as pdf_path:
-                return AnalysisOutcome(output=self.get_engine_client().analyze(pdf_path))
+                return AnalysisOutcome(result=self.get_engine_client().analyze(pdf_path))
         except FluxSenseError as e:
-            return AnalysisOutcome(error=str(e), unreachable=e.unreachable)
+            return AnalysisOutcome(error=str(e), error_code=e.error_code)
         except AnalysisInputError as e:
             return AnalysisOutcome(error=str(e))
 
@@ -505,22 +502,22 @@ class CanonizerService:
             True if processing completed (status changed), False if the document was put on hold.
         """
         v_doc = job.v_doc
-        if outcome.output is None:
-            self._hold(v_doc, job.resumption, outcome.error or "FluxSense returned no result", None, outcome.unreachable)
+        result = outcome.result
+        if result is None:
+            self._hold(v_doc, job.resumption, outcome.error or "FluxSense returned no result", None, outcome.error_code)
             return False
-        result = outcome.output.result
-        self._fill_page_texts(job.page_refs, outcome.output.page_texts)
+        try:
+            entities = adapt_result(result, job.page_refs, keep_single=job.keep_single)
+        except FluxSenseResultError as e:
+            self._hold(v_doc, job.resumption, str(e), result, e.error_code)
+            return False
+        self._fill_page_texts(job.page_refs, page_texts_from_result(result))
 
         # Empty-text gate (after the engine, which also reads scans): ADF artifacts and blank pages.
         full_text = v_doc.resolve_content(self._load_physical)
         if not full_text.strip():
             self._discard_empty(v_doc)
             return True
-        try:
-            entities = adapt_result(result, job.page_refs, keep_single=job.keep_single)
-        except FluxSenseResultError as e:
-            self._hold(v_doc, job.resumption, str(e), result)
-            return False
 
         if not entities:
             logger.info(f"FluxSense found no logical document in {v_doc.uuid}.")

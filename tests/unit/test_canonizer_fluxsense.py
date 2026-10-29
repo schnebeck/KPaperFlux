@@ -22,7 +22,7 @@ import pytest
 
 from core.canonizer import CanonizerService, generate_smart_filename
 from core.database import DatabaseManager
-from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, FluxSenseOutput
+from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError
 from core.models.physical import PhysicalFile
 from core.models.semantic import FinanceBody, SemanticExtraction, StatementBody
 from core.models.virtual import DocumentStatus, SourceReference, VirtualDocument
@@ -67,7 +67,7 @@ class FakeClient(FluxSenseClient):
         self.outcomes = list(outcomes)
         self.analyzed: List[Dict[str, Any]] = []
 
-    def analyze(self, pdf_path: Path) -> FluxSenseOutput:
+    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
         with fitz.open(str(pdf_path)) as doc:
             self.analyzed.append({"path": Path(pdf_path), "pages": doc.page_count,
                                   "texts": [doc[i].get_text().strip() for i in range(doc.page_count)]})
@@ -75,8 +75,10 @@ class FakeClient(FluxSenseClient):
         if isinstance(outcome, Exception):
             raise outcome
         if isinstance(outcome, tuple):
-            return FluxSenseOutput(result=copy.deepcopy(outcome[0]), page_texts=list(outcome[1]))
-        return FluxSenseOutput(result=copy.deepcopy(outcome))
+            result = copy.deepcopy(outcome[0])
+            result["text_layer"]["pages"] = [{"page": i + 1, "text": t, "source": "ovis"} for i, t in enumerate(outcome[1])]
+            return result
+        return copy.deepcopy(outcome)
 
     def health(self) -> Dict[str, Any]:
         return {"status": "ok", "llm_backend": True}
@@ -197,7 +199,7 @@ def test_queue_processing_end_to_end(db: DatabaseManager, physical_pdf: Path, st
 def test_unreachable_engine_holds_document_and_retry_succeeds(db: DatabaseManager, physical_pdf: Path,
                                                                stack_result: Dict[str, Any]) -> None:
     """Backend down: clear error state, no crash; 'Reprocess' later succeeds."""
-    client = FakeClient([FluxSenseError("FluxSense service unreachable", retryable=True), stack_result])
+    client = FakeClient([FluxSenseError("FluxSense service unreachable", "BACKEND_UNREACHABLE"), stack_result])
     service = _service(db, client)
     v_doc = _ingest(service, physical_pdf, [1, 2, 3, 4, 5])
 
@@ -205,7 +207,7 @@ def test_unreachable_engine_holds_document_and_retry_succeeds(db: DatabaseManage
     held = service.logical_repo.get_by_uuid("doc-1")
     assert held.status == DocumentStatus.STAGE1_HOLD
     assert held.semantic_data.engine.status == "ERROR"
-    assert "unreachable" in held.semantic_data.engine.errors[0]
+    assert "not reachable" in held.semantic_data.engine.errors[0]
     assert held.source_mapping[0].pages == [1, 2, 3, 4, 5]
     assert db.get_pending_pipeline_count() == 0  # no busy retry loop
 
@@ -229,7 +231,7 @@ def test_engine_error_status_holds_document(db: DatabaseManager, physical_pdf: P
 
 def test_failed_reextraction_keeps_existing_data(db: DatabaseManager, physical_pdf: Path) -> None:
     """A failed re-extraction goes to STAGE2_HOLD and keeps the previous fields."""
-    service = _service(db, FakeClient([FluxSenseError("timeout", retryable=True)]))
+    service = _service(db, FakeClient([FluxSenseError("timeout", "BACKEND_TIMEOUT")]))
     previous = SemanticExtraction(meta_header={"doc_number": "KEEP-1"})
     v_doc = _ingest(service, physical_pdf, [1, 2], status=DocumentStatus.STAGE2_PENDING, semantic_data=previous)
     assert service.process_virtual_document(v_doc) is False
@@ -439,7 +441,7 @@ def test_failure_holds_only_the_failed_document(db: DatabaseManager, physical_pd
                                                 stack_result: Dict[str, Any]) -> None:
     """Hold logic per document within one batch."""
     one = _single_page_result(stack_result)
-    service = _service(db, FakeClient([FluxSenseError("backend unreachable", retryable=True), one]))
+    service = _service(db, FakeClient([FluxSenseError("backend unreachable", "BACKEND_UNREACHABLE"), one]))
     _ingest_many(service, physical_pdf, 2)
     assert service.process_pending_documents(limit=2) == 1
     statuses = sorted(d.status for d in _all_docs(service))
@@ -480,15 +482,16 @@ def test_interrupted_batch_is_requeued(db: DatabaseManager, physical_pdf: Path) 
 
 def test_unreachable_server_is_recorded_with_a_generic_message(db: DatabaseManager, physical_pdf: Path,
                                                                stack_result: Dict[str, Any]) -> None:
-    """Library mode: FluxSense returns status ERROR with 'Backend unreachable' calls -> address + settings hint."""
+    """Library mode: FluxSense returns status ERROR with error_code BACKEND_UNREACHABLE -> address + settings hint."""
     down = copy.deepcopy(stack_result)
     down["status"] = "ERROR"
+    down["error_code"] = "BACKEND_UNREACHABLE"
     down["ai_calls"] = [{"label": "Stage 1.1", "model": "m", "ok": False, "error": "Backend unreachable: [Errno 111] refused"}]
     service = _service(db, FakeClient([down]))
     v_doc = _ingest(service, physical_pdf, [1, 2, 3, 4, 5])
     assert service.process_virtual_document(v_doc) is False
     engine = service.logical_repo.get_by_uuid("doc-1").semantic_data.engine
-    assert engine.error_code == "AI_SERVER_UNREACHABLE"
+    assert engine.error_code == "BACKEND_UNREACHABLE"
     assert engine.server_url == "http://ai-server.test:8080/v1"
     assert engine.errors[0] == "AI server not reachable at http://ai-server.test:8080/v1. Please check the AI server settings."
     assert not any("wake" in e.lower() or "wol" in e.lower() for e in engine.errors)
@@ -496,16 +499,16 @@ def test_unreachable_server_is_recorded_with_a_generic_message(db: DatabaseManag
 
 def test_unreachable_rest_service_is_recorded_with_a_generic_message(db: DatabaseManager, physical_pdf: Path) -> None:
     """REST mode: a refused connection carries the unreachable flag."""
-    service = _service(db, FakeClient([FluxSenseError("FluxSense service unreachable at http://x", retryable=True, unreachable=True)]))
+    service = _service(db, FakeClient([FluxSenseError("FluxSense service unreachable at http://x", "BACKEND_UNREACHABLE")]))
     v_doc = _ingest(service, physical_pdf, [1, 2])
     assert service.process_virtual_document(v_doc) is False
     engine = service.logical_repo.get_by_uuid("doc-1").semantic_data.engine
-    assert engine.error_code == "AI_SERVER_UNREACHABLE"
+    assert engine.error_code == "BACKEND_UNREACHABLE"
     assert engine.errors[1].startswith("FluxSense service unreachable")
 
 
 def test_other_failures_have_no_unreachable_code(db: DatabaseManager, physical_pdf: Path) -> None:
-    """Only connectivity problems get the AI_SERVER_UNREACHABLE code."""
+    """Unclassified failures keep their own message and no code."""
     service = _service(db, FakeClient([FluxSenseError("FluxSense HTTP 422")]))
     v_doc = _ingest(service, physical_pdf, [1, 2])
     service.process_virtual_document(v_doc)
@@ -526,3 +529,39 @@ def test_ai_server_url_setting_is_passed_to_the_client() -> None:
          patch("core.canonizer.create_fluxsense_client") as create:
         CanonizerService(MagicMock(), physical_repo=MagicMock(), logical_repo=MagicMock()).get_engine_client()
     assert create.call_args.kwargs["llm_url"] == "http://my-ai:8080/v1"
+
+
+
+@pytest.mark.parametrize("code, expected", [
+    ("BACKEND_TIMEOUT", "did not answer in time"),
+    ("CONTEXT_OVERFLOW", "too large for the AI model's context window"),
+    ("INPUT_INVALID", "could not be read as a PDF"),
+])
+def test_error_codes_map_to_hold_messages(db: DatabaseManager, physical_pdf: Path, stack_result: Dict[str, Any],
+                                          code: str, expected: str) -> None:
+    """Each FluxSense error code holds the document with its own generic message (no string matching)."""
+    failed = copy.deepcopy(stack_result)
+    failed["status"] = "ERROR"
+    failed["error_code"] = code
+    service = _service(db, FakeClient([failed]))
+    v_doc = _ingest(service, physical_pdf, [1, 2])
+    assert service.process_virtual_document(v_doc) is False
+    held = service.logical_repo.get_by_uuid("doc-1")
+    assert held.status == DocumentStatus.STAGE1_HOLD
+    assert held.semantic_data.engine.error_code == code
+    assert expected in held.semantic_data.engine.errors[0]
+
+
+def test_failed_scan_is_held_not_purged(db: DatabaseManager, physical_pdf: Path, stack_result: Dict[str, Any]) -> None:
+    """Regression: a scan without Stage 0 text and an unreachable server must be held, not purged as blank."""
+    down = copy.deepcopy(stack_result)
+    down["status"] = "ERROR"
+    down["error_code"] = "BACKEND_UNREACHABLE"
+    down["text_layer"]["pages"] = []
+    service = _service(db, FakeClient([down]))
+    service.physical_repo.save(PhysicalFile(uuid="file-a", original_filename="scan.pdf", file_path=str(physical_pdf),
+                                            page_count_phys=5, raw_ocr_data={}))
+    v_doc = VirtualDocument(uuid="doc-1", source_mapping=[SourceReference(file_uuid="file-a", pages=[5])])
+    service.logical_repo.save(v_doc)
+    assert service.process_virtual_document(v_doc) is False
+    assert service.logical_repo.get_by_uuid("doc-1").status == DocumentStatus.STAGE1_HOLD
