@@ -13,6 +13,8 @@ Description:    Pipeline tests: Stage 0 entity -> FluxSense (mocked client)
 
 import copy
 import json
+import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
@@ -565,3 +567,83 @@ def test_failed_scan_is_held_not_purged(db: DatabaseManager, physical_pdf: Path,
     service.logical_repo.save(v_doc)
     assert service.process_virtual_document(v_doc) is False
     assert service.logical_repo.get_by_uuid("doc-1").status == DocumentStatus.STAGE1_HOLD
+
+
+# ------------------------------------------------------------------ concurrent analysis
+
+class ConcurrentFakeClient(FakeClient):
+    """FakeClient that measures how many analyses overlap and in which threads they run."""
+
+    def __init__(self, outcomes: List[Any], delay: float) -> None:
+        super().__init__(outcomes)
+        self.delay = delay
+        self.active = 0
+        self.max_active = 0
+        self.threads: List[str] = []
+        self._lock = threading.Lock()
+
+    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
+        with self._lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            self.threads.append(threading.current_thread().name)
+            outcome = self.outcomes.pop(0)
+        try:
+            time.sleep(self.delay)
+        finally:
+            with self._lock:
+                self.active -= 1
+        if isinstance(outcome, Exception):
+            raise outcome
+        return copy.deepcopy(outcome)
+
+
+def test_two_documents_are_analyzed_concurrently_with_serial_db_writes(db: DatabaseManager, physical_pdf: Path,
+                                                                       stack_result: Dict[str, Any]) -> None:
+    """Engine calls overlap; every database write happens in the calling (worker) thread."""
+    one = _single_page_result(stack_result)
+    client = ConcurrentFakeClient([one, one], delay=0.3)
+    service = _service(db, client)
+    _ingest_many(service, physical_pdf, 2)
+    caller = threading.current_thread().name
+    writers: List[str] = []
+    original_save = service.logical_repo.save
+    service.logical_repo.save = lambda doc: (writers.append(threading.current_thread().name), original_save(doc))[1]
+
+    started = time.monotonic()
+    assert service.process_pending_documents(limit=2, max_parallel=2) == 2
+    elapsed = time.monotonic() - started
+
+    assert client.max_active == 2
+    assert elapsed < 0.55  # two 0.3 s engine calls overlapped
+    assert caller not in client.threads
+    assert writers and set(writers) == {caller}
+    assert [d.status for d in _all_docs(service)] == [DocumentStatus.PROCESSED] * 2
+
+
+def test_parallel_failure_holds_only_the_failed_document(db: DatabaseManager, physical_pdf: Path,
+                                                         stack_result: Dict[str, Any]) -> None:
+    """Hold logic per document also under concurrency."""
+    one = _single_page_result(stack_result)
+    service = _service(db, ConcurrentFakeClient([FluxSenseError("down", "BACKEND_UNREACHABLE"), one], delay=0.1))
+    _ingest_many(service, physical_pdf, 2)
+    assert service.process_pending_documents(limit=2, max_parallel=2) == 1
+    assert sorted(d.status for d in _all_docs(service)) == sorted([DocumentStatus.PROCESSED, DocumentStatus.STAGE1_HOLD])
+
+
+def test_parallel_unexpected_exception_holds_instead_of_locking(db: DatabaseManager, physical_pdf: Path,
+                                                                stack_result: Dict[str, Any]) -> None:
+    """A foreign exception in an engine thread puts only that document on hold."""
+    one = _single_page_result(stack_result)
+    service = _service(db, ConcurrentFakeClient([OSError("disk full"), one], delay=0.05))
+    _ingest_many(service, physical_pdf, 2)
+    assert service.process_pending_documents(limit=2, max_parallel=2) == 1
+    assert db.get_pending_pipeline_count() == 0
+    assert sum(1 for d in _all_docs(service) if d.status == DocumentStatus.STAGE1_HOLD) == 1
+
+
+def test_stitching_uses_the_process_wide_pymupdf_lock() -> None:
+    """KPaperFlux's PyMuPDF use beside concurrent FluxSense analyses takes FluxSense's lock."""
+    from core.engines import analysis_input
+    pdflock = pytest.importorskip("fluxsense.pdflock")
+    assert analysis_input._pymupdf_lock() is pdflock.PYMUPDF_LOCK

@@ -45,6 +45,7 @@ class AppConfig:
     KEY_FLUXSENSE_WOL_URL: str = "fluxsense_wol_url"
     KEY_FLUXSENSE_WOL_DEVICE: str = "fluxsense_wol_device"
     KEY_FLUXSENSE_WOL_TOKEN_COMMAND: str = "fluxsense_wol_token_command"
+    KEY_ANALYSIS_CONCURRENCY: str = "analysis_concurrency"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
@@ -60,6 +61,8 @@ class AppConfig:
     DEFAULT_FLUXSENSE_MODE: str = FLUXSENSE_MODE_LIBRARY
     DEFAULT_FLUXSENSE_URL: str = "http://127.0.0.1:8765"
     DEFAULT_FLUXSENSE_TIMEOUT: int = 1800
+    DEFAULT_ANALYSIS_CONCURRENCY: int = 2
+    MAX_ANALYSIS_CONCURRENCY: int = 4
 
     APP_ID: str = "kpaperflux"
     _active_profile: Optional[str] = None
@@ -428,6 +431,30 @@ class AppConfig:
     def set_fluxsense_timeout(self, seconds: int) -> None:
         """Saves the FluxSense request timeout in seconds."""
         self._set_setting("AI", self.KEY_FLUXSENSE_TIMEOUT, int(seconds))
+
+    def get_analysis_concurrency(self) -> int:
+        """
+        Retrieves how many documents the background worker analyzes at the same time.
+
+        Returns:
+            1..MAX_ANALYSIS_CONCURRENCY (values outside are clamped).
+        """
+        value = self._get_int("AI", self.KEY_ANALYSIS_CONCURRENCY, self.DEFAULT_ANALYSIS_CONCURRENCY)
+        return max(1, min(self.MAX_ANALYSIS_CONCURRENCY, value))
+
+    def set_analysis_concurrency(self, value: int) -> None:
+        """
+        Saves how many documents are analyzed at the same time.
+
+        Args:
+            value: 1..MAX_ANALYSIS_CONCURRENCY.
+
+        Raises:
+            ValueError: If the value is out of range.
+        """
+        if not 1 <= int(value) <= self.MAX_ANALYSIS_CONCURRENCY:
+            raise ValueError(f"Analysis concurrency must be 1..{self.MAX_ANALYSIS_CONCURRENCY}: {value}")
+        self._set_setting("AI", self.KEY_ANALYSIS_CONCURRENCY, int(value))
 
     def get_log_level(self) -> str:
         """Retrieves the global log level."""

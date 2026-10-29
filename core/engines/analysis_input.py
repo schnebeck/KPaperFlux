@@ -13,6 +13,7 @@ Description:    Provides the PDF that an analysis engine reads for one
 """
 
 import tempfile
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Iterator, List, Optional, Tuple
@@ -23,6 +24,22 @@ from core.engines.fluxsense_adapter import PageRef, is_whole_file
 
 # Resolves a physical file UUID to (vault path, page count); None if unknown.
 PhysicalResolver = Callable[[str], Optional[Tuple[str, int]]]
+
+
+def _pymupdf_lock() -> "threading.RLock":
+    """
+    The process-wide PyMuPDF lock. PyMuPDF is not thread-safe; FluxSense
+    guards its own PyMuPDF access with fluxsense.pdflock.PYMUPDF_LOCK, so
+    KPaperFlux code running beside concurrent analyses must take the same lock.
+    """
+    try:
+        from fluxsense.pdflock import PYMUPDF_LOCK
+    except ImportError:
+        return _FALLBACK_LOCK
+    return PYMUPDF_LOCK
+
+
+_FALLBACK_LOCK = threading.RLock()
 
 
 class AnalysisInputError(OSError):
@@ -44,6 +61,12 @@ def stitch_pages(page_refs: List[PageRef], resolver: PhysicalResolver, target: P
     Raises:
         AnalysisInputError: If a source file or page is missing.
     """
+    with _pymupdf_lock():
+        return _stitch_locked(page_refs, resolver, target)
+
+
+def _stitch_locked(page_refs: List[PageRef], resolver: PhysicalResolver, target: Path) -> Path:
+    """stitch_pages() body; the caller holds the PyMuPDF lock."""
     out = fitz.open()
     try:
         for ref in page_refs:

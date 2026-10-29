@@ -6397,393 +6397,403 @@ Bitte 'qrcode'-Paket installieren.</translation>
     <context>
         <name>SettingsDialog</name>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="503" />
+            <location filename="../../../gui/settings_dialog.py" line="510" />
             <location filename="../../../gui/settings_dialog.py" line="50" />
             <source>Settings</source>
             <translation>Einstellungen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="506" />
-            <location filename="../../../gui/settings_dialog.py" line="164" />
+            <location filename="../../../gui/settings_dialog.py" line="513" />
+            <location filename="../../../gui/settings_dialog.py" line="169" />
             <source>General</source>
             <translation>Allgemein</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="507" />
-            <location filename="../../../gui/settings_dialog.py" line="168" />
+            <location filename="../../../gui/settings_dialog.py" line="514" />
+            <location filename="../../../gui/settings_dialog.py" line="173" />
             <source>Vocabulary</source>
             <translation>Vokabular</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="549" />
-            <location filename="../../../gui/settings_dialog.py" line="199" />
+            <location filename="../../../gui/settings_dialog.py" line="558" />
+            <location filename="../../../gui/settings_dialog.py" line="204" />
             <source>Note: If these signatures appear in 'Sender', the document is OUTGOING.</source>
             <translation>Hinweis: Wenn diese Signaturen im 'Absender' erscheinen, gilt das Dokument als AUSGANG.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="508" />
-            <location filename="../../../gui/settings_dialog.py" line="201" />
+            <location filename="../../../gui/settings_dialog.py" line="515" />
+            <location filename="../../../gui/settings_dialog.py" line="206" />
             <source>Identity</source>
             <translation>Identität</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="510" />
-            <location filename="../../../gui/settings_dialog.py" line="246" />
+            <location filename="../../../gui/settings_dialog.py" line="517" />
+            <location filename="../../../gui/settings_dialog.py" line="251" />
             <source>Plugins</source>
             <translation>Plugins</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="558" />
-            <location filename="../../../gui/settings_dialog.py" line="250" />
+            <location filename="../../../gui/settings_dialog.py" line="567" />
+            <location filename="../../../gui/settings_dialog.py" line="255" />
             <source>Save</source>
             <translation>Speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="559" />
-            <location filename="../../../gui/settings_dialog.py" line="252" />
+            <location filename="../../../gui/settings_dialog.py" line="568" />
+            <location filename="../../../gui/settings_dialog.py" line="257" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="263" />
+            <location filename="../../../gui/settings_dialog.py" line="268" />
             <source>Name</source>
             <translation>Name</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="264" />
+            <location filename="../../../gui/settings_dialog.py" line="269" />
             <source>Version</source>
             <translation>Version</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="265" />
+            <location filename="../../../gui/settings_dialog.py" line="270" />
             <source>Author</source>
             <translation>Autor</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="266" />
+            <location filename="../../../gui/settings_dialog.py" line="271" />
             <source>Description</source>
             <translation>Beschreibung</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="280" />
-            <location filename="../../../gui/settings_dialog.py" line="271" />
+            <location filename="../../../gui/settings_dialog.py" line="285" />
+            <location filename="../../../gui/settings_dialog.py" line="276" />
             <source>Loaded Plugins (%d)</source>
             <translation>Geladene Plugins (%d)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="273" />
+            <location filename="../../../gui/settings_dialog.py" line="278" />
             <source>Plugin manager not available.</source>
             <translation>Plugin-Manager nicht verfügbar.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="284" />
+            <location filename="../../../gui/settings_dialog.py" line="289" />
             <source>No plugins loaded.</source>
             <translation>Keine Plugins geladen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="297" />
+            <location filename="../../../gui/settings_dialog.py" line="302" />
             <source>Plugin directory:</source>
             <translation>Plugin-Verzeichnis:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="328" />
+            <location filename="../../../gui/settings_dialog.py" line="334" />
             <source>Select Vault Directory</source>
             <translation>Vault-Verzeichnis wählen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="333" />
+            <location filename="../../../gui/settings_dialog.py" line="339" />
             <source>Select OCR Binary</source>
             <translation>OCR-Programm wählen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="338" />
+            <location filename="../../../gui/settings_dialog.py" line="344" />
             <source>Select Transfer Directory</source>
             <translation>Transfer-Verzeichnis wählen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="408" />
+            <location filename="../../../gui/settings_dialog.py" line="415" />
             <source>the configured address</source>
             <translation>der konfigurierten Adresse</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="410" />
+            <location filename="../../../gui/settings_dialog.py" line="417" />
             <source>AI server at %s did not answer in time. Please try again later or increase the analysis timeout.</source>
             <translation>KI-Server unter %s hat nicht rechtzeitig geantwortet. Bitte später erneut versuchen oder das Analyse-Zeitlimit erhöhen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="412" />
+            <location filename="../../../gui/settings_dialog.py" line="419" />
             <source>AI server not reachable at %s. Please check the AI server settings.</source>
             <translation>KI-Server unter %s nicht erreichbar. Bitte die KI-Server-Einstellungen prüfen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="414" />
+            <location filename="../../../gui/settings_dialog.py" line="421" />
             <source>Energy management is configured: the AI server may still be waking up.</source>
             <translation>Energiemanagement ist eingerichtet: Der KI-Server wird möglicherweise noch geweckt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="428" />
+            <location filename="../../../gui/settings_dialog.py" line="435" />
             <source>FluxSense is not available:</source>
             <translation>FluxSense ist nicht verfügbar:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="438" />
-            <location filename="../../../gui/settings_dialog.py" line="429" />
+            <location filename="../../../gui/settings_dialog.py" line="445" />
+            <location filename="../../../gui/settings_dialog.py" line="436" />
             <source>Connection Failed</source>
             <translation>Verbindung fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="435" />
+            <location filename="../../../gui/settings_dialog.py" line="442" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="436" />
+            <location filename="../../../gui/settings_dialog.py" line="443" />
             <source>FluxSense %s is ready.</source>
             <translation>FluxSense %s ist bereit.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="456" />
+            <location filename="../../../gui/settings_dialog.py" line="463" />
             <source>Missing Input</source>
             <translation>Fehlende Eingabe</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="456" />
+            <location filename="../../../gui/settings_dialog.py" line="463" />
             <source>Please enter a signature text first.</source>
             <translation>Bitte zuerst einen Signaturtext eingeben.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="464" />
+            <location filename="../../../gui/settings_dialog.py" line="471" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="464" />
+            <location filename="../../../gui/settings_dialog.py" line="471" />
             <source>AI Error: %s</source>
             <translation>KI-Fehler: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="469" />
+            <location filename="../../../gui/settings_dialog.py" line="476" />
             <source>Analysis Failed</source>
             <translation>Analyse fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="469" />
+            <location filename="../../../gui/settings_dialog.py" line="476" />
             <source>AI returned no valid profile.</source>
             <translation>KI hat kein gültiges Profil zurückgegeben.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="475" />
+            <location filename="../../../gui/settings_dialog.py" line="482" />
             <source>Extracted private profile (saved):</source>
             <translation>Privates Profil extrahiert (gespeichert):</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="478" />
+            <location filename="../../../gui/settings_dialog.py" line="485" />
             <source>Extracted business profile (saved):</source>
             <translation>Geschäftsprofil extrahiert (gespeichert):</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="479" />
+            <location filename="../../../gui/settings_dialog.py" line="486" />
             <source>Analysis Successful</source>
             <translation>Analyse erfolgreich</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="493" />
+            <location filename="../../../gui/settings_dialog.py" line="500" />
             <source>Log File Missing</source>
             <translation>Log-Datei fehlt</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="493" />
+            <location filename="../../../gui/settings_dialog.py" line="500" />
             <source>The log file has not been created yet.</source>
             <translation>Die Log-Datei wurde noch nicht erstellt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="509" />
+            <location filename="../../../gui/settings_dialog.py" line="516" />
             <source>Logging</source>
             <translation>Protokollierung</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="513" />
+            <location filename="../../../gui/settings_dialog.py" line="520" />
             <source>Language:</source>
             <translation>Sprache:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="514" />
+            <location filename="../../../gui/settings_dialog.py" line="521" />
             <source>Vault Path:</source>
             <translation>Vault-Pfad:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="519" />
-            <location filename="../../../gui/settings_dialog.py" line="517" />
-            <location filename="../../../gui/settings_dialog.py" line="515" />
+            <location filename="../../../gui/settings_dialog.py" line="526" />
+            <location filename="../../../gui/settings_dialog.py" line="524" />
+            <location filename="../../../gui/settings_dialog.py" line="522" />
             <source>Browse...</source>
             <translation>Durchsuchen...</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="516" />
+            <location filename="../../../gui/settings_dialog.py" line="523" />
             <source>OCR Binary:</source>
             <translation>OCR-Programm:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="518" />
+            <location filename="../../../gui/settings_dialog.py" line="525" />
             <source>Transfer Folder:</source>
             <translation>Transfer-Ordner:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="520" />
+            <location filename="../../../gui/settings_dialog.py" line="527" />
             <source>Analysis Engine (FluxSense):</source>
             <translation>Analyse-Engine (FluxSense):</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="521" />
+            <location filename="../../../gui/settings_dialog.py" line="528" />
             <source>Library (in-process)</source>
             <translation>Bibliothek (im Prozess)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="522" />
+            <location filename="../../../gui/settings_dialog.py" line="529" />
             <source>REST service</source>
             <translation>REST-Dienst</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="523" />
+            <location filename="../../../gui/settings_dialog.py" line="530" />
             <source>FluxSense URL:</source>
             <translation>FluxSense-URL:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="524" />
+            <location filename="../../../gui/settings_dialog.py" line="531" />
             <source>AI Server URL:</source>
             <translation>KI-Server-URL:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="525" />
+            <location filename="../../../gui/settings_dialog.py" line="532" />
             <source>Empty: use the FluxSense configuration</source>
             <translation>Leer: FluxSense-Konfiguration verwenden</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="526" />
+            <location filename="../../../gui/settings_dialog.py" line="533" />
             <source>OpenAI-compatible endpoint of your AI server. Leave empty to keep the value from the FluxSense configuration.</source>
             <translation>OpenAI-kompatibler Endpunkt Ihres KI-Servers. Leer lassen, um den Wert aus der FluxSense-Konfiguration zu verwenden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="527" />
+            <location filename="../../../gui/settings_dialog.py" line="534" />
             <source>Analysis Timeout:</source>
             <translation>Analyse-Zeitlimit:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="528" />
+            <location filename="../../../gui/settings_dialog.py" line="535" />
             <source>s</source>
             <translation>s</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="529" />
+            <location filename="../../../gui/settings_dialog.py" line="536" />
             <source>Models and all further AI settings come from the FluxSense configuration (~/.config/fluxsense/config.toml).</source>
             <translation>Modelle und alle weiteren KI-Einstellungen stammen aus der FluxSense-Konfiguration (~/.config/fluxsense/config.toml).</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="530" />
+            <location filename="../../../gui/settings_dialog.py" line="537" />
+            <source>Parallel Analyses:</source>
+            <translation>Parallele Analysen:</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/settings_dialog.py" line="538" />
+            <source>Number of documents analyzed at the same time (the AI backend serves several requests in parallel).</source>
+            <translation>Anzahl gleichzeitig analysierter Dokumente (das KI-Backend bearbeitet mehrere Anfragen parallel).</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/settings_dialog.py" line="539" />
             <source>Test Connection</source>
             <translation>Verbindung testen</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="531" />
+            <location filename="../../../gui/settings_dialog.py" line="540" />
             <source>Advanced</source>
             <translation>Erweitert</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="532" />
+            <location filename="../../../gui/settings_dialog.py" line="541" />
             <source>Energy management</source>
             <translation>Energiemanagement</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="533" />
+            <location filename="../../../gui/settings_dialog.py" line="542" />
             <source>Only needed for an AI server that sleeps when idle: FluxSense then requests it from a WOL-Server before analyzing. Leave empty for an always-on server.</source>
             <translation>Nur für einen KI-Server nötig, der bei Leerlauf schläft: FluxSense fordert ihn dann vor der Analyse bei einem WOL-Server an. Für einen dauerhaft laufenden Server leer lassen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="534" />
+            <location filename="../../../gui/settings_dialog.py" line="543" />
             <source>WOL-Server URL:</source>
             <translation>WOL-Server-URL:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="535" />
+            <location filename="../../../gui/settings_dialog.py" line="544" />
             <source>Device:</source>
             <translation>Gerät:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="536" />
+            <location filename="../../../gui/settings_dialog.py" line="545" />
             <source>Token command:</source>
             <translation>Token-Befehl:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="537" />
+            <location filename="../../../gui/settings_dialog.py" line="546" />
             <source>Command that prints the API token (e.g. a keyring lookup)</source>
             <translation>Befehl, der das API-Token ausgibt (z. B. eine Schlüsselbund-Abfrage)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="538" />
+            <location filename="../../../gui/settings_dialog.py" line="547" />
             <source>The token itself is never stored, only the command that prints it.</source>
             <translation>Das Token selbst wird nie gespeichert, nur der Befehl, der es ausgibt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="541" />
+            <location filename="../../../gui/settings_dialog.py" line="550" />
             <source>Private Signature:
 (For Output/Debitor detection)</source>
             <translation>Private Signatur:
 (Für Ausgangs/Debitor-Erkennung)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="542" />
+            <location filename="../../../gui/settings_dialog.py" line="551" />
             <source>Max Mustermann
 Musterstraße 1...</source>
             <translation>Max Mustermann
 Musterstraße 1...</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="543" />
+            <location filename="../../../gui/settings_dialog.py" line="552" />
             <source>Analyze Private Signature with AI</source>
             <translation>Private Signatur mit KI analysieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="548" />
-            <location filename="../../../gui/settings_dialog.py" line="544" />
+            <location filename="../../../gui/settings_dialog.py" line="557" />
+            <location filename="../../../gui/settings_dialog.py" line="553" />
             <source>Extract structured data (Aliases, Address Parts) for better recognition.</source>
             <translation>Strukturierte Daten (Aliasse, Adressteile) für bessere Erkennung extrahieren.</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="545" />
+            <location filename="../../../gui/settings_dialog.py" line="554" />
             <source>Business Signature:
 (For Output/Debitor detection)</source>
             <translation>Geschäftliche Signatur:
 (Für Ausgangs/Debitor-Erkennung)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="546" />
+            <location filename="../../../gui/settings_dialog.py" line="555" />
             <source>My Company GmbH
 Geschäftsführer: ...</source>
             <translation>Musterfirma GmbH
 Geschäftsführer: ...</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="547" />
+            <location filename="../../../gui/settings_dialog.py" line="556" />
             <source>Analyze Business Signature with AI</source>
             <translation>Geschäftliche Signatur mit KI analysieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="552" />
+            <location filename="../../../gui/settings_dialog.py" line="561" />
             <source>Global Log Level:</source>
             <translation>Globales Log-Level:</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="553" />
+            <location filename="../../../gui/settings_dialog.py" line="562" />
             <source>Verbose AI Debugging (Raw Prompts/Responses)</source>
             <translation>Ausführliches KI-Debugging (Raw Prompts/Responses)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="554" />
+            <location filename="../../../gui/settings_dialog.py" line="563" />
             <source>Verbose Database Debugging (SQL Queries)</source>
             <translation>Ausführliches Datenbank-Debugging (SQL-Abfragen)</translation>
         </message>
         <message>
-            <location filename="../../../gui/settings_dialog.py" line="555" />
+            <location filename="../../../gui/settings_dialog.py" line="564" />
             <source>Open Log File</source>
             <translation>Log-Datei öffnen</translation>
         </message>

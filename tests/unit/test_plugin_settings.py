@@ -120,6 +120,7 @@ def mock_parent(qtbot):
     parent.app_config.get_fluxsense_timeout.return_value = 1800
     parent.app_config.get_fluxsense_llm_url.return_value = ""
     parent.app_config.get_fluxsense_wol.return_value = {"url": "", "device": "", "token_command": ""}
+    parent.app_config.get_analysis_concurrency.return_value = 2
     parent.app_config.get_private_signature.return_value = ""
     parent.app_config.get_business_signature.return_value = ""
     parent.app_config.get_log_level.return_value = "INFO"

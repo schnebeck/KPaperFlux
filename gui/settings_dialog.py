@@ -127,6 +127,11 @@ class SettingsDialog(QDialog):
         self.spin_engine_timeout.setSingleStep(60)
         form.addRow(self.lbl_engine_timeout, self.spin_engine_timeout)
 
+        self.lbl_engine_parallel = QLabel("")
+        self.spin_engine_parallel = QSpinBox()
+        self.spin_engine_parallel.setRange(1, AppConfig.MAX_ANALYSIS_CONCURRENCY)
+        form.addRow(self.lbl_engine_parallel, self.spin_engine_parallel)
+
         self.lbl_engine_note = QLabel("")
         self.lbl_engine_note.setWordWrap(True)
         form.addRow("", self.lbl_engine_note)
@@ -313,6 +318,7 @@ class SettingsDialog(QDialog):
         self.edit_wol_device.setText(wol["device"])
         self.edit_wol_token.setText(wol["token_command"])
         self.spin_engine_timeout.setValue(self.config.get_fluxsense_timeout())
+        self.spin_engine_parallel.setValue(self.config.get_analysis_concurrency())
         self._toggle_engine_mode_ui()
 
         self.edit_sig_private.setPlainText(self.config.get_private_signature())
@@ -371,6 +377,7 @@ class SettingsDialog(QDialog):
         self.config.set_fluxsense_timeout(self.spin_engine_timeout.value())
         self.config.set_fluxsense_wol(self.edit_wol_url.text().strip(), self.edit_wol_device.text().strip(),
                                       self.edit_wol_token.text().strip())
+        self.config.set_analysis_concurrency(self.spin_engine_parallel.value())
 
     def _energy_hooks(self) -> dict:
         """FluxSense hook overrides from the energy-management fields (only filled values)."""
@@ -527,6 +534,8 @@ class SettingsDialog(QDialog):
         self.lbl_engine_timeout.setText(self.tr("Analysis Timeout:"))
         self.spin_engine_timeout.setSuffix(f" {self.tr('s')}")
         self.lbl_engine_note.setText(self.tr("Models and all further AI settings come from the FluxSense configuration (~/.config/fluxsense/config.toml)."))
+        self.lbl_engine_parallel.setText(self.tr("Parallel Analyses:"))
+        self.spin_engine_parallel.setToolTip(self.tr("Number of documents analyzed at the same time (the AI backend serves several requests in parallel)."))
         self.btn_test_engine.setText(self.tr("Test Connection"))
         self.btn_engine_advanced.setText(self.tr("Advanced"))
         self.box_energy.setTitle(self.tr("Energy management"))

@@ -16,6 +16,7 @@ Description:    Canonization service: runs the FluxSense analysis engine on
 
 import re
 import uuid
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
@@ -210,16 +211,19 @@ class CanonizerService:
             logger.info(f"Locked {len(uuids)} documents for processing.")
         return uuids
 
-    def process_pending_documents(self, limit: int = 10) -> int:
+    def process_pending_documents(self, limit: int = 10, max_parallel: int = 1) -> int:
         """
-        Locks waiting documents and analyzes them one after the other.
+        Locks waiting documents and analyzes them.
 
-        Engine calls are not run concurrently in-process: PyMuPDF, which
-        FluxSense uses for text layers, tables and page images, is not
-        thread-safe (concurrent find_tables() calls fail).
+        With max_parallel > 1 the engine calls of up to max_parallel documents
+        run concurrently in worker threads (FluxSense serializes its PyMuPDF
+        access with a process-wide lock, KPaperFlux's stitching uses the same
+        lock). Locking, preparation and applying the results (all database
+        access) stay in the calling thread, one document after the other.
 
         Args:
             limit: Maximum number of documents to process in this call.
+            max_parallel: Maximum number of concurrent engine calls.
 
         Returns:
             The number of successfully processed documents.
@@ -228,6 +232,7 @@ class CanonizerService:
             NameError, AttributeError, SyntaxError, TypeError, ValueError: Coding
                 errors are re-raised (after the document was put on hold) to stop the worker.
         """
+        jobs: List[AnalysisJob] = []
         processed_count = 0
         for uuid_obj in self._lock_pending(limit):
             v_doc = self.logical_repo.get_by_uuid(uuid_obj)
@@ -235,9 +240,21 @@ class CanonizerService:
                 continue
             started = self._guarded(v_doc, None, lambda doc=v_doc: self.begin_analysis(doc))
             if isinstance(started, AnalysisJob):
-                started = self._guarded(v_doc, started, lambda j=started: self.finish_analysis(j, self.run_analysis(j)))
-            if started:
+                jobs.append(started)
+            elif started:
                 processed_count += 1
+
+        if max_parallel <= 1 or len(jobs) <= 1:
+            for job in jobs:
+                if self._guarded(job.v_doc, job, lambda j=job: self.finish_analysis(j, self.run_analysis(j))):
+                    processed_count += 1
+            return processed_count
+
+        with ThreadPoolExecutor(max_workers=min(max_parallel, len(jobs)), thread_name_prefix="analysis") as pool:
+            futures: List[Tuple[AnalysisJob, Future]] = [(job, pool.submit(self.run_analysis, job)) for job in jobs]
+            for job, future in futures:
+                if self._guarded(job.v_doc, job, lambda j=job, f=future: self.finish_analysis(j, f.result())):
+                    processed_count += 1
         return processed_count
 
     def _guarded(self, v_doc: VirtualDocument, job: Optional[AnalysisJob], step: Callable[[], Any]) -> Any:
@@ -473,7 +490,7 @@ class CanonizerService:
 
     def run_analysis(self, job: AnalysisJob) -> AnalysisOutcome:
         """
-        Runs the engine on the job's pages (no database access).
+        Runs the engine on the job's pages. No database access: safe in worker threads.
 
         Args:
             job: Prepared job.

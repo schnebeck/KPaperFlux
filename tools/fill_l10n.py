@@ -1007,6 +1007,8 @@ def fill():
             "AI server not reachable at %s. Please check the AI server settings.": "KI-Server unter %s nicht erreichbar. Bitte die KI-Server-Einstellungen prüfen.",
             "the configured address": "der konfigurierten Adresse",
             "Analysis Timeout:": "Analyse-Zeitlimit:",
+            "Parallel Analyses:": "Parallele Analysen:",
+            "Number of documents analyzed at the same time (the AI backend serves several requests in parallel).": "Anzahl gleichzeitig analysierter Dokumente (das KI-Backend bearbeitet mehrere Anfragen parallel).",
             "s": "s",
             "FluxSense is not available:": "FluxSense ist nicht verfügbar:",
             "FluxSense %s is ready.": "FluxSense %s ist bereit.",

@@ -320,7 +320,7 @@ class MainLoopWorker(QThread):
                     burst_total = min(5, total_pending)
                     processed_in_this_run = 0
 
-                    for i in range(burst_total):
+                    while processed_in_this_run < burst_total:
                         if not self.is_running:
                             logger.debug("[MainLoop] Stop requested mid-batch.")
                             break
@@ -328,8 +328,11 @@ class MainLoopWorker(QThread):
                             logger.debug("[MainLoop] Pause requested mid-batch.")
                             self.status_changed.emit("Finishing current & Pausing...")
                             break
-                            
-                        processed_count = self.canonizer.process_pending_documents(limit=1)
+
+                        # Up to N engine calls run concurrently; all DB access stays in this thread.
+                        parallel = max(1, min(burst_total - processed_in_this_run,
+                                              self.canonizer.config.get_analysis_concurrency()))
+                        processed_count = self.canonizer.process_pending_documents(limit=parallel, max_parallel=parallel)
                         if processed_count == 0:
                             break
                         

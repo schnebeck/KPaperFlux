@@ -179,3 +179,19 @@ def test_wake_hint_only_with_energy_management(qtbot, config: AppConfig) -> None
     dialog.edit_wol_url.setText("https://wol.example.test")
     assert "waking up" in dialog._failure_text("BACKEND_UNREACHABLE", "http://ai:8080/v1")
     assert "did not answer in time" in dialog._failure_text("BACKEND_TIMEOUT", "http://ai:8080/v1")
+def test_parallel_analyses_setting(qtbot, config: AppConfig) -> None:
+    """The concurrency setting loads (default 2), saves and is clamped by the config."""
+    dialog = SettingsDialog()
+    dialog.config = config
+    qtbot.addWidget(dialog)
+    assert dialog.spin_engine_parallel.value() == AppConfig.DEFAULT_ANALYSIS_CONCURRENCY == 2
+    assert dialog.spin_engine_parallel.maximum() == AppConfig.MAX_ANALYSIS_CONCURRENCY
+    dialog.spin_engine_parallel.setValue(3)
+    with qtbot.waitSignal(dialog.settings_changed):
+        qtbot.mouseClick(dialog.btn_save, Qt.MouseButton.LeftButton)
+    assert config.get_analysis_concurrency() == 3
+    config.settings.setValue("AI/analysis_concurrency", 99)
+    assert config.get_analysis_concurrency() == AppConfig.MAX_ANALYSIS_CONCURRENCY
+    with pytest.raises(ValueError):
+        config.set_analysis_concurrency(0)
+    config.set_analysis_concurrency(2)
