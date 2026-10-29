@@ -91,6 +91,25 @@ class ScannerWorker(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
+DEFAULT_DPI: int = 300
+
+
+def nearest_resolution(available: List[int], target: int) -> Optional[int]:
+    """
+    The offered resolution closest to the target (ties: the higher one).
+
+    Args:
+        available: Resolutions offered by the device.
+        target: Wanted resolution.
+
+    Returns:
+        The resolution, or None if the device offers none.
+    """
+    if not available:
+        return None
+    return min(available, key=lambda res: (abs(res - target), -res))
+
+
 class ScannerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -246,7 +265,7 @@ class ScannerDialog(QDialog):
             self._fetch_device_details(last_dev_id)
             
         # Restore other options
-        last_dpi = self.settings.value("last_dpi", "200")
+        last_dpi = self.settings.value("last_dpi", str(DEFAULT_DPI))
         # We will set the value in _on_device_found once the combo is populated
         self._temp_last_dpi = str(last_dpi)
         
@@ -394,19 +413,20 @@ class ScannerDialog(QDialog):
         for res in res_list:
             self.dpi_combo.addItem(f"{res} dpi", str(res))
             
+        # A stored choice wins; otherwise 300 dpi, or the device's nearest resolution.
         source_dpi = self.settings.value(f"last_dpi_{src}")
-        general_dpi = self.settings.value("last_dpi", "200")
+        general_dpi = self.settings.value("last_dpi", str(DEFAULT_DPI))
         target_dpi = source_dpi if source_dpi else general_dpi
-        
-        idx = self.dpi_combo.findData(str(target_dpi))
+        try:
+            target = int(target_dpi)
+        except (TypeError, ValueError):
+            target = DEFAULT_DPI
+        chosen = nearest_resolution([int(r) for r in res_list], target)
+        idx = self.dpi_combo.findData(str(chosen)) if chosen is not None else -1
         if idx >= 0:
             self.dpi_combo.setCurrentIndex(idx)
-        else:
-            idx_200 = self.dpi_combo.findData("200")
-            if idx_200 >= 0:
-                self.dpi_combo.setCurrentIndex(idx_200)
-            elif self.dpi_combo.count() > 0:
-                self.dpi_combo.setCurrentIndex(0)
+        elif self.dpi_combo.count() > 0:
+            self.dpi_combo.setCurrentIndex(0)
         
         self.dpi_combo.blockSignals(False)
         self.dpi_combo.setEnabled(True)
@@ -480,7 +500,7 @@ class ScannerDialog(QDialog):
         self.scan_progress.setRange(0, 0)
         
         self.worker = ScannerWorker(
-            self.driver, device_id, int(self.dpi_combo.currentData() or 200), self.mode_combo.currentData(), 
+            self.driver, device_id, int(self.dpi_combo.currentData() or DEFAULT_DPI), self.mode_combo.currentData(), 
             self.source_combo.currentText(), self.combo_duplex_mode.currentData(),
             self.format_combo.currentData()
         )
