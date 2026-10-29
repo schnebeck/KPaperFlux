@@ -41,6 +41,7 @@ class AppConfig:
     KEY_FLUXSENSE_MODE: str = "fluxsense_mode"
     KEY_FLUXSENSE_URL: str = "fluxsense_url"
     KEY_FLUXSENSE_TIMEOUT: str = "fluxsense_timeout"
+    KEY_FLUXSENSE_LLM_URL: str = "fluxsense_llm_url"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
@@ -364,6 +365,19 @@ class AppConfig:
     def set_fluxsense_url(self, url: str) -> None:
         """Saves the base URL of the FluxSense REST service."""
         self._set_setting("AI", self.KEY_FLUXSENSE_URL, url)
+
+    def get_fluxsense_llm_url(self) -> str:
+        """
+        Retrieves the AI server URL override for FluxSense (library mode).
+
+        Returns:
+            The URL, or "" to use FluxSense's own configuration (default).
+        """
+        return str(self._get_setting("AI", self.KEY_FLUXSENSE_LLM_URL, "") or "").strip()
+
+    def set_fluxsense_llm_url(self, url: str) -> None:
+        """Saves the AI server URL override ("" = use FluxSense's configuration)."""
+        self._set_setting("AI", self.KEY_FLUXSENSE_LLM_URL, url or "")
 
     def get_fluxsense_timeout(self) -> int:
         """Retrieves the FluxSense request timeout in seconds (whole-document analysis)."""

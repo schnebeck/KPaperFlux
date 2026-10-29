@@ -142,13 +142,51 @@ def test_default_factory_injects_kpaperflux_identities() -> None:
     fake_pipeline.Analyzer.assert_called_once_with(settings)
 
 
+def test_ai_server_url_override_only_when_set() -> None:
+    """KPaperFlux overrides FluxSense's llm.base_url only if the user set it; empty keeps the TOML value."""
+    for override, expected in (("http://my-ai:8080/v1", "http://my-ai:8080/v1"), ("", "from-fluxsense-config")):
+        settings = MagicMock()
+        settings.llm.base_url = "from-fluxsense-config"
+        modules = {"fluxsense": MagicMock(), "fluxsense.config": MagicMock(load_settings=MagicMock(return_value=settings)),
+                   "fluxsense.models": MagicMock(), "fluxsense.models.identity": MagicMock(), "fluxsense.pipeline": MagicMock()}
+        with patch.dict(sys.modules, modules):
+            default_analyzer_factory(None, None, override)()
+        assert settings.llm.base_url == expected
+
+
+def test_server_url_per_mode() -> None:
+    """Library: the AI server from FluxSense's settings; REST: the service URL; unknown -> None."""
+    analyzer = MagicMock()
+    analyzer.settings.llm.base_url = "http://localhost:8080/v1"
+    assert FluxSenseLibraryClient(lambda: analyzer).server_url() == "http://localhost:8080/v1"
+    def broken() -> Any:
+        raise FluxSenseError("not installed")
+    assert FluxSenseLibraryClient(broken).server_url() is None
+    assert FluxSenseRestClient("http://svc:8765/v1", 5).server_url() == "http://svc:8765"
+
+
+def test_rest_connection_refused_is_flagged_unreachable(pdf: Path) -> None:
+    """Only a refused / failed connection sets the unreachable flag."""
+    session = MagicMock()
+    session.request.side_effect = requests.exceptions.ConnectionError("refused")
+    with pytest.raises(FluxSenseError) as info:
+        FluxSenseRestClient("http://svc", 5, session=session).analyze(pdf)
+    assert info.value.unreachable is True
+    session.request.side_effect = requests.exceptions.ReadTimeout("slow")
+    with pytest.raises(FluxSenseError) as info:
+        FluxSenseRestClient("http://svc", 5, session=session).analyze(pdf)
+    assert info.value.unreachable is False
+
+
 def test_library_health_reports_backend_state() -> None:
     """health() lists models; an unreachable backend reports 'degraded'."""
     analyzer = MagicMock()
     analyzer.backend.list_models.return_value = ["m1"]
     with patch.dict(sys.modules, {"fluxsense": MagicMock(__version__="0.1.0")}):
         client = FluxSenseLibraryClient(lambda: analyzer)
-        assert client.health() == {"status": "ok", "version": "0.1.0", "llm_backend": True, "models": ["m1"]}
+        analyzer.settings.llm.base_url = "http://localhost:8080/v1"
+        assert client.health() == {"status": "ok", "version": "0.1.0", "llm_backend": True, "models": ["m1"],
+                                   "server_url": "http://localhost:8080/v1"}
         analyzer.backend.list_models.side_effect = OSError("down")
         assert client.health()["status"] == "degraded"
 

@@ -81,6 +81,9 @@ class FakeClient(FluxSenseClient):
     def health(self) -> Dict[str, Any]:
         return {"status": "ok", "llm_backend": True}
 
+    def server_url(self) -> str:
+        return "http://ai-server.test:8080/v1"
+
     def complete_json(self, prompt: str, label: str) -> Any:
         return None
 
@@ -472,3 +475,54 @@ def test_interrupted_batch_is_requeued(db: DatabaseManager, physical_pdf: Path) 
     assert db.get_pending_pipeline_count() == 0
     assert service.release_interrupted_documents() == 2
     assert db.get_pending_pipeline_count() == 2
+
+
+
+def test_unreachable_server_is_recorded_with_a_generic_message(db: DatabaseManager, physical_pdf: Path,
+                                                               stack_result: Dict[str, Any]) -> None:
+    """Library mode: FluxSense returns status ERROR with 'Backend unreachable' calls -> address + settings hint."""
+    down = copy.deepcopy(stack_result)
+    down["status"] = "ERROR"
+    down["ai_calls"] = [{"label": "Stage 1.1", "model": "m", "ok": False, "error": "Backend unreachable: [Errno 111] refused"}]
+    service = _service(db, FakeClient([down]))
+    v_doc = _ingest(service, physical_pdf, [1, 2, 3, 4, 5])
+    assert service.process_virtual_document(v_doc) is False
+    engine = service.logical_repo.get_by_uuid("doc-1").semantic_data.engine
+    assert engine.error_code == "AI_SERVER_UNREACHABLE"
+    assert engine.server_url == "http://ai-server.test:8080/v1"
+    assert engine.errors[0] == "AI server not reachable at http://ai-server.test:8080/v1. Please check the AI server settings."
+    assert not any("wake" in e.lower() or "wol" in e.lower() for e in engine.errors)
+
+
+def test_unreachable_rest_service_is_recorded_with_a_generic_message(db: DatabaseManager, physical_pdf: Path) -> None:
+    """REST mode: a refused connection carries the unreachable flag."""
+    service = _service(db, FakeClient([FluxSenseError("FluxSense service unreachable at http://x", retryable=True, unreachable=True)]))
+    v_doc = _ingest(service, physical_pdf, [1, 2])
+    assert service.process_virtual_document(v_doc) is False
+    engine = service.logical_repo.get_by_uuid("doc-1").semantic_data.engine
+    assert engine.error_code == "AI_SERVER_UNREACHABLE"
+    assert engine.errors[1].startswith("FluxSense service unreachable")
+
+
+def test_other_failures_have_no_unreachable_code(db: DatabaseManager, physical_pdf: Path) -> None:
+    """Only connectivity problems get the AI_SERVER_UNREACHABLE code."""
+    service = _service(db, FakeClient([FluxSenseError("FluxSense HTTP 422")]))
+    v_doc = _ingest(service, physical_pdf, [1, 2])
+    service.process_virtual_document(v_doc)
+    engine = service.logical_repo.get_by_uuid("doc-1").semantic_data.engine
+    assert engine.error_code is None and engine.errors[0] == "FluxSense HTTP 422"
+
+
+def test_ai_server_url_setting_is_passed_to_the_client() -> None:
+    """An explicitly set AI server URL reaches the library factory; empty keeps FluxSense's config."""
+    config = MagicMock()
+    config.get_fluxsense_mode.return_value = "library"
+    config.get_fluxsense_url.return_value = ""
+    config.get_fluxsense_timeout.return_value = 60
+    config.get_private_profile_json.return_value = ""
+    config.get_business_profile_json.return_value = ""
+    config.get_fluxsense_llm_url.return_value = "http://my-ai:8080/v1"
+    with patch("core.canonizer.AppConfig", MagicMock(return_value=config)), \
+         patch("core.canonizer.create_fluxsense_client") as create:
+        CanonizerService(MagicMock(), physical_repo=MagicMock(), logical_repo=MagicMock()).get_engine_client()
+    assert create.call_args.kwargs["llm_url"] == "http://my-ai:8080/v1"

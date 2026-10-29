@@ -49,8 +49,10 @@ def test_url_row_only_visible_in_rest_mode(qtbot, config: AppConfig) -> None:
     form = dialog.tabs.widget(0).layout()
     dialog.combo_engine_mode.setCurrentIndex(dialog.combo_engine_mode.findData("rest"))
     assert form.isRowVisible(dialog.edit_engine_url)
+    assert not form.isRowVisible(dialog.edit_engine_llm_url)
     dialog.combo_engine_mode.setCurrentIndex(dialog.combo_engine_mode.findData("library"))
     assert not form.isRowVisible(dialog.edit_engine_url)
+    assert form.isRowVisible(dialog.edit_engine_llm_url)
 
 
 @pytest.mark.parametrize("health, expected_title", [
@@ -94,3 +96,38 @@ def test_analyze_signature_saves_profile(qtbot, config: AppConfig) -> None:
         dialog._analyze_signature("PRIVATE")
     assert "Erika Mustermann" in dialog.config.set_private_profile_json.call_args.args[0]
     assert box.call_args.args[1] == "Analysis Successful"
+
+
+
+def test_ai_server_url_defaults_to_fluxsense_config(qtbot, config: AppConfig) -> None:
+    """Empty AI server URL by default (FluxSense's config applies); an explicit value is saved."""
+    config.set_fluxsense_llm_url("")
+    dialog = SettingsDialog()
+    dialog.config = config
+    qtbot.addWidget(dialog)
+    assert dialog.edit_engine_llm_url.text() == ""
+    assert dialog.edit_engine_llm_url.placeholderText() == "Empty: use the FluxSense configuration"
+    dialog.edit_engine_llm_url.setText(" http://my-ai:8080/v1 ")
+    with qtbot.waitSignal(dialog.settings_changed):
+        qtbot.mouseClick(dialog.btn_save, Qt.MouseButton.LeftButton)
+    assert config.get_fluxsense_llm_url() == "http://my-ai:8080/v1"
+    config.set_fluxsense_llm_url("")
+
+
+def test_unreachable_messages_are_generic(qtbot, config: AppConfig) -> None:
+    """Unreachable AI server: address + hint to check the settings, no wake/WOL wording."""
+    dialog = SettingsDialog()
+    qtbot.addWidget(dialog)
+    client = MagicMock()
+    client.server_url.return_value = "http://my-ai:8080/v1"
+    client.health.return_value = {"status": "degraded", "llm_backend": False, "version": "0.1.0", "server_url": "http://my-ai:8080/v1"}
+    with patch("gui.settings_dialog.create_fluxsense_client", return_value=client), \
+         patch("gui.settings_dialog.show_selectable_message_box") as box:
+        dialog._test_engine_connection()
+        degraded = box.call_args.args[2]
+        client.health.side_effect = FluxSenseError("refused", retryable=True, unreachable=True)
+        dialog._test_engine_connection()
+        refused = box.call_args.args[2]
+    expected = "AI server not reachable at http://my-ai:8080/v1. Please check the AI server settings."
+    assert degraded == expected and refused == expected
+    assert "wake" not in expected.lower() and "wol" not in expected.lower()

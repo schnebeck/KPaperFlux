@@ -38,18 +38,21 @@ class FluxSenseError(Exception):
     Attributes:
         retryable: True if the same request may succeed later (service or
             LLM backend temporarily unreachable).
+        unreachable: True if the server could not be reached at all.
     """
 
-    def __init__(self, message: str, retryable: bool = False) -> None:
+    def __init__(self, message: str, retryable: bool = False, unreachable: bool = False) -> None:
         """
         Initializes the error.
 
         Args:
             message: Human readable description.
             retryable: Whether a later retry is meaningful.
+            unreachable: Whether the server could not be reached at all.
         """
         super().__init__(message)
         self.retryable: bool = retryable
+        self.unreachable: bool = unreachable
 
 
 @dataclass
@@ -102,6 +105,16 @@ class FluxSenseClient(ABC):
         """
 
     @abstractmethod
+    def server_url(self) -> Optional[str]:
+        """
+        The address of the server this connection depends on, for messages:
+        the AI (LLM) server in library mode, the FluxSense service in REST mode.
+
+        Returns:
+            The URL, or None if it cannot be determined.
+        """
+
+    @abstractmethod
     def complete_json(self, prompt: str, label: str) -> Optional[Any]:
         """
         Sends a free JSON prompt to the engine's primary LLM (application
@@ -130,17 +143,20 @@ def _profile_to_fluxsense(profile: Optional[IdentityProfile], target_cls: Any) -
 
 
 def default_analyzer_factory(private_id: Optional[IdentityProfile] = None,
-                             business_id: Optional[IdentityProfile] = None) -> AnalyzerFactory:
+                             business_id: Optional[IdentityProfile] = None,
+                             llm_url: Optional[str] = None) -> AnalyzerFactory:
     """
     Builds a factory for an in-process FluxSense Analyzer.
 
     Settings come from FluxSense's own configuration (TOML + environment).
-    KPaperFlux's identity profiles, when configured, replace the ones in the
-    FluxSense config: the application owns the user's identities.
+    KPaperFlux only overrides what the user explicitly set in KPaperFlux:
+    the identity profiles (the application owns the user's identities) and
+    the AI server URL. Empty values keep FluxSense's configuration.
 
     Args:
         private_id: Private identity profile.
         business_id: Business identity profile.
+        llm_url: AI server (OpenAI-compatible) base URL; empty keeps FluxSense's setting.
 
     Returns:
         Callable that creates the Analyzer.
@@ -159,6 +175,8 @@ def default_analyzer_factory(private_id: Optional[IdentityProfile] = None,
             settings.identity.private = _profile_to_fluxsense(private_id, FluxIdentity)
         if business_id:
             settings.identity.business = _profile_to_fluxsense(business_id, FluxIdentity)
+        if llm_url and llm_url.strip():
+            settings.llm.base_url = llm_url.strip()
         return Analyzer(settings)
 
     return create
@@ -240,7 +258,15 @@ class FluxSenseLibraryClient(FluxSenseClient):
             logger.info(f"[FluxSense] LLM backend unreachable: {e}")
             models, backend_ok = [], False
         return {"status": "ok" if backend_ok else "degraded", "version": __version__,
-                "llm_backend": backend_ok, "models": list(models)}
+                "llm_backend": backend_ok, "models": list(models), "server_url": self.server_url()}
+
+    def server_url(self) -> Optional[str]:
+        """The AI server FluxSense talks to (after KPaperFlux's override). See FluxSenseClient.server_url()."""
+        try:
+            return str(self._get_analyzer().settings.llm.base_url)
+        except FluxSenseError as e:
+            logger.info(f"[FluxSense] AI server URL unknown: {e}")
+            return None
 
     def complete_json(self, prompt: str, label: str) -> Optional[Any]:
         """Sends the prompt through FluxSense's LLM backend (primary model)."""
@@ -299,7 +325,7 @@ class FluxSenseRestClient(FluxSenseClient):
         except requests.exceptions.ReadTimeout as e:
             raise FluxSenseError(f"FluxSense timeout after {read_timeout:.0f}s at {url}", retryable=True) from e
         except requests.exceptions.ConnectionError as e:
-            raise FluxSenseError(f"FluxSense service unreachable at {url}: {e}", retryable=True) from e
+            raise FluxSenseError(f"FluxSense service unreachable at {url}: {e}", retryable=True, unreachable=True) from e
         except requests.exceptions.RequestException as e:
             raise FluxSenseError(f"FluxSense request to {url} failed: {e}") from e
         if resp.status_code != 200:
@@ -325,6 +351,10 @@ class FluxSenseRestClient(FluxSenseClient):
         """GET /v1/health. See FluxSenseClient.health()."""
         return self._request("GET", "/v1/health", HEALTH_TIMEOUT_S)
 
+    def server_url(self) -> Optional[str]:
+        """The FluxSense service URL. See FluxSenseClient.server_url()."""
+        return self.base_url
+
     def complete_json(self, prompt: str, label: str) -> Optional[Any]:
         """The REST API has no free-prompt endpoint."""
         raise FluxSenseError("The FluxSense REST API does not offer free prompts; use library mode")
@@ -345,7 +375,8 @@ def mode_supplies_page_texts(mode: str) -> bool:
 
 def create_fluxsense_client(mode: str, base_url: str, timeout_s: float,
                             private_id: Optional[IdentityProfile] = None,
-                            business_id: Optional[IdentityProfile] = None) -> FluxSenseClient:
+                            business_id: Optional[IdentityProfile] = None,
+                            llm_url: str = "") -> FluxSenseClient:
     """
     Creates the configured FluxSense client.
 
@@ -355,6 +386,7 @@ def create_fluxsense_client(mode: str, base_url: str, timeout_s: float,
         timeout_s: REST read timeout per analysis.
         private_id: Private identity (mode 'library').
         business_id: Business identity (mode 'library').
+        llm_url: AI server URL override (mode 'library'); empty keeps FluxSense's configuration.
 
     Returns:
         The client.
@@ -363,7 +395,7 @@ def create_fluxsense_client(mode: str, base_url: str, timeout_s: float,
         ValueError: If the mode is unknown.
     """
     if mode == FluxSenseLibraryClient.mode:
-        return FluxSenseLibraryClient(default_analyzer_factory(private_id, business_id))
+        return FluxSenseLibraryClient(default_analyzer_factory(private_id, business_id, llm_url))
     if mode == FluxSenseRestClient.mode:
         return FluxSenseRestClient(base_url, timeout_s)
     raise ValueError(f"Unknown FluxSense mode: {mode}")

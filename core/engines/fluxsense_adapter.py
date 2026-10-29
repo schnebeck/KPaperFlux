@@ -33,6 +33,9 @@ from core.models.virtual import SourceReference
 
 ENGINE_NAME: str = "fluxsense"
 RESULT_STATUS_ERROR: str = "ERROR"
+ERROR_AI_SERVER_UNREACHABLE: str = "AI_SERVER_UNREACHABLE"
+# FluxSense marks transport failures of an AI call with this prefix (CallRecord.error).
+_UNREACHABLE_PREFIX: str = "Backend unreachable"
 UNKNOWN: str = "UNKNOWN"
 
 # Bodies that KPaperFlux hydrates into typed models (see SemanticExtraction.parse_bodies).
@@ -295,13 +298,46 @@ def failure_causes(result: Dict[str, Any], limit: int = 3) -> List[str]:
     return causes[:limit]
 
 
-def engine_error_info(message: str, result: Optional[Dict[str, Any]] = None) -> EngineInfo:
+def backend_unreachable(result: Optional[Dict[str, Any]]) -> bool:
+    """
+    Tells whether a failed FluxSense run could not reach its AI server.
+
+    Args:
+        result: The FluxSense AnalysisResult (or None).
+
+    Returns:
+        True if any failed AI call reports an unreachable backend.
+    """
+    for call in (result or {}).get("ai_calls") or []:
+        if isinstance(call, dict) and not call.get("ok", False) and str(call.get("error") or "").startswith(_UNREACHABLE_PREFIX):
+            return True
+    return False
+
+
+def unreachable_message(server_url: Optional[str]) -> str:
+    """
+    Generic, user-facing text for an unreachable AI server (stored with the held document).
+
+    Args:
+        server_url: The server address, if known.
+
+    Returns:
+        The message.
+    """
+    where = server_url or "the configured address"
+    return f"AI server not reachable at {where}. Please check the AI server settings."
+
+
+def engine_error_info(message: str, result: Optional[Dict[str, Any]] = None, error_code: Optional[str] = None,
+                      server_url: Optional[str] = None) -> EngineInfo:
     """
     Builds the engine metadata of a failed run (document stays retryable).
 
     Args:
-        message: Error description.
+        message: Error description (first entry of errors).
         result: The FluxSense result, if one was returned.
+        error_code: Machine-readable reason (e.g. ERROR_AI_SERVER_UNREACHABLE).
+        server_url: The server the run depended on.
 
     Returns:
         EngineInfo with status ERROR.
@@ -320,6 +356,8 @@ def engine_error_info(message: str, result: Optional[Dict[str, Any]] = None) -> 
         prompt_version=result.get("prompt_version"),
         status=RESULT_STATUS_ERROR,
         errors=errors,
+        error_code=error_code,
+        server_url=server_url,
     )
 
 

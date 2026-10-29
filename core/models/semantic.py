@@ -282,6 +282,8 @@ class EngineInfo(BaseModel):
     tables: List[Dict[str, Any]] = Field(default_factory=list)
     timings: Dict[str, float] = Field(default_factory=dict)
     errors: List[str] = Field(default_factory=list)
+    error_code: Optional[str] = Field(None, description="Machine-readable failure reason, e.g. AI_SERVER_UNREACHABLE")
+    server_url: Optional[str] = Field(None, description="Server the failed run depended on (for user messages)")
     warnings: List[str] = Field(default_factory=list)
     unvalidated: Dict[str, Any] = Field(default_factory=dict, description="Engine output that failed model validation (kept verbatim)")
 

@@ -110,6 +110,10 @@ class SettingsDialog(QDialog):
         self.combo_engine_mode.currentIndexChanged.connect(self._toggle_engine_mode_ui)
         form.addRow(self.lbl_engine_mode, self.combo_engine_mode)
 
+        self.lbl_engine_llm_url = QLabel("")
+        self.edit_engine_llm_url = QLineEdit()
+        form.addRow(self.lbl_engine_llm_url, self.edit_engine_llm_url)
+
         self.lbl_engine_url = QLabel("")
         self.edit_engine_url = QLineEdit()
         self.edit_engine_url.setPlaceholderText(AppConfig.DEFAULT_FLUXSENSE_URL)
@@ -275,6 +279,7 @@ class SettingsDialog(QDialog):
         mode_idx = self.combo_engine_mode.findData(self.config.get_fluxsense_mode())
         self.combo_engine_mode.setCurrentIndex(max(0, mode_idx))
         self.edit_engine_url.setText(self.config.get_fluxsense_url())
+        self.edit_engine_llm_url.setText(self.config.get_fluxsense_llm_url())
         self.spin_engine_timeout.setValue(self.config.get_fluxsense_timeout())
         self._toggle_engine_mode_ui()
 
@@ -327,9 +332,10 @@ class SettingsDialog(QDialog):
         self.accept()
 
     def _store_engine_settings(self) -> None:
-        """Persists the FluxSense engine settings from the dialog."""
+        """Persists the FluxSense engine settings from the dialog (empty AI server URL = FluxSense's config)."""
         self.config.set_fluxsense_mode(self.combo_engine_mode.currentData() or AppConfig.DEFAULT_FLUXSENSE_MODE)
         self.config.set_fluxsense_url(self.edit_engine_url.text().strip() or AppConfig.DEFAULT_FLUXSENSE_URL)
+        self.config.set_fluxsense_llm_url(self.edit_engine_llm_url.text().strip())
         self.config.set_fluxsense_timeout(self.spin_engine_timeout.value())
 
     def _create_engine_client(self) -> FluxSenseClient:
@@ -338,23 +344,30 @@ class SettingsDialog(QDialog):
             self.combo_engine_mode.currentData() or AppConfig.DEFAULT_FLUXSENSE_MODE,
             self.edit_engine_url.text().strip() or AppConfig.DEFAULT_FLUXSENSE_URL,
             self.spin_engine_timeout.value(),
+            llm_url=self.edit_engine_llm_url.text().strip(),
         )
 
     def _toggle_engine_mode_ui(self) -> None:
-        """Shows the service URL only in REST mode."""
+        """Library mode: optional AI server URL; REST mode: the FluxSense service URL."""
         form = self.tabs.widget(0).layout()
         is_rest = self.combo_engine_mode.currentData() == AppConfig.FLUXSENSE_MODE_REST
         form.setRowVisible(self.edit_engine_url, is_rest)
+        form.setRowVisible(self.edit_engine_llm_url, not is_rest)
+
+    def _unreachable_text(self, url: Optional[str]) -> str:
+        """Generic message for an AI server that cannot be reached."""
+        return self.tr("AI server not reachable at %s. Please check the AI server settings.") % (url or self.tr("the configured address"))
 
     def _test_engine_connection(self) -> None:
-        """Checks FluxSense and its LLM backend (lists models, analyzes nothing)."""
+        """Checks FluxSense and its AI server (lists models, analyzes nothing)."""
+        client = self._create_engine_client()
         self.setCursor(Qt.CursorShape.WaitCursor)
         try:
-            health = self._create_engine_client().health()
+            health = client.health()
         except FluxSenseError as e:
             self.setCursor(Qt.CursorShape.ArrowCursor)
-            show_selectable_message_box(self, self.tr("Connection Failed"),
-                                        self.tr("FluxSense is not available:") + f"\n{e}", icon=QMessageBox.Icon.Critical)
+            text = self._unreachable_text(client.server_url()) if e.unreachable else self.tr("FluxSense is not available:") + f"\n{e}"
+            show_selectable_message_box(self, self.tr("Connection Failed"), text, icon=QMessageBox.Icon.Critical)
             return
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
@@ -363,10 +376,9 @@ class SettingsDialog(QDialog):
             show_selectable_message_box(self, self.tr("Success"),
                                         self.tr("FluxSense %s is ready.") % version, icon=QMessageBox.Icon.Information)
         else:
-            show_selectable_message_box(
-                self, self.tr("Connection Failed"),
-                self.tr("FluxSense %s is available, but its AI backend is not reachable. Documents stay on hold until it is back.") % version,
-                icon=QMessageBox.Icon.Warning)
+            show_selectable_message_box(self, self.tr("Connection Failed"),
+                                        self._unreachable_text(health.get("server_url") or client.server_url()),
+                                        icon=QMessageBox.Icon.Warning)
 
     def _analyze_signature(self, id_type: str) -> None:
         """
@@ -450,9 +462,12 @@ class SettingsDialog(QDialog):
         self.combo_engine_mode.setItemText(0, self.tr("Library (in-process)"))
         self.combo_engine_mode.setItemText(1, self.tr("REST service"))
         self.lbl_engine_url.setText(self.tr("FluxSense URL:"))
+        self.lbl_engine_llm_url.setText(self.tr("AI Server URL:"))
+        self.edit_engine_llm_url.setPlaceholderText(self.tr("Empty: use the FluxSense configuration"))
+        self.edit_engine_llm_url.setToolTip(self.tr("OpenAI-compatible endpoint of your AI server. Leave empty to keep the value from the FluxSense configuration."))
         self.lbl_engine_timeout.setText(self.tr("Analysis Timeout:"))
         self.spin_engine_timeout.setSuffix(f" {self.tr('s')}")
-        self.lbl_engine_note.setText(self.tr("AI backend and models are configured in FluxSense (~/.config/fluxsense/config.toml)."))
+        self.lbl_engine_note.setText(self.tr("Models and all further AI settings come from the FluxSense configuration (~/.config/fluxsense/config.toml)."))
         self.btn_test_engine.setText(self.tr("Test Connection"))
 
         # Identity Tab
