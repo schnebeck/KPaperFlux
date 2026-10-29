@@ -1,7 +1,12 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, ValidationError, field_validator
+from pydantic.json_schema import SkipJsonSchema
+
+from core.logger import get_logger
+
+logger = get_logger("models.semantic")
 
 class AddressInfo(BaseModel):
     """Standardized address and contact block."""
@@ -176,6 +181,131 @@ class VisualAuditResult(BaseModel):
     arbiter_decision: Optional[Dict[str, Any]] = Field(default_factory=dict)
     meta_mode: Optional[str] = None
 
+class StatementTransaction(BaseModel):
+    """One booking of a bank or credit card statement (produced by the FluxSense engine)."""
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+    booking_date: Optional[str] = None
+    value_date: Optional[str] = None
+    description: Optional[str] = None
+    counterparty: Optional[str] = None
+    counterparty_iban: Optional[str] = None
+    reference: Optional[str] = None
+    transaction_type: Optional[str] = None
+    amount: Optional[Decimal] = Field(None, description="Signed: negative = debit, positive = credit")
+    balance: Optional[Decimal] = None
+    currency: Optional[str] = None
+    source_page: Optional[int] = Field(None, description="1-based page of the analyzed PDF")
+
+
+class StatementBody(BaseModel):
+    """Bank / credit card statement: account, period, balances and bookings."""
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+    statement_type: Optional[str] = Field(None, description="BANK_ACCOUNT | CREDIT_CARD | SAVINGS | DEPOT")
+    account_holder: Optional[str] = None
+    bank_name: Optional[str] = None
+    iban: Optional[str] = None
+    bic: Optional[str] = None
+    account_number: Optional[str] = None
+    card_number_masked: Optional[str] = None
+    statement_number: Optional[str] = None
+    statement_date: Optional[str] = None
+    period_start: Optional[str] = None
+    period_end: Optional[str] = None
+    currency: str = "EUR"
+    opening_balance: Optional[Decimal] = None
+    closing_balance: Optional[Decimal] = None
+    total_debits: Optional[Decimal] = None
+    total_credits: Optional[Decimal] = None
+    debit_count: Optional[int] = None
+    credit_count: Optional[int] = None
+    credit_limit: Optional[Decimal] = None
+    minimum_payment: Optional[Decimal] = None
+    payment_due_date: Optional[str] = None
+    transactions: List[StatementTransaction] = Field(default_factory=list)
+
+    @field_validator("iban", "bic", mode="before")
+    @classmethod
+    def normalize_banking(cls, v: Any) -> Any:
+        """Removes whitespace from IBAN/BIC and uppercases them."""
+        if isinstance(v, str):
+            return "".join(v.split()).upper()
+        return v
+
+
+class FieldReviewState(BaseModel):
+    """
+    Review state of one extracted value as reported by an external analysis
+    engine. ``path`` is the dotted path of the value inside the semantic data
+    (e.g. ``bodies.finance_body.invoice_number``, ``meta_header.references.0.ref_value``).
+    """
+    model_config = ConfigDict(extra="ignore")
+    path: str
+    value: Optional[Any] = None
+    kind: Optional[str] = Field(None, description="amount | date | iban | identifier | text | integer | code")
+    page: Optional[int] = Field(None, description="1-based page within this document where the value was found")
+    bbox: Optional[List[float]] = Field(None, description="Box [x0, y0, x1, y1], 0-1000 normalized")
+    evidence: Optional[str] = Field(None, description="Verbatim snippet as printed")
+    critical: bool = False
+    status: Optional[str] = Field(None, description="Grounding status, e.g. grounded | ungrounded | verified_visual | removed")
+    action: Optional[str] = Field(None, description="kept | nulled | replaced | flagged | ...")
+    original_value: Optional[Any] = None
+    provenance: Optional[str] = Field(None, description="label | geometry | check | model")
+    auto_accepted: Optional[bool] = Field(None, description="True: accepted without review; False: needs review; None: not filled")
+    review_reasons: List[str] = Field(default_factory=list)
+
+    @property
+    def needs_review(self) -> bool:
+        """True if the engine explicitly flagged this value for human review."""
+        return self.auto_accepted is False
+
+
+class EngineInfo(BaseModel):
+    """
+    Provenance and review metadata of an extraction produced by an external
+    analysis engine (e.g. FluxSense). Stored in ``semantic_data.engine``.
+    """
+    model_config = ConfigDict(extra="ignore")
+    name: str
+    version: Optional[str] = None
+    schema_version: Optional[str] = None
+    prompt_version: Optional[str] = None
+    status: str = Field("OK", description="OK | PARTIAL | ERROR (engine run status)")
+    analyzed_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+    subtype: Optional[str] = None
+    classification_confidence: Optional[float] = None
+    model_confidence: Optional[float] = Field(None, description="The model's self-assessed extraction confidence")
+    analyzed_pages: List[int] = Field(default_factory=list, description="Pages of the analyzed PDF that form this document")
+    fields: List[FieldReviewState] = Field(default_factory=list)
+    plausibility: Dict[str, Any] = Field(default_factory=dict)
+    review: Optional[Dict[str, Any]] = None
+    trust: Dict[str, Any] = Field(default_factory=dict)
+    zugferd_comparison: Optional[Dict[str, Any]] = None
+    tables: List[Dict[str, Any]] = Field(default_factory=list)
+    timings: Dict[str, float] = Field(default_factory=dict)
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    unvalidated: Dict[str, Any] = Field(default_factory=dict, description="Engine output that failed model validation (kept verbatim)")
+
+    def field_state(self, path: str) -> Optional[FieldReviewState]:
+        """
+        Returns the review state of one value.
+
+        Args:
+            path: Dotted path inside the semantic data.
+
+        Returns:
+            The FieldReviewState, or None if the engine reported nothing for it.
+        """
+        for state in self.fields:
+            if state.path == path:
+                return state
+        return None
+
+    def fields_needing_review(self) -> List["FieldReviewState"]:
+        """Returns all values the engine flagged for human review."""
+        return [state for state in self.fields if state.needs_review]
+
+
 class SemanticExtraction(BaseModel):
     """The central extraction model. Strict but informative."""
     model_config = ConfigDict(populate_by_name=True, extra="ignore", validate_assignment=True)
@@ -189,6 +319,23 @@ class SemanticExtraction(BaseModel):
     ai_confidence: float = Field(1.0, description="Confidence score for the overall extraction (0.0 - 1.0)")
     extraction_source: Optional[str] = Field(None, description="Data source: 'AI', 'ZUGFERD_NATIVE', or None")
     visual_audit: Optional[VisualAuditResult] = None
+    # Engine metadata is application state, not part of the extraction schema shown to the LLM.
+    engine: SkipJsonSchema[Optional[EngineInfo]] = None
+
+    @field_validator("engine", mode="before")
+    @classmethod
+    def tolerant_engine(cls, v: Any) -> Any:
+        """Drops malformed engine metadata instead of failing the whole extraction."""
+        if v is None or isinstance(v, EngineInfo):
+            return v
+        if isinstance(v, dict):
+            try:
+                return EngineInfo.model_validate(v)
+            except ValidationError as e:
+                logger.warning(f"Ignoring malformed engine metadata: {e.error_count()} validation errors")
+                return None
+        logger.warning(f"Ignoring engine metadata of type {type(v).__name__}")
+        return None
 
     @field_validator("bodies", mode="after")
     @classmethod
@@ -196,7 +343,8 @@ class SemanticExtraction(BaseModel):
         mapping = {
             "finance_body": FinanceBody, 
             "legal_body": LegalBody,
-            "subscription_info": SubscriptionInfo
+            "subscription_info": SubscriptionInfo,
+            "statement_body": StatementBody,
         }
         parsed = {}
         for key, value in v.items():
