@@ -2,10 +2,10 @@ PyQt6
 pytest
 pytest-qt
 pydantic
-google-genai
+requests
 ocrmypdf>=14.0.0
-python-dotenv
 pikepdf
+PyMuPDF
 pdf2image
 Pillow
 reportlab
@@ -13,3 +13,4 @@ python-sane
 qrcode[pil]
 opencv-python-headless
 numpy
+# Analysis engine (not on PyPI): pip install -e ../FluxSense

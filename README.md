@@ -9,7 +9,7 @@
     <img src="https://img.shields.io/badge/Status-Active_Development-green" alt="Status">
     <img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python">
     <img src="https://img.shields.io/badge/UI-PyQt6-blue" alt="UI">
-    <img src="https://img.shields.io/badge/AI-Gemini_Flash_/_Pro-red" alt="AI">
+    <img src="https://img.shields.io/badge/AI-FluxSense_(local)-red" alt="AI">
   </p>
 </div>
 
@@ -24,7 +24,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 
 *   **Forensic Separation:** Specialized engines extract "noise" (stamps, signatures, handwriting) for separate analysis, ensuring the integrity of the core transactional data.
 *   **Multi-Type-Tag Architecture:** Documents are managed using a polymorphic tagging system. For documents identified with a `Finance` tag, KPaperFlux enforces strict EN 16931 (ZUGFeRD) data management for high-fidelity accounting and analytics.
-*   **Data Control & AI Choice:** Physical document storage and vault management are strictly local. Users can opt for high-performance semantic analysis via Google Gemini, accepting the trade-offs of cloud-based processing, or rely on local-only extraction for maximum privacy (foregoing advanced AI insights).
+*   **Data Control & AI Choice:** Physical document storage and vault management are strictly local. Semantic analysis runs through the FluxSense engine on a self-hosted, OpenAI-compatible AI backend, so documents never leave your infrastructure.
 *   **Automated Validation:** Integrated logic engines perform cross-checks on financial totals and tax rates, prioritizing consistency and factual accuracy.
 
 ---
@@ -50,10 +50,10 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 ## Technical Highlights
 
 ### Semantic Analysis Pipeline
-*   **Multi-Stage Extraction:** Uses an adaptive pipeline (Stage 1 to 2) to classify documents and extract structured JSON compliant with **EN 16931 (ZUGFeRD 2.2)**.
+*   **Holistic Extraction:** The FluxSense engine segments stacks, classifies documents and extracts structured JSON compliant with **EN 16931 (ZUGFeRD 2.2)**, with per-field provenance and review flags.
 *   **Visual Auditor (X-Ray):** Separates visual artifacts (accounting stamps, handwritten "Paid" notes, signatures) from the background text for independent analysis.
 *   **Mathematical Integrity:** Automated cross-checking of net/tax/gross totals to ensure 100% calculation consistency.
-*   **Confidence Scoring:** AI self-assessment scores are captured and persisted for every extraction pass to ensure data reliability.
+*   **Confidence Scoring:** Grounding-based trust scores and per-field review states are persisted for every extraction to ensure data reliability.
 
 ### Document Management (DMS) Evolution
 *   **Physical Tracking:** Integrated `Storage Location` field for bridging the gap between digital vault and physical shelf (e.g., "Box A / Folder 5").
@@ -97,8 +97,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 2.  **Env:** `python3 -m venv venv && source venv/bin/activate`
 3.  **Install:** `pip install -r requirements.txt`
 4.  **Hardware:** `sudo apt install sane-airscan` (Recommended for network scanners).
-5.  **API Key:** Enter your Google Gemini API Key in the **Settings Dialog** within the app.
-6.  **AI Selection:** Dynamically choose between **Gemini Flash** (fast/cheap) and **Gemini Pro** (high-reasoning) directly in the configuration menu.
+5.  **Analysis Engine:** `pip install -e ../FluxSense` (library mode) or run `fluxsense serve` and select REST mode in the **Settings Dialog**. The AI backend is configured in FluxSense (`~/.config/fluxsense/config.toml`).
 
 ---
 
