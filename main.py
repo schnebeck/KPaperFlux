@@ -14,7 +14,6 @@ Description:    Application entry point. Initializes the Qt environment,
 import sys
 import os
 import argparse
-import threading
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QTranslator, QCoreApplication
@@ -107,21 +106,6 @@ def main() -> None:
 
     # 2. Initialize Logic
     pipeline = PipelineProcessor(vault=vault, db=db)
-
-    # Background fetch Gemini models to populate cache for Settings
-    def _bg_fetch_models() -> None:
-        try:
-            api_key = app_config.get_api_key()
-            if api_key:
-                from core.ai.gemini_provider import GeminiProvider
-                models = GeminiProvider(api_key, app_config.get_gemini_model()).list_models()
-                if models:
-                    AppConfig.set_cached_models(models)
-                    logger.info(f"[AI] Domain-Discovery: {len(models)} Gemini models available.")
-        except Exception as e:
-            logger.warning(f"Background model discovery failed: {e}")
-
-    threading.Thread(target=_bg_fetch_models, daemon=True).start()
 
     # 3. Initialize GUI (Passing profile for UI feedback)
     window = MainWindow(pipeline=pipeline, db_manager=db, app_config=app_config)

@@ -23,7 +23,7 @@ import requests
 from core.logger import get_logger
 from core.models.identity import IdentityProfile
 
-logger = get_logger("engines.fluxsense")
+logger = get_logger("ai.fluxsense")
 
 CONNECT_TIMEOUT_S: float = 10.0
 HEALTH_TIMEOUT_S: float = 15.0

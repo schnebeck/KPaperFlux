@@ -17,12 +17,8 @@ def db_manager():
 def main_window(db_manager, qapp):
     # Mock pipeline for MainWindow
     pipeline = MagicMock()
-    # Mock Canonizer -> AIAnalyzer chain
-    # The error comes from MainWindow -> MainLoopWorker -> Canonizer -> AIAnalyzer -> GenAI.Client
-    # We need to mock MainLoopWorker or Canonizer inside MainWindow
-    
-    with patch('gui.main_window.MainLoopWorker') as MockWorker, \
-         patch('core.ai_analyzer.AIAnalyzer') as MockAI:
+    # Mock the background worker (it would start the analysis loop)
+    with patch('gui.main_window.MainLoopWorker') as MockWorker:
          
          mw = MainWindow(pipeline=pipeline, db_manager=db_manager)
          

@@ -21,6 +21,7 @@ def test_requirements_available():
         "pytest-qt": "pytestqt",
         "pydantic": "pydantic",
         "google-genai": "google.genai",
+        "requests": "requests",
         "ocrmypdf": "ocrmypdf",
         "python-dotenv": "dotenv",
         "pikepdf": "pikepdf",

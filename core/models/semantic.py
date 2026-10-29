@@ -2,7 +2,6 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict, ValidationError, field_validator
-from pydantic.json_schema import SkipJsonSchema
 
 from core.logger import get_logger
 
@@ -319,8 +318,7 @@ class SemanticExtraction(BaseModel):
     ai_confidence: float = Field(1.0, description="Confidence score for the overall extraction (0.0 - 1.0)")
     extraction_source: Optional[str] = Field(None, description="Data source: 'AI', 'ZUGFERD_NATIVE', or None")
     visual_audit: Optional[VisualAuditResult] = None
-    # Engine metadata is application state, not part of the extraction schema shown to the LLM.
-    engine: SkipJsonSchema[Optional[EngineInfo]] = None
+    engine: Optional[EngineInfo] = Field(None, description="Analysis engine provenance and per-field review state")
 
     @field_validator("engine", mode="before")
     @classmethod

@@ -12,7 +12,6 @@ Description:    Manages application configuration using QSettings. Standardizes
 """
 
 import json
-import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -30,35 +29,11 @@ class AppConfig:
     # Keys (Simple names now, groups handled in methods)
     KEY_VAULT_PATH: str = "vault_path"
     KEY_OCR_BINARY: str = "binary_path"
-    KEY_GEMINI_MODEL: str = "gemini_model"
     KEY_LANGUAGE: str = "language"
-    KEY_API_KEY: str = "api_key"
-    KEY_API_VERIFIED: str = "api_verified"
-    KEY_AI_RETRIES: str = "ai_retries"
     KEY_TRANSFER_PATH: str = "transfer_path"
-    KEY_AI_PROVIDER: str = "ai_provider" # "gemini" | "ollama" | "llamacpp" | "openai" | "anthropic"
-    KEY_OLLAMA_URL: str = "ollama_url"
-    KEY_OLLAMA_MODEL: str = "ollama_model"
-    KEY_OPENAI_KEY: str = "openai_key"
-    KEY_OPENAI_MODEL: str = "openai_model"
-    KEY_ANTHROPIC_KEY: str = "anthropic_key"
-    KEY_ANTHROPIC_MODEL: str = "anthropic_model"
     KEY_LOG_LEVEL: str = "log_level"
     KEY_LOG_COMPONENTS: str = "log_components"
     KEY_PDF_PAGE_SIZE: str = "pdf_page_size"
-    KEY_OLLAMA_NUM_CTX: str = "ollama_num_ctx"
-    KEY_OLLAMA_NUM_PREDICT: str = "ollama_num_predict"
-    KEY_OLLAMA_TIMEOUT: str = "ollama_timeout"
-    KEY_OLLAMA_KEEP_ALIVE: str = "ollama_keep_alive"
-    KEY_OLLAMA_MAX_IMAGE_PX: str = "ollama_max_image_px"
-    KEY_LLAMACPP_URL: str = "llamacpp_url"
-    KEY_LLAMACPP_MODEL: str = "llamacpp_model"
-    KEY_LLAMACPP_API_KEY: str = "llamacpp_api_key"
-    KEY_LLAMACPP_VISION: str = "llamacpp_vision"
-    KEY_LLAMACPP_TIMEOUT: str = "llamacpp_timeout"
-    KEY_LLAMACPP_FIRST_TIMEOUT: str = "llamacpp_first_request_timeout"
-    KEY_LLAMACPP_MAX_TOKENS: str = "llamacpp_max_tokens"
-    KEY_LLAMACPP_MAX_IMAGE_PX: str = "llamacpp_max_image_px"
     KEY_OCR_ENGINE: str = "ocr_engine"
     KEY_DOCLING_URL: str = "docling_url"
     KEY_DOCLING_PIPELINE: str = "docling_pipeline"
@@ -69,18 +44,6 @@ class AppConfig:
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
-    DEFAULT_MODEL: str = "gemini-2.5-flash"
-    DEFAULT_AI_RETRIES: int = 3
-    DEFAULT_OLLAMA_NUM_CTX: int = 32768
-    DEFAULT_OLLAMA_NUM_PREDICT: int = 8192
-    DEFAULT_OLLAMA_TIMEOUT: int = 600
-    DEFAULT_OLLAMA_KEEP_ALIVE: str = "30m"
-    DEFAULT_MAX_IMAGE_PX: int = 1600
-    DEFAULT_LLAMACPP_URL: str = "http://localhost:8090"
-    DEFAULT_LLAMACPP_MODEL: str = "qwen3.6-35b-a3b"
-    DEFAULT_LLAMACPP_TIMEOUT: int = 600
-    DEFAULT_LLAMACPP_FIRST_TIMEOUT: int = 1800
-    DEFAULT_LLAMACPP_MAX_TOKENS: int = 8192
     OCR_ENGINES: tuple = ("ocrmypdf", "docling")
     DOCLING_PIPELINES: tuple = ("standard", "vlm")
     DEFAULT_OCR_ENGINE: str = "ocrmypdf"
@@ -96,17 +59,6 @@ class AppConfig:
 
     APP_ID: str = "kpaperflux"
     _active_profile: Optional[str] = None
-    _cached_models: list[str] = []
-
-    @classmethod
-    def get_cached_models(cls) -> list[str]:
-        """Returns the cached list of available AI models."""
-        return cls._cached_models
-
-    @classmethod
-    def set_cached_models(cls, models: list[str]) -> None:
-        """Stores the discovered AI model list in the class-level cache."""
-        cls._cached_models = list(models)
 
     def __init__(self, profile: Optional[str] = None) -> None:
         """
@@ -130,9 +82,6 @@ class AppConfig:
             
         self.settings = QSettings(self.active_id, self.active_id)
         get_logger("core").debug(f"[Config] Initialized settings from: {self.settings.fileName()} (Profile: {self.profile or 'default'})")
-        
-        # Run migrations
-        self.migrate_config()
 
     def get_config_dir(self) -> Path:
         """
@@ -206,23 +155,6 @@ class AppConfig:
             get_logger("core.config").warning(f"[Config] Invalid integer for {group}/{key}: {raw!r}. Using {default}.")
             return default
 
-    def _get_bool(self, group: str, key: str, default: bool) -> bool:
-        """
-        Retrieves a boolean setting (QSettings INI stores booleans as strings).
-
-        Args:
-            group: Settings group.
-            key: Settings key.
-            default: Fallback value.
-
-        Returns:
-            The boolean value.
-        """
-        raw = self._get_setting(group, key, default)
-        if isinstance(raw, bool):
-            return raw
-        return str(raw).strip().lower() in ("1", "true", "yes", "on")
-
     def get_vault_path(self) -> str:
         """
         Retrieves the path to the document vault.
@@ -260,46 +192,6 @@ class AppConfig:
         """
         self._set_setting("OCR", self.KEY_OCR_BINARY, path)
 
-    def get_gemini_model(self) -> str:
-        """
-        Retrieves the configured Gemini AI model name.
-
-        Returns:
-            The model name string.
-        """
-        return str(self._get_setting("AI", self.KEY_GEMINI_MODEL, self.DEFAULT_MODEL))
-
-    def set_gemini_model(self, model: str) -> None:
-        """
-        Saves the Gemini AI model name.
-        Also handles basic validation to prevent empty strings.
-
-        Args:
-            model: The model name string.
-        """
-        if not model or str(model).strip() == "":
-             model = self.DEFAULT_MODEL
-        self._set_setting("AI", self.KEY_GEMINI_MODEL, model)
-
-    def migrate_config(self) -> None:
-        """
-        Handles automatic migration of configuration values across versions.
-        For example, upgrades legacy AI models to current defaults.
-        """
-        logger = get_logger("core.config")
-        
-        # 1. AI Model Migration (Upgrade < 2.5 to 2.5-flash)
-        current_model = self.get_gemini_model()
-        legacy_models = [
-            "gemini-1.5-flash", "gemini-1.5-pro", 
-            "gemini-2.0-flash", "gemini-2.0-pro-experimental",
-            "gemini-exp-1206", "gemini-exp-1114"
-        ]
-        
-        if any(legacy in current_model.lower() for legacy in legacy_models):
-            logger.info(f"Migrating legacy AI model '{current_model}' to current default '{self.DEFAULT_MODEL}'")
-            self.set_gemini_model(self.DEFAULT_MODEL)
-
     def get_language(self) -> str:
         """
         Retrieves the configured application language.
@@ -317,29 +209,6 @@ class AppConfig:
             lang: The ISO language code string.
         """
         self._set_setting("", self.KEY_LANGUAGE, lang)
-
-    def get_api_key(self) -> str:
-        """
-        Retrieves the Gemini API key, falling back to environment variables.
-
-        Returns:
-            The API key string.
-        """
-        env_key = os.environ.get("GEMINI_API_KEY", "")
-        val = self._get_setting("AI", self.KEY_API_KEY)
-
-        if val is None or str(val).strip() == "":
-            return env_key
-        return str(val)
-
-    def set_api_key(self, key: str) -> None:
-        """
-        Saves the Gemini API key.
-
-        Args:
-            key: The API key string.
-        """
-        self._set_setting("AI", self.KEY_API_KEY, key)
 
     def get_private_signature(self) -> str:
         """
@@ -413,24 +282,6 @@ class AppConfig:
         """
         self._set_setting("Identity", "business_profile", json_str)
 
-    def get_ai_retries(self) -> int:
-        """
-        Retrieves the max number of AI validation correction loops.
-
-        Returns:
-            The number of retries.
-        """
-        return int(self._get_setting("AI", self.KEY_AI_RETRIES, self.DEFAULT_AI_RETRIES))
-
-    def set_ai_retries(self, retries: int) -> None:
-        """
-        Saves the max number of AI validation correction loops.
-
-        Args:
-            retries: The number of retries.
-        """
-        self._set_setting("AI", self.KEY_AI_RETRIES, retries)
-
     def get_transfer_path(self) -> str:
         """
         Retrieves the path to the transfer folder.
@@ -448,172 +299,6 @@ class AppConfig:
             path: The transfer path string.
         """
         self._set_setting("Storage", self.KEY_TRANSFER_PATH, path)
-
-    def get_ai_provider(self) -> str:
-        """Retrieves the active AI provider ('gemini', 'ollama', 'llamacpp', 'openai', 'anthropic')."""
-        return str(self._get_setting("AI", self.KEY_AI_PROVIDER, "gemini"))
-
-    def set_ai_provider(self, provider: str) -> None:
-        """Saves the active AI provider."""
-        self._set_setting("AI", self.KEY_AI_PROVIDER, provider)
-
-    def get_ollama_url(self) -> str:
-        """Retrieves the Ollama API URL."""
-        return str(self._get_setting("AI", self.KEY_OLLAMA_URL, "http://localhost:11434"))
-
-    def set_ollama_url(self, url: str) -> None:
-        """Saves the Ollama API URL."""
-        self._set_setting("AI", self.KEY_OLLAMA_URL, url)
-
-    def get_ollama_model(self) -> str:
-        """Retrieves the Ollama model name."""
-        return str(self._get_setting("AI", self.KEY_OLLAMA_MODEL, "llama3"))
-
-    def set_ollama_model(self, model: str) -> None:
-        """Saves the Ollama model name."""
-        self._set_setting("AI", self.KEY_OLLAMA_MODEL, model)
-
-    def get_openai_key(self) -> str:
-        """Retrieves the OpenAI API key."""
-        return str(self._get_setting("AI", self.KEY_OPENAI_KEY, ""))
-
-    def set_openai_key(self, key: str) -> None:
-        """Saves the OpenAI API key."""
-        self._set_setting("AI", self.KEY_OPENAI_KEY, key)
-
-    def get_openai_model(self) -> str:
-        """Retrieves the OpenAI model name."""
-        return str(self._get_setting("AI", self.KEY_OPENAI_MODEL, "gpt-4o"))
-
-    def set_openai_model(self, model: str) -> None:
-        """Saves the OpenAI model name."""
-        self._set_setting("AI", self.KEY_OPENAI_MODEL, model)
-
-    def get_anthropic_key(self) -> str:
-        """Retrieves the Anthropic API key."""
-        return str(self._get_setting("AI", self.KEY_ANTHROPIC_KEY, ""))
-
-    def set_anthropic_key(self, key: str) -> None:
-        """Saves the Anthropic API key."""
-        self._set_setting("AI", self.KEY_ANTHROPIC_KEY, key)
-
-    def get_anthropic_model(self) -> str:
-        """Retrieves the Anthropic model name."""
-        return str(self._get_setting("AI", self.KEY_ANTHROPIC_MODEL, "claude-sonnet-4-6"))
-
-    def set_anthropic_model(self, model: str) -> None:
-        """Saves the Anthropic model name."""
-        self._set_setting("AI", self.KEY_ANTHROPIC_MODEL, model)
-
-    def get_ollama_num_ctx(self) -> int:
-        """Retrieves the Ollama context window size (options.num_ctx)."""
-        return self._get_int("AI", self.KEY_OLLAMA_NUM_CTX, self.DEFAULT_OLLAMA_NUM_CTX)
-
-    def set_ollama_num_ctx(self, value: int) -> None:
-        """Saves the Ollama context window size."""
-        self._set_setting("AI", self.KEY_OLLAMA_NUM_CTX, int(value))
-
-    def get_ollama_num_predict(self) -> int:
-        """Retrieves the Ollama max output tokens (options.num_predict)."""
-        return self._get_int("AI", self.KEY_OLLAMA_NUM_PREDICT, self.DEFAULT_OLLAMA_NUM_PREDICT)
-
-    def set_ollama_num_predict(self, value: int) -> None:
-        """Saves the Ollama max output tokens."""
-        self._set_setting("AI", self.KEY_OLLAMA_NUM_PREDICT, int(value))
-
-    def get_ollama_timeout(self) -> int:
-        """Retrieves the Ollama request timeout in seconds."""
-        return self._get_int("AI", self.KEY_OLLAMA_TIMEOUT, self.DEFAULT_OLLAMA_TIMEOUT)
-
-    def set_ollama_timeout(self, seconds: int) -> None:
-        """Saves the Ollama request timeout in seconds."""
-        self._set_setting("AI", self.KEY_OLLAMA_TIMEOUT, int(seconds))
-
-    def get_ollama_keep_alive(self) -> str:
-        """Retrieves the Ollama keep_alive duration (e.g. '30m')."""
-        return str(self._get_setting("AI", self.KEY_OLLAMA_KEEP_ALIVE, self.DEFAULT_OLLAMA_KEEP_ALIVE))
-
-    def set_ollama_keep_alive(self, value: str) -> None:
-        """Saves the Ollama keep_alive duration."""
-        self._set_setting("AI", self.KEY_OLLAMA_KEEP_ALIVE, value)
-
-    def get_ollama_max_image_px(self) -> int:
-        """Retrieves the maximum long-side pixel size of images sent to Ollama."""
-        return self._get_int("AI", self.KEY_OLLAMA_MAX_IMAGE_PX, self.DEFAULT_MAX_IMAGE_PX)
-
-    def set_ollama_max_image_px(self, value: int) -> None:
-        """Saves the maximum long-side pixel size of images sent to Ollama."""
-        self._set_setting("AI", self.KEY_OLLAMA_MAX_IMAGE_PX, int(value))
-
-    def get_llamacpp_url(self) -> str:
-        """Retrieves the base URL of the OpenAI-compatible llama.cpp / llama-swap server."""
-        return str(self._get_setting("AI", self.KEY_LLAMACPP_URL, self.DEFAULT_LLAMACPP_URL))
-
-    def set_llamacpp_url(self, url: str) -> None:
-        """Saves the llama.cpp server base URL."""
-        self._set_setting("AI", self.KEY_LLAMACPP_URL, url)
-
-    def get_llamacpp_model(self) -> str:
-        """Retrieves the llama.cpp model id."""
-        return str(self._get_setting("AI", self.KEY_LLAMACPP_MODEL, self.DEFAULT_LLAMACPP_MODEL))
-
-    def set_llamacpp_model(self, model: str) -> None:
-        """Saves the llama.cpp model id."""
-        self._set_setting("AI", self.KEY_LLAMACPP_MODEL, model)
-
-    def get_llamacpp_api_key(self) -> str:
-        """
-        Retrieves the optional llama.cpp bearer token, falling back to the
-        LLAMACPP_API_KEY environment variable.
-        """
-        val = self._get_setting("AI", self.KEY_LLAMACPP_API_KEY, "")
-        if val is None or str(val).strip() == "":
-            return os.environ.get("LLAMACPP_API_KEY", "")
-        return str(val)
-
-    def set_llamacpp_api_key(self, key: str) -> None:
-        """Saves the llama.cpp bearer token."""
-        self._set_setting("AI", self.KEY_LLAMACPP_API_KEY, key)
-
-    def get_llamacpp_vision(self) -> bool:
-        """Retrieves whether the llama.cpp model accepts images (False = text-only)."""
-        return self._get_bool("AI", self.KEY_LLAMACPP_VISION, True)
-
-    def set_llamacpp_vision(self, enabled: bool) -> None:
-        """Saves whether the llama.cpp model accepts images."""
-        self._set_setting("AI", self.KEY_LLAMACPP_VISION, bool(enabled))
-
-    def get_llamacpp_timeout(self) -> int:
-        """Retrieves the llama.cpp request timeout in seconds."""
-        return self._get_int("AI", self.KEY_LLAMACPP_TIMEOUT, self.DEFAULT_LLAMACPP_TIMEOUT)
-
-    def set_llamacpp_timeout(self, seconds: int) -> None:
-        """Saves the llama.cpp request timeout in seconds."""
-        self._set_setting("AI", self.KEY_LLAMACPP_TIMEOUT, int(seconds))
-
-    def get_llamacpp_first_request_timeout(self) -> int:
-        """Retrieves the timeout for the first request per model (llama-swap model load)."""
-        return self._get_int("AI", self.KEY_LLAMACPP_FIRST_TIMEOUT, self.DEFAULT_LLAMACPP_FIRST_TIMEOUT)
-
-    def set_llamacpp_first_request_timeout(self, seconds: int) -> None:
-        """Saves the timeout for the first request per model."""
-        self._set_setting("AI", self.KEY_LLAMACPP_FIRST_TIMEOUT, int(seconds))
-
-    def get_llamacpp_max_tokens(self) -> int:
-        """Retrieves the llama.cpp max output tokens."""
-        return self._get_int("AI", self.KEY_LLAMACPP_MAX_TOKENS, self.DEFAULT_LLAMACPP_MAX_TOKENS)
-
-    def set_llamacpp_max_tokens(self, value: int) -> None:
-        """Saves the llama.cpp max output tokens."""
-        self._set_setting("AI", self.KEY_LLAMACPP_MAX_TOKENS, int(value))
-
-    def get_llamacpp_max_image_px(self) -> int:
-        """Retrieves the maximum long-side pixel size of images sent to llama.cpp."""
-        return self._get_int("AI", self.KEY_LLAMACPP_MAX_IMAGE_PX, self.DEFAULT_MAX_IMAGE_PX)
-
-    def set_llamacpp_max_image_px(self, value: int) -> None:
-        """Saves the maximum long-side pixel size of images sent to llama.cpp."""
-        self._set_setting("AI", self.KEY_LLAMACPP_MAX_IMAGE_PX, int(value))
 
     def get_ocr_engine(self) -> str:
         """Retrieves the text extraction engine ('ocrmypdf' or 'docling')."""

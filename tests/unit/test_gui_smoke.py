@@ -12,11 +12,7 @@ def qapp():
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
-    
-    # Patch Gemini/AI at the start of the session to avoid API key errors
-    # during widget instantiation in smoke tests.
-    with patch("google.genai.Client"):
-        yield app
+    yield app
 
 def test_workflow_manager_instantiation(qapp):
     """Smoke test to ensure the widget can be created without NameErrors/AttributeErrors."""

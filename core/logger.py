@@ -85,23 +85,6 @@ def set_component_level(component: str, level: str) -> None:
         # Ensure the logger doesn't just inherit from root if we want it to be more verbose
         logger.propagate = True 
 
-def log_ai_interaction(prompt: str, response: str, payload: Optional[dict] = None) -> None:
-    """
-    Specialized helper for high-fidelity AI debugging.
-    Logged at DEBUG level on 'kpaperflux.ai.raw'.
-    """
-    logger = get_logger("ai.raw")
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug("=== AI PROMPT START ===")
-        logger.debug(prompt)
-        logger.debug("=== AI RESPONSE START ===")
-        logger.debug(response)
-        if payload:
-            import json
-            logger.debug("=== AI PAYLOAD (EXTRACTED) ===")
-            logger.debug(json.dumps(payload, indent=2))
-        logger.debug("=== AI INTERACTION END ===")
-
 def log_sql_query(query: str, params: Optional[tuple] = None, result_count: int = 0) -> None:
     """
     Specialized helper for database debugging.
