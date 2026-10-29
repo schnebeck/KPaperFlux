@@ -1,0 +1,986 @@
+{
+ "fluxsense_version": "0.1.0",
+ "schema_version": "1.0",
+ "prompt_version": "test-prompts-1",
+ "status": "OK",
+ "verification_pending": false,
+ "source": {
+  "path": "synthetic_stack.pdf",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "size_bytes": 123456,
+  "page_count": 5
+ },
+ "text_layer": {
+  "engine": "native",
+  "has_text_layer": true,
+  "ocr_applied": false,
+  "chars_per_page": [
+   1800,
+   1500,
+   2100,
+   1900,
+   900
+  ],
+  "tables_detected": 2,
+  "sources": [
+   "native"
+  ],
+  "warnings": []
+ },
+ "preflight": {},
+ "classification": {
+  "source": "AI",
+  "strategy": "signatures",
+  "language": "de"
+ },
+ "zugferd": null,
+ "logical_documents": [
+  {
+   "index": 0,
+   "type": "INVOICE",
+   "subtype": "INVOICE",
+   "type_tags": [
+    "INVOICE"
+   ],
+   "pages": [
+    1,
+    2
+   ],
+   "direction": "INBOUND",
+   "tenant_context": "PRIVATE",
+   "confidence": 0.97,
+   "fields": {
+    "meta_header": {
+     "sender": {
+      "company": "Muster Elektro GmbH",
+      "street": "Beispielstraße",
+      "house_number": "12",
+      "zip_code": "10115",
+      "city": "Berlin",
+      "country": "DE",
+      "phone": "+49 30 1234567",
+      "email": "rechnung@muster-elektro.example",
+      "iban": "DE89370400440532013000",
+      "bic": "COBADEFFXXX",
+      "bank_name": "Commerzbank",
+      "vat_id": "DE123456789"
+     },
+     "recipient": {
+      "name": "Erika Mustermann",
+      "street": "Heidestraße",
+      "house_number": "17",
+      "zip_code": "51147",
+      "city": "Köln",
+      "country": "DE"
+     },
+     "doc_date": "2026-03-14",
+     "doc_number": "RE-2026-0042",
+     "language": "de",
+     "references": [
+      {
+       "ref_type": "CUSTOMER_ID",
+       "ref_value": "KD-4711"
+      },
+      {
+       "ref_type": "ORDER_NUMBER",
+       "ref_value": "B-99812"
+      }
+     ]
+    },
+    "bodies": {
+     "finance_body": {
+      "invoice_number": "RE-2026-0042",
+      "invoice_date": "2026-03-14",
+      "due_date": "2026-03-28",
+      "currency": "EUR",
+      "payment_reference": "RE-2026-0042",
+      "order_number": "B-99812",
+      "service_date": "2026-03-10",
+      "customer_id": "KD-4711",
+      "payment_terms": "Zahlbar innerhalb von 14 Tagen ohne Abzug",
+      "payment_accounts": [
+       {
+        "company": "Muster Elektro GmbH",
+        "iban": "DE89370400440532013000",
+        "bic": "COBADEFFXXX",
+        "bank_name": "Commerzbank"
+       }
+      ],
+      "line_items": [
+       {
+        "pos": "1",
+        "description": "Installationsmaterial",
+        "quantity": "2",
+        "unit": "C62",
+        "unit_price": "50.00",
+        "total_price": "100.00",
+        "tax_rate": "19",
+        "source_page": 1
+       },
+       {
+        "pos": "2",
+        "description": "Arbeitszeit Elektriker",
+        "quantity": "3",
+        "unit": "HUR",
+        "unit_price": "66.67",
+        "total_price": "200.00",
+        "tax_rate": "19",
+        "source_page": 2
+       }
+      ],
+      "monetary_summation": {
+       "line_total_amount": "300.00",
+       "tax_basis_total_amount": "300.00",
+       "tax_total_amount": "57.00",
+       "grand_total_amount": "357.00",
+       "due_payable_amount": "357.00"
+      },
+      "tax_breakdown": [
+       {
+        "tax_basis_amount": "300.00",
+        "tax_amount": "57.00",
+        "tax_rate": "19",
+        "tax_category": "S"
+       }
+      ]
+     }
+    },
+    "type_tags": [
+     "INVOICE"
+    ],
+    "direction": "INBOUND",
+    "tenant_context": "PRIVATE",
+    "ai_confidence": 0.93,
+    "extraction_source": "AI",
+    "visual_audit": {
+     "audit_summary": {
+      "was_stamp_interference": false,
+      "has_handwriting": false
+     },
+     "layer_stamps": [],
+     "signatures": {
+      "has_signature": false,
+      "count": 0,
+      "type": "NONE",
+      "details": ""
+     },
+     "integrity": {
+      "is_type_match": true,
+      "suggested_types": [
+       "INVOICE"
+      ]
+     },
+     "arbiter_decision": {
+      "primary_source_recommendation": "RAW_OCR"
+     },
+     "meta_mode": "NONE"
+    }
+   },
+   "tables": [
+    {
+     "name": "line_items",
+     "path": "bodies.finance_body.line_items",
+     "columns": [
+      "pos",
+      "description",
+      "quantity",
+      "unit",
+      "unit_price",
+      "total_price",
+      "tax_rate"
+     ],
+     "rows": [
+      {
+       "pos": "1",
+       "description": "Installationsmaterial",
+       "quantity": "2",
+       "unit": "C62",
+       "unit_price": "50.00",
+       "total_price": "100.00",
+       "tax_rate": "19",
+       "source_page": 1
+      },
+      {
+       "pos": "2",
+       "description": "Arbeitszeit Elektriker",
+       "quantity": "3",
+       "unit": "HUR",
+       "unit_price": "66.67",
+       "total_price": "200.00",
+       "tax_rate": "19",
+       "source_page": 2
+      }
+     ],
+     "source_pages": [
+      1,
+      2
+     ],
+     "strategy": "single_call"
+    }
+   ],
+   "plausibility": {
+    "status": "WARN",
+    "score": 0.9,
+    "checks": [
+     {
+      "check_id": "invoice.net_plus_tax",
+      "rule": "arithmetic",
+      "status": "PASS",
+      "severity": "INFO",
+      "message": "",
+      "field": "bodies.finance_body.monetary_summation.grand_total_amount",
+      "expected": null,
+      "actual": null,
+      "rows": [],
+      "pages": [
+       2
+      ],
+      "table": null,
+      "source": "deterministic"
+     },
+     {
+      "check_id": "grounding.ungrounded",
+      "rule": "grounding",
+      "status": "FAIL",
+      "severity": "WARNING",
+      "message": "value not found in the text layer",
+      "field": "meta_header.sender.phone",
+      "expected": null,
+      "actual": null,
+      "rows": [],
+      "pages": [
+       1
+      ],
+      "table": null,
+      "source": "deterministic"
+     }
+    ]
+   },
+   "corrections": [],
+   "review": null,
+   "visual_audit": {
+    "audit_summary": {
+     "was_stamp_interference": false,
+     "has_handwriting": false
+    },
+    "layer_stamps": [],
+    "integrity": {
+     "is_type_match": true,
+     "suggested_types": [
+      "INVOICE"
+     ]
+    },
+    "arbiter_decision": {
+     "primary_source_recommendation": "RAW_OCR"
+    },
+    "meta_mode": "NONE",
+    "signatures": {
+     "has_signature": false,
+     "count": 0,
+     "type": "NONE",
+     "details": ""
+    }
+   },
+   "evidence": [
+    {
+     "path": "meta_header.sender.company",
+     "kind": "text",
+     "value": "Muster Elektro GmbH",
+     "page": 1,
+     "evidence": "Muster Elektro GmbH",
+     "bbox": [
+      60.0,
+      40.0,
+      380.0,
+      70.0
+     ],
+     "line": null,
+     "critical": false,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 1,
+     "matched_text": "Muster Elektro GmbH",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "geometry",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "meta_header.recipient.name",
+     "kind": "text",
+     "value": "Erika Mustermann",
+     "page": 1,
+     "evidence": "Erika Mustermann",
+     "bbox": null,
+     "line": null,
+     "critical": false,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 1,
+     "matched_text": "Erika Mustermann",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "geometry",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "meta_header.doc_date",
+     "kind": "date",
+     "value": "2026-03-14",
+     "page": 1,
+     "evidence": "14.03.2026",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 1,
+     "matched_text": "2026-03-14",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "label",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "meta_header.doc_number",
+     "kind": "identifier",
+     "value": "RE-2026-0042",
+     "page": 1,
+     "evidence": "RE-2026-0042",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 1,
+     "matched_text": "RE-2026-0042",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "label",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "meta_header.sender.phone",
+     "kind": "text",
+     "value": null,
+     "page": 1,
+     "evidence": null,
+     "bbox": null,
+     "line": null,
+     "critical": false,
+     "status": "removed",
+     "matched_source": "native",
+     "matched_page": 1,
+     "matched_text": "None",
+     "verification": null,
+     "action": "nulled",
+     "original_value": "+49 30 7654321",
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "model",
+     "auto_accepted": false,
+     "review_reasons": [
+      "not grounded (ungrounded)",
+      "failing check: grounding.ungrounded"
+     ]
+    },
+    {
+     "path": "meta_header.references.0.ref_value",
+     "kind": "identifier",
+     "value": "KD-4711",
+     "page": 1,
+     "evidence": "KD-4711",
+     "bbox": null,
+     "line": null,
+     "critical": false,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 1,
+     "matched_text": "KD-4711",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "label",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "bodies.finance_body.invoice_number",
+     "kind": "identifier",
+     "value": "RE-2026-0042",
+     "page": 1,
+     "evidence": "RE-2026-0042",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 1,
+     "matched_text": "RE-2026-0042",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "label",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "bodies.finance_body.due_date",
+     "kind": "date",
+     "value": "2026-03-28",
+     "page": 2,
+     "evidence": "2026-03-28",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 2,
+     "matched_text": "2026-03-28",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "model",
+     "auto_accepted": false,
+     "review_reasons": [
+      "model reading only (no listed label, layout region or check)"
+     ]
+    },
+    {
+     "path": "bodies.finance_body.payment_accounts.0.iban",
+     "kind": "iban",
+     "value": "DE89370400440532013000",
+     "page": 2,
+     "evidence": "DE89370400440532013000",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 2,
+     "matched_text": "DE89370400440532013000",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "check",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "bodies.finance_body.monetary_summation.grand_total_amount",
+     "kind": "amount",
+     "value": "357.00",
+     "page": 2,
+     "evidence": "357.00",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 2,
+     "matched_text": "357.00",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "check",
+     "auto_accepted": true,
+     "review_reasons": []
+    }
+   ],
+   "trust": {
+    "score": 0.88,
+    "fields_total": 10,
+    "grounded": 9,
+    "weakly_grounded": 0,
+    "ungrounded": 0,
+    "verified_visual": 0,
+    "nulled": 1,
+    "replaced": 0,
+    "table_rows_total": 2,
+    "table_rows_ungrounded": 0,
+    "failed_checks": 1,
+    "corrections_applied": 0,
+    "self_consistency_disagreements": 0,
+    "zugferd_mismatches": 0,
+    "escalations": {
+     "1": 10
+    },
+    "auto_accepted": 8,
+    "flagged_for_review": 2,
+    "informational_accepted": 2,
+    "informational_flagged": 0,
+    "provenance": {
+     "geometry": 2,
+     "label": 4,
+     "check": 2,
+     "model": 2
+    }
+   },
+   "zugferd_comparison": null,
+   "pointer_stats": null,
+   "errors": []
+  },
+  {
+   "index": 1,
+   "type": "BANK_STATEMENT",
+   "subtype": "BANK_ACCOUNT_STATEMENT",
+   "type_tags": [
+    "BANK_STATEMENT"
+   ],
+   "pages": [
+    3,
+    4
+   ],
+   "direction": "INBOUND",
+   "tenant_context": "PRIVATE",
+   "confidence": 0.95,
+   "fields": {
+    "meta_header": {
+     "sender": {
+      "company": "Beispielbank AG",
+      "street": "Bankplatz",
+      "house_number": "1",
+      "zip_code": "60311",
+      "city": "Frankfurt am Main",
+      "bic": "BYLADEM1001",
+      "bank_name": "Beispielbank AG"
+     },
+     "recipient": {
+      "name": "Erika Mustermann",
+      "street": "Heidestraße",
+      "house_number": "17",
+      "zip_code": "51147",
+      "city": "Köln",
+      "country": "DE"
+     },
+     "doc_date": "2026-03-31",
+     "doc_number": "3/2026",
+     "language": "de",
+     "references": []
+    },
+    "bodies": {
+     "statement_body": {
+      "statement_type": "BANK_ACCOUNT",
+      "account_holder": "Erika Mustermann",
+      "bank_name": "Beispielbank AG",
+      "iban": "DE02120300000000202051",
+      "bic": "BYLADEM1001",
+      "statement_number": "3/2026",
+      "statement_date": "2026-03-31",
+      "period_start": "2026-03-01",
+      "period_end": "2026-03-31",
+      "currency": "EUR",
+      "opening_balance": "1250.00",
+      "closing_balance": "943.00",
+      "transactions": [
+       {
+        "booking_date": "2026-03-02",
+        "value_date": "2026-03-02",
+        "description": "Gehalt März Beispiel KG",
+        "amount": "2100.00",
+        "balance": "3350.00",
+        "source_page": 1
+       },
+       {
+        "booking_date": "2026-03-15",
+        "value_date": "2026-03-15",
+        "description": "Miete Wohnung",
+        "amount": "-2050.00",
+        "balance": "1300.00",
+        "source_page": 1
+       },
+       {
+        "booking_date": "2026-03-28",
+        "value_date": "2026-03-28",
+        "description": "Muster Elektro GmbH RE-2026-0042",
+        "amount": "-357.00",
+        "balance": "943.00",
+        "source_page": 2
+       }
+      ]
+     }
+    },
+    "type_tags": [
+     "BANK_STATEMENT"
+    ],
+    "direction": "INBOUND",
+    "tenant_context": "PRIVATE",
+    "ai_confidence": 0.9,
+    "extraction_source": "AI"
+   },
+   "tables": [
+    {
+     "name": "transactions",
+     "path": "bodies.statement_body.transactions",
+     "columns": [
+      "booking_date",
+      "value_date",
+      "description",
+      "amount",
+      "balance"
+     ],
+     "rows": [
+      {
+       "booking_date": "2026-03-02",
+       "value_date": "2026-03-02",
+       "description": "Gehalt März Beispiel KG",
+       "amount": "2100.00",
+       "balance": "3350.00",
+       "source_page": 1
+      },
+      {
+       "booking_date": "2026-03-15",
+       "value_date": "2026-03-15",
+       "description": "Miete Wohnung",
+       "amount": "-2050.00",
+       "balance": "1300.00",
+       "source_page": 1
+      },
+      {
+       "booking_date": "2026-03-28",
+       "value_date": "2026-03-28",
+       "description": "Muster Elektro GmbH RE-2026-0042",
+       "amount": "-357.00",
+       "balance": "943.00",
+       "source_page": 2
+      }
+     ],
+     "source_pages": [
+      3,
+      4
+     ],
+     "strategy": "single_call"
+    }
+   ],
+   "plausibility": {
+    "status": "PASS",
+    "score": 1.0,
+    "checks": [
+     {
+      "check_id": "statement.balance",
+      "rule": "arithmetic",
+      "status": "PASS",
+      "severity": "INFO",
+      "message": "",
+      "field": "bodies.statement_body.closing_balance",
+      "expected": null,
+      "actual": null,
+      "rows": [],
+      "pages": [
+       4
+      ],
+      "table": null,
+      "source": "deterministic"
+     }
+    ]
+   },
+   "corrections": [],
+   "review": null,
+   "visual_audit": null,
+   "evidence": [
+    {
+     "path": "bodies.statement_body.iban",
+     "kind": "iban",
+     "value": "DE02120300000000202051",
+     "page": 3,
+     "evidence": "DE02120300000000202051",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 3,
+     "matched_text": "DE02120300000000202051",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "label",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "bodies.statement_body.period_start",
+     "kind": "date",
+     "value": "2026-03-01",
+     "page": 3,
+     "evidence": "2026-03-01",
+     "bbox": null,
+     "line": null,
+     "critical": false,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 3,
+     "matched_text": "2026-03-01",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "label",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "bodies.statement_body.period_end",
+     "kind": "date",
+     "value": "2026-03-31",
+     "page": 3,
+     "evidence": "2026-03-31",
+     "bbox": null,
+     "line": null,
+     "critical": false,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 3,
+     "matched_text": "2026-03-31",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "label",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "bodies.statement_body.opening_balance",
+     "kind": "amount",
+     "value": "1250.00",
+     "page": 3,
+     "evidence": "1250.00",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 3,
+     "matched_text": "1250.00",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "check",
+     "auto_accepted": true,
+     "review_reasons": []
+    },
+    {
+     "path": "bodies.statement_body.closing_balance",
+     "kind": "amount",
+     "value": "943.00",
+     "page": 4,
+     "evidence": "943.00",
+     "bbox": null,
+     "line": null,
+     "critical": true,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 4,
+     "matched_text": "943.00",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "check",
+     "auto_accepted": true,
+     "review_reasons": []
+    }
+   ],
+   "trust": {
+    "score": 0.97,
+    "fields_total": 5,
+    "grounded": 5,
+    "weakly_grounded": 0,
+    "ungrounded": 0,
+    "verified_visual": 0,
+    "nulled": 0,
+    "replaced": 0,
+    "table_rows_total": 3,
+    "table_rows_ungrounded": 0,
+    "failed_checks": 0,
+    "corrections_applied": 0,
+    "self_consistency_disagreements": 0,
+    "zugferd_mismatches": 0,
+    "escalations": {},
+    "auto_accepted": 5,
+    "flagged_for_review": 0,
+    "informational_accepted": 0,
+    "informational_flagged": 0,
+    "provenance": {}
+   },
+   "zugferd_comparison": null,
+   "pointer_stats": null,
+   "errors": []
+  },
+  {
+   "index": 2,
+   "type": "OFFICIAL_LETTER",
+   "subtype": "LETTER",
+   "type_tags": [
+    "OFFICIAL_LETTER"
+   ],
+   "pages": [
+    5
+   ],
+   "direction": "INBOUND",
+   "tenant_context": "UNKNOWN",
+   "confidence": 0.81,
+   "fields": {
+    "meta_header": {
+     "sender": {
+      "company": "Stadtwerke Beispielstadt",
+      "city": "Beispielstadt"
+     },
+     "recipient": {
+      "name": "Erika Mustermann",
+      "street": "Heidestraße",
+      "house_number": "17",
+      "zip_code": "51147",
+      "city": "Köln",
+      "country": "DE"
+     },
+     "doc_date": "2026-04-02",
+     "language": "de",
+     "references": []
+    },
+    "bodies": {
+     "correspondence_body": {
+      "subject": "Ankündigung Zählerwechsel",
+      "summary": "Der Stromzähler wird im April getauscht.",
+      "requested_action": "Zugang zum Zählerschrank ermöglichen",
+      "deadline": "2026-04-20",
+      "reference_numbers": [
+       "Z-555"
+      ]
+     }
+    },
+    "type_tags": [
+     "OFFICIAL_LETTER"
+    ],
+    "direction": "INBOUND",
+    "tenant_context": "PRIVATE",
+    "ai_confidence": 0.8,
+    "extraction_source": "AI"
+   },
+   "tables": [],
+   "plausibility": {
+    "status": "PASS",
+    "score": 1.0,
+    "checks": []
+   },
+   "corrections": [],
+   "review": null,
+   "visual_audit": null,
+   "evidence": [
+    {
+     "path": "bodies.correspondence_body.subject",
+     "kind": "text",
+     "value": "Ankündigung Zählerwechsel",
+     "page": 5,
+     "evidence": "Ankündigung Zählerwechsel",
+     "bbox": null,
+     "line": null,
+     "critical": false,
+     "status": "grounded",
+     "matched_source": "native",
+     "matched_page": 5,
+     "matched_text": "Ankündigung Zählerwechsel",
+     "verification": null,
+     "action": "kept",
+     "original_value": null,
+     "escalation_level": 1,
+     "resolution": null,
+     "provenance": "model",
+     "auto_accepted": false,
+     "review_reasons": [
+      "model reading only (no listed label, layout region or check)"
+     ]
+    }
+   ],
+   "trust": {
+    "score": 0.8,
+    "fields_total": 1,
+    "grounded": 1,
+    "weakly_grounded": 0,
+    "ungrounded": 0,
+    "verified_visual": 0,
+    "nulled": 0,
+    "replaced": 0,
+    "table_rows_total": 0,
+    "table_rows_ungrounded": 0,
+    "failed_checks": 0,
+    "corrections_applied": 0,
+    "self_consistency_disagreements": 0,
+    "zugferd_mismatches": 0,
+    "escalations": {},
+    "auto_accepted": 0,
+    "flagged_for_review": 1,
+    "informational_accepted": 0,
+    "informational_flagged": 0,
+    "provenance": {}
+   },
+   "zugferd_comparison": null,
+   "pointer_stats": null,
+   "errors": []
+  }
+ ],
+ "timings": {
+  "text_layer": 0.4,
+  "classification": 9.1,
+  "extraction": 21.5,
+  "analysis_wall": 33.0,
+  "ai_seconds": 30.2
+ },
+ "ai_calls": [
+  {
+   "label": "stage1",
+   "model": "test-model",
+   "ok": true,
+   "attempts": 1,
+   "seconds": 9.1,
+   "prompt_tokens": 4000,
+   "completion_tokens": 300,
+   "images": 5,
+   "structured": false,
+   "truncated": false,
+   "degenerate": false,
+   "error": null
+  }
+ ],
+ "engines": {
+  "llm_base_url": "http://llm.invalid/v1",
+  "primary_model": "test-model",
+  "vision_model": "test-model",
+  "text_engine": "native"
+ },
+ "errors": []
+}
