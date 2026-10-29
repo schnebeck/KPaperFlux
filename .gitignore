@@ -48,3 +48,9 @@ System Prompt*
 handover/
 handover_*
 devel/handover_*
+
+# AI agent files (local only)
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
