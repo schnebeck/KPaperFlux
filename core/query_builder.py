@@ -70,6 +70,7 @@ class QueryBuilder:
         "archived":           "archived",
         "storage_location":   "storage_location",
         "ai_confidence":      "ai_confidence",
+        "review_count":       "COALESCE(json_extract(semantic_data, '$.engine.review_count'), 0)",
         "process_id":         "process_id",
         "expiry_date": (
             "COALESCE("

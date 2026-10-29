@@ -358,6 +358,7 @@ class FilterManagerDialog(QDialog):
                 "direction": self.tr("AI Direction"),
                 "tenant_context": self.tr("AI Context"),
                 "confidence": self.tr("AI Confidence"),
+                "review_count": self.tr("Fields to Review"),
                 "reasoning": self.tr("AI Reasoning"),
                 "type_tags": self.tr("Type Tags"),
                 "visual_audit_mode": self.tr("Visual Audit"),

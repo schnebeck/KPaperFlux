@@ -734,12 +734,16 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
 
     def get_documents_mismatched_semantic_data(self) -> List[Document]:
         """
-        Forensic check for Documents whose semantic bodies don't match their type tags.
-        Example: Document tagged as INVOICE but missing a 'finance_body'.
+        Forensic check for documents whose semantic bodies don't fit their type
+        tags (FluxSense body layout, see core.body_layout): e.g. a document
+        tagged INVOICE that carries a statement_body. Missing bodies are not
+        flagged, since an engine leaves a body out when the document has nothing for it.
 
         Returns:
             List of documents requiring re-analysis.
         """
+        from core.body_layout import unexpected_bodies
+
         sql = f"""
             SELECT {self._doc_select}
             FROM virtual_documents
@@ -751,47 +755,11 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
-        
-        all_docs = [self._hydrator.hydrate(row) for row in rows]
+
         mismatched: List[Document] = []
-        
-        # Mappings of Tag -> Expected Semantic Body
-        body_mapping = {
-            "INVOICE": "finance_body", "RECEIPT": "finance_body",
-            "ORDER_CONFIRMATION": "finance_body", "DUNNING": "finance_body",
-            "BANK_STATEMENT": "ledger_body", "CONTRACT": "legal_body",
-            "OFFICIAL_LETTER": "legal_body", "PAYSLIP": "hr_body",
-            "MEDICAL_DOCUMENT": "health_body", "UTILITY_BILL": "finance_body",
-            "EXPENSE_REPORT": "travel_body"
-        }
-        
-        for doc in all_docs:
-            if not doc.type_tags or not doc.semantic_data:
-                continue
-                
-            bodies = doc.semantic_data.bodies
-            if not bodies:
-                continue
-                
-            tags = [t.upper() for t in doc.type_tags]
-            is_mismatch = False
-            
-            for tag, body_key in body_mapping.items():
-                if tag in tags and body_key not in bodies:
-                    is_mismatch = True
-                    break
-            
-            if not is_mismatch:
-                for body_key in bodies.keys():
-                    if body_key in ["finance_body", "ledger_body", "legal_body", "hr_body", "health_body"]:
-                        # Check if any tag justifies this body
-                        if not any(v == body_key and k in tags for k, v in body_mapping.items()):
-                            is_mismatch = True
-                            break
-            
-            if is_mismatch:
+        for doc in (self._hydrator.hydrate(row) for row in rows):
+            if doc.type_tags and doc.semantic_data and unexpected_bodies(doc.type_tags, doc.semantic_data.bodies):
                 mismatched.append(doc)
-                
         return mismatched
 
     def close(self) -> None:

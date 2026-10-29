@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QEvent, QTimer
 from PyQt6.QtGui import QBrush, QColor
+from gui.theme import CLR_REVIEW
 from pathlib import Path
 from typing import Optional, List, Any, Dict
 import datetime
@@ -152,7 +153,8 @@ class DocumentListWidget(QWidget):
             "total_amount": st.translate("Total Amount"),
             "total_gross": st.translate("Gross Amount"),
             "total_net": st.translate("Net Amount"),
-            "invoice_number": st.translate("Invoice Number")
+            "invoice_number": st.translate("Invoice Number"),
+            "review_count": st.translate("field_review_count"),
         }
 
     def __init__(self, 
@@ -383,7 +385,7 @@ class DocumentListWidget(QWidget):
             available = self.db_manager.get_available_extra_keys()
             
         # Add Semantic Shortcuts
-        for shortcut in ["doc_date", "sender_name", "total_amount"]:
+        for shortcut in ["doc_date", "sender_name", "total_amount", "review_count"]:
             if shortcut not in available:
                 available.append(shortcut)
 
@@ -1052,6 +1054,13 @@ class DocumentListWidget(QWidget):
             elif key == "doc_date" and val:
                 txt = str(val)
                 target_item.setData(col_idx, Qt.ItemDataRole.UserRole, txt)
+            elif key == "review_count":
+                count = int(val or 0)
+                txt = str(count) if count else ""
+                target_item.setData(col_idx, Qt.ItemDataRole.UserRole, count)
+                if count:
+                    target_item.setForeground(col_idx, QColor(CLR_REVIEW))
+                    target_item.setToolTip(col_idx, self.tr("%n field(s) need review", "", count))
             elif val is None:
                 txt = "-"
             elif isinstance(val, (list, dict)):

@@ -66,6 +66,7 @@ class FilterTokenRegistry:
             FilterToken("direction", "ai", "field_direction", "list", "➡️ "),
             FilterToken("tenant_context", "ai", "field_tenant_context", "list", "👤 "),
             FilterToken("confidence", "ai", "field_ai_confidence", "amount", "🎯 "),
+            FilterToken("review_count", "ai", "field_review_count", "amount", "⚠️ "),
             FilterToken("reasoning", "ai", "field_ai_reasoning", "string", "🧠 "),
         ]
         

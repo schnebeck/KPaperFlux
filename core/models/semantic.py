@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, Field, ConfigDict, ValidationError, computed_field, field_validator
 
 from core.logger import get_logger
 
@@ -251,11 +251,13 @@ class FieldReviewState(BaseModel):
     provenance: Optional[str] = Field(None, description="label | geometry | check | model")
     auto_accepted: Optional[bool] = Field(None, description="True: accepted without review; False: needs review; None: not filled")
     review_reasons: List[str] = Field(default_factory=list)
+    confirmed_by_user: bool = Field(False, description="The user edited or confirmed this value")
+    confirmed_at: Optional[str] = Field(None, description="ISO timestamp of the user's confirmation")
 
     @property
     def needs_review(self) -> bool:
-        """True if the engine explicitly flagged this value for human review."""
-        return self.auto_accepted is False
+        """True if the engine flagged this value for human review and the user has not confirmed it yet."""
+        return self.auto_accepted is False and not self.confirmed_by_user
 
 
 class EngineInfo(BaseModel):
@@ -303,8 +305,35 @@ class EngineInfo(BaseModel):
         return None
 
     def fields_needing_review(self) -> List["FieldReviewState"]:
-        """Returns all values the engine flagged for human review."""
+        """Returns all values the engine flagged for review that the user has not confirmed."""
         return [state for state in self.fields if state.needs_review]
+
+    @computed_field  # stored with the JSON so lists and filters can query it
+    @property
+    def review_count(self) -> int:
+        """Number of values still needing review."""
+        return len(self.fields_needing_review())
+
+    def confirm(self, paths: List[str], when: Optional[str] = None) -> int:
+        """
+        Marks values as confirmed by the user (edited or explicitly accepted).
+
+        Args:
+            paths: Dotted field paths.
+            when: ISO timestamp (default: now).
+
+        Returns:
+            Number of newly confirmed values.
+        """
+        stamp = when or datetime.now().isoformat(timespec="seconds")
+        wanted = set(paths)
+        confirmed = 0
+        for state in self.fields:
+            if state.path in wanted and not state.confirmed_by_user:
+                state.confirmed_by_user = True
+                state.confirmed_at = stamp
+                confirmed += 1
+        return confirmed
 
 
 class SemanticExtraction(BaseModel):

@@ -136,6 +136,8 @@ class SemanticTranslator(QObject):
                 return self.tr("Context")
             case "field_ai_confidence":
                 return self.tr("AI Confidence")
+            case "field_review_count":
+                return self.tr("Fields to Review")
             case "field_ai_reasoning":
                 return self.tr("AI Reasoning")
 

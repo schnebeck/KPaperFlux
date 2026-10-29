@@ -142,6 +142,8 @@ CLR_SUCCESS        = "#2e7d32"   # green (final state, completed, save-success)
 CLR_SUCCESS_LIGHT  = "#e8f5e9"
 CLR_WARNING        = "#e65100"   # deep-orange (pending, unsaved)
 CLR_WARNING_LIGHT  = "#fff3e0"
+CLR_REVIEW         = "#f9a825"   # amber (extracted value needs human review)
+CLR_REVIEW_LIGHT   = "#fff8e1"
 CLR_DANGER         = "#c62828"   # red (error, destructive action)
 CLR_DANGER_LIGHT   = "#ffebee"
 

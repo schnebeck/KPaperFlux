@@ -14,9 +14,9 @@ from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QTextEdit, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QMessageBox, QTabWidget, QCheckBox, QComboBox, QDateEdit,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QFrame, QAbstractItemView,
-    QPlainTextEdit, QScrollBar
+    QPlainTextEdit, QScrollBar, QMenu, QStyle
 )
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtGui import QPixmap, QImage, QAction
 import json
 import io
 import logging
@@ -38,7 +38,10 @@ from gui.widgets.workflow_history_widget import WorkflowHistoryWidget
 from gui.widgets.group_membership_chips import GroupMembershipWidget
 
 # Core Models
-from core.models.semantic import SemanticExtraction, WorkflowInfo, WorkflowLog, SubscriptionInfo
+from core.body_layout import AUXILIARY_BODIES, KNOWN_BODIES, expected_bodies
+from core.models.semantic import FieldReviewState, SemanticExtraction, WorkflowInfo, WorkflowLog, SubscriptionInfo
+from gui.widgets import review_marker
+from gui.widgets.body_fields_tab import BodyFieldsTab
 from core.utils.validation import validate_iban
 from core.workflow import WorkflowRuleRegistry
 
@@ -162,9 +165,31 @@ class NestedTableDialog(QDialog):
             get_silent_logger().debug(f"JSON/Numeric parse fallback for '{text}': {e}")
             return text
 
+#: Item data role on semantic-table key items: the field's full semantic_data path.
+ROLE_FIELD_PATH: int = int(Qt.ItemDataRole.UserRole) + 22
+#: Item data roles on semantic-table value items: the text shown at load and the original value's type.
+ROLE_ORIGINAL_TEXT: int = int(Qt.ItemDataRole.UserRole) + 23
+ROLE_ORIGINAL_TYPE: int = int(Qt.ItemDataRole.UserRole) + 24
+
+SENDER_PATHS: List[str] = ["meta_header.sender.company", "meta_header.sender.name"]
+STATEMENT_FIELDS: List[str] = ["statement_type", "account_holder", "bank_name", "iban", "bic", "account_number",
+                               "card_number_masked", "statement_number", "statement_date", "period_start", "period_end",
+                               "currency", "opening_balance", "closing_balance", "total_debits", "total_credits",
+                               "credit_limit", "minimum_payment", "payment_due_date"]
+STATEMENT_COLUMNS: List[str] = ["booking_date", "value_date", "description", "counterparty", "amount", "balance"]
+CORRESPONDENCE_FIELDS: List[str] = ["subject", "summary", "requested_action", "deadline", "amount_mentioned",
+                                    "reference_numbers"]
+PAYSLIP_FIELDS: List[str] = ["employee_name", "employee_id", "employer", "pay_period_start", "pay_period_end",
+                             "payment_date", "tax_class", "currency", "gross_pay", "income_tax", "solidarity_surcharge",
+                             "church_tax", "social_security_total", "net_pay", "payout_amount", "payout_iban"]
+PAYSLIP_COLUMNS: List[str] = ["description", "category", "amount"]
+
+
 class MetadataEditorWidget(QWidget):
     """
     Simplified Widget to edit virtual document metadata for Stage 0/1.
+    Values the analysis engine flagged for review carry an amber marker
+    until the user edits or confirms them.
     """
     metadata_saved = pyqtSignal()
     open_workflow_process = pyqtSignal(str, object)   # rule_id, VirtualDocument
@@ -343,6 +368,13 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.setTabText(6, self.tr("Source Mapping"))
         self.tab_widget.setTabText(7, self.tr("Debug Data"))
         self.tab_widget.setTabText(8, self.tr("Workflows"))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.statement_tab), self.tr("Statement"))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.correspondence_tab), self.tr("Correspondence"))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.payslip_tab), self.tr("Payslip"))
+        self._retranslate_body_tabs()
+        self.btn_review_confirm_all.setText(self.tr("Confirm all"))
+        self.btn_review_confirm_all.setToolTip(self.tr("Accept all flagged values as they are"))
+        self._update_review_banner()
         self._workflow_tab_widget.setTabText(0, self.tr("Graph"))
         self._workflow_tab_widget.setTabText(1, self.tr("History"))
 
@@ -407,6 +439,25 @@ class MetadataEditorWidget(QWidget):
         self._suppress_workflow_ui: bool = False  # set via set_workflow_ui_visible()
 
         layout.addLayout(lock_layout)
+
+        # Document-level review indicator (values flagged by the analysis engine)
+        from gui.theme import CLR_REVIEW, CLR_REVIEW_LIGHT
+        self.review_banner = QFrame()
+        self.review_banner.setObjectName("reviewBanner")
+        self.review_banner.setStyleSheet(
+            f"#reviewBanner {{ background: {CLR_REVIEW_LIGHT}; border: 1px solid {CLR_REVIEW}; border-radius: 4px; }}")
+        banner_layout = QHBoxLayout(self.review_banner)
+        banner_layout.setContentsMargins(8, 4, 8, 4)
+        self.lbl_review_count = QLabel()
+        self.btn_review_confirm_all = QPushButton()
+        self.btn_review_confirm_all.clicked.connect(self.confirm_all_review_fields)
+        banner_layout.addWidget(self.lbl_review_count, 1)
+        banner_layout.addWidget(self.btn_review_confirm_all)
+        self.review_banner.setVisible(False)
+        layout.addWidget(self.review_banner)
+        self._review_states: Dict[str, FieldReviewState] = {}
+        self._pending_confirm: set = set()
+        self._confirm_actions: Dict[QLineEdit, QAction] = {}
 
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
@@ -821,6 +872,22 @@ class MetadataEditorWidget(QWidget):
         self.tab_widget.addTab(self._workflow_tab_widget, "")
         self.tab_widget.setTabVisible(self.tab_widget.indexOf(self._workflow_tab_widget), False)
 
+        # --- Body tabs of the FluxSense layout (statement, correspondence, payslip) ---
+        self.statement_tab = BodyFieldsTab("statement_body", STATEMENT_FIELDS, table_key="transactions",
+                                           table_columns=STATEMENT_COLUMNS)
+        self.correspondence_tab = BodyFieldsTab("correspondence_body", CORRESPONDENCE_FIELDS,
+                                                multiline={"summary", "requested_action"},
+                                                list_fields={"reference_numbers"})
+        self.payslip_tab = BodyFieldsTab("payslip_body", PAYSLIP_FIELDS, table_key="items", table_columns=PAYSLIP_COLUMNS)
+        for body_tab in self._body_tabs():
+            self.tab_widget.addTab(body_tab, "")
+            self.tab_widget.setTabVisible(self.tab_widget.indexOf(body_tab), False)
+            body_tab.field_edited.connect(lambda key, t=body_tab: self._on_review_paths_edited([t.path_of(key)]))
+            body_tab.field_edited.connect(lambda _key: self._mark_dirty())
+
+        self.semantic_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.semantic_table.customContextMenuRequested.connect(self._show_semantic_context_menu)
+
         # Buttons
         self.btn_save = QPushButton()
         self.btn_save.clicked.connect(self.save_changes)
@@ -855,6 +922,32 @@ class MetadataEditorWidget(QWidget):
         for w in [self.pay_recipient_edit, self.pay_iban_edit, self.pay_bic_edit, 
                   self.pay_amount_edit, self.pay_purpose_edit]:
             w.textChanged.connect(self._mark_dirty)
+
+        # Review markers: which widget shows which engine field paths
+        self._review_bindings: List[tuple] = [
+            (self.sender_edit, SENDER_PATHS),
+            (self.date_edit, ["meta_header.doc_date"]),
+            (self.pay_recipient_edit, SENDER_PATHS),
+            (self.pay_iban_edit, ["meta_header.sender.iban", "bodies.finance_body.payment_accounts.0.iban"]),
+            (self.pay_bic_edit, ["meta_header.sender.bic", "bodies.finance_body.payment_accounts.0.bic"]),
+            (self.pay_amount_edit, ["bodies.finance_body.monetary_summation.grand_total_amount"]),
+            (self.pay_purpose_edit, ["meta_header.doc_number", "bodies.finance_body.invoice_number"]),
+            (self.sub_contract_id_edit, ["bodies.legal_body.contract_id"]),
+            (self.sub_effective_date_edit, ["bodies.legal_body.effective_date"]),
+            (self.sub_valid_until_edit, ["bodies.legal_body.valid_until"]),
+            (self.sub_renewal_edit, ["bodies.legal_body.renewal_clause"]),
+            (self.sub_notice_value_edit, ["bodies.legal_body.notice_period.value"]),
+            (self.sub_notice_text_edit, ["bodies.legal_body.notice_period.original_text"]),
+        ]
+        for widget, _paths in list(self._review_bindings):
+            if isinstance(widget, QLineEdit):
+                widget.textEdited.connect(lambda _text, w=widget: self._on_review_widget_edited(w))
+            elif isinstance(widget, QDateEdit):
+                widget.dateChanged.connect(lambda _date, w=widget: self._on_review_widget_edited(w))
+        for body_tab in self._body_tabs():
+            for key, editor in body_tab.editors.items():
+                self._review_bindings.append((editor, [body_tab.path_of(key)]))
+        self.semantic_table.itemChanged.connect(self._on_semantic_item_changed)
 
     def on_workflow_transition(self, rule_id: str, action: str, target_state: str, is_auto: bool = False):
         """Action handler for workflow button clicks."""
@@ -1203,6 +1296,8 @@ class MetadataEditorWidget(QWidget):
             self.pay_next_billing_edit.setDate(QDate(1900, 1, 1))
 
         self._populate_semantic_table(sd_dict)
+        for body_tab in self._body_tabs():
+            body_tab.load((sd_dict.get("bodies") or {}).get(body_tab.body_key))
 
         # Auto-assign all matching workflow rules that the document doesn't have yet.
         if sd:
@@ -1289,6 +1384,7 @@ class MetadataEditorWidget(QWidget):
         
         # CALL CENTRAL VISIBILITY HELPER (Phase 138+)
         self._update_tab_visibility(doc, sd_dict)
+        self._load_review_states(doc)
 
         if not externally_locked:
             self._reset_dirty()
@@ -1368,6 +1464,12 @@ class MetadataEditorWidget(QWidget):
             self.tab_widget.indexOf(self._workflow_tab_widget),
             has_workflows and not self._suppress_workflow_ui,
         )
+
+        # Body tabs (FluxSense layout)
+        bodies = sd_dict.get("bodies") or {}
+        for body_tab in self._body_tabs():
+            self.tab_widget.setTabVisible(self.tab_widget.indexOf(body_tab),
+                                          BodyFieldsTab.has_content(bodies.get(body_tab.body_key)))
 
     def _add_stamp_row(self):
         row = self.stamps_table.rowCount()
@@ -1453,11 +1555,13 @@ class MetadataEditorWidget(QWidget):
                             for idx, item in enumerate(v):
                                 traverse(item, section, f"{key_path}.{idx}")
                     else:
-                        rows.append((section, key_path, str(v) if v is not None else ""))
+                        rows.append((section, key_path, str(v) if v is not None else "", None, type(v).__name__))
             elif isinstance(data, (str, int, float, bool)) or data is None:
-                rows.append((section, prefix, str(data) if data is not None else ""))
+                rows.append((section, prefix, str(data) if data is not None else "", None, type(data).__name__))
             else:
                 rows.append((section, prefix, json.dumps(data, ensure_ascii=False, default=str)))
+
+        roots: Dict[str, Optional[str]] = {"Meta": "meta_header", "Custom": None}
 
         # 1. Known Main Sections
         if "meta_header" in sd:
@@ -1470,12 +1574,15 @@ class MetadataEditorWidget(QWidget):
 
         if "bodies" in sd and isinstance(sd["bodies"], dict):
             for body_name, body_data in sd["bodies"].items():
-                traverse(body_data, body_name.replace("_body", "").capitalize())
+                section_name = body_name.replace("_body", "").capitalize()
+                roots[section_name] = f"bodies.{body_name}"
+                traverse(body_data, section_name)
 
         # 3. Catch-all for any other keys (like internal_routing or root-level finance_body)
         for k, v in sd.items():
             if k not in handled_keys:
                 sec_name = k.replace("_body", "").capitalize()
+                roots.setdefault(sec_name, k)
                 traverse(v, sec_name)
 
         if rows:
@@ -1494,6 +1601,8 @@ class MetadataEditorWidget(QWidget):
                 it_sec.setBackground(Qt.GlobalColor.lightGray)
 
                 it_key = QTableWidgetItem(key_path)
+                root_path = roots.get(sec)
+                it_key.setData(ROLE_FIELD_PATH, f"{root_path}.{key_path}" if root_path else None)
                 # it_key should be editable if it's "Custom" or if we want to allow renaming?
                 # Usually keys are fixed by AI, but for manual entries it's better to allow editing.
                 if sec == "Custom":
@@ -1518,6 +1627,8 @@ class MetadataEditorWidget(QWidget):
                 else:
                     it_val = QTableWidgetItem(val)
                     self.semantic_table.setItem(row, 2, it_val)
+                it_val.setData(ROLE_ORIGINAL_TEXT, val)
+                it_val.setData(ROLE_ORIGINAL_TYPE, item[4] if len(item) > 4 else None)
 
             self.semantic_table.resizeRowsToContents()
         else:
@@ -1629,6 +1740,213 @@ class MetadataEditorWidget(QWidget):
             self.tab_widget.indexOf(self._workflow_tab_widget), False
         )
 
+    @staticmethod
+    def _typed_value(text: str, original_type: Optional[str]) -> Any:
+        """
+        Converts an edited semantic-table value back, keeping the type of the
+        original value (a postcode stays a string). New rows of unknown type are
+        auto-typed.
+
+        Args:
+            text: The edited text.
+            original_type: Type name of the value shown at load (None for new rows).
+
+        Returns:
+            The value to store.
+        """
+        stripped = text.strip()
+        if not stripped:
+            return None
+        try:
+            if original_type == "str":
+                return text
+            if original_type == "bool" or (original_type is None and stripped.lower() in ("true", "false")):
+                return stripped.lower() == "true"
+            if original_type == "int" or (original_type is None and stripped.isdigit()):
+                return int(stripped)
+            if original_type == "float" or (original_type is None and stripped.replace(".", "", 1).lstrip("-").isdigit()):
+                return float(stripped)
+            if stripped.startswith(("[", "{")):
+                return json.loads(stripped)
+        except (json.JSONDecodeError, ValueError) as e:
+            get_silent_logger().debug(f"Metadata typing failed for '{text}': {e}")
+        return text
+
+    # ------------------------------------------------------------------ review markers
+
+    def _body_tabs(self) -> List[BodyFieldsTab]:
+        """The FluxSense body tabs (statement, correspondence, payslip)."""
+        return [self.statement_tab, self.correspondence_tab, self.payslip_tab]
+
+    def _retranslate_body_tabs(self) -> None:
+        """Translated labels of the body tabs."""
+        self.statement_tab.set_labels({
+            "statement_type": self.tr("Statement Type:"), "account_holder": self.tr("Account Holder:"),
+            "bank_name": self.tr("Bank:"), "iban": self.tr("IBAN:"), "bic": self.tr("BIC:"),
+            "account_number": self.tr("Account Number:"), "card_number_masked": self.tr("Card Number:"),
+            "statement_number": self.tr("Statement Number:"), "statement_date": self.tr("Statement Date:"),
+            "period_start": self.tr("Period Start:"), "period_end": self.tr("Period End:"),
+            "currency": self.tr("Currency:"), "opening_balance": self.tr("Opening Balance:"),
+            "closing_balance": self.tr("Closing Balance:"), "total_debits": self.tr("Total Debits:"),
+            "total_credits": self.tr("Total Credits:"), "credit_limit": self.tr("Credit Limit:"),
+            "minimum_payment": self.tr("Minimum Payment:"), "payment_due_date": self.tr("Payment Due:"),
+        }, self.tr("Transactions"), {
+            "booking_date": self.tr("Booking Date"), "value_date": self.tr("Value Date"),
+            "description": self.tr("Description"), "counterparty": self.tr("Counterparty"),
+            "amount": self.tr("Amount"), "balance": self.tr("Balance"),
+        })
+        self.correspondence_tab.set_labels({
+            "subject": self.tr("Subject:"), "summary": self.tr("Summary:"),
+            "requested_action": self.tr("Requested Action:"), "deadline": self.tr("Deadline:"),
+            "amount_mentioned": self.tr("Amount Mentioned:"), "reference_numbers": self.tr("Reference Numbers:"),
+        })
+        self.payslip_tab.set_labels({
+            "employee_name": self.tr("Employee:"), "employee_id": self.tr("Employee ID:"),
+            "employer": self.tr("Employer:"), "pay_period_start": self.tr("Pay Period Start:"),
+            "pay_period_end": self.tr("Pay Period End:"), "payment_date": self.tr("Payment Date:"),
+            "tax_class": self.tr("Tax Class:"), "currency": self.tr("Currency:"), "gross_pay": self.tr("Gross Pay:"),
+            "income_tax": self.tr("Income Tax:"), "solidarity_surcharge": self.tr("Solidarity Surcharge:"),
+            "church_tax": self.tr("Church Tax:"), "social_security_total": self.tr("Social Security:"),
+            "net_pay": self.tr("Net Pay:"), "payout_amount": self.tr("Payout Amount:"), "payout_iban": self.tr("Payout IBAN:"),
+        }, self.tr("Pay Items"), {
+            "description": self.tr("Description"), "category": self.tr("Category"), "amount": self.tr("Amount"),
+        })
+
+    def _load_review_states(self, doc: Document) -> None:
+        """Collects the values the engine flagged for review and shows their markers."""
+        engine = doc.semantic_data.engine if doc.semantic_data else None
+        self._review_states = {state.path: state for state in engine.fields_needing_review()} if engine else {}
+        self._pending_confirm = set()
+        self._apply_review_markers()
+
+    def _open_states(self, paths: List[str]) -> List[FieldReviewState]:
+        """Flagged, not yet confirmed states of exact paths."""
+        return [self._review_states[p] for p in paths if p in self._review_states and p not in self._pending_confirm]
+
+    def _open_states_under(self, prefix: str) -> List[FieldReviewState]:
+        """Flagged states inside a nested value (e.g. a list shown as one table row)."""
+        return [state for path, state in self._review_states.items()
+                if path not in self._pending_confirm and (path == prefix or path.startswith(prefix + "."))]
+
+    def _review_tooltip(self, states: List[FieldReviewState]) -> str:
+        """Tooltip with review reasons and provenance of flagged values."""
+        provenance = {
+            "label": self.tr("printed next to a known label"),
+            "geometry": self.tr("found at its usual position"),
+            "check": self.tr("confirmed by a calculation or format check"),
+            "model": self.tr("read by the AI model only"),
+        }
+        lines = [self.tr("Please review this value.")]
+        for state in states:
+            if len(states) > 1:
+                lines.append(f"{state.path}:")
+            for reason in state.review_reasons:
+                lines.append(f"• {reason}")
+            if state.provenance:
+                lines.append(self.tr("Source: %s") % provenance.get(state.provenance, state.provenance))
+            if state.action in ("nulled", "replaced") and state.original_value not in (None, ""):
+                lines.append(self.tr("Originally read: %s") % state.original_value)
+        lines.append(self.tr("Edit the value or confirm it to clear this marker."))
+        return "\n".join(lines)
+
+    def _apply_review_markers(self) -> None:
+        """Shows or clears the markers on all bound widgets and semantic-table rows, and updates the banner."""
+        for widget, paths in self._review_bindings:
+            states = self._open_states(paths)
+            if states:
+                review_marker.mark_widget(widget, self._review_tooltip(states))
+                self._add_confirm_action(widget, paths)
+            else:
+                review_marker.clear_widget(widget)
+                self._remove_confirm_action(widget)
+        with QSignalBlocker(self.semantic_table):
+            for row in range(self.semantic_table.rowCount()):
+                key_item = self.semantic_table.item(row, 1)
+                path = key_item.data(ROLE_FIELD_PATH) if key_item else None
+                states = self._open_states_under(path) if path else []
+                for column in (1, 2):
+                    item = self.semantic_table.item(row, column)
+                    if states:
+                        review_marker.mark_item(item, self._review_tooltip(states))
+                    else:
+                        review_marker.clear_item(item)
+        self._update_review_banner()
+
+    def _add_confirm_action(self, widget: QWidget, paths: List[str]) -> None:
+        """Adds a 'confirm' button inside a flagged line edit."""
+        if not isinstance(widget, QLineEdit) or widget in self._confirm_actions:
+            return
+        action = QAction(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton), self.tr("Confirm value"), widget)
+        action.setToolTip(self.tr("Confirm value"))
+        action.triggered.connect(lambda _checked=False, p=list(paths): self._confirm_paths(p))
+        widget.addAction(action, QLineEdit.ActionPosition.TrailingPosition)
+        self._confirm_actions[widget] = action
+
+    def _remove_confirm_action(self, widget: QWidget) -> None:
+        """Removes the inline 'confirm' button."""
+        action = self._confirm_actions.pop(widget, None) if isinstance(widget, QLineEdit) else None
+        if action is not None:
+            widget.removeAction(action)
+
+    def open_review_count(self) -> int:
+        """Number of flagged values not yet edited or confirmed in this editor."""
+        return len([p for p in self._review_states if p not in self._pending_confirm])
+
+    def _update_review_banner(self) -> None:
+        """Document-level 'needs review' indicator."""
+        count = self.open_review_count()
+        self.lbl_review_count.setText(self.tr("%n field(s) need review", "", count))
+        self.review_banner.setVisible(count > 0)
+
+    def _confirm_paths(self, paths: List[str]) -> None:
+        """Marks values as confirmed (stored on save) and clears their markers."""
+        newly = {p for p in paths if p in self._review_states and p not in self._pending_confirm}
+        if not newly:
+            return
+        self._pending_confirm |= newly
+        self._apply_review_markers()
+        self._mark_dirty()
+
+    def confirm_all_review_fields(self) -> None:
+        """Accepts every flagged value as it is."""
+        self._confirm_paths(list(self._review_states))
+
+    def _on_review_widget_edited(self, widget: QWidget) -> None:
+        """A user edit of a bound widget confirms the values it shows."""
+        if self._locked_for_load:
+            return
+        for bound, paths in self._review_bindings:
+            if bound is widget:
+                self._confirm_paths(paths)
+
+    def _on_review_paths_edited(self, paths: List[str]) -> None:
+        """A user edit in a body tab confirms that field."""
+        if not self._locked_for_load:
+            self._confirm_paths(paths)
+
+    def _semantic_row_states(self, row: int) -> List[str]:
+        """Flagged paths shown by a semantic-table row."""
+        key_item = self.semantic_table.item(row, 1)
+        path = key_item.data(ROLE_FIELD_PATH) if key_item else None
+        return [state.path for state in self._open_states_under(path)] if path else []
+
+    def _on_semantic_item_changed(self, item: QTableWidgetItem) -> None:
+        """Editing a value in the semantic table confirms it."""
+        if self._locked_for_load or item.column() != 2:
+            return
+        self._confirm_paths(self._semantic_row_states(item.row()))
+
+    def _show_semantic_context_menu(self, pos: Any) -> None:
+        """Context menu of the semantic table: confirm a flagged value."""
+        index = self.semantic_table.indexAt(pos)
+        paths = self._semantic_row_states(index.row()) if index.isValid() else []
+        if not paths:
+            return
+        menu = QMenu(self)
+        action = menu.addAction(self.tr("Confirm value"))
+        action.triggered.connect(lambda _checked=False, p=paths: self._confirm_paths(p))
+        menu.popup(self.semantic_table.viewport().mapToGlobal(pos))
+
     def clear(self):
         self.current_uuids = []
         self.doc = None
@@ -1643,6 +1961,9 @@ class MetadataEditorWidget(QWidget):
         self.sender_edit.clear()
         self.source_viewer.clear()
         self.semantic_viewer.clear()
+        self._review_states = {}
+        self._pending_confirm = set()
+        self._apply_review_markers()
         self.setEnabled(False)
 
     def save_changes(self):
@@ -1697,15 +2018,17 @@ class MetadataEditorWidget(QWidget):
         for wf_info in sd.workflows.values():
             wf_info.pkv_eligible = self.chk_pkv.isChecked()
 
-        mapping = {
-            "INVOICE": "finance_body", "RECEIPT": "finance_body", "ORDER_CONFIRMATION": "finance_body",
-            "DUNNING": "finance_body", "BANK_STATEMENT": "ledger_body", "CONTRACT": "legal_body",
-            "OFFICIAL_LETTER": "legal_body", "PAYSLIP": "hr_body", "MEDICAL_DOCUMENT": "health_body",
-            "UTILITY_BILL": "finance_body", "EXPENSE_REPORT": "travel_body"
-        }
-        allowed_bodies = {mapping.get(dt.upper()) for dt in doc_types if mapping.get(dt.upper())}
-        # Keep bodies that are either allowed OR not in our known mapping
-        sd.bodies = {k: v for k, v in sd.bodies.items() if k in allowed_bodies or k not in mapping.values()}
+        # A changed document type drops bodies that none of the new types carries (FluxSense layout).
+        old_types = {t.upper() for t in ((self.doc.type_tags if self.doc else None) or []) if t.upper() in DocType.__members__}
+        new_types = {t.upper() for t in doc_types}
+        expected = expected_bodies(new_types)
+        if new_types != old_types and expected:
+            sd.bodies = {k: v for k, v in sd.bodies.items()
+                         if k not in KNOWN_BODIES or k in expected or k in AUXILIARY_BODIES}
+
+        # Values the user edited or confirmed no longer need review
+        if sd.engine and self._pending_confirm:
+            sd.engine.confirm(sorted(self._pending_confirm))
 
         # 3. Stamps Persistence
         stamps_list = []
@@ -1811,6 +2134,10 @@ class MetadataEditorWidget(QWidget):
             val_text = item_val.text()
             if not field_path:
                 continue
+            # Only values the user changed are written back (unchanged rows keep their stored type).
+            original_text = item_val.data(ROLE_ORIGINAL_TEXT)
+            if original_text is not None and val_text == original_text:
+                continue
 
             # Map back to target dict
             root = sd_dict_final
@@ -1862,22 +2189,7 @@ class MetadataEditorWidget(QWidget):
                     target = target[part]
 
             last_key = parts[-1]
-            typed_val = val_text
-            try:
-                if val_text.strip().startswith(("[", "{")):
-                    typed_val = json.loads(val_text)
-                elif val_text.lower() == "true":
-                    typed_val = True
-                elif val_text.lower() == "false":
-                    typed_val = False
-                elif not val_text:
-                    typed_val = None
-                elif "." in val_text and val_text.replace(".", "", 1).isdigit():
-                    typed_val = float(val_text)
-                elif val_text.isdigit():
-                    typed_val = int(val_text)
-            except (json.JSONDecodeError, ValueError) as e:
-                get_silent_logger().debug(f"Metadata auto-typing failed for '{val_text}': {e}")
+            typed_val = self._typed_value(val_text, item_val.data(ROLE_ORIGINAL_TYPE))
 
             if isinstance(target, list) and last_key.isdigit():
                 idx = int(last_key)
@@ -1886,6 +2198,15 @@ class MetadataEditorWidget(QWidget):
                 target[idx] = typed_val
             else:
                 target[last_key] = typed_val
+
+        # 6. Body tabs (statement / correspondence / payslip): fields the user edited there
+        for body_tab in self._body_tabs():
+            edited = body_tab.edited_values()
+            if edited:
+                sd_dict_final.setdefault("bodies", {})
+                body = sd_dict_final["bodies"].get(body_tab.body_key) or {}
+                body.update(edited)
+                sd_dict_final["bodies"][body_tab.body_key] = body
 
         # Update root metadata in sd_dict_final
         if sd_dict_final.get("meta_header") is None: sd_dict_final["meta_header"] = {}
@@ -1903,6 +2224,9 @@ class MetadataEditorWidget(QWidget):
              
              updated_sd = SemanticExtraction.model_validate(sd_dict_final)
              updates["semantic_data"] = updated_sd
+             if self.doc is not None:
+                 self.doc.semantic_data = updated_sd
+             self._pending_confirm = set()
         except Exception as e:
              logger.error(f"Failed to validate updated semantic data: {e}")
              show_notification(

@@ -218,6 +218,12 @@ class VirtualDocument(BaseModel):
 
 
     @property
+    def review_count(self) -> Optional[int]:
+        """Number of extracted values still needing review (None: no engine review data)."""
+        engine = getattr(self.semantic_data, "engine", None) if self.semantic_data else None
+        return engine.review_count if engine else None
+
+    @property
     def total_gross(self) -> Optional[Union[Decimal, float]]:
         return self.semantic_data.get_financial_value("monetary_summation.grand_total_amount") if self.semantic_data else None
 
