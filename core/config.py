@@ -63,6 +63,9 @@ class AppConfig:
     KEY_DOCLING_URL: str = "docling_url"
     KEY_DOCLING_PIPELINE: str = "docling_pipeline"
     KEY_DOCLING_TIMEOUT: str = "docling_timeout"
+    KEY_FLUXSENSE_MODE: str = "fluxsense_mode"
+    KEY_FLUXSENSE_URL: str = "fluxsense_url"
+    KEY_FLUXSENSE_TIMEOUT: str = "fluxsense_timeout"
 
     # Defaults
     DEFAULT_LANGUAGE: str = "en"
@@ -84,6 +87,12 @@ class AppConfig:
     DEFAULT_DOCLING_URL: str = "http://localhost:5001"
     DEFAULT_DOCLING_PIPELINE: str = "standard"
     DEFAULT_DOCLING_TIMEOUT: int = 900
+    FLUXSENSE_MODE_LIBRARY: str = "library"
+    FLUXSENSE_MODE_REST: str = "rest"
+    FLUXSENSE_MODES: tuple = (FLUXSENSE_MODE_LIBRARY, FLUXSENSE_MODE_REST)
+    DEFAULT_FLUXSENSE_MODE: str = FLUXSENSE_MODE_LIBRARY
+    DEFAULT_FLUXSENSE_URL: str = "http://127.0.0.1:8765"
+    DEFAULT_FLUXSENSE_TIMEOUT: int = 1800
 
     APP_ID: str = "kpaperflux"
     _active_profile: Optional[str] = None
@@ -643,6 +652,41 @@ class AppConfig:
     def set_docling_timeout(self, seconds: int) -> None:
         """Saves the docling-serve request timeout in seconds."""
         self._set_setting("OCR", self.KEY_DOCLING_TIMEOUT, int(seconds))
+
+    def get_fluxsense_mode(self) -> str:
+        """Retrieves how FluxSense is called ('library' in-process or 'rest' service)."""
+        val = str(self._get_setting("AI", self.KEY_FLUXSENSE_MODE, self.DEFAULT_FLUXSENSE_MODE)).lower()
+        return val if val in self.FLUXSENSE_MODES else self.DEFAULT_FLUXSENSE_MODE
+
+    def set_fluxsense_mode(self, mode: str) -> None:
+        """
+        Saves how FluxSense is called.
+
+        Args:
+            mode: One of FLUXSENSE_MODES.
+
+        Raises:
+            ValueError: If the mode is unknown.
+        """
+        if mode not in self.FLUXSENSE_MODES:
+            raise ValueError(f"Unknown FluxSense mode: {mode}")
+        self._set_setting("AI", self.KEY_FLUXSENSE_MODE, mode)
+
+    def get_fluxsense_url(self) -> str:
+        """Retrieves the base URL of the FluxSense REST service (mode 'rest')."""
+        return str(self._get_setting("AI", self.KEY_FLUXSENSE_URL, self.DEFAULT_FLUXSENSE_URL))
+
+    def set_fluxsense_url(self, url: str) -> None:
+        """Saves the base URL of the FluxSense REST service."""
+        self._set_setting("AI", self.KEY_FLUXSENSE_URL, url)
+
+    def get_fluxsense_timeout(self) -> int:
+        """Retrieves the FluxSense request timeout in seconds (whole-document analysis)."""
+        return self._get_int("AI", self.KEY_FLUXSENSE_TIMEOUT, self.DEFAULT_FLUXSENSE_TIMEOUT)
+
+    def set_fluxsense_timeout(self, seconds: int) -> None:
+        """Saves the FluxSense request timeout in seconds."""
+        self._set_setting("AI", self.KEY_FLUXSENSE_TIMEOUT, int(seconds))
 
     def get_log_level(self) -> str:
         """Retrieves the global log level."""

@@ -24,7 +24,6 @@ from core.logger import get_logger, get_silent_logger
 logger = get_logger("gui.workers")
 # Core Imports
 from core.pipeline import PipelineProcessor
-from core.ai_analyzer import AIAnalyzer
 from core.rules_engine import RulesEngine
 from core.repositories.logical_repo import LogicalRepository
 from core.canonizer import CanonizerService

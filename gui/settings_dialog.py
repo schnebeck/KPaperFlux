@@ -14,10 +14,8 @@ logger = get_logger("gui.settings_dialog")
 
 # Core Imports
 from core.config import AppConfig
-from core.ai_analyzer import AIAnalyzer
-from core.ai.gemini_provider import GeminiProvider
-from core.ai.llamacpp_provider import LlamaCppProvider
-from core.ai.ollama_provider import OllamaProvider
+from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, create_fluxsense_client
+from core.identity_parser import parse_identity_signature
 
 # GUI Imports
 # Hinweis: Falls diese Module fehlen, muss die Dateistruktur entsprechend existieren.
@@ -103,122 +101,33 @@ class SettingsDialog(QDialog):
         h_transfer.addWidget(self.btn_transfer)
         form.addRow(self.lbl_transfer, h_transfer)
 
-        # AI Backend Provider
-        self.lbl_provider = QLabel("")
-        self.combo_provider = QComboBox()
-        self.combo_provider.addItem("Gemini (Cloud)", "gemini")
-        self.combo_provider.addItem("Ollama (Local)", "ollama")
-        self.combo_provider.addItem("OpenAI (Cloud)", "openai")
-        self.combo_provider.addItem("Anthropic (Cloud)", "anthropic")
-        self.combo_provider.addItem(self.tr("llama.cpp (Local, OpenAI-compatible)"), "llamacpp")
-        self.combo_provider.currentIndexChanged.connect(self._toggle_ai_provider_ui)
-        form.addRow(self.lbl_provider, self.combo_provider)
+        # Analysis Engine (FluxSense)
+        self.lbl_engine_mode = QLabel("")
+        self.combo_engine_mode = QComboBox()
+        self.combo_engine_mode.addItem("", AppConfig.FLUXSENSE_MODE_LIBRARY)
+        self.combo_engine_mode.addItem("", AppConfig.FLUXSENSE_MODE_REST)
+        self.combo_engine_mode.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.combo_engine_mode.currentIndexChanged.connect(self._toggle_engine_mode_ui)
+        form.addRow(self.lbl_engine_mode, self.combo_engine_mode)
 
-        # Provider-specific fields for toggling visibility
-        self.provider_fields = {
-            "gemini": [],
-            "ollama": [],
-            "openai": [],
-            "anthropic": [],
-            "llamacpp": []
-        }
+        self.lbl_engine_url = QLabel("")
+        self.edit_engine_url = QLineEdit()
+        self.edit_engine_url.setPlaceholderText(AppConfig.DEFAULT_FLUXSENSE_URL)
+        form.addRow(self.lbl_engine_url, self.edit_engine_url)
 
-        def add_provider_row(provider, label_text, widget_or_layout):
-            form.addRow(label_text, widget_or_layout)
-            self.provider_fields[provider].append(widget_or_layout)
+        self.lbl_engine_timeout = QLabel("")
+        self.spin_engine_timeout = QSpinBox()
+        self.spin_engine_timeout.setRange(30, 14400)
+        self.spin_engine_timeout.setSingleStep(60)
+        form.addRow(self.lbl_engine_timeout, self.spin_engine_timeout)
 
-        # Gemini API Key
-        self.lbl_api_key = QLabel("")
-        self.api_key_layout = QHBoxLayout()
-        self.api_key_layout.setContentsMargins(0, 0, 0, 0)
-        self.edit_api_key = QLineEdit()
-        self.edit_api_key.setPlaceholderText("google_api_key_...")
-        self.edit_api_key.textChanged.connect(self._on_api_key_changed)
-        self.btn_verify_key = QPushButton("")
-        self.btn_verify_key.clicked.connect(lambda: self._refresh_models(silent=False))
-        self.lbl_key_status = QLabel()
-        self.lbl_key_status.setFixedSize(24, 24)
-        self.api_key_layout.addWidget(self.edit_api_key, 1)
-        self.api_key_layout.addWidget(self.lbl_key_status)
-        self.api_key_layout.addWidget(self.btn_verify_key)
-        add_provider_row("gemini", self.lbl_api_key, self.api_key_layout)
+        self.lbl_engine_note = QLabel("")
+        self.lbl_engine_note.setWordWrap(True)
+        form.addRow("", self.lbl_engine_note)
 
-        # Gemini Model
-        self.lbl_model = QLabel("")
-        self.combo_model = QComboBox()
-        self.combo_model.setEditable(True) 
-        self.combo_model.addItems(self.config.get_cached_models())
-        add_provider_row("gemini", self.lbl_model, self.combo_model)
-
-        # Ollama URL
-        self.lbl_ollama_url = QLabel("")
-        self.edit_ollama_url = QLineEdit()
-        self.edit_ollama_url.setPlaceholderText("http://localhost:11434")
-        add_provider_row("ollama", self.lbl_ollama_url, self.edit_ollama_url)
-
-        # Ollama Model
-        self.lbl_ollama_model = QLabel("")
-        self.edit_ollama_model = QLineEdit()
-        self.edit_ollama_model.setPlaceholderText("llama3")
-        add_provider_row("ollama", self.lbl_ollama_model, self.edit_ollama_model)
-
-        # Ollama Test Connection
-        self.btn_refresh_ollama = QPushButton(self.tr("Test Connection"))
-        self.btn_refresh_ollama.clicked.connect(self._test_ollama_connection)
-        add_provider_row("ollama", "", self.btn_refresh_ollama)
-
-        # OpenAI Key
-        self.lbl_openai_key = QLabel("")
-        self.edit_openai_key = QLineEdit()
-        self.edit_openai_key.setEchoMode(QLineEdit.EchoMode.Password)
-        add_provider_row("openai", self.lbl_openai_key, self.edit_openai_key)
-
-        # OpenAI Model
-        self.lbl_openai_model = QLabel("")
-        self.edit_openai_model = QLineEdit()
-        self.edit_openai_model.setPlaceholderText("gpt-4o")
-        add_provider_row("openai", self.lbl_openai_model, self.edit_openai_model)
-
-        # Anthropic Key
-        self.lbl_anthropic_key = QLabel("")
-        self.edit_anthropic_key = QLineEdit()
-        self.edit_anthropic_key.setEchoMode(QLineEdit.EchoMode.Password)
-        add_provider_row("anthropic", self.lbl_anthropic_key, self.edit_anthropic_key)
-
-        # Anthropic Model
-        self.lbl_anthropic_model = QLabel("")
-        self.edit_anthropic_model = QLineEdit()
-        self.edit_anthropic_model.setPlaceholderText("claude-3-5-sonnet-20240620")
-        add_provider_row("anthropic", self.lbl_anthropic_model, self.edit_anthropic_model)
-
-        # llama.cpp / llama-swap (OpenAI-compatible)
-        self.lbl_llamacpp_url = QLabel("")
-        self.edit_llamacpp_url = QLineEdit()
-        self.edit_llamacpp_url.setPlaceholderText(AppConfig.DEFAULT_LLAMACPP_URL)
-        add_provider_row("llamacpp", self.lbl_llamacpp_url, self.edit_llamacpp_url)
-
-        self.lbl_llamacpp_model = QLabel("")
-        self.edit_llamacpp_model = QLineEdit()
-        self.edit_llamacpp_model.setPlaceholderText(AppConfig.DEFAULT_LLAMACPP_MODEL)
-        add_provider_row("llamacpp", self.lbl_llamacpp_model, self.edit_llamacpp_model)
-
-        self.lbl_llamacpp_key = QLabel("")
-        self.edit_llamacpp_key = QLineEdit()
-        self.edit_llamacpp_key.setEchoMode(QLineEdit.EchoMode.Password)
-        add_provider_row("llamacpp", self.lbl_llamacpp_key, self.edit_llamacpp_key)
-
-        self.cb_llamacpp_vision = QCheckBox("")
-        add_provider_row("llamacpp", "", self.cb_llamacpp_vision)
-
-        self.btn_test_llamacpp = QPushButton("")
-        self.btn_test_llamacpp.clicked.connect(self._test_llamacpp_connection)
-        add_provider_row("llamacpp", "", self.btn_test_llamacpp)
-
-        # AI Retries
-        self.lbl_ai_retries = QLabel("")
-        self.spin_ai_retries = QSpinBox()
-        self.spin_ai_retries.setRange(0, 10)
-        form.addRow(self.lbl_ai_retries, self.spin_ai_retries)
+        self.btn_test_engine = QPushButton("")
+        self.btn_test_engine.clicked.connect(self._test_engine_connection)
+        form.addRow("", self.btn_test_engine)
 
         self.tabs.addTab(general_tab, self.tr("General"))
 
@@ -363,37 +272,11 @@ class SettingsDialog(QDialog):
         self.edit_ocr.setText(self.config.get_ocr_binary())
         self.edit_transfer.setText(self.config.get_transfer_path())
         
-        provider_idx = self.combo_provider.findData(self.config.get_ai_provider())
-        self.combo_provider.setCurrentIndex(max(0, provider_idx))
-        
-        self.combo_model.setCurrentText(self.config.get_gemini_model())
-        self.edit_api_key.setText(self.config.get_api_key())
-        
-        self.edit_ollama_url.setText(self.config.get_ollama_url())
-        self.edit_ollama_model.setText(self.config.get_ollama_model())
-
-        self.edit_openai_key.setText(self.config.get_openai_key())
-        self.edit_openai_model.setText(self.config.get_openai_model())
-
-        self.edit_anthropic_key.setText(self.config.get_anthropic_key())
-        self.edit_anthropic_model.setText(self.config.get_anthropic_model())
-
-        self.edit_llamacpp_url.setText(self.config.get_llamacpp_url())
-        self.edit_llamacpp_model.setText(self.config.get_llamacpp_model())
-        self.edit_llamacpp_key.setText(self.config.get_llamacpp_api_key())
-        self.cb_llamacpp_vision.setChecked(self.config.get_llamacpp_vision())
-        
-        self.spin_ai_retries.setValue(self.config.get_ai_retries())
-        self._toggle_ai_provider_ui()
-
-        # Restore verification status icon
-        is_verified = self.config._get_setting("AI", self.config.KEY_API_VERIFIED, None)
-        self._update_status_icon(is_verified)
-        
-        # Auto-refresh if cache is empty but API key is present
-        if not self.config.get_cached_models() and self.edit_api_key.text():
-            from PyQt6.QtCore import QTimer
-            QTimer.singleShot(100, lambda: self._refresh_models(silent=True))
+        mode_idx = self.combo_engine_mode.findData(self.config.get_fluxsense_mode())
+        self.combo_engine_mode.setCurrentIndex(max(0, mode_idx))
+        self.edit_engine_url.setText(self.config.get_fluxsense_url())
+        self.spin_engine_timeout.setValue(self.config.get_fluxsense_timeout())
+        self._toggle_engine_mode_ui()
 
         self.edit_sig_private.setPlainText(self.config.get_private_signature())
         self.edit_sig_business.setPlainText(self.config.get_business_signature())
@@ -425,30 +308,7 @@ class SettingsDialog(QDialog):
         self.config.set_ocr_binary(self.edit_ocr.text())
         self.config.set_transfer_path(self.edit_transfer.text())
         
-        self.config.set_ai_provider(self.combo_provider.currentData() or "gemini")
-        
-        self.config.set_gemini_model(self.combo_model.currentText())
-        self.config.set_api_key(self.edit_api_key.text())
-        
-        self.config.set_ollama_url(self.edit_ollama_url.text())
-        self.config.set_ollama_model(self.edit_ollama_model.text())
-
-        self.config.set_openai_key(self.edit_openai_key.text())
-        self.config.set_openai_model(self.edit_openai_model.text())
-
-        self.config.set_anthropic_key(self.edit_anthropic_key.text())
-        self.config.set_anthropic_model(self.edit_anthropic_model.text())
-
-        self.config.set_llamacpp_url(self.edit_llamacpp_url.text() or AppConfig.DEFAULT_LLAMACPP_URL)
-        self.config.set_llamacpp_model(self.edit_llamacpp_model.text() or AppConfig.DEFAULT_LLAMACPP_MODEL)
-        self.config.set_llamacpp_api_key(self.edit_llamacpp_key.text())
-        self.config.set_llamacpp_vision(self.cb_llamacpp_vision.isChecked())
-        
-        self.config.set_ai_retries(self.spin_ai_retries.value())
-
-        # Persist verification status if known (True/False/None)
-        if hasattr(self, "_last_verify_result"):
-             self.config._set_setting("AI", self.config.KEY_API_VERIFIED, self._last_verify_result)
+        self._store_engine_settings()
 
         self.config.set_private_signature(self.edit_sig_private.toPlainText())
         self.config.set_business_signature(self.edit_sig_business.toPlainText())
@@ -466,97 +326,55 @@ class SettingsDialog(QDialog):
         self.settings_changed.emit()
         self.accept()
 
-    def _on_api_key_changed(self):
-        """Triggers a silent refresh when the user finished typing/pasting a key."""
-        # Reset status icon when key changes
-        self._update_status_icon(None)
-        self._last_verify_result = None
+    def _store_engine_settings(self) -> None:
+        """Persists the FluxSense engine settings from the dialog."""
+        self.config.set_fluxsense_mode(self.combo_engine_mode.currentData() or AppConfig.DEFAULT_FLUXSENSE_MODE)
+        self.config.set_fluxsense_url(self.edit_engine_url.text().strip() or AppConfig.DEFAULT_FLUXSENSE_URL)
+        self.config.set_fluxsense_timeout(self.spin_engine_timeout.value())
 
-        if not hasattr(self, "_refresh_timer"):
-            from PyQt6.QtCore import QTimer
-            self._refresh_timer = QTimer()
-            self._refresh_timer.setSingleShot(True)
-            self._refresh_timer.timeout.connect(lambda: self._refresh_models(silent=True))
-        
-        # Debounce: wait for 1.5 seconds after last change
-        self._refresh_timer.start(1500)
+    def _create_engine_client(self) -> FluxSenseClient:
+        """Creates a FluxSense client from the values currently shown in the dialog."""
+        return create_fluxsense_client(
+            self.combo_engine_mode.currentData() or AppConfig.DEFAULT_FLUXSENSE_MODE,
+            self.edit_engine_url.text().strip() or AppConfig.DEFAULT_FLUXSENSE_URL,
+            self.spin_engine_timeout.value(),
+        )
 
-    def _update_status_icon(self, success: Optional[bool]):
-        """Updates the status label with a green check or red X."""
-        if success is True:
-            # Using KDE/Qt Standard Pixmaps (Checkmark)
-            icon = self.style().standardIcon(self.style().StandardPixmap.SP_DialogApplyButton)
-            self.lbl_key_status.setPixmap(icon.pixmap(18, 18))
-            self.lbl_key_status.setToolTip(self.tr("API Key Verified"))
-        elif success is False:
-            # Using KDE/Qt Standard Pixmaps (Cancel/X)
-            icon = self.style().standardIcon(self.style().StandardPixmap.SP_DialogCancelButton)
-            self.lbl_key_status.setPixmap(icon.pixmap(18, 18))
-            self.lbl_key_status.setToolTip(self.tr("API Key Invalid"))
-        else:
-            self.lbl_key_status.clear()
-            self.lbl_key_status.setToolTip("")
+    def _toggle_engine_mode_ui(self) -> None:
+        """Shows the service URL only in REST mode."""
+        form = self.tabs.widget(0).layout()
+        is_rest = self.combo_engine_mode.currentData() == AppConfig.FLUXSENSE_MODE_REST
+        form.setRowVisible(self.edit_engine_url, is_rest)
 
-    def _refresh_models(self, silent=False):
-        """Dynamic fetch of available Gemini models."""
-        api_key = self.edit_api_key.text().strip()
-        if not api_key:
-            show_selectable_message_box(self, self.tr("Missing API Key"), self.tr("Please enter an API Key first."), icon=QMessageBox.Icon.Warning)
-            return
-
+    def _test_engine_connection(self) -> None:
+        """Checks FluxSense and its LLM backend (lists models, analyzes nothing)."""
         self.setCursor(Qt.CursorShape.WaitCursor)
-        self.btn_verify_key.setEnabled(False)
         try:
-            # Gemini key verification: always query Gemini, regardless of the active provider
-            models = GeminiProvider(api_key, self.combo_model.currentText() or self.config.get_gemini_model()).list_models()
-            
-            if models:
-                self._last_verify_result = True
-                self._update_status_icon(True)
-                current_model = self.combo_model.currentText()
-                self.combo_model.clear()
-                self.combo_model.addItems(models)
-                self.config.set_cached_models(models)
-                # Recover selection if it was in the new list
-                idx = self.combo_model.findText(current_model)
-                if idx >= 0:
-                    self.combo_model.setCurrentIndex(idx)
-                else:
-                    self.combo_model.setCurrentText(current_model)
-            else:
-                self._last_verify_result = False
-                self._update_status_icon(False)
-                if not silent:
-                    show_selectable_message_box(
-                        self, 
-                        self.tr("Refresh Failed"), 
-                        self.tr("API returned an empty model list. Please check if your API Key has access to Gemini models."), 
-                        icon=QMessageBox.Icon.Warning
-                    )
-        except Exception as e:
-            # Check for common auth errors
-            error_msg = str(e)
-            if "API_KEY_INVALID" in error_msg or "403" in error_msg:
-                msg = self.tr("Invalid API Key or Permission Denied.")
-            elif "429" in error_msg:
-                msg = self.tr("Rate limit exceeded.")
-            else:
-                msg = f"{self.tr('Failed to list models')}:\n{error_msg}"
-            
-            if not silent:
-                self._last_verify_result = False
-                self._update_status_icon(False)
-                show_selectable_message_box(self, self.tr("Error"), msg, icon=QMessageBox.Icon.Critical)
-            else:
-                logger.warning(f"Background model refresh failed: {msg}")
-        finally:
+            health = self._create_engine_client().health()
+        except FluxSenseError as e:
             self.setCursor(Qt.CursorShape.ArrowCursor)
-            self.btn_verify_key.setEnabled(True)
+            show_selectable_message_box(self, self.tr("Connection Failed"),
+                                        self.tr("FluxSense is not available:") + f"\n{e}", icon=QMessageBox.Icon.Critical)
+            return
+        self.setCursor(Qt.CursorShape.ArrowCursor)
 
-    def _analyze_signature(self, id_type: str):
+        version = str(health.get("version", "?"))
+        if health.get("llm_backend"):
+            show_selectable_message_box(self, self.tr("Success"),
+                                        self.tr("FluxSense %s is ready.") % version, icon=QMessageBox.Icon.Information)
+        else:
+            show_selectable_message_box(
+                self, self.tr("Connection Failed"),
+                self.tr("FluxSense %s is available, but its AI backend is not reachable. Documents stay on hold until it is back.") % version,
+                icon=QMessageBox.Icon.Warning)
+
+    def _analyze_signature(self, id_type: str) -> None:
         """
-        Phase 101: Analyze user signature with AI.
-        id_type: 'PRIVATE' or 'BUSINESS'
+        Turns the signature text into a structured identity profile via the
+        FluxSense LLM backend (library mode) and saves it.
+
+        Args:
+            id_type: 'PRIVATE' or 'BUSINESS'.
         """
         if id_type == "PRIVATE":
             text = self.edit_sig_private.toPlainText()
@@ -567,107 +385,28 @@ class SettingsDialog(QDialog):
             show_selectable_message_box(self, self.tr("Missing Input"), self.tr("Please enter a signature text first."), icon=QMessageBox.Icon.Warning)
             return
 
-        # Instantiate AI (Blocking for MVP)
-        if self.config.get_ai_provider() == "gemini" and not self.config.get_api_key():
-            show_selectable_message_box(self, self.tr("Error"), self.tr("No API Key configured."), icon=QMessageBox.Icon.Critical)
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        try:
+            profile = parse_identity_signature(text, self._create_engine_client())
+        except FluxSenseError as e:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            show_selectable_message_box(self, self.tr("Error"), self.tr("AI Error: %s") % e, icon=QMessageBox.Icon.Critical)
+            return
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        if not profile:
+            show_selectable_message_box(self, self.tr("Analysis Failed"), self.tr("AI returned no valid profile."), icon=QMessageBox.Icon.Warning)
             return
 
-        # Show busy cursor
-        self.setCursor(Qt.CursorShape.WaitCursor)
-        try:
-            # Uses the active provider with its own configured model
-            analyzer = AIAnalyzer()
-            profile = analyzer.parse_identity_signature(text)
-
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-
-            if profile:
-                # Save JSON
-                json_str = profile.model_dump_json(indent=2)
-                if id_type == "PRIVATE":
-                    self.config.set_private_profile_json(json_str)
-                    target_name = "Private"
-                else:
-                    self.config.set_business_profile_json(json_str)
-                    target_name = "Business"
-
-                # Show Result
-                show_selectable_message_box(
-                    self,
-                    self.tr("Analysis Successful"),
-                    f"Extracted {target_name} Profile:\n\n{json_str}\n\n(Saved to Config)",
-                    icon=QMessageBox.Icon.Information
-                )
-            else:
-                show_selectable_message_box(self, self.tr("Analysis Failed"), self.tr("AI returned no valid profile."), icon=QMessageBox.Icon.Warning)
-
-        except Exception as e:
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-            show_selectable_message_box(self, self.tr("Error"), f"AI Error: {e}", icon=QMessageBox.Icon.Critical)
-
-    def _toggle_ai_provider_ui(self):
-        active = self.combo_provider.currentData()
-        form = self.tabs.widget(0).layout() # The QFormLayout on General tab
-        
-        for p_name, fields in self.provider_fields.items():
-            visible = p_name == active
-            for field in fields:
-                if isinstance(field, QLayout):
-                    form.setRowVisible(field, visible)
-                else:
-                    form.setRowVisible(field, visible)
-
-    def _test_ollama_connection(self):
-        url = self.edit_ollama_url.text().strip()
-        provider = OllamaProvider(url)
-        
-        self.setCursor(Qt.CursorShape.WaitCursor)
-        try:
-            models = provider.list_models()
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-            if models:
-                show_selectable_message_box(
-                    self, 
-                    self.tr("Success"), 
-                    f"{self.tr('Connected to Ollama!')}\n\n{self.tr('Available models')}:\n" + "\n".join(models[:10]),
-                    icon=QMessageBox.Icon.Information
-                )
-            else:
-                show_selectable_message_box(
-                    self, 
-                    self.tr("Connection Failed"), 
-                    self.tr("Connected to Ollama, but no models found. Please pull a model first (e.g., 'ollama pull llama3')."),
-                    icon=QMessageBox.Icon.Warning
-                )
-        except Exception as e:
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-            show_selectable_message_box(self, self.tr("Connection Failed"), f"{self.tr('Could not connect to Ollama')}:\n{e}", icon=QMessageBox.Icon.Critical)
-
-    def _test_llamacpp_connection(self) -> None:
-        """Lists the models of the configured llama.cpp / llama-swap endpoint."""
-        url = self.edit_llamacpp_url.text().strip() or AppConfig.DEFAULT_LLAMACPP_URL
-        provider = LlamaCppProvider(url, self.edit_llamacpp_model.text().strip(), api_key=self.edit_llamacpp_key.text().strip())
-
-        self.setCursor(Qt.CursorShape.WaitCursor)
-        try:
-            models = provider.list_models()
-        finally:
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-
-        if models:
-            show_selectable_message_box(
-                self,
-                self.tr("Success"),
-                self.tr("Connected to %s. Available models:") % url + "\n" + "\n".join(models[:20]),
-                icon=QMessageBox.Icon.Information
-            )
+        json_str = profile.model_dump_json(indent=2)
+        if id_type == "PRIVATE":
+            self.config.set_private_profile_json(json_str)
+            message = self.tr("Extracted private profile (saved):")
         else:
-            show_selectable_message_box(
-                self,
-                self.tr("Connection Failed"),
-                self.tr("Could not list models at %s. Check URL and API key.") % url,
-                icon=QMessageBox.Icon.Warning
-            )
+            self.config.set_business_profile_json(json_str)
+            message = self.tr("Extracted business profile (saved):")
+        show_selectable_message_box(self, self.tr("Analysis Successful"), f"{message}\n\n{json_str}",
+                                    icon=QMessageBox.Icon.Information)
 
     def _open_log_file(self):
         """Attempts to open the log file with the system default viewer."""
@@ -707,25 +446,14 @@ class SettingsDialog(QDialog):
         self.btn_ocr.setText(self.tr("Browse..."))
         self.lbl_transfer.setText(self.tr("Transfer Folder:"))
         self.btn_transfer.setText(self.tr("Browse..."))
-        self.lbl_provider.setText(self.tr("AI Backend:"))
-        
-        self.lbl_api_key.setText(self.tr("Gemini API Key:"))
-        self.btn_verify_key.setText(self.tr("Verify"))
-        self.lbl_model.setText(self.tr("Gemini Model:"))
-        self.lbl_ollama_url.setText(self.tr("Ollama URL:"))
-        self.lbl_ollama_model.setText(self.tr("Ollama Model:"))
-        self.btn_refresh_ollama.setText(self.tr("Test Connection"))
-        self.lbl_openai_key.setText(self.tr("OpenAI API Key:"))
-        self.lbl_openai_model.setText(self.tr("OpenAI Model:"))
-        self.lbl_anthropic_key.setText(self.tr("Anthropic API Key:"))
-        self.lbl_anthropic_model.setText(self.tr("Anthropic Model:"))
-        self.lbl_llamacpp_url.setText(self.tr("llama.cpp URL:"))
-        self.lbl_llamacpp_model.setText(self.tr("llama.cpp Model:"))
-        self.lbl_llamacpp_key.setText(self.tr("llama.cpp API Key:"))
-        self.cb_llamacpp_vision.setText(self.tr("Model supports images (vision)"))
-        self.btn_test_llamacpp.setText(self.tr("Test Connection"))
-        self.lbl_ai_retries.setText(self.tr("AI Validation Retries:"))
-        self.spin_ai_retries.setSuffix(f" {self.tr('Retries')}")
+        self.lbl_engine_mode.setText(self.tr("Analysis Engine (FluxSense):"))
+        self.combo_engine_mode.setItemText(0, self.tr("Library (in-process)"))
+        self.combo_engine_mode.setItemText(1, self.tr("REST service"))
+        self.lbl_engine_url.setText(self.tr("FluxSense URL:"))
+        self.lbl_engine_timeout.setText(self.tr("Analysis Timeout:"))
+        self.spin_engine_timeout.setSuffix(f" {self.tr('s')}")
+        self.lbl_engine_note.setText(self.tr("AI backend and models are configured in FluxSense (~/.config/fluxsense/config.toml)."))
+        self.btn_test_engine.setText(self.tr("Test Connection"))
 
         # Identity Tab
         self.lbl_sig_private.setText(self.tr("Private Signature:\n(For Output/Debitor detection)"))

@@ -907,15 +907,9 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self._update_transfer_menu_visibility()
         
         if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
-            logger.info("[Core] Settings changed. Re-initializing AI Analyzer...")
-            from core.ai_analyzer import AIAnalyzer
-            new_analyzer = AIAnalyzer()
-            # Update the canonizer's analyzer
+            logger.info("[Core] Settings changed. Re-connecting the analysis engine on the next document.")
             if hasattr(self.main_loop_worker, 'canonizer'):
-                self.main_loop_worker.canonizer.analyzer = new_analyzer
-                # Also update visual auditor if present
-                if hasattr(self.main_loop_worker.canonizer, 'visual_auditor'):
-                    self.main_loop_worker.canonizer.visual_auditor.ai = new_analyzer
+                self.main_loop_worker.canonizer.reset_engine_client()
 
         new_lang = self.app_config.get_language()
         self._switch_language(new_lang, refresh_ui=True)

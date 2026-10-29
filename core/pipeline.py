@@ -30,7 +30,6 @@ logger = get_logger("pipeline")
 import pikepdf
 from pdf2image import convert_from_path
 
-from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
 from core.database import DatabaseManager
 from core.models.physical import PhysicalFile

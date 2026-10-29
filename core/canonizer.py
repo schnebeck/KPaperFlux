@@ -2,34 +2,41 @@
 ------------------------------------------------------------------------------
 Project:        KPaperFlux
 File:           core/canonizer.py
-Version:        2.0.0
+Version:        3.0.0
 Producer:       thorsten.schnebeck@gmx.net
-Generator:      Antigravity
-Description:    Canonization service that orchestrates the document processing
-                pipeline, including splitting, visual auditing, and extraction.
-                Handles the lifecycle from raw logical entities to fully
-                extracted canonical data.
+Generator:      Claude Opus 5.5
+Description:    Canonization service: runs the FluxSense analysis engine on
+                logical documents after Stage 0, applies the detected
+                segmentation (1 logical -> N logical), stores the semantic
+                extraction with its per-field review state and assigns
+                workflows and auto-tags. Also handles manual split and
+                restructure operations.
 ------------------------------------------------------------------------------
 """
 
-import json
-import traceback
+import re
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from core.ai_analyzer import AIAnalyzer
 from core.config import AppConfig
 from core.database import DatabaseManager
-from core.models.semantic import SemanticExtraction, WorkflowInfo
-from core.models.virtual import VirtualDocument as Document
-from core.models.types import DocType
+from core.engines.analysis_input import AnalysisInputError, analysis_pdf
+from core.engines.fluxsense_adapter import (
+    AdaptedEntity,
+    FluxSenseResultError,
+    PageRef,
+    adapt_result,
+    engine_error_info,
+    flatten_source_mapping,
+)
+from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, create_fluxsense_client
 from core.models.identity import IdentityProfile
+from core.models.semantic import SemanticExtraction, WorkflowInfo
 from core.models.virtual import SourceReference, VirtualDocument, DocumentStatus
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
 from core.rules_engine import RulesEngine
-from core.visual_auditor import VisualAuditor
 from core.workflow import WorkflowRuleRegistry, get_initial_state
 
 if TYPE_CHECKING:
@@ -38,19 +45,43 @@ if TYPE_CHECKING:
 from core.logger import get_logger
 logger = get_logger("canonizer")
 
+# Re-extraction of an already classified document: keep its page range (no re-segmentation).
+RESUMPTION_STATES: Tuple[str, ...] = (DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S2)
+FRESH_STATES: Tuple[str, ...] = (DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE)
+
+
+def generate_smart_filename(semantic_data: Optional[SemanticExtraction], entity_types: List[str]) -> str:
+    """
+    Builds the export filename '<date>__<sender>__<TYPE>.pdf'.
+
+    Args:
+        semantic_data: The semantic extraction (may be None).
+        entity_types: type_tags; the first one names the type.
+
+    Returns:
+        The filename.
+    """
+    if semantic_data is None:
+        return "0000-00-00__Unknown__DOC.pdf"
+    meta = semantic_data.meta_header
+    doc_date = (meta.doc_date if meta else None) or "0000-00-00"
+    sender = meta.sender if meta else None
+    entity_name = (sender.company or sender.name if sender else None) or "Unknown"
+    entity_name = re.sub(r"[^\w\s]", "", str(entity_name)).replace(" ", "_")[:30]
+    doc_type = entity_types[0].upper() if entity_types else "DOC"
+    return f"{doc_date}__{entity_name}__{doc_type}.pdf"
+
 
 class CanonizerService:
     """
-    Phase 2 Canonizer:
-    Scans 'semantic_entities' (Logical Entities) with status='NEW'.
-    Resolves text via VirtualDocument -> PhysicalFile.
-    Handles Splitting (1 Logical -> N Logical).
+    Scans logical entities waiting for analysis (NEW, READY_FOR_PIPELINE,
+    STAGE2_PENDING), analyzes them with FluxSense and applies the result.
     """
 
     def __init__(
         self,
         db: DatabaseManager,
-        analyzer: Optional[AIAnalyzer] = None,
+        engine_client: Optional[FluxSenseClient] = None,
         physical_repo: Optional[PhysicalRepository] = None,
         logical_repo: Optional[LogicalRepository] = None,
         filter_tree: Optional["FilterTree"] = None,
@@ -60,7 +91,7 @@ class CanonizerService:
 
         Args:
             db: The DatabaseManager instance.
-            analyzer: Optional existing AIAnalyzer instance.
+            engine_client: Optional FluxSense client (default: created from the settings on first use).
             physical_repo: Optional existing PhysicalRepository instance.
             logical_repo: Optional existing LogicalRepository instance.
             filter_tree: Optional existing FilterTree instance.
@@ -73,18 +104,43 @@ class CanonizerService:
         self.physical_repo = physical_repo if physical_repo else PhysicalRepository(db)
         self.logical_repo = logical_repo if logical_repo else LogicalRepository(db)
 
-        # Core Components
-        if analyzer:
-            self.analyzer = analyzer
-        else:
-            self.analyzer = AIAnalyzer()
-
-        self.visual_auditor = VisualAuditor(self.analyzer)
+        self._engine_client: Optional[FluxSenseClient] = engine_client
         self.rules_engine = RulesEngine(db, filter_tree) if filter_tree else None
-        
+
         self.workflow_registry = WorkflowRuleRegistry()
         # Note: In production, the path might be different, but for now we use relative
         self.workflow_registry.load_from_directory("resources/workflows")
+
+    # ------------------------------------------------------------------ engine
+
+    def _load_identity(self, raw_json: Optional[str]) -> Optional[IdentityProfile]:
+        """Parses a stored identity profile (None if not configured)."""
+        return IdentityProfile.model_validate_json(raw_json) if raw_json else None
+
+    def get_engine_client(self) -> FluxSenseClient:
+        """Returns the FluxSense client, creating it from the current settings if needed."""
+        if self._engine_client is None:
+            self._engine_client = create_fluxsense_client(
+                self.config.get_fluxsense_mode(),
+                self.config.get_fluxsense_url(),
+                self.config.get_fluxsense_timeout(),
+                private_id=self._load_identity(self.config.get_private_profile_json()),
+                business_id=self._load_identity(self.config.get_business_profile_json()),
+            )
+        return self._engine_client
+
+    def reset_engine_client(self) -> None:
+        """Drops the cached client so changed settings take effect on the next document."""
+        self._engine_client = None
+
+    def _resolve_physical(self, file_uuid: str) -> Optional[Tuple[str, int]]:
+        """Resolves a physical file UUID to (vault path, page count)."""
+        pf = self.physical_repo.get_by_uuid(file_uuid)
+        if not pf or not pf.file_path:
+            return None
+        return pf.file_path, int(pf.page_count_phys or 0)
+
+    # ------------------------------------------------------------------ pipeline
 
     def _load_physical(self, fid: str) -> Optional[Any]:
         """Resolves a physical file UUID to its PhysicalFile record."""
@@ -99,7 +155,7 @@ class CanonizerService:
 
     def process_pending_documents(self, limit: int = 10) -> int:
         """
-        Scans for Logical Entities with status='NEW' and starts processing them.
+        Scans for Logical Entities waiting for analysis and processes them.
 
         Args:
             limit: Maximum number of documents to process in one batch.
@@ -107,10 +163,6 @@ class CanonizerService:
         Returns:
             The number of successfully processed documents.
         """
-        if not self.analyzer:
-            logger.info("No AI Analyzer available.")
-            return 0
-
         cursor = self.db.connection.cursor()
         # Fetch entities - but only those NOT currently being processed by another worker
         query = """
@@ -151,38 +203,12 @@ class CanonizerService:
                     if success:
                         processed_count += 1
                 except (NameError, AttributeError, SyntaxError, TypeError, ValueError) as e:
-                    logger.error(f"CRITICAL ERROR processing {uuid_obj}: {e}")
-                    traceback.print_exc()
+                    logger.error(f"CRITICAL ERROR processing {uuid_obj}: {e}", exc_info=True)
                     raise e  # Propagate critical coding/logic errors to stop the worker
                 except Exception as e:
-                    logger.error(f"ERROR processing {uuid_obj}: {e}")
-                    traceback.print_exc()
-                    # For non-critical exceptions, we might want to release the lock or set a failure status
-                    # v_doc.status = 'FAILED'
-                    # self.logical_repo.save(v_doc)
+                    logger.error(f"ERROR processing {uuid_obj}: {e}", exc_info=True)
 
         return processed_count
-
-    def _detect_zugferd_type_tags(self, v_doc: VirtualDocument) -> Optional[List[str]]:
-        """
-        Check whether the document's first physical file embeds a ZUGFeRD / Factur-X
-        XML and return the derived type_tags list (e.g. ``["INVOICE"]``).
-
-        Returns ``None`` if no ZUGFeRD XML is found or the physical file is unavailable.
-        Never raises — errors are swallowed and logged.
-        """
-        if not v_doc.source_mapping:
-            return None
-        pf = self.physical_repo.get_by_uuid(v_doc.source_mapping[0].file_uuid)
-        if not pf or not getattr(pf, "file_path", None):
-            return None
-        try:
-            from core.utils.zugferd_extractor import ZugferdExtractor
-            data = ZugferdExtractor.extract_from_pdf(pf.file_path)
-            return data.get("type_tags") if data else None
-        except Exception as exc:
-            logger.warning(f"ZUGFeRD pre-classification failed for {v_doc.uuid}: {exc}")
-            return None
 
     def _atomic_transition(self, v_doc: VirtualDocument, allowed_old: List[str], target_status: str) -> bool:
         """
@@ -208,402 +234,157 @@ class CanonizerService:
             return True
         return False
 
+    def _discard_empty(self, v_doc: VirtualDocument) -> None:
+        """
+        Handles a document without any text: trailing pages of a file are ADF
+        artifacts and are purged, others are marked SKIPPED_EMPTY.
+        """
+        is_at_end = False
+        if v_doc.source_mapping:
+            last_ref = v_doc.source_mapping[-1]
+            pf = self.physical_repo.get_by_uuid(last_ref.file_uuid)
+            if pf and pf.page_count_phys and max(last_ref.pages) == pf.page_count_phys:
+                is_at_end = True
+
+        if is_at_end:
+            logger.info(f"No text content resolved for {v_doc.uuid} (End-of-File). Purging ADF artifact.")
+            self.logical_repo.delete_by_uuid(v_doc.uuid)
+        else:
+            logger.info(f"No text content resolved for {v_doc.uuid} (Mid-File). Marking as SKIPPED_EMPTY.")
+            v_doc.status = DocumentStatus.SKIPPED_EMPTY
+            self.logical_repo.save(v_doc)
+
+    def _acquire(self, v_doc: VirtualDocument) -> Optional[bool]:
+        """
+        Locks the document for analysis.
+
+        Returns:
+            True for a re-extraction (keep page range), False for a fresh
+            analysis, None if another worker owns the document.
+        """
+        status = v_doc.status
+        if status in RESUMPTION_STATES:
+            if status == DocumentStatus.STAGE2_PENDING and not self._atomic_transition(
+                    v_doc, [DocumentStatus.STAGE2_PENDING], DocumentStatus.PROCESSING_S2):
+                logger.info("Failed atomic lock for re-extraction. Skipping.")
+                return None
+            return True
+        if status in FRESH_STATES:
+            if not self._atomic_transition(v_doc, list(FRESH_STATES), DocumentStatus.PROCESSING_S1):
+                logger.info("Failed atomic lock for analysis. Skipping.")
+                return None
+        elif status != DocumentStatus.PROCESSING_S1 and status.startswith("PROCESSING_"):
+            logger.info(f"Document {v_doc.uuid[:8]} is already {status}. Skipping to avoid overlap.")
+            return None
+        return False
+
+    def _hold(self, v_doc: VirtualDocument, resumption: bool, message: str, result: Optional[Dict[str, Any]]) -> None:
+        """
+        Puts a document on hold after a failed engine run. Existing semantic
+        data is kept; the engine block records the error. 'Reprocess' retries.
+        """
+        logger.error(f"FluxSense analysis failed for {v_doc.uuid}: {message}")
+        if v_doc.semantic_data is None:
+            v_doc.semantic_data = SemanticExtraction()
+        v_doc.semantic_data.engine = engine_error_info(message, result)
+        v_doc.status = DocumentStatus.STAGE2_HOLD if resumption else DocumentStatus.STAGE1_HOLD
+        v_doc.last_processed_at = datetime.now().isoformat()
+        self.logical_repo.save(v_doc)
+
+    def _analyze_pages(self, page_refs: List[PageRef]) -> Dict[str, Any]:
+        """Runs FluxSense on the PDF formed by the document's pages."""
+        with analysis_pdf(page_refs, self._resolve_physical) as pdf_path:
+            return self.get_engine_client().analyze(pdf_path)
+
+    def _assign_workflows(self, target_doc: VirtualDocument) -> None:
+        """Assigns all workflow rules triggered by the document's type tags."""
+        if not target_doc.semantic_data:
+            return
+        for rule in self.workflow_registry.find_rules_for_tags(target_doc.type_tags):
+            if rule.id not in target_doc.semantic_data.workflows:
+                target_doc.semantic_data.workflows[rule.id] = WorkflowInfo(
+                    rule_id=rule.id,
+                    current_step=get_initial_state(rule) or "NEW",
+                )
+                logger.info(f"Assigned rule '{rule.id}' to {target_doc.uuid}")
+
+    def _apply_entity(self, target_doc: VirtualDocument, entity: AdaptedEntity) -> None:
+        """Writes one adapted logical document into its VirtualDocument and persists it."""
+        target_doc.source_mapping = entity.source_mapping
+        target_doc.type_tags = entity.type_tags
+        target_doc.semantic_data = entity.semantic
+        target_doc.ai_confidence = entity.ai_confidence
+        target_doc.cached_full_text = target_doc.resolve_content(self._load_physical)
+        target_doc.export_filename = generate_smart_filename(target_doc.semantic_data, target_doc.type_tags)
+        target_doc.last_processed_at = datetime.now().isoformat()
+        if entity.failed:
+            logger.error(f"FluxSense could not extract {target_doc.uuid} (pages {entity.pages}): {entity.errors}")
+            target_doc.status = DocumentStatus.STAGE2_HOLD
+            self.logical_repo.save(target_doc)
+            return
+        self._assign_workflows(target_doc)
+        target_doc.status = DocumentStatus.PROCESSED
+        self.logical_repo.save(target_doc)
+        logger.info(f"Saved Entity {target_doc.uuid} ({', '.join(target_doc.type_tags)})")
+
+        # Auto-Tagging
+        if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
+            self.logical_repo.save(target_doc)
+
     def process_virtual_document(self, v_doc: VirtualDocument) -> bool:
         """
-        Processes a specific VirtualDocument through the multi-stage pipeline.
+        Analyzes a VirtualDocument with FluxSense (segmentation, classification,
+        visual audit, extraction) and applies the result.
+
+        A fresh document may be split into several logical documents. Protected,
+        manually edited and re-extracted (STAGE2_PENDING) documents keep their
+        page range. Engine failures put the document on hold (STAGE1_HOLD, or
+        STAGE2_HOLD for a re-extraction); 'Reprocess' retries it.
 
         Args:
             v_doc: The VirtualDocument to process.
 
         Returns:
-            True if processing completed successfully (status changed), False otherwise.
+            True if processing completed (status changed), False otherwise.
         """
-        if not self.analyzer:
-            return False
-
         logger.info(f"Processing {v_doc.uuid}...")
+        is_manual = "MANUAL_EDIT" in (v_doc.type_tags or [])
 
-        # Capture original tags to detect manual intervention
-        original_tags = getattr(v_doc, "type_tags", [])
-        is_manual = "MANUAL_EDIT" in original_tags
-
-        # 1. Resolve Text Content (Lazy Load)
+        # Stage 0 text gate: documents without any text are ADF artifacts or empty pages.
         full_text = v_doc.resolve_content(self._load_physical)
         if not full_text:
-            # Safety Check: Is this document consisting only of pages at the end of the physical file?
-            is_at_end = False
-            if v_doc.source_mapping:
-                last_ref = v_doc.source_mapping[-1]
-                pf = self.physical_repo.get_by_uuid(last_ref.file_uuid)
-                if pf and pf.page_count_phys:
-                    # If the highest page index in this doc is the last page of the physical file
-                    if max(last_ref.pages) == pf.page_count_phys:
-                        is_at_end = True
-            
-            if is_at_end:
-                logger.info(f"No text content resolved for {v_doc.uuid} (End-of-File). Purging ADF artifact.")
-                self.logical_repo.delete_by_uuid(v_doc.uuid)
-            else:
-                logger.info(f"No text content resolved for {v_doc.uuid} (Mid-File). Marking as SKIPPED_EMPTY.")
-                v_doc.status = DocumentStatus.SKIPPED_EMPTY
-                self.logical_repo.save(v_doc)
+            self._discard_empty(v_doc)
             return True
-
         v_doc.cached_full_text = full_text
-        logger.debug(f"Canonizer Resolved text ({len(full_text)} chars) for {v_doc.uuid}")
 
-        # Reconstruct page list from source_mapping
-        pages_text: List[str] = []
-        for src in v_doc.source_mapping:
-            pf = self.physical_repo.get_by_uuid(src.file_uuid)
-            if pf and pf.raw_ocr_data:
-                raw = pf.raw_ocr_data
-                if isinstance(raw, str):
-                    try:
-                        raw = json.loads(raw)
-                    except json.JSONDecodeError:
-                        raw = {}
-                if isinstance(raw, dict):
-                    for p in src.pages:
-                        pages_text.append(raw.get(str(p), ""))
-
-        if not pages_text:
-            pages_text = [full_text]
-
-        # Entrance Gate for Resumption / Start
-        status = v_doc.status
-        is_stage2_resumption = status in [DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S1_5, DocumentStatus.PROCESSING_S2]
-        detected_entities: List[Dict[str, Any]] = []
-        # is_hybrid = False # Not used later in same scope if commented? No, it's used.
-        # split_candidates = [] # Define scope
-
-        if is_stage2_resumption:
-            logger.info(f"Pipeline [RESUME] -> Stage 2 (Status: {status})")
-            split_candidates = [
-                {
-                    "types": v_doc.type_tags or ["OTHER"],
-                    "pages": list(range(1, len(pages_text) + 1)),
-                    "confidence": 1.0,
-                    "direction": v_doc.semantic_data.direction if v_doc.semantic_data else None,
-                    "tenant_context": v_doc.semantic_data.tenant_context if v_doc.semantic_data else None,
-
-                }
-            ]
-            # Restore detected_entities for context in Stage 2
-            detected_entities = [{"entity_types": split_candidates[0]["types"]}]
-        else:
-            # --- START STAGE 1 ---
-            logger.info(f"Stage 1.1 (Classification) [START] -> Pages: {len(pages_text)}")
-            # Gate: Only ONE thread can start the process.
-            if status in [DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE]:
-                if not self._atomic_transition(v_doc, [DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE], DocumentStatus.PROCESSING_S1):
-                    logger.info("Failed atomic lock for S1. Skipping.")
-                    return False
-            elif status == DocumentStatus.PROCESSING_S1:
-                # Already locked by process_pending_documents
-                pass
-            elif status.startswith("PROCESSING_"):
-                # Another worker is already handling this.
-                logger.info(f"Document {v_doc.uuid[:8]} is already {status}. Skipping to avoid overlap.")
-                return False
-
-            # Stage 0: ZUGFeRD pre-classification — skip Stage 1 AI when XML is present.
-            # ZUGFeRD / Factur-X PDFs are exclusively financial documents; the document
-            # type code in the XML (BT-3) gives authoritative type_tags with zero tokens.
-            # Manual edits are excluded: the user's intent takes precedence over the XML.
-            if not is_manual:
-                zugferd_type_tags = self._detect_zugferd_type_tags(v_doc)
-                if zugferd_type_tags:
-                    logger.info(
-                        f"[{v_doc.uuid[:8]}] Stage 0 — ZUGFeRD pre-classification "
-                        f"{zugferd_type_tags}: Stage 1 AI skipped."
-                    )
-                    v_doc.type_tags = zugferd_type_tags
-                    split_candidates = [{
-                        "types": zugferd_type_tags,
-                        "pages": list(range(1, len(pages_text) + 1)),
-                        "confidence": 1.0,
-                    }]
-                    # Jump directly to Apply Splits (Stage 2 will handle extraction).
-                    # Fall through to the code block after the else branch.
-                else:
-                    zugferd_type_tags = None
-            else:
-                zugferd_type_tags = None
-
-            if not zugferd_type_tags:
-                # 2. AI Analysis (Stage 1: Classification & Split)
-                priv_json = self.config.get_private_profile_json()
-                bus_json = self.config.get_business_profile_json()
-                priv_id = IdentityProfile.model_validate_json(priv_json) if priv_json else None
-                bus_id = IdentityProfile.model_validate_json(bus_json) if bus_json else None
-
-                struct_res = self.analyzer.run_stage_1_adaptive(pages_text, priv_id, bus_id)
-                logger.info("Stage 1.1 (Classification) [DONE]")
-
-                if struct_res is None:
-                    logger.error(f"Stage 1.1 AI Analysis failed after all retries. Setting STAGE1_HOLD for {v_doc.uuid}.")
-                    v_doc.status = DocumentStatus.STAGE1_HOLD
-                    self.logical_repo.save(v_doc)
-                    return False
-
-                # Protection override: Locked documents (Class A/B) cannot be split by AI
-                if getattr(v_doc, 'is_immutable', False):
-                    logger.info(f"Document {v_doc.uuid} is PROTECTED. Forcing 1:1 mapping.")
-                    # We use the classification from AI if available
-                    if struct_res.get("detected_entities"):
-                        ent = struct_res["detected_entities"][0]
-                        ent["page_indices"] = list(range(1, len(pages_text) + 1))
-                        struct_res["detected_entities"] = [ent]
-                    else:
-                        # Fallback if AI found nothing but document is protected
-                        struct_res["detected_entities"] = [{
-                            "type_tags": v_doc.type_tags or ["OTHER"],
-                            "page_indices": list(range(1, len(pages_text) + 1)),
-                            "confidence": 1.0
-                        }]
-
-                detected_entities = struct_res.get("detected_entities", [])
-                is_hybrid = struct_res.get("source_file_summary", {}).get("is_hybrid_document", False)
-
-                if not detected_entities:
-                    logger.info(f"Stage 1.1: No entities detected for {v_doc.uuid}.")
-                    v_doc.status = DocumentStatus.PROCESSED
-                    v_doc.last_processed_at = datetime.now().isoformat()
-                    self.logical_repo.save(v_doc)
-                    return True
-
-                all_tags: List[str] = []
-                for ent in detected_entities:
-                    # Strictly use type_tags from AI response
-                    types = ent.get("type_tags") or []
-                    for t in types:
-                        if t and t not in all_tags:
-                            all_tags.append(t)
-                v_doc.type_tags = all_tags
-
-            if not zugferd_type_tags:
-                # split_candidates not yet set — build from Stage 1 result.
-                if is_manual:
-                    logger.info(f"Manually edited doc {v_doc.uuid} detected. Skipping auto-split.")
-                    # We still need to proceed to Stage 2 for this manual document.
-                    # So we simply set split_candidates to a single entry representing the whole doc.
-                    split_candidates = [
-                        {
-                            "types": v_doc.type_tags or ["OTHER"],
-                            "pages": list(range(1, len(pages_text) + 1)),
-                            "confidence": 1.0,
-                        }
-                    ]
-                else:
-                    has_clear_boundaries = all(ent.get("page_indices") for ent in detected_entities)
-                    if is_hybrid and not has_clear_boundaries:
-                        logger.info("Stage 1.1 found hybrid but no clear boundaries. Triggering Stage 1.2.")
-                        split_candidates = self.analyzer.identify_entities(full_text, detected_entities=detected_entities)
-
-                        if split_candidates is None:
-                            logger.error("Stage 1.2 AI Analysis returned None. Aborting.")
-                            return False
-                    else:
-                        split_candidates = []
-                        for ent in detected_entities:
-                            c_types = ent.get("type_tags") or ["OTHER"]
-                            split_candidates.append(
-                                {
-                                    "types": c_types,
-                                    "pages": ent.get("page_indices", list(range(1, len(pages_text) + 1))),
-                                    "confidence": ent.get("confidence", 1.0),
-                                    "direction": ent.get("direction"),
-                                    "tenant_context": ent.get("tenant_context"),
-                                }
-                            )
-
-        # 4. Apply Splits
-        original_source_map = v_doc.source_mapping
-        if not original_source_map:
+        resumption = self._acquire(v_doc)
+        if resumption is None:
+            return False
+        page_refs = flatten_source_mapping(v_doc.source_mapping)
+        if not page_refs:
             return False
 
-        base_ref = original_source_map[0]
+        keep_single = resumption or is_manual or v_doc.is_immutable
+        result: Optional[Dict[str, Any]] = None
+        try:
+            result = self._analyze_pages(page_refs)
+            entities = adapt_result(result, page_refs, keep_single=keep_single)
+        except (FluxSenseError, FluxSenseResultError, AnalysisInputError) as e:
+            self._hold(v_doc, resumption, str(e), result)
+            return False
 
-        for idx, candidate in enumerate(split_candidates):
-            c_types = candidate.get("types", ["OTHER"])
-            c_pages = candidate.get("pages", [])
+        if not entities:
+            logger.info(f"FluxSense found no logical document in {v_doc.uuid}.")
+            v_doc.status = DocumentStatus.PROCESSED
+            v_doc.last_processed_at = datetime.now().isoformat()
+            self.logical_repo.save(v_doc)
+            return True
 
-            new_source_pages: List[int] = []
-            for lp in c_pages:
-                if 0 <= lp - 1 < len(base_ref.pages):
-                    new_source_pages.append(base_ref.pages[lp - 1])
-
-            if not new_source_pages:
-                continue
-
-            # Target Document
-            if idx == 0:
-                target_doc = v_doc  # Reuse existing
-            else:
-                # Create NEW Split Entity
-                target_doc = VirtualDocument(uuid=str(uuid.uuid4()), status=DocumentStatus.NEW, created_at=v_doc.created_at, semantic_data=SemanticExtraction())
-
-
-            candidate_types = candidate.get("types", [])
-            final_tags = list(candidate_types)
-
-            direction = candidate.get("direction", "UNKNOWN")
-            if direction != "UNKNOWN" and direction not in final_tags:
-                final_tags.append(direction)
-
-            context = candidate.get("tenant_context", "UNKNOWN")
-            if context != "UNKNOWN" and f"CTX_{context}" not in final_tags:
-                final_tags.append(f"CTX_{context}")
-
-            target_doc.type_tags = final_tags
-            target_doc.source_mapping = [SourceReference(file_uuid=base_ref.file_uuid, pages=new_source_pages, rotation=base_ref.rotation)]
-
-            if idx < len(detected_entities):
-                # detected_entities are dicts from Stage 1.1 JSON
-                if target_doc.semantic_data is None:
-                    target_doc.semantic_data = SemanticExtraction()
-                
-                ent_data = detected_entities[idx]
-                target_doc.semantic_data.direction = ent_data.get("direction", "INBOUND")
-                target_doc.semantic_data.tenant_context = ent_data.get("tenant_context", "PRIVATE")
-                target_doc.semantic_data.type_tags = ent_data.get("type_tags") or []
-
-
-            # Transition to Stage 2 Readiness
-            target_doc.status = DocumentStatus.STAGE2_PENDING
-            self.logical_repo.save(target_doc)
-
-            entity_pages = [pages_text[p - 1] for p in c_pages if 0 <= p - 1 < len(pages_text)]
-            entity_text = "\n\n".join(entity_pages)
-            # Visual auditor expects form-feed separated pages to locate page 1 / signature page.
-            entity_text_paged = "\f".join(entity_pages)
-
-            # [STAGE 1.5] Visual Audit
-            audit_res: Optional[Dict[str, Any]] = None
-            pf = self.physical_repo.get_by_uuid(base_ref.file_uuid)
-            if pf:
-                audit_res = self.visual_auditor.run_stage_1_5(
-                    pdf_path=pf.file_path,
-                    doc_uuid=target_doc.uuid,
-                    stage_1_result={"detected_entities": [{"entity_type": t} for t in c_types]},
-                    text_content=entity_text_paged,
-                    target_pages=new_source_pages,
-                )
-
-                if audit_res is None:
-                    logger.error(f"Stage 1.5 AI Failed. Setting STAGE1_5_HOLD for {target_doc.uuid}.")
-                    target_doc.status = DocumentStatus.STAGE1_5_HOLD
-                    self.logical_repo.save(target_doc)
-                    return False
-
-                if audit_res:
-                    if target_doc.semantic_data is None:
-                        target_doc.semantic_data = SemanticExtraction()
-                    target_doc.semantic_data.visual_audit = audit_res
-
-
-                    target_doc.status = DocumentStatus.PROCESSING_S1_5
-                    self.logical_repo.save(target_doc)
-
-                    # Arbiter Logic
-                    integrity = audit_res.get("integrity", {})
-                    if integrity.get("is_type_match") is False:
-                        new_types = integrity.get("suggested_types", [])
-                        if new_types:
-                            target_doc.type_tags = list(set(new_types + target_doc.type_tags))
-
-                    # Note: We NO LONGER replace entity_text with clean_text from Stage 1.5
-                    # because Stage 2 handles text repair comprehensively across all pages.
-
-            # [STAGE 2] Semantic Extraction
-            # Gate: Only transition to PROCESSING_S2 if we are currently in a valid preceding state
-            if target_doc.status in [DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S1_5, DocumentStatus.PROCESSING_S1]:
-                if not self._atomic_transition(target_doc, [DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S1_5, DocumentStatus.PROCESSING_S1], DocumentStatus.PROCESSING_S2):
-                    logger.info("Failed atomic lock for S2. Skipping.")
-                    continue
-
-            s1_context = {"type_tags": c_types}
-
-            # Vision context: the entity's own first physical page (1-based -> 0-based)
-            semantic_extraction = self.analyzer.run_stage_2(
-                raw_ocr_pages=entity_pages,
-                stage_1_result=s1_context,
-                stage_1_5_result=audit_res,
-                pdf_path=pf.file_path if pf else None,
-                vision_page_index=new_source_pages[0] - 1,
-            )
-
-            if semantic_extraction is None:
-                logger.error(f"Stage 2 FAILED for {target_doc.uuid}. Aborting hydration.")
-                target_doc.status = DocumentStatus.STAGE2_PENDING # Re-queue for later
-                self.logical_repo.save(target_doc)
-                continue
-
-            # Stage 2 result is a Dict from run_stage_2
-            # We need to hydrate it into our model
-            try:
-                new_semantic = SemanticExtraction(**semantic_extraction)
-                if target_doc.semantic_data:
-                    # 1. Merge existing fields from Stage 1.5 (Visual Audit)
-                    new_semantic.visual_audit = target_doc.semantic_data.visual_audit
-                    
-                    # 2. Merge classification context from Stage 1.1
-                    # Only overwrite if Stage 2 explicitly provided a non-empty/non-default value
-                    if not semantic_extraction.get("direction") and target_doc.semantic_data.direction:
-                        new_semantic.direction = target_doc.semantic_data.direction
-                    
-                    if not semantic_extraction.get("tenant_context") and target_doc.semantic_data.tenant_context:
-                        new_semantic.tenant_context = target_doc.semantic_data.tenant_context
-                        
-                    if not semantic_extraction.get("type_tags") and target_doc.semantic_data.type_tags:
-                        new_semantic.type_tags = target_doc.semantic_data.type_tags
-
-                target_doc.semantic_data = new_semantic
-                
-                # Sync first-class DMS fields from semantic result to Document object
-                target_doc.ai_confidence = new_semantic.ai_confidence
-            except Exception as e:
-                logger.error(f"Error hydrating Stage 2 result: {e}")
-                # Fallback: keep partial data if possible
-                if target_doc.semantic_data is None:
-                    target_doc.semantic_data = SemanticExtraction()
-
-            # Generate Filename using hydrated data
-            smart_name = self.analyzer.generate_smart_filename(target_doc.semantic_data, target_doc.type_tags)
-
-            target_doc.export_filename = smart_name
-            target_doc.cached_full_text = semantic_extraction.get("repaired_text") or entity_text
-            
-            if target_doc.semantic_data:
-                for rule in self.workflow_registry.find_rules_for_tags(target_doc.type_tags):
-                    if rule.id not in target_doc.semantic_data.workflows:
-                        target_doc.semantic_data.workflows[rule.id] = WorkflowInfo(
-                            rule_id=rule.id,
-                            current_step=get_initial_state(rule) or "NEW",
-                        )
-                        logger.info(f"Assigned rule '{rule.id}' to {target_doc.uuid}")
-
-            target_doc.status = DocumentStatus.PROCESSED
-            target_doc.last_processed_at = datetime.now().isoformat()
-
-            self.logical_repo.save(target_doc)
-            safe_types = [str(t) for t in c_types if t is not None]
-            logger.info(f"Saved Entity {target_doc.uuid} ({', '.join(safe_types)})")
-
-            # [STAGE 1.6] Auto-Tagging
-            if self.rules_engine and self.rules_engine.apply_rules_to_entity(target_doc, only_auto=True):
-                self.logical_repo.save(target_doc)
-
+        for idx, entity in enumerate(entities):
+            target_doc = v_doc if idx == 0 else VirtualDocument(
+                uuid=str(uuid.uuid4()), status=DocumentStatus.NEW, created_at=v_doc.created_at)
+            self._apply_entity(target_doc, entity)
         return True
-
-    def _extract_range_text(self, pages_text: List[str], target_indices: List[int]) -> str:
-        """Helper to join specific pages (simple join)."""
-        out = []
-        for i in target_indices:
-            if 0 <= i-1 < len(pages_text):
-                out.append(pages_text[i-1])
-        return "\n\n".join(out)
 
     def split_entity(self, entity_uuid: str, split_after_page_index: int) -> Tuple[str, str]:
         """
