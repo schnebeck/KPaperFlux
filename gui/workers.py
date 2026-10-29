@@ -298,6 +298,7 @@ class MainLoopWorker(QThread):
 
     def run(self):
         logger.info("[MainLoop] Worker started.")
+        self.canonizer.release_interrupted_documents()
         while self.is_running:
             if self.is_paused:
                 self.status_changed.emit("Paused")

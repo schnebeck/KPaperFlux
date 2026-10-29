@@ -210,6 +210,27 @@ class CanonizerService:
 
         return processed_count
 
+    def release_interrupted_documents(self) -> int:
+        """
+        Re-queues documents whose analysis was interrupted (application quit or
+        crash while a FluxSense call was running). Their lock state would
+        otherwise keep them out of the queue forever. Call once when the
+        single background worker starts, before it processes anything.
+
+        Returns:
+            Number of re-queued documents.
+        """
+        cursor = self.db.connection.cursor()
+        released = 0
+        for locked, queued in ((DocumentStatus.PROCESSING_S1, DocumentStatus.READY_FOR_PIPELINE),
+                               (DocumentStatus.PROCESSING_S2, DocumentStatus.STAGE2_PENDING)):
+            cursor.execute("UPDATE virtual_documents SET status = ? WHERE status = ? AND deleted = 0", (queued, locked))
+            released += cursor.rowcount
+        self.db.connection.commit()
+        if released:
+            logger.warning(f"Re-queued {released} document(s) whose analysis was interrupted.")
+        return released
+
     def _atomic_transition(self, v_doc: VirtualDocument, allowed_old: List[str], target_status: str) -> bool:
         """
         Atomically transitions the document status in the DB.

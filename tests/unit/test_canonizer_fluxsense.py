@@ -313,3 +313,32 @@ def test_generate_smart_filename() -> None:
     assert generate_smart_filename(sem, ["INVOICE", "INBOUND"]) == "2026-01-02__ACME__Söhne_GmbH__INVOICE.pdf"
     assert generate_smart_filename(None, []) == "0000-00-00__Unknown__DOC.pdf"
     assert generate_smart_filename(SemanticExtraction(), []) == "0000-00-00__Unknown__DOC.pdf"
+
+
+# ------------------------------------------------------------------ interrupted analysis
+
+def test_interrupted_analysis_is_requeued_and_processed(db: DatabaseManager, physical_pdf: Path,
+                                                        stack_result: Dict[str, Any]) -> None:
+    """Regression (e2e): a quit during a long FluxSense call must not leave the document locked forever."""
+    service = _service(db, FakeClient([stack_result]))
+    _ingest(service, physical_pdf, [1, 2, 3, 4, 5], status=DocumentStatus.PROCESSING_S1)
+    other = VirtualDocument(uuid="doc-2", status=DocumentStatus.PROCESSING_S2,
+                            source_mapping=[SourceReference(file_uuid="file-a", pages=[5])])
+    service.logical_repo.save(other)
+    assert db.get_pending_pipeline_count() == 0
+
+    assert service.release_interrupted_documents() == 2
+    assert service.logical_repo.get_by_uuid("doc-1").status == DocumentStatus.READY_FOR_PIPELINE
+    assert service.logical_repo.get_by_uuid("doc-2").status == DocumentStatus.STAGE2_PENDING
+    assert service.release_interrupted_documents() == 0
+
+
+def test_main_loop_worker_releases_locks_on_start() -> None:
+    """The background worker re-queues interrupted documents before its loop starts."""
+    from gui.workers import MainLoopWorker
+    pipeline = MagicMock()
+    with patch("gui.workers.CanonizerService") as canonizer_cls:
+        worker = MainLoopWorker(pipeline, None)
+        worker.is_running = False
+        worker.run()
+    canonizer_cls.return_value.release_interrupted_documents.assert_called_once()
