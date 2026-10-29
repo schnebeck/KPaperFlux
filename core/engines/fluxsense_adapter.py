@@ -271,6 +271,30 @@ def build_engine_info(result: Dict[str, Any], doc: Dict[str, Any], warnings: Opt
     )
 
 
+def failure_causes(result: Dict[str, Any], limit: int = 3) -> List[str]:
+    """
+    Distinct low-level causes of a failed run: AI call errors (e.g. 'Backend
+    unreachable: ...') and text layer warnings. FluxSense reports these only
+    per call, not in the result's error list.
+
+    Args:
+        result: The FluxSense AnalysisResult.
+        limit: Maximum number of causes.
+
+    Returns:
+        Causes in order of first occurrence.
+    """
+    causes: List[str] = []
+    for call in result.get("ai_calls") or []:
+        error = call.get("error") if isinstance(call, dict) else None
+        if error and not call.get("ok", False) and str(error) not in causes:
+            causes.append(str(error))
+    for warning in (result.get("text_layer") or {}).get("warnings") or []:
+        if str(warning) not in causes:
+            causes.append(str(warning))
+    return causes[:limit]
+
+
 def engine_error_info(message: str, result: Optional[Dict[str, Any]] = None) -> EngineInfo:
     """
     Builds the engine metadata of a failed run (document stays retryable).
@@ -283,9 +307,12 @@ def engine_error_info(message: str, result: Optional[Dict[str, Any]] = None) -> 
         EngineInfo with status ERROR.
     """
     result = result or {}
-    errors = [message] + [str(e) for e in (result.get("errors") or [])]
+    errors = [message]
+    for error in [*(result.get("errors") or []), *failure_causes(result)]:
+        if str(error) not in errors:
+            errors.append(str(error))
     for doc in result.get("logical_documents") or []:
-        errors += [str(e) for e in (doc.get("errors") or [])]
+        errors += [str(e) for e in (doc.get("errors") or []) if str(e) not in errors]
     return EngineInfo(
         name=ENGINE_NAME,
         version=result.get("fluxsense_version"),
@@ -443,7 +470,8 @@ def adapt_result(result: Dict[str, Any], page_refs: List[PageRef], keep_single: 
     if not isinstance(result, dict) or not isinstance(result.get("logical_documents"), list):
         raise FluxSenseResultError("FluxSense result has no logical_documents list")
     if result.get("status") == RESULT_STATUS_ERROR:
-        raise FluxSenseResultError("FluxSense reported status ERROR")
+        causes = failure_causes(result, limit=1)
+        raise FluxSenseResultError("FluxSense reported status ERROR" + (f": {causes[0]}" if causes else ""))
     docs = [d for d in result["logical_documents"] if isinstance(d, dict)]
     if not docs:
         return []

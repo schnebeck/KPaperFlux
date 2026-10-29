@@ -341,6 +341,22 @@ def test_build_type_tags(primary: Any, tags: List[str], direction: Any, tenant: 
     assert build_type_tags(primary, tags, direction, tenant) == expected
 
 
+def test_error_status_names_the_low_level_cause(result: Dict[str, Any], page_refs: List[PageRef]) -> None:
+    """Regression (e2e): an unreachable backend must be visible in the stored error, not just 'status ERROR'."""
+    result["status"] = "ERROR"
+    result["ai_calls"] = [
+        {"label": "Stage 1.1 (Classification)", "model": "m", "ok": False, "error": "Backend unreachable: [Errno 111] refused"},
+        {"label": "Stage 2 (OTHER)", "model": "m", "ok": False, "error": "Backend unreachable: [Errno 111] refused"},
+        {"label": "ok call", "model": "m", "ok": True, "error": None},
+    ]
+    result["text_layer"]["warnings"] = ["ovisocr3 returned no layout for 2 pages"]
+    with pytest.raises(FluxSenseResultError, match="Backend unreachable"):
+        adapt_result(result, page_refs)
+    info = engine_error_info("FluxSense reported status ERROR: Backend unreachable: [Errno 111] refused", result)
+    assert info.errors == ["FluxSense reported status ERROR: Backend unreachable: [Errno 111] refused",
+                           "Backend unreachable: [Errno 111] refused", "ovisocr3 returned no layout for 2 pages"]
+
+
 def test_engine_error_info_collects_errors() -> None:
     """A failed run records engine and document errors."""
     info = engine_error_info("backend unreachable", {"fluxsense_version": "0.1.0", "errors": ["e1"],
