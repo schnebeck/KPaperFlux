@@ -28,6 +28,31 @@ def force_english_locale(request):
     # Restore
     QLocale.setDefault(original_locale)
 
+_MODAL_ENTRY_POINTS = {
+    "QMessageBox": ("question", "information", "warning", "critical", "exec"),
+    "QDialog": ("exec",),
+    "QFileDialog": ("getOpenFileName", "getOpenFileNames", "getSaveFileName", "getExistingDirectory"),
+    "QInputDialog": ("getText", "getItem", "getInt", "getDouble"),
+}
+
+
+@pytest.fixture(autouse=True)
+def no_unexpected_modal_dialogs(monkeypatch):
+    """
+    A modal dialog blocks an offscreen test run forever. Fail fast instead;
+    tests that expect a dialog patch the call themselves.
+    """
+    from PyQt6 import QtWidgets
+
+    for class_name, methods in _MODAL_ENTRY_POINTS.items():
+        cls = getattr(QtWidgets, class_name)
+        for method in methods:
+            def fail(*args, _name=f"{class_name}.{method}", **kwargs):
+                raise AssertionError(f"Unexpected modal dialog in test: {_name} {args[1:3]}")
+            monkeypatch.setattr(cls, method, fail)
+    yield
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "localized: mark test to run with real language settings")
     # Redirect HOME and the XDG locations before any QSettings/QStandardPaths lookup,
