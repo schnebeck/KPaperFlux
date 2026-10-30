@@ -1,6 +1,13 @@
+import os
+import shutil
+import tempfile
+from pathlib import Path
+
 import pytest
 from unittest.mock import patch
 from PyQt6.QtCore import QLocale
+
+_ISOLATED_HOME: Path = Path(tempfile.mkdtemp(prefix="kpaperflux-test-home-"))
 
 @pytest.fixture(autouse=True)
 def force_english_locale(request):
@@ -23,6 +30,18 @@ def force_english_locale(request):
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "localized: mark test to run with real language settings")
+    # Redirect HOME and the XDG locations before any QSettings/QStandardPaths lookup,
+    # so tests never touch the user's real configuration or data.
+    os.environ["HOME"] = str(_ISOLATED_HOME)
+    for var, sub in (("XDG_CONFIG_HOME", ".config"), ("XDG_DATA_HOME", ".local/share"),
+                     ("XDG_CACHE_HOME", ".cache")):
+        path = _ISOLATED_HOME / sub
+        path.mkdir(parents=True, exist_ok=True)
+        os.environ[var] = str(path)
+
+
+def pytest_unconfigure(config):
+    shutil.rmtree(_ISOLATED_HOME, ignore_errors=True)
 
 def pytest_addoption(parser):
     parser.addoption(
