@@ -52,10 +52,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 LOGO_BASE_DIR = REPO_ROOT / "tests/resources/demo_invoices_complex/logos"
 
-if not LOGO_BASE_DIR.exists():
-    # Try alternate location if symlinks are weird
-    LOGO_BASE_DIR = Path("/home/schnebeck/Documents/Projects/KPaperFlux/tests/resources/demo_invoices_complex/logos")
-
 LOGOS = list(LOGO_BASE_DIR.glob("*.png"))
 if not LOGOS:
     logger.error(f"No logos found in {LOGO_BASE_DIR}!")
@@ -124,7 +120,7 @@ def get_random_vendor(i):
     }
 
 def generate_invoice(vendor, idx, lang="de", filename=None, pages=1):
-    output_dir = Path("/home/schnebeck/Dokumente/Projects/KPaperFlux/tests/resources/demo_invoices_complex")
+    output_dir = REPO_ROOT / "tests/resources/demo_invoices_complex"
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Use index to make it unique
@@ -280,7 +276,7 @@ def load_tenant_ids() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     return g(config.get_private_profile_json()), g(config.get_business_profile_json())
 
 def patch_demos() -> None:
-    base = Path("/home/schnebeck/Dokumente/Projects/KPaperFlux")
+    base = REPO_ROOT
     orig_dir = base / "tests/resources/demo_invoices_complex"
     back_dir = base / "tests/resources/demo_invoices_complex_backup"
     tenant_p, tenant_b = load_tenant_ids()

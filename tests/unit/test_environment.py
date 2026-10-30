@@ -39,8 +39,8 @@ def test_requirements_available():
         if not line or line.startswith("#"):
             continue
         
-        # Strip versions/extras
-        pkg_name = line.split(">")[0].split("=")[0].split("[")[0].strip()
+        # Strip direct references (name @ url), versions and extras
+        pkg_name = line.split("@")[0].split(">")[0].split("=")[0].split("[")[0].strip()
         
         # Special case for qrcode[pil] -> we check 'qrcode'
         if "qrcode" in line:

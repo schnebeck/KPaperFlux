@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 def check_demos():
-    orig_dir = Path("/home/schnebeck/Dokumente/Projects/KPaperFlux/tests/resources/demo_invoices_complex")
+    orig_dir = Path(__file__).resolve().parent.parent / "tests/resources/demo_invoices_complex"
     if not orig_dir.exists():
         print(f"Directory {orig_dir} does not exist.")
         return

@@ -13,4 +13,4 @@ python-sane
 qrcode[pil]
 opencv-python-headless
 numpy
-# Analysis engine (not on PyPI): pip install -e ../FluxSense
+fluxsense @ git+https://github.com/schnebeck/FluxSense.git@228068a38d8dafdf9bb3549b5f70b0878e8939dd

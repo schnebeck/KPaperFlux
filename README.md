@@ -97,7 +97,7 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 2.  **Env:** `python3 -m venv venv && source venv/bin/activate`
 3.  **Install:** `pip install -r requirements.txt`
 4.  **Hardware:** `sudo apt install sane-airscan` (Recommended for network scanners).
-5.  **Analysis Engine:** `pip install -e ../FluxSense` (library mode) or run `fluxsense serve` and select REST mode in the **Settings Dialog**. The AI backend is configured in FluxSense (`~/.config/fluxsense/config.toml`).
+5.  **Analysis Engine:** [FluxSense](https://github.com/schnebeck/FluxSense) is installed by step 3 (library mode). Alternatively run `fluxsense serve` and select REST mode in the **Settings Dialog**. The AI backend is configured in FluxSense (`~/.config/fluxsense/config.toml`).
 
 ---
 

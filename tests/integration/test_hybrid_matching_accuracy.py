@@ -13,7 +13,7 @@ class TestHybridMatchingAccuracy(unittest.TestCase):
     """
     def setUp(self):
         self.engine = HybridEngine()
-        self.base_dir = Path("/home/schnebeck/Dokumente/Projects/KPaperFlux/tests/resources/demo_invoices_complex")
+        self.base_dir = Path(__file__).resolve().parent.parent / "resources/demo_invoices_complex"
         
         # Mapping: Scaled Scan File -> Original Native File
         self.expected_pairs = {

@@ -10,7 +10,7 @@ from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, Fi
 class TestPdfLogoRendering(unittest.TestCase):
     def setUp(self):
         self.output_pdf = "tests/unit/test_logo_output.pdf"
-        self.logo_dir = Path("/home/schnebeck/Dokumente/Projects/KPaperFlux/tests/resources/demo_invoices_complex/logos")
+        self.logo_dir = Path(__file__).resolve().parent.parent / "resources/demo_invoices_complex/logos"
         self.logos = list(self.logo_dir.glob("*.png"))
         
     def test_logo_presence_and_visibility(self):
