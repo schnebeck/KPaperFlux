@@ -309,8 +309,12 @@ class MetadataEditorWidget(QWidget):
         self.direction_combo.blockSignals(True)
         cur_dir = self.direction_combo.currentData()
         self.direction_combo.clear()
+        direction_labels = {
+            "Inbound": self.tr("Inbound"), "Outbound": self.tr("Outbound"),
+            "Internal": self.tr("Internal"), "Unknown": self.tr("Unknown"),
+        }
         for d in DIRECTIONS:
-            self.direction_combo.addItem(self.tr(d), d)
+            self.direction_combo.addItem(direction_labels[d], d)
         idx = self.direction_combo.findData(cur_dir)
         if idx >= 0: self.direction_combo.setCurrentIndex(idx)
         self.direction_combo.blockSignals(False)
@@ -318,8 +322,9 @@ class MetadataEditorWidget(QWidget):
         self.context_combo.blockSignals(True)
         cur_ctx = self.context_combo.currentData()
         self.context_combo.clear()
+        context_labels = {"Private": self.tr("Private"), "Business": self.tr("Business"), "Unknown": self.tr("Unknown")}
         for c in CONTEXTS:
-            self.context_combo.addItem(self.tr(c), c)
+            self.context_combo.addItem(context_labels[c], c)
         idx = self.context_combo.findData(cur_ctx)
         if idx >= 0: self.context_combo.setCurrentIndex(idx)
         self.context_combo.blockSignals(False)
@@ -1310,32 +1315,12 @@ class MetadataEditorWidget(QWidget):
 
         # Directions & Context (Dynamic via standard values)
         # Robust case-insensitive sync
-        dir_val = str(sd_dict.get("direction", "Unknown")).strip().upper()
-        ctx_val = str(sd_dict.get("tenant_context", "Unknown")).strip().upper()
-        
-        # CTX_ prefix for context tags logic
-        if ctx_val.startswith("CTX_"): ctx_val = ctx_val[4:]
+        dir_val = str(sd_dict.get("direction") or "Unknown").strip().upper()
+        ctx_val = str(sd_dict.get("tenant_context") or "Unknown").strip().upper().removeprefix("CTX_")
 
-        # Sync combos via data keys (using correct role and flags)
-        idx_dir = self.direction_combo.findData(
-            dir_val.title(), 
-            role=Qt.ItemDataRole.UserRole, 
-            flags=Qt.MatchFlag.MatchExactly
-        )
-        if idx_dir >= 0: 
-            self.direction_combo.setCurrentIndex(idx_dir)
-        else: 
-            self.direction_combo.setCurrentText(dir_val.title())
-
-        idx_ctx = self.context_combo.findData(
-            ctx_val.title(), 
-            role=Qt.ItemDataRole.UserRole, 
-            flags=Qt.MatchFlag.MatchExactly
-        )
-        if idx_ctx >= 0: 
-            self.context_combo.setCurrentIndex(idx_ctx)
-        else: 
-            self.context_combo.setCurrentText(ctx_val.title())
+        # Sync combos via their technical values; unknown values select "Unknown"
+        self._select_data(self.direction_combo, dir_val.title())
+        self._select_data(self.context_combo, ctx_val.title())
 
         # Stage 1.5 Stamps (Phase 105 Fix)
         # Check both direct 'layer_stamps' and nested 'visual_audit'
@@ -2103,8 +2088,9 @@ class MetadataEditorWidget(QWidget):
 
         # 2. Get Structured Data
         doc_types = self.doc_types_combo.getCheckedItems()
-        direction = self.direction_combo.currentText()
-        context = self.context_combo.currentText()
+        # Technical values, not the translated labels
+        direction = self.direction_combo.currentData() or "Unknown"
+        context = self.context_combo.currentData() or "Unknown"
 
         # 3. Reconstruct full type_tags (System + Custom)
         final_tags = list(doc_types) # Start with doc types

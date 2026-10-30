@@ -276,6 +276,7 @@ def fill():
         "Internal": "Intern",
         "Private": "Privat",
         "Business": "Geschäftlich",
+        "Unknown": "Unbekannt",
         "Workflows": "Abläufe",
         "Dashboard": "Dashboard",
         "Reports": "Berichte",

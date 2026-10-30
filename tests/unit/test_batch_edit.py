@@ -202,3 +202,37 @@ def test_batch_direction_and_type_change_keeps_bodies(real_editor, real_db):
         assert doc.semantic_data.direction == "OUTBOUND"
         assert doc.semantic_data.tenant_context == "PRIVATE"
         assert _total(real_db, uuid) == Decimal(total)
+
+
+def test_single_save_writes_technical_values_with_translated_labels(editor, mock_db):
+    doc = _invoice("doc-a", "Sender A", "10.00", ["alpha"], "NEW")
+    editor.display_documents([doc])
+    # Simulate a translated UI: labels differ from the technical values
+    for combo, labels in ((editor.direction_combo, ["Eingang", "Ausgang", "Intern", "Unbekannt"]),
+                          (editor.context_combo, ["Privat", "Geschäftlich", "Unbekannt"])):
+        for i, label in enumerate(labels):
+            combo.setItemText(i, label)
+    editor._select_data(editor.direction_combo, "Outbound")
+    editor._select_data(editor.context_combo, "Business")
+
+    with patch("gui.metadata_editor.show_notification"):
+        editor.save_changes()
+
+    _, updates = mock_db.update_document_metadata.call_args.args
+    assert "OUTBOUND" in updates["type_tags"] and "CTX_BUSINESS" in updates["type_tags"]
+    assert not any(t in updates["type_tags"] for t in ("AUSGANG", "CTX_GESCHÄFTLICH"))
+    assert updates["semantic_data"].direction == "OUTBOUND"
+    assert updates["semantic_data"].tenant_context == "BUSINESS"
+
+
+def test_unrecognised_direction_does_not_keep_previous_selection(editor):
+    editor.display_documents([_invoice("doc-a", "Sender A", "10.00", [], "NEW")])
+    editor._select_data(editor.direction_combo, "Outbound")
+
+    doc = _invoice("doc-b", "Sender B", "20.00", [], "NEW")
+    doc.semantic_data.direction = None
+    doc.semantic_data.tenant_context = "something-else"
+    editor.display_documents([doc])
+
+    assert editor.direction_combo.currentData() == "Unknown"
+    assert editor.context_combo.currentData() == "Unknown"
