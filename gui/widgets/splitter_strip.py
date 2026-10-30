@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QFrame,
-    QPushButton, QSizePolicy, QGraphicsDropShadowEffect, QMenu, QApplication
+    QPushButton, QSizePolicy, QGraphicsDropShadowEffect, QMenu, QApplication, QMessageBox
 )
 from PyQt6.QtCore import (
     Qt, pyqtSignal, QSize, QMimeData, QPoint, QPropertyAnimation,

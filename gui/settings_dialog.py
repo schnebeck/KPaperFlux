@@ -1,5 +1,4 @@
 import json
-import subprocess
 import sys
 from typing import Optional
 
@@ -9,7 +8,8 @@ from PyQt6.QtWidgets import (
     QSpinBox, QLayout, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
     QToolButton, QGroupBox
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QEvent, QCoreApplication
+from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QEvent, QCoreApplication, QUrl
+from PyQt6.QtGui import QDesktopServices
 from core.logger import get_logger
 logger = get_logger("gui.settings_dialog")
 
@@ -490,12 +490,7 @@ class SettingsDialog(QDialog):
         """Attempts to open the log file with the system default viewer."""
         log_path = self.config.get_log_file_path()
         if log_path.exists():
-            if sys.platform == 'win32':
-                os.startfile(log_path)
-            elif sys.platform == 'darwin':
-                subprocess.call(('open', str(log_path)))
-            else:
-                subprocess.call(('xdg-open', str(log_path)))
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_path)))
         else:
             show_selectable_message_box(self, self.tr("Log File Missing"), self.tr("The log file has not been created yet."), icon=QMessageBox.Icon.Information)
 

@@ -1,6 +1,7 @@
 PyQt6
 pytest
 pytest-qt
+pyflakes
 pydantic
 requests
 ocrmypdf>=14.0.0

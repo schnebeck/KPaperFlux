@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,                              QWidget, QLineEdit, QPushButton, QSplitter, QLabel, QMessageBox, QMenu,
-                             QInputDialog, QTextEdit, QStyle)
+                             QInputDialog, QTextEdit, QStyle, QFileDialog)
 from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings
 from PyQt6.QtGui import QAction, QIcon, QCloseEvent

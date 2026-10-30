@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QScrollArea
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
-from core.models.reporting import ReportDefinition, Aggregation
+from core.models.reporting import ReportDefinition, Aggregation, ReportComponent
 from core.config import AppConfig
 from core.reporting import ReportRegistry
 from core.logger import get_logger

@@ -122,7 +122,41 @@ def test_no_fstring_in_tr():
         )
 
 
+def test_no_undefined_names():
+    """
+    Quality Gate: Fails if pyflakes finds an undefined name (missing import, typo).
+    Such names only raise NameError when the code path runs, e.g. a rarely used menu action.
+    """
+    from pyflakes.api import check
+    from pyflakes.messages import UndefinedName
+    from pyflakes.reporter import Reporter
+
+    class _Collector(Reporter):
+        def __init__(self) -> None:
+            self.messages: list = []
+
+        def flake(self, message) -> None:
+            if isinstance(message, UndefinedName):
+                self.messages.append(message)
+
+        def syntaxError(self, filename, msg, lineno, offset, text) -> None:
+            self.messages.append(f"{filename}:{lineno}: syntax error: {msg}")
+
+        def unexpectedError(self, filename, msg) -> None:
+            self.messages.append(f"{filename}: {msg}")
+
+    root_dir = Path(__file__).parent.parent
+    collector = _Collector()
+    for py_file in [*get_python_files(root_dir), root_dir / "main.py"]:
+        check(py_file.read_text(encoding="utf-8"), str(py_file.relative_to(root_dir)), collector)
+
+    if collector.messages:
+        msg = "\n".join(f"  - {m}" for m in collector.messages)
+        pytest.fail(f"Quality Gate Failed: undefined names detected!\n{msg}")
+
+
 if __name__ == "__main__":
     # Allow running this script directly
     test_no_silent_except_pass()
     test_no_fstring_in_tr()
+    test_no_undefined_names()

@@ -13,10 +13,11 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QComboBox, QLineEdit, QScrollArea, QFrame,
                              QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox,
                              QSizePolicy, QProgressDialog, QStackedWidget, QTabWidget, QDialog,
-                             QToolButton, QButtonGroup, QLayout)
+                             QToolButton, QButtonGroup, QLayout, QFileDialog)
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint, QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
 import json
+from pathlib import Path
 from core.logger import get_logger
 logger = get_logger("gui.advanced_filter")
 
@@ -1687,7 +1688,7 @@ class AdvancedFilterWidget(QWidget):
             try:
                 # We export it as a smart_list type
                 ExchangeService.save_to_file("smart_list", {"name": name, "query": query}, path)
-                show_notification(self, self.tr("Export Successful"), self.tr("Filter exported to %s") % os.path.basename(path))
+                show_notification(self, self.tr("Export Successful"), self.tr("Filter exported to %s") % Path(path).name)
             except Exception as e:
                 QMessageBox.critical(self, self.tr("Error"), f"Failed to export filter: {e}")
 
@@ -1701,7 +1702,7 @@ class AdvancedFilterWidget(QWidget):
                return
                
         path = urls[0].toLocalFile()
-        if not os.path.exists(path):
+        if not Path(path).exists():
                return
                
         payload = ExchangeService.load_from_file(path)

@@ -786,7 +786,7 @@ class DocumentListWidget(QWidget):
             self.open_export_dialog(docs)
 
         elif self.is_trash_mode:
-            if action == restore_action:
+            if action == restore_trash_action:
                 self.restore_requested.emit(uuids)
             elif action == purge_action:
                 confirm = show_selectable_message_box(
