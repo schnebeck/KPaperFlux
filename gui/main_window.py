@@ -818,15 +818,6 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             self.editor_widget.setVisible(True)
             self.editor_widget.display_documents(docs)
 
-            # Robust Status Sync (Case Insensitive)
-            stat = (primary_doc.status or "NEW").upper()
-            idx = self.editor_widget.status_combo.findText(stat)
-            if idx >= 0:
-                self.editor_widget.status_combo.setCurrentIndex(idx)
-            else:
-                self.editor_widget.status_combo.setCurrentText(stat)
-            self.editor_widget.export_filename_edit.setText(primary_doc.original_filename or "")
-
         main_sizes = self.main_splitter.sizes()
         if main_sizes and len(main_sizes) > 1 and main_sizes[1] == 0:
             total = sum(main_sizes)
