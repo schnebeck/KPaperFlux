@@ -7,7 +7,7 @@ def test_workflow_controls_translation_calls(qapp):
     """Verifies that WorkflowControlsWidget renders a rule without errors.
 
     Uses an inline fixture rule so the test is independent of the JSON files
-    in resources/workflows/ (which are user-editable and their content changes).
+    bundled in resources/workflows/ (whose content changes).
     """
     from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition
 

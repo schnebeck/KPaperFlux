@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer, QThread, QEvent
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush, QIcon
 
+from core.config import AppConfig
 from core.reporting import ReportGenerator, ReportRegistry
 from core.models.reporting import ReportDefinition, ReportComponent
 from core.exporters.pdf_report import PdfReportGenerator
@@ -395,7 +396,7 @@ class ReportingWidget(QWidget):
         self.filter_tree = filter_tree
         self.repo_gen = ReportGenerator()
         self.registry = ReportRegistry()
-        self.report_dir = "resources/reports"
+        self.report_dir = str(AppConfig().get_reports_dir())
         self.current_definition = None
         self.zoom_level = 1.0
         self.active_charts = []

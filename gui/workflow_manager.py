@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
     QToolButton,
 )
 
+from core.config import AppConfig
 from core.logger import get_logger
 from core.workflow import (
     WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition,
@@ -51,7 +52,7 @@ class WorkflowManagerWidget(QWidget):
         self.registry = WorkflowRuleRegistry()
         self.filter_tree = filter_tree
         self.pipeline = pipeline
-        self.workflow_dir = "resources/workflows"
+        self.workflow_dir = str(AppConfig().get_workflows_dir())
         self._is_dirty = False
         self._init_ui()
         self.load_workflows()
@@ -488,7 +489,7 @@ class WorkflowRuleManagerDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Manage Rules"))
         self.resize(400, 500)
-        self.workflow_dir = "resources/workflows"
+        self.workflow_dir = str(AppConfig().get_workflows_dir())
         self.filter_tree = filter_tree
         self._init_ui()
         self._reload_list()

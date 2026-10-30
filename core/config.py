@@ -12,6 +12,7 @@ Description:    Manages application configuration using QSettings. Standardizes
 """
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any, Optional
 
@@ -65,6 +66,7 @@ class AppConfig:
     MAX_ANALYSIS_CONCURRENCY: int = 4
 
     APP_ID: str = "kpaperflux"
+    BUNDLED_RESOURCES_DIR: Path = Path(__file__).resolve().parent.parent / "resources"
     _active_profile: Optional[str] = None
 
     def __init__(self, profile: Optional[str] = None) -> None:
@@ -109,6 +111,28 @@ class AppConfig:
         data_dir = Path(base_path) / self.active_id
         data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
+
+    def _get_seeded_dir(self, name: str) -> Path:
+        """
+        Returns ~/.config/kpaperflux[-profile]/<name>/ for user-editable definitions.
+
+        On first use the directory is seeded with the bundled JSON files from
+        resources/<name>/; afterwards only the user's copies are read and written.
+        """
+        user_dir = self.get_config_dir() / name
+        if not user_dir.exists():
+            user_dir.mkdir(parents=True)
+            for template in sorted((self.BUNDLED_RESOURCES_DIR / name).glob("*.json")):
+                shutil.copy2(template, user_dir / template.name)
+        return user_dir
+
+    def get_workflows_dir(self) -> Path:
+        """Returns the directory holding the user's workflow rules."""
+        return self._get_seeded_dir("workflows")
+
+    def get_reports_dir(self) -> Path:
+        """Returns the directory holding the user's report definitions."""
+        return self._get_seeded_dir("reports")
 
     def get_plugins_dir(self) -> Path:
         """

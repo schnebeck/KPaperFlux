@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from core.models.reporting import ReportDefinition, Aggregation
+from core.config import AppConfig
 from core.reporting import ReportRegistry
 from core.logger import get_logger
 
@@ -324,9 +325,7 @@ class ReportEditorWidget(QWidget):
     def save_report(self):
         try:
             report = self.get_report_definition()
-            report_dir = "resources/reports"
-            os.makedirs(report_dir, exist_ok=True)
-            
+            report_dir = str(AppConfig().get_reports_dir())
             file_path = os.path.join(report_dir, f"{report.id}.json")
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(report.model_dump(), f, indent=2)

@@ -134,8 +134,7 @@ class CanonizerService:
         self.rules_engine = RulesEngine(db, filter_tree) if filter_tree else None
 
         self.workflow_registry = WorkflowRuleRegistry()
-        # Note: In production, the path might be different, but for now we use relative
-        self.workflow_registry.load_from_directory("resources/workflows")
+        self.workflow_registry.load_from_directory(str(self.config.get_workflows_dir()))
 
     # ------------------------------------------------------------------ engine
 
