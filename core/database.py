@@ -557,11 +557,11 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             
             # Determine Bins: We want ~30 points
             if span_days < 45:
-                fmt, group_count = '%Y-%m-%d', span_days + 1
+                fmt = '%Y-%m-%d'
             elif span_days < 365 * 2:
-                fmt, group_count = '%Y-%m', 12 # Roughly monthly
+                fmt = '%Y-%m'
             else:
-                fmt, group_count = '%Y', 5 # Yearly
+                fmt = '%Y'
                 
             sql = f"""
                 SELECT strftime('{fmt}', {time_expr}) as grp, {val_expr} as val
@@ -589,22 +589,16 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
                 else:
                     data.append(val)
 
+            # One data point per bin from the first to the last document, empty bins included
             if fmt == '%Y-%m-%d':
-                for _ in range(group_count):
-                    add_val(curr.strftime(fmt))
-                    curr += relativedelta(days=1)
+                curr, last, step = d_start, d_end, relativedelta(days=1)
             elif fmt == '%Y-%m':
-                curr = curr.replace(day=1)
-                for _ in range(group_count + (1 if span_days > 28 else 0)):
-                    add_val(curr.strftime(fmt))
-                    curr += relativedelta(months=1)
-                    if curr > d_end.replace(day=1) + relativedelta(months=1): break
+                curr, last, step = d_start.replace(day=1), d_end.replace(day=1), relativedelta(months=1)
             else:
-                curr = curr.replace(month=1, day=1)
-                for _ in range(20): # Safety limit
-                    add_val(curr.strftime(fmt))
-                    curr += relativedelta(years=1)
-                    if curr.year > d_end.year: break
+                curr, last, step = d_start.replace(month=1, day=1), d_end.replace(month=1, day=1), relativedelta(years=1)
+            while curr <= last:
+                add_val(curr.strftime(fmt))
+                curr += step
                     
             return data
         except Exception as e:

@@ -66,3 +66,32 @@ def test_trend_data_generation(db):
     assert res_months[0] == 2.0 # Jan (u1, u2)
     assert res_months[5] == 1.0 # June (u3)
     assert sum(res_months) == 3.0
+
+
+def _insert_dated(db, uuid: str, doc_date: str) -> None:
+    db.connection.execute(
+        "INSERT INTO virtual_documents (uuid, created_at, semantic_data, deleted) VALUES (?, ?, ?, 0)",
+        (uuid, f"{doc_date} 10:00:00", json.dumps({"meta_header": {"doc_date": doc_date}})))
+    db.connection.commit()
+
+
+def test_trend_month_bins_cover_the_whole_range(db):
+    """A 20-month span yields one point per month up to the last document."""
+    _insert_dated(db, "first", "2024-01-15")
+    _insert_dated(db, "last", "2025-08-10")
+
+    res = db.get_trend_data_advanced({}, days=None)
+
+    assert len(res) == 20  # 2024-01 .. 2025-08
+    assert res[0] == 1.0 and res[-1] == 1.0
+    assert sum(res) == 2.0
+
+
+def test_trend_year_bins_cover_the_whole_range(db):
+    _insert_dated(db, "first", "2000-03-01")
+    _insert_dated(db, "last", "2025-03-01")
+
+    res = db.get_trend_data_advanced({}, days=None)
+
+    assert len(res) == 26  # 2000 .. 2025
+    assert res[0] == 1.0 and res[-1] == 1.0
