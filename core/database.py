@@ -663,8 +663,8 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         now = datetime.now().isoformat()
         sql = "UPDATE virtual_documents SET deleted = 1, deleted_at = ? WHERE uuid = ?"
         with self._write() as conn:
-            self.connection.execute(sql, (now, uuid))
-            return self.connection.total_changes > 0
+            cursor = self.connection.execute(sql, (now, uuid))
+            return cursor.rowcount > 0
 
     def mark_documents_deleted(self, uuids: List[str]) -> None:
         """Soft-deletes multiple documents and records the deletion timestamp."""
@@ -686,8 +686,8 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         """
         sql = "DELETE FROM virtual_documents WHERE uuid = ?"
         with self._write() as conn:
-            self.connection.execute(sql, (uuid,))
-            return self.connection.total_changes > 0
+            cursor = self.connection.execute(sql, (uuid,))
+            return cursor.rowcount > 0
 
     def purge_entities_for_source(self, source_uuid: str) -> None:
         """
@@ -710,8 +710,8 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         """
         sql = "UPDATE virtual_documents SET deleted = 0, deleted_at = NULL WHERE uuid = ?"
         with self._write() as conn:
-            self.connection.execute(sql, (uuid,))
-            return self.connection.total_changes > 0
+            cursor = self.connection.execute(sql, (uuid,))
+            return cursor.rowcount > 0
 
     def get_documents_missing_semantic_data(self) -> List[Document]:
         """

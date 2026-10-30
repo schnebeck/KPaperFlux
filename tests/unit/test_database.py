@@ -86,3 +86,15 @@ def test_pdf_class_persistence(logical_repo):
     
     retrieved = logical_repo.get_by_uuid(v_doc.uuid)
     assert retrieved.pdf_class == "AB"
+
+
+def test_delete_restore_purge_report_unknown_uuid(memory_db, logical_repo):
+    """Return values reflect the given document, not earlier changes on the same connection."""
+    logical_repo.save(VirtualDocument(uuid="known", source_mapping=[SourceReference(file_uuid="f", pages=[1])]))
+
+    assert memory_db.delete_document("known") is True
+    assert memory_db.restore_document("known") is True
+    assert memory_db.delete_document("missing") is False
+    assert memory_db.restore_document("missing") is False
+    assert memory_db.purge_document("missing") is False
+    assert memory_db.purge_document("known") is True
