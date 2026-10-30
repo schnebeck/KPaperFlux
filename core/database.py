@@ -638,9 +638,10 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         Returns:
             A ranked list of matching Document objects.
         """
-        if not search_text:
+        fts_query = self._to_fts_query(search_text or "")
+        if not fts_query:
             return self.get_all_entities_view()
-            
+
         sql = f"""
             SELECT {', '.join(['v.' + c.strip() for c in self._doc_select.split(',')])}
             FROM virtual_documents v
@@ -648,7 +649,23 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             WHERE f.cached_full_text MATCH ? AND v.deleted = 0 AND v.archived = 0
             ORDER BY rank
         """
-        return self._query_documents(sql, (search_text,))
+        return self._query_documents(sql, (fts_query,))
+
+    @staticmethod
+    def _to_fts_query(search_text: str) -> str:
+        """
+        Turns free user input into an FTS5 query that cannot raise a syntax error.
+
+        Every word becomes a quoted phrase and all of them must match; a trailing '*'
+        keeps prefix search. Characters such as '-', ':' or '(' are no FTS operators then.
+        """
+        terms = []
+        for word in search_text.split():
+            core = word.rstrip("*")
+            if core:
+                quoted = '"' + core.replace('"', '""') + '"'
+                terms.append(quoted + "*" if word.endswith("*") else quoted)
+        return " ".join(terms)
 
     def delete_document(self, uuid: str) -> bool:
         """

@@ -40,3 +40,32 @@ def test_search_text(db_manager, repo):
 
     results = db_manager.search_documents(search_text="apples")
     assert len(results) == 1
+
+
+@pytest.fixture
+def searchable(db_manager, repo):
+    repo.save(VirtualDocument(uuid="doc-1", cached_full_text="Invoice foo-bar for order: 4711 (paid)"))
+    repo.save(VirtualDocument(uuid="doc-2", cached_full_text="Delivery note for order 4712"))
+    return db_manager
+
+
+@pytest.mark.parametrize("text", ["foo-bar", "order:", "(paid", '"unbalanced', "NOT", "AND OR", "^", "*"])
+def test_search_with_fts_syntax_characters_does_not_raise(searchable, text):
+    searchable.search_documents(search_text=text)
+
+
+def test_search_hyphenated_word_matches_phrase(searchable):
+    assert [d.uuid for d in searchable.search_documents(search_text="foo-bar")] == ["doc-1"]
+
+
+def test_search_requires_all_words(searchable):
+    assert [d.uuid for d in searchable.search_documents(search_text="order paid")] == ["doc-1"]
+    assert {d.uuid for d in searchable.search_documents(search_text="order")} == {"doc-1", "doc-2"}
+
+
+def test_search_keeps_prefix_wildcard(searchable):
+    assert [d.uuid for d in searchable.search_documents(search_text="deliv*")] == ["doc-2"]
+
+
+def test_search_with_only_wildcards_lists_all(searchable):
+    assert len(searchable.search_documents(search_text="**")) == 2
