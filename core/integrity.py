@@ -91,9 +91,9 @@ class IntegrityManager:
         # 1. Get all logical entities
         all_entities = self.logic_repo.get_all()
 
-        # 2. Get all Vault files
+        # 2. Get all Vault files (originals keep their import extension; derived/ is a subdirectory)
         vault_path = Path(self.vault.base_path)
-        vault_files = list(vault_path.glob("*.pdf"))
+        vault_files = [f for f in vault_path.iterdir() if f.is_file() and not f.name.startswith(".")]
         vault_basenames = {f.name for f in vault_files}
 
         # Map basename to path for ghosts
@@ -187,6 +187,7 @@ class IntegrityManager:
         Performs content-based deduplication in the vault (live hashing).
         1. Computes hash for every physical file.
         2. Deletes newer physical duplicates.
+           Documents referencing a duplicate are pointed at the kept file first.
         3. Prunes broken entities.
         4. Identifies and deletes logical entities with identical source mappings.
         """
@@ -228,6 +229,9 @@ class IntegrityManager:
 
             logger.info(f"  [Match] Keep oldest: {keep.uuid} ({key[:10]}...)")
             for red in redundant:
+                redirected = self.logic_repo.redirect_source_file(red.uuid, keep.uuid)
+                if redirected:
+                    logger.info(f"    -> {redirected} document(s) now reference {keep.uuid}")
                 logger.info(f"    -> Deleting physical duplicate: {red.uuid}")
                 if red.file_path and os.path.exists(red.file_path):
                     try:
@@ -248,7 +252,7 @@ class IntegrityManager:
         mapping_groups: Dict[str, List] = {}
         for ent in all_entities:
             # We use the JSON representation of the mapping as the key
-            m_key = ent.get_mapping_json()
+            m_key = ent.to_source_mapping_json()
             if m_key not in mapping_groups:
                 mapping_groups[m_key] = []
             mapping_groups[m_key].append(ent)

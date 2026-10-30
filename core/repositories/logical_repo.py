@@ -195,6 +195,29 @@ class LogicalRepository(BaseRepository):
 
         return [VirtualDocument.from_row(row) for row in rows]
 
+    def redirect_source_file(self, old_file_uuid: str, new_file_uuid: str) -> int:
+        """
+        Points every reference to one physical file at another file with identical content.
+
+        Args:
+            old_file_uuid: The physical file that is about to be removed.
+            new_file_uuid: The physical file that is kept.
+
+        Returns:
+            The number of virtual documents updated.
+        """
+        docs = self.get_by_source_file(old_file_uuid)
+        with self.conn:
+            for doc in docs:
+                for ref in doc.source_mapping:
+                    if ref.file_uuid == old_file_uuid:
+                        ref.file_uuid = new_file_uuid
+                self.conn.execute(
+                    "UPDATE virtual_documents SET source_mapping = ? WHERE uuid = ?",
+                    (doc.to_source_mapping_json(), doc.uuid),
+                )
+        return len(docs)
+
     def delete_by_uuid(self, uuid: str) -> bool:
         """
         Hard deletes a virtual document record from the database.
