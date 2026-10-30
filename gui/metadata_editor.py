@@ -39,11 +39,17 @@ from gui.widgets.group_membership_chips import GroupMembershipWidget
 
 # Core Models
 from core.body_layout import AUXILIARY_BODIES, KNOWN_BODIES, expected_bodies
-from core.models.semantic import FieldReviewState, SemanticExtraction, WorkflowInfo, WorkflowLog, SubscriptionInfo
+from core.models.semantic import (
+    AddressInfo, FieldReviewState, MetaHeader, SemanticExtraction, SubscriptionInfo, WorkflowInfo, WorkflowLog,
+)
 from gui.widgets import review_marker
 from gui.widgets.body_fields_tab import BodyFieldsTab
 from core.utils.validation import validate_iban
 from core.workflow import WorkflowRuleRegistry
+
+DIRECTIONS = ("Inbound", "Outbound", "Internal", "Unknown")
+CONTEXTS = ("Private", "Business", "Unknown")
+
 
 class NestedTableDialog(QDialog):
     """Dialog for editing lists of objects (tables in tables)."""
@@ -215,6 +221,9 @@ class MetadataEditorWidget(QWidget):
         self.current_uuids = []
         self.doc = None
         self._locked_for_load = False
+        # Multi-selection: the shown documents and the field values right after display
+        self._batch_docs: list[Document] = []
+        self._batch_baseline: dict[str, Any] = {}
         
         # Debounce timer for GiroCode updates
         self.giro_timer = QTimer()
@@ -300,7 +309,7 @@ class MetadataEditorWidget(QWidget):
         self.direction_combo.blockSignals(True)
         cur_dir = self.direction_combo.currentData()
         self.direction_combo.clear()
-        for d in ["Inbound", "Outbound", "Internal", "Unknown"]:
+        for d in DIRECTIONS:
             self.direction_combo.addItem(self.tr(d), d)
         idx = self.direction_combo.findData(cur_dir)
         if idx >= 0: self.direction_combo.setCurrentIndex(idx)
@@ -309,7 +318,7 @@ class MetadataEditorWidget(QWidget):
         self.context_combo.blockSignals(True)
         cur_ctx = self.context_combo.currentData()
         self.context_combo.clear()
-        for c in ["Private", "Business", "Unknown"]:
+        for c in CONTEXTS:
             self.context_combo.addItem(self.tr(c), c)
         idx = self.context_combo.findData(cur_ctx)
         if idx >= 0: self.context_combo.setCurrentIndex(idx)
@@ -1075,6 +1084,7 @@ class MetadataEditorWidget(QWidget):
         self._locked_for_load = True
         self.doc = None
         self.current_uuids = [d.uuid for d in docs]
+        self._batch_docs = []
 
         if not docs:
             self.clear()
@@ -1108,8 +1118,8 @@ class MetadataEditorWidget(QWidget):
         statuses = {getattr(d, "status", "NEW") for d in docs}
         if len(statuses) == 1:
             # Use status_combo for batch display as well
-            stat = statuses.pop().upper()
-            idx = self.status_combo.findText(stat, Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchFixedString)
+            stat = (statuses.pop() or "NEW").upper()
+            idx = self.status_combo.findData(stat, Qt.ItemDataRole.UserRole, Qt.MatchFlag.MatchExactly)
             if idx >= 0:
                 self.status_combo.setCurrentIndex(idx)
             else:
@@ -1131,9 +1141,123 @@ class MetadataEditorWidget(QWidget):
 
         self.source_viewer.setPlainText(self.tr("%n document(s) selected.", "", len(docs)))
         self.semantic_viewer.setPlainText("-")
-        
+
+        # Show only what all selected documents share; saving applies just the fields the user changes.
+        self.tags_edit.setTags(self._common_items([d.tags or [] for d in docs]))
+        self.doc_types_combo.setCheckedItems(self._common_items(
+            [[t for t in (d.type_tags or []) if t.upper() in DocType.__members__] for d in docs]))
+        self._select_data(self.direction_combo, self._common_value(
+            [str((d.semantic_data.direction if d.semantic_data else None) or "Unknown").title() for d in docs]))
+        self._select_data(self.context_combo, self._common_value(
+            [str((d.semantic_data.tenant_context if d.semantic_data else None) or "Unknown").upper()
+             .removeprefix("CTX_").title() for d in docs]))
+        self._batch_docs = list(docs)
+        self._batch_baseline = self._batch_snapshot()
+
         self._reset_dirty()
         self._locked_for_load = False
+
+    @staticmethod
+    def _common_items(lists: list[list[str]]) -> list[str]:
+        """Items present in every list, in the order of the first one."""
+        common = set(lists[0]).intersection(*map(set, lists[1:])) if lists else set()
+        return [item for item in lists[0] if item in common] if lists else []
+
+    @staticmethod
+    def _common_value(values: list[str]) -> str:
+        """The value shared by all entries, otherwise 'Unknown'."""
+        return values[0] if values and len(set(values)) == 1 else "Unknown"
+
+    @staticmethod
+    def _select_data(combo: QComboBox, value: str) -> None:
+        idx = combo.findData(value, Qt.ItemDataRole.UserRole, Qt.MatchFlag.MatchExactly)
+        combo.setCurrentIndex(idx if idx >= 0 else combo.findData("Unknown"))
+
+    def _batch_snapshot(self) -> dict[str, Any]:
+        """Current values of the fields that can be edited for several documents at once."""
+        return {
+            "status": self.status_combo.currentData(),
+            "export_filename": self.export_filename_edit.text().strip(),
+            "sender": self.sender_edit.text().strip(),
+            "archived": self.archived_chk.checkState(),
+            "storage_location": self.storage_location_edit.text().strip(),
+            "tags": list(self.tags_edit.getTags()),
+            "doc_types": set(self.doc_types_combo.getCheckedItems()),
+            "direction": self.direction_combo.currentData(),
+            "context": self.context_combo.currentData(),
+        }
+
+    def _save_batch_changes(self) -> None:
+        """Applies only the fields the user changed to each selected document and keeps everything else.
+
+        Tags and document types are applied as additions and removals per document. The
+        semantic tabs show data of a single document and are not written in this mode.
+        """
+        base = self._batch_baseline
+        now = self._batch_snapshot()
+        changed = {key for key, value in now.items() if value != base.get(key)}
+        if not changed:
+            self._reset_dirty()
+            return
+
+        added_tags = [t for t in now["tags"] if t not in base["tags"]]
+        removed_tags = set(base["tags"]) - set(now["tags"])
+
+        for doc in self._batch_docs:
+            updates: dict[str, Any] = {}
+            if "status" in changed and now["status"]:
+                updates["status"] = now["status"]
+            if "export_filename" in changed:
+                updates["export_filename"] = now["export_filename"]
+            if "storage_location" in changed:
+                updates["storage_location"] = now["storage_location"]
+            if "archived" in changed and now["archived"] != Qt.CheckState.PartiallyChecked:
+                updates["archived"] = int(now["archived"] == Qt.CheckState.Checked)
+            if "tags" in changed:
+                tags = [t for t in (doc.tags or []) if t not in removed_tags]
+                updates["tags"] = tags + [t for t in added_tags if t not in tags]
+
+            old_type_tags = list(doc.type_tags or [])
+            type_tags = self._batch_type_tags(old_type_tags, base, now, changed)
+            if type_tags != old_type_tags:
+                updates["type_tags"] = type_tags
+
+            semantic_changed = bool(changed & {"sender", "direction", "context"}) or type_tags != old_type_tags
+            if semantic_changed and (doc.semantic_data or "sender" in changed):
+                sd = doc.semantic_data.model_copy(deep=True) if doc.semantic_data else SemanticExtraction()
+                sd.type_tags = type_tags
+                if "direction" in changed:
+                    sd.direction = now["direction"].upper()
+                if "context" in changed:
+                    sd.tenant_context = now["context"].upper()
+                if "sender" in changed:
+                    sd.meta_header = sd.meta_header or MetaHeader()
+                    sd.meta_header.sender = sd.meta_header.sender or AddressInfo()
+                    sd.meta_header.sender.name = now["sender"]
+                updates["semantic_data"] = sd
+
+            if updates:
+                self.db_manager.update_document_metadata(doc.uuid, updates)
+
+        self.metadata_saved.emit()
+        self._reset_dirty()
+        show_notification(self, self.tr("Saved"), self.tr("Changes saved to Database."))
+
+    @staticmethod
+    def _batch_type_tags(type_tags: list[str], base: dict[str, Any], now: dict[str, Any], changed: set[str]) -> list[str]:
+        """Applies the batch changes of document types, direction and context to one document's type tags."""
+        removed_types = base["doc_types"] - now["doc_types"]
+        tags = [t for t in type_tags if t not in removed_types]
+        tags += [t for t in sorted(now["doc_types"] - base["doc_types"]) if t not in tags]
+        if "direction" in changed:
+            tags = [t for t in tags if t.title() not in DIRECTIONS]
+            if now["direction"] != "Unknown":
+                tags.append(now["direction"].upper())
+        if "context" in changed:
+            tags = [t for t in tags if not t.upper().startswith("CTX_")]
+            if now["context"] != "Unknown":
+                tags.append(f"CTX_{now['context'].upper()}")
+        return tags
 
     def display_document(self, doc: Document):
         # Note: if called from display_documents, _locked_for_load is already True
@@ -1141,6 +1265,7 @@ class MetadataEditorWidget(QWidget):
         self._locked_for_load = True
         self.current_uuids = [doc.uuid]
         self.doc = doc
+        self._batch_docs = []
 
         with QSignalBlocker(self.chk_locked):
              self.chk_locked.setChecked(doc.is_immutable)
@@ -1950,6 +2075,7 @@ class MetadataEditorWidget(QWidget):
     def clear(self):
         self.current_uuids = []
         self.doc = None
+        self._batch_docs = []
         self.uuid_lbl.clear()
         self.created_at_lbl.clear()
         self.page_count_lbl.clear()
@@ -1968,6 +2094,9 @@ class MetadataEditorWidget(QWidget):
 
     def save_changes(self):
         if not self.current_uuids or not self.db_manager:
+            return
+        if self._batch_docs:
+            self._save_batch_changes()
             return
         # 1. Base Metadata
         custom_tags = self.tags_edit.getTags()
