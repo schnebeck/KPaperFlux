@@ -29,6 +29,14 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 
 ---
 
+## Why Local AI?
+
+KPaperFlux started out on a cloud AI API. Over time the token bills simply got too expensive, so document analysis moved to [FluxSense](https://github.com/schnebeck/FluxSense) running against a self-hosted, OpenAI-compatible model server.
+
+The other reason is plain fun: running models on your own hardware, coaxing reliable extraction out of them and watching a stack of paper turn into structured data, without anything leaving the house. A welcome side effect is that your documents stay on your own machines.
+
+---
+
 ## Showcase: Intelligence in Action
 
 <table align="center">
@@ -99,11 +107,39 @@ KPaperFlux is a **Document Refiner** designed for precision and technical sovere
 4.  **Hardware:** `sudo apt install sane-airscan` (Recommended for network scanners).
 5.  **Analysis Engine:** [FluxSense](https://github.com/schnebeck/FluxSense) is installed by step 3 (library mode). Alternatively run `fluxsense serve` and select REST mode in the **Settings Dialog**. The AI backend is configured in FluxSense (`~/.config/fluxsense/config.toml`).
 
+### Where Your Data Lives
+
+KPaperFlux follows the XDG base directories. Everything you create or change in the app lives in your user directories, never in the program folder:
+
+| Location | Content |
+|----------|---------|
+| `~/.config/kpaperflux/kpaperflux.conf` | Settings |
+| `~/.config/kpaperflux/workflows/` | Workflow rules (Workflow editor) |
+| `~/.config/kpaperflux/reports/` | Report definitions (Report editor) |
+| `~/.config/kpaperflux/filter_tree.json`, `cockpit_config.json` | Filter tree and cockpit layout |
+| `~/.local/share/kpaperflux/kpaperflux.db` | Document database |
+| Vault path (set in the **Settings Dialog**) | Original files and derived artifacts |
+
+On first start the workflow and report directories are filled with the examples bundled in `resources/workflows/` and `resources/reports/`. From then on only your copies are used, so updates never overwrite your changes. To get an example back, copy it from `resources/` into your directory.
+
+With `python main.py --profile <name>` every path above gets the suffix `-<name>` (e.g. `~/.config/kpaperflux-tax/`), which keeps separate document collections fully isolated.
+
 ---
 
 ## Contribution & License
 
 KPaperFlux follows strict **Clean Code** and **TDD** principles. Details can be found in the `devel/` folder.
 
+### Code Generation
+
+KPaperFlux is designed, directed and reviewed by its author; the code is written with AI coding agents as tools:
+
+| Period | Generator |
+|--------|-----------|
+| 01/2026 – 03/2026 | Gemini 3 Pro (Google Antigravity) |
+| since 03/2026 | Claude Sonnet 4.6, Claude Opus 5.5 (Claude Code) |
+
+Each source file names its generator in the file header.
+
 **License:** GNU General Public License v3.0  
-*(c) 2025-2026 Thorsten Schnebeck & The Antigravity Team*
+*(c) 2025-2026 Thorsten Schnebeck*
