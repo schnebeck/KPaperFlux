@@ -277,6 +277,8 @@ def fill():
         "Private": "Privat",
         "Business": "Geschäftlich",
         "Unknown": "Unbekannt",
+        "Unsaved Changes": "Ungespeicherte Änderungen",
+        "The shown document has unsaved changes. Save them?": "Das angezeigte Dokument hat ungespeicherte Änderungen. Speichern?",
         "Workflows": "Abläufe",
         "Dashboard": "Dashboard",
         "Reports": "Berichte",

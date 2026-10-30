@@ -2718,8 +2718,8 @@ Use Export → Save Attachment to extract the original.</source>
             <translation>KPaperFlux</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1456" />
-            <location filename="../../../gui/main_window.py" line="1448" />
+            <location filename="../../../gui/main_window.py" line="1447" />
+            <location filename="../../../gui/main_window.py" line="1439" />
             <location filename="../../../gui/main_window.py" line="337" />
             <source>Ready</source>
             <translation>Bereit</translation>
@@ -2751,157 +2751,157 @@ Use Export → Save Attachment to extract the original.</source>
             <translation>Auswahl Brutto (gesamt): %s EUR</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="860" />
+            <location filename="../../../gui/main_window.py" line="851" />
             <source>Info</source>
             <translation>Info</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="860" />
+            <location filename="../../../gui/main_window.py" line="851" />
             <source>Please select documents to delete.</source>
             <translation>Bitte Dokumente zum Löschen auswählen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="879" />
+            <location filename="../../../gui/main_window.py" line="870" />
             <source>Select Documents</source>
             <translation>Dokumente auswählen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="879" />
+            <location filename="../../../gui/main_window.py" line="870" />
             <source>PDF Files (*.pdf);;All Files (*)</source>
             <translation>PDF-Dateien (*.pdf);;Alle Dateien (*)</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1683" />
-            <location filename="../../../gui/main_window.py" line="1510" />
-            <location filename="../../../gui/main_window.py" line="1063" />
-            <location filename="../../../gui/main_window.py" line="1056" />
-            <location filename="../../../gui/main_window.py" line="978" />
+            <location filename="../../../gui/main_window.py" line="1674" />
+            <location filename="../../../gui/main_window.py" line="1501" />
+            <location filename="../../../gui/main_window.py" line="1054" />
+            <location filename="../../../gui/main_window.py" line="1047" />
+            <location filename="../../../gui/main_window.py" line="969" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="982" />
+            <location filename="../../../gui/main_window.py" line="973" />
             <source>Transfer</source>
             <translation>Transfer</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="982" />
+            <location filename="../../../gui/main_window.py" line="973" />
             <source>No compatible files found in transfer folder.</source>
             <translation>Keine kompatiblen Dateien im Transfer-Ordner gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="985" />
+            <location filename="../../../gui/main_window.py" line="976" />
             <source>Found %s files in transfer folder. Do you want to import them now?</source>
             <translation>%s Dateien im Transfer-Ordner gefunden. Jetzt importieren?</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="986" />
+            <location filename="../../../gui/main_window.py" line="977" />
             <source>Import from Transfer</source>
             <translation>Aus Transfer importieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="998" />
+            <location filename="../../../gui/main_window.py" line="989" />
             <source>Semantic Data</source>
             <translation>Semantische Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1010" />
+            <location filename="../../../gui/main_window.py" line="1001" />
             <source>All documents have semantic data.</source>
             <translation>Alle Dokumente haben semantische Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1012" />
+            <location filename="../../../gui/main_window.py" line="1003" />
             <source>Showing %s docs with missing semantic data.</source>
             <translation>%s Dokumente ohne semantische Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1020" />
+            <location filename="../../../gui/main_window.py" line="1011" />
             <source>No data mismatches found.</source>
             <translation>Keine Datenkonflikte gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1022" />
+            <location filename="../../../gui/main_window.py" line="1013" />
             <source>Showing %s docs with data mismatches.</source>
             <translation>%s Dokumente mit Datenkonflikten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1053" />
+            <location filename="../../../gui/main_window.py" line="1044" />
             <source>Documents merged successfully.</source>
             <translation>Dokumente erfolgreich zusammengeführt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1056" />
+            <location filename="../../../gui/main_window.py" line="1047" />
             <source>Merge failed.</source>
             <translation>Zusammenführung fehlgeschlagen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1064" />
+            <location filename="../../../gui/main_window.py" line="1055" />
             <source>Merge error: %s</source>
             <translation>Zusammenführungsfehler: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1075" />
+            <location filename="../../../gui/main_window.py" line="1066" />
             <source>Unknown</source>
             <translation>Unbekannt</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1078" />
+            <location filename="../../../gui/main_window.py" line="1069" />
             <source>KDE Plasma (Detected)</source>
             <translation>KDE Plasma (Erkannt)</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1080" />
+            <location filename="../../../gui/main_window.py" line="1071" />
             <source>Not Detected</source>
             <translation>Nicht erkannt</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1082" />
+            <location filename="../../../gui/main_window.py" line="1073" />
             <source>&lt;h3&gt;KPaperFlux v1.0&lt;/h3&gt;&lt;p&gt;A modern document management tool.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;b&gt;Qt Version:&lt;/b&gt; %1&lt;/p&gt;&lt;p&gt;&lt;b&gt;Python:&lt;/b&gt; %2&lt;/p&gt;&lt;p&gt;&lt;b&gt;System:&lt;/b&gt; %3&lt;/p&gt;&lt;p&gt;&lt;b&gt;Desktop Environment:&lt;/b&gt; %4&lt;/p&gt;</source>
             <translation>&lt;h3&gt;KPaperFlux v1.0&lt;/h3&gt;&lt;p&gt;Modernes Dokumentenmanagementsystem.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;b&gt;Qt-Version:&lt;/b&gt; %1&lt;/p&gt;&lt;p&gt;&lt;b&gt;Python:&lt;/b&gt; %2&lt;/p&gt;&lt;p&gt;&lt;b&gt;System:&lt;/b&gt; %3&lt;/p&gt;&lt;p&gt;&lt;b&gt;Desktopumgebung:&lt;/b&gt; %4&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1092" />
+            <location filename="../../../gui/main_window.py" line="1083" />
             <source>About KPaperFlux</source>
             <translation>Über KPaperFlux</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1099" />
+            <location filename="../../../gui/main_window.py" line="1090" />
             <source>Searching for duplicates...</source>
             <translation>Suche nach Duplikaten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1226" />
-            <location filename="../../../gui/main_window.py" line="1099" />
+            <location filename="../../../gui/main_window.py" line="1217" />
+            <location filename="../../../gui/main_window.py" line="1090" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1100" />
+            <location filename="../../../gui/main_window.py" line="1091" />
             <source>Please Wait</source>
             <translation>Bitte warten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1117" />
+            <location filename="../../../gui/main_window.py" line="1108" />
             <source>Comparing documents (%s/%s)...</source>
             <translation>Dokumente werden verglichen (%s/%s)...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1124" />
+            <location filename="../../../gui/main_window.py" line="1115" />
             <source>No Duplicates</source>
             <translation>Keine Duplikate</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1124" />
+            <location filename="../../../gui/main_window.py" line="1115" />
             <source>No duplicates found with current threshold.</source>
             <translation>Keine Duplikate mit aktuellem Schwellenwert gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1212" />
+            <location filename="../../../gui/main_window.py" line="1203" />
             <source>Import Dropped Files</source>
             <translation>Dateien importieren</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1217" />
+            <location filename="../../../gui/main_window.py" line="1208" />
             <source>Import %n file(s) into KPaperFlux?</source>
             <translation>
                 <numerusform>%n Datei(en) in KPaperFlux importieren?</numerusform>
@@ -2909,44 +2909,44 @@ Use Export → Save Attachment to extract the original.</source>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1220" />
+            <location filename="../../../gui/main_window.py" line="1211" />
             <source>Delete source files after import</source>
             <translation>Quelldateien nach Import löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1225" />
+            <location filename="../../../gui/main_window.py" line="1216" />
             <source>OK</source>
             <translation>OK</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1239" />
+            <location filename="../../../gui/main_window.py" line="1230" />
             <source>AI: %s</source>
             <translation>KI: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1261" />
+            <location filename="../../../gui/main_window.py" line="1252" />
             <source>Export</source>
             <translation>Exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1261" />
+            <location filename="../../../gui/main_window.py" line="1252" />
             <source>No documents visible to export.</source>
             <translation>Keine sichtbaren Dokumente zum Exportieren.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1321" />
+            <location filename="../../../gui/main_window.py" line="1312" />
             <source>Tags Updated</source>
             <translation>Tags aktualisiert</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1321" />
+            <location filename="../../../gui/main_window.py" line="1312" />
             <source>Updated tags for %n documents.</source>
             <translation type="unfinished">
                 <numerusform />
             </translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1441" />
+            <location filename="../../../gui/main_window.py" line="1432" />
             <source>List '%s' saved with %n item(s).</source>
             <translation>
                 <numerusform>Liste '%s' mit %n Eintrag/Einträgen gespeichert.</numerusform>
@@ -2954,22 +2954,22 @@ Use Export → Save Attachment to extract the original.</source>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1446" />
+            <location filename="../../../gui/main_window.py" line="1437" />
             <source>Viewing Trash Bin</source>
             <translation>Papierkorb anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1454" />
+            <location filename="../../../gui/main_window.py" line="1445" />
             <source>Viewing Archive</source>
             <translation>Archiv anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1470" />
+            <location filename="../../../gui/main_window.py" line="1461" />
             <source>Confirm Global Purge</source>
             <translation>Alle Daten löschen bestätigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1471" />
+            <location filename="../../../gui/main_window.py" line="1462" />
             <source>DANGER: This will delete ALL documents, files, and database entries.
 
 This action cannot be undone.
@@ -2982,37 +2982,37 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.
 Sind Sie sicher?</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1505" />
+            <location filename="../../../gui/main_window.py" line="1496" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1505" />
+            <location filename="../../../gui/main_window.py" line="1496" />
             <source>System has been reset.</source>
             <translation>System wurde zurückgesetzt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1510" />
+            <location filename="../../../gui/main_window.py" line="1501" />
             <source>Failed to purge data. Check logs.</source>
             <translation>Daten konnten nicht gelöscht werden. Protokoll prüfen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1653" />
+            <location filename="../../../gui/main_window.py" line="1644" />
             <source>Document Protected</source>
             <translation>Dokument geschützt</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1654" />
+            <location filename="../../../gui/main_window.py" line="1645" />
             <source>This document is a digital original and cannot be restructured.</source>
             <translation>Dieses Dokument ist ein digitales Original und kann nicht umstrukturiert werden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1667" />
+            <location filename="../../../gui/main_window.py" line="1658" />
             <source>Document deleted (empty structure).</source>
             <translation>Dokument gelöscht (leere Struktur).</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1670" />
+            <location filename="../../../gui/main_window.py" line="1661" />
             <source>Document updated (%n part(s)).</source>
             <translation>
                 <numerusform>Dokument aktualisiert (%n Teil(e)).</numerusform>
@@ -3020,7 +3020,7 @@ Sind Sie sicher?</translation>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1708" />
+            <location filename="../../../gui/main_window.py" line="1699" />
             <source>Pipeline STOPPED due to fatal error.</source>
             <translation>Pipeline wegen schwerem Fehler gestoppt.</translation>
         </message>
@@ -3966,472 +3966,482 @@ Sind Sie sicher?</translation>
     <context>
         <name>MetadataEditorWidget</name>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="275" />
+            <location filename="../../../gui/metadata_editor.py" line="277" />
             <source>Locked (Immutable)</source>
             <translation>Dokument ist schreibgeschützt</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="278" />
+            <location filename="../../../gui/metadata_editor.py" line="280" />
             <source>Eligible for PKV Reimbursement</source>
             <translation>PKV-relevant</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="279" />
+            <location filename="../../../gui/metadata_editor.py" line="281" />
             <source>UUID:</source>
             <translation>UUID:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="280" />
+            <location filename="../../../gui/metadata_editor.py" line="282" />
             <source>Created At:</source>
             <translation>Erstellt am:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="281" />
+            <location filename="../../../gui/metadata_editor.py" line="283" />
             <source>Pages:</source>
             <translation>Seiten:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="282" />
+            <location filename="../../../gui/metadata_editor.py" line="284" />
             <source>Status:</source>
             <translation>Status:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="283" />
+            <location filename="../../../gui/metadata_editor.py" line="285" />
             <source>Export Name:</source>
             <translation>Export-Name:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="284" />
+            <location filename="../../../gui/metadata_editor.py" line="286" />
             <source>Tags:</source>
             <translation>Tags:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="285" />
+            <location filename="../../../gui/metadata_editor.py" line="287" />
             <source>Custom Tags: Enter keywords, separated by commas or Enter.</source>
             <translation>Eigene Tags: Schlüsselwörter eingeben, mit Komma oder Enter trennen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="286" />
+            <location filename="../../../gui/metadata_editor.py" line="288" />
             <source>Archived</source>
             <translation>Archiviert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="287" />
+            <location filename="../../../gui/metadata_editor.py" line="289" />
             <source>Storage Location:</source>
             <translation>Lagerort:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="288" />
+            <location filename="../../../gui/metadata_editor.py" line="290" />
             <source>Groups:</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="301" />
+            <location filename="../../../gui/metadata_editor.py" line="303" />
             <source>Document Types:</source>
             <translation>Dokumenttypen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="302" />
+            <location filename="../../../gui/metadata_editor.py" line="304" />
             <source>Direction:</source>
             <translation>Richtung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="303" />
+            <location filename="../../../gui/metadata_editor.py" line="305" />
             <source>Tenant Context:</source>
             <translation>Mandantenkontext:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="304" />
+            <location filename="../../../gui/metadata_editor.py" line="306" />
             <source>Extracted Data</source>
             <translation>Extrahierte Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="305" />
+            <location filename="../../../gui/metadata_editor.py" line="307" />
             <source>Sender:</source>
             <translation>Absender:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="306" />
+            <location filename="../../../gui/metadata_editor.py" line="308" />
             <source>Document Date:</source>
             <translation>Belegdatum:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="313" />
+            <location filename="../../../gui/metadata_editor.py" line="315" />
             <source>Inbound</source>
             <translation>Eingang</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="313" />
+            <location filename="../../../gui/metadata_editor.py" line="315" />
             <source>Outbound</source>
             <translation>Ausgang</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="314" />
+            <location filename="../../../gui/metadata_editor.py" line="316" />
             <source>Internal</source>
             <translation>Intern</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="325" />
-            <location filename="../../../gui/metadata_editor.py" line="314" />
+            <location filename="../../../gui/metadata_editor.py" line="327" />
+            <location filename="../../../gui/metadata_editor.py" line="316" />
             <source>Unknown</source>
             <translation>Unbekannt</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="325" />
+            <location filename="../../../gui/metadata_editor.py" line="327" />
             <source>Private</source>
             <translation>Privat</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="325" />
+            <location filename="../../../gui/metadata_editor.py" line="327" />
             <source>Business</source>
             <translation>Geschäftlich</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="333" />
+            <location filename="../../../gui/metadata_editor.py" line="335" />
             <source>Recipient:</source>
             <translation>Empfänger:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1895" />
-            <location filename="../../../gui/metadata_editor.py" line="334" />
+            <location filename="../../../gui/metadata_editor.py" line="1929" />
+            <location filename="../../../gui/metadata_editor.py" line="336" />
             <source>IBAN:</source>
             <translation>IBAN:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1895" />
-            <location filename="../../../gui/metadata_editor.py" line="335" />
+            <location filename="../../../gui/metadata_editor.py" line="1929" />
+            <location filename="../../../gui/metadata_editor.py" line="337" />
             <source>BIC:</source>
             <translation>BIC:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="336" />
+            <location filename="../../../gui/metadata_editor.py" line="338" />
             <source>Amount:</source>
             <translation>Betrag:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="337" />
+            <location filename="../../../gui/metadata_editor.py" line="339" />
             <source>Purpose:</source>
             <translation>Verwendungszweck:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="338" />
+            <location filename="../../../gui/metadata_editor.py" line="340" />
             <source>GiroCode (EPC)</source>
             <translation>GiroCode (EPC)</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="339" />
+            <location filename="../../../gui/metadata_editor.py" line="341" />
             <source>Standardized QR code for SEPA transfers (EPC-QR).</source>
             <translation>Standardiesierter QR-Code für SEPA-Überweisungen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="340" />
+            <location filename="../../../gui/metadata_editor.py" line="342" />
             <source>Copy Payload</source>
             <translation>Daten kopieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="341" />
+            <location filename="../../../gui/metadata_editor.py" line="343" />
             <source>Copy the raw GiroCode data for banking apps</source>
             <translation>Raw-GiroCode-Daten kopieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="396" />
-            <location filename="../../../gui/metadata_editor.py" line="344" />
+            <location filename="../../../gui/metadata_editor.py" line="398" />
+            <location filename="../../../gui/metadata_editor.py" line="346" />
             <source>Subscription / Recurring</source>
             <translation>Abonnement / Wiederkehrend</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="397" />
-            <location filename="../../../gui/metadata_editor.py" line="345" />
+            <location filename="../../../gui/metadata_editor.py" line="399" />
+            <location filename="../../../gui/metadata_editor.py" line="347" />
             <source>Recurring Payment / Subscription</source>
             <translation>Wiederkehrende Zahlung / Abonnement</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="398" />
-            <location filename="../../../gui/metadata_editor.py" line="346" />
+            <location filename="../../../gui/metadata_editor.py" line="400" />
+            <location filename="../../../gui/metadata_editor.py" line="348" />
             <source>Frequency:</source>
             <translation>Intervall:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="347" />
+            <location filename="../../../gui/metadata_editor.py" line="349" />
             <source>Service Start:</source>
             <translation>Leistungsbeginn:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="348" />
+            <location filename="../../../gui/metadata_editor.py" line="350" />
             <source>Service End:</source>
             <translation>Leistungsende:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="399" />
-            <location filename="../../../gui/metadata_editor.py" line="349" />
+            <location filename="../../../gui/metadata_editor.py" line="401" />
+            <location filename="../../../gui/metadata_editor.py" line="351" />
             <source>Next Billing:</source>
             <translation>Nächste Abrechnung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="362" />
+            <location filename="../../../gui/metadata_editor.py" line="364" />
             <source>Type</source>
             <translation>Typ</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="362" />
+            <location filename="../../../gui/metadata_editor.py" line="364" />
             <source>Text</source>
             <translation>Text</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="362" />
+            <location filename="../../../gui/metadata_editor.py" line="364" />
             <source>Page</source>
             <translation>Seite</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="362" />
+            <location filename="../../../gui/metadata_editor.py" line="364" />
             <source>Confidence</source>
             <translation>Konfidenz</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="364" />
+            <location filename="../../../gui/metadata_editor.py" line="366" />
             <source>Add Stamp</source>
             <translation>Stempel hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="372" />
-            <location filename="../../../gui/metadata_editor.py" line="365" />
+            <location filename="../../../gui/metadata_editor.py" line="374" />
+            <location filename="../../../gui/metadata_editor.py" line="367" />
             <source>Remove Selected</source>
             <translation>Auswahl entfernen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="369" />
+            <location filename="../../../gui/metadata_editor.py" line="371" />
             <source>Section</source>
             <translation>Kategorie</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="369" />
+            <location filename="../../../gui/metadata_editor.py" line="371" />
             <source>Field</source>
             <translation>Feld</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="369" />
+            <location filename="../../../gui/metadata_editor.py" line="371" />
             <source>Value</source>
             <translation>Wert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="371" />
+            <location filename="../../../gui/metadata_editor.py" line="373" />
             <source>Add Entry</source>
             <translation>Eintrag hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="376" />
+            <location filename="../../../gui/metadata_editor.py" line="378" />
             <source>General</source>
             <translation>Allgemein</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="377" />
+            <location filename="../../../gui/metadata_editor.py" line="379" />
             <source>Analysis</source>
             <translation>Analyse</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="378" />
+            <location filename="../../../gui/metadata_editor.py" line="380" />
             <source>Payment</source>
             <translation>Zahlung</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="379" />
+            <location filename="../../../gui/metadata_editor.py" line="381" />
             <source>Subscriptions &amp; Contracts</source>
             <translation>Abos &amp;&amp; Verträge</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="380" />
+            <location filename="../../../gui/metadata_editor.py" line="382" />
             <source>Stamps</source>
             <translation>Stempel</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="381" />
+            <location filename="../../../gui/metadata_editor.py" line="383" />
             <source>Semantic Data</source>
             <translation>Semantische Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="382" />
+            <location filename="../../../gui/metadata_editor.py" line="384" />
             <source>Source Mapping</source>
             <translation>Quell-Komponenten</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="383" />
+            <location filename="../../../gui/metadata_editor.py" line="385" />
             <source>Debug Data</source>
             <translation>Debug-Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="384" />
+            <location filename="../../../gui/metadata_editor.py" line="386" />
             <source>Workflows</source>
             <translation>Abläufe</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="385" />
+            <location filename="../../../gui/metadata_editor.py" line="387" />
             <source>Statement</source>
             <translation>Kontoauszug</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="386" />
+            <location filename="../../../gui/metadata_editor.py" line="388" />
             <source>Correspondence</source>
             <translation>Schreiben</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="387" />
+            <location filename="../../../gui/metadata_editor.py" line="389" />
             <source>Payslip</source>
             <translation>Gehaltsabrechnung</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="389" />
+            <location filename="../../../gui/metadata_editor.py" line="391" />
             <source>Confirm all</source>
             <translation>Alle bestätigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="390" />
+            <location filename="../../../gui/metadata_editor.py" line="392" />
             <source>Accept all flagged values as they are</source>
             <translation>Alle markierten Werte unverändert übernehmen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="392" />
+            <location filename="../../../gui/metadata_editor.py" line="394" />
             <source>Graph</source>
             <translation type="unfinished" />
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="393" />
+            <location filename="../../../gui/metadata_editor.py" line="395" />
             <source>History</source>
             <translation>Historie</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="400" />
+            <location filename="../../../gui/metadata_editor.py" line="402" />
             <source>Service Period Start:</source>
             <translation>Leistungsbeginn:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="401" />
+            <location filename="../../../gui/metadata_editor.py" line="403" />
             <source>Service Period End:</source>
             <translation>Leistungsende:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="403" />
+            <location filename="../../../gui/metadata_editor.py" line="405" />
             <source>Contract Details</source>
             <translation>Vertragsdetails</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="404" />
+            <location filename="../../../gui/metadata_editor.py" line="406" />
             <source>Contract ID:</source>
             <translation>Vertragsnummer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="405" />
+            <location filename="../../../gui/metadata_editor.py" line="407" />
             <source>Effective Date:</source>
             <translation>Vertragsbeginn:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="406" />
+            <location filename="../../../gui/metadata_editor.py" line="408" />
             <source>Valid Until:</source>
             <translation>Gültig bis:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="407" />
+            <location filename="../../../gui/metadata_editor.py" line="409" />
             <source>Renewal Clause:</source>
             <translation>Verlängerung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="409" />
+            <location filename="../../../gui/metadata_editor.py" line="411" />
             <source>Notice Period</source>
             <translation>Kündigungsfrist</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="410" />
+            <location filename="../../../gui/metadata_editor.py" line="412" />
             <source>Value:</source>
             <translation>Wert:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="411" />
+            <location filename="../../../gui/metadata_editor.py" line="413" />
             <source>Unit:</source>
             <translation>Einheit:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="412" />
+            <location filename="../../../gui/metadata_editor.py" line="414" />
             <source>Anchor:</source>
             <translation>Anker:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="413" />
+            <location filename="../../../gui/metadata_editor.py" line="415" />
             <source>Original Text:</source>
             <translation>Originaltext:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1018" />
-            <location filename="../../../gui/metadata_editor.py" line="427" />
+            <location filename="../../../gui/metadata_editor.py" line="1022" />
+            <location filename="../../../gui/metadata_editor.py" line="429" />
             <source>None</source>
             <translation>Keine</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="428" />
+            <location filename="../../../gui/metadata_editor.py" line="430" />
             <source>Days</source>
             <translation>Tage</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="429" />
+            <location filename="../../../gui/metadata_editor.py" line="431" />
             <source>Weeks</source>
             <translation>Wochen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="430" />
+            <location filename="../../../gui/metadata_editor.py" line="432" />
             <source>Months</source>
             <translation>Monate</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="431" />
+            <location filename="../../../gui/metadata_editor.py" line="433" />
             <source>Years</source>
             <translation>Jahre</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="436" />
+            <location filename="../../../gui/metadata_editor.py" line="438" />
             <source>Physical Source Components:</source>
             <translation>Physische Quell-Komponenten:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="437" />
+            <location filename="../../../gui/metadata_editor.py" line="439" />
             <source>Raw Virtual Document Storage:</source>
             <translation>Rohdaten des virtuellen Dokuments:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="438" />
+            <location filename="../../../gui/metadata_editor.py" line="440" />
             <source>Cached Full Text:</source>
             <translation>Zwischengespeicherter Volltext:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="439" />
+            <location filename="../../../gui/metadata_editor.py" line="441" />
             <source>Save Changes</source>
             <translation>Änderungen speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="972" />
+            <location filename="../../../gui/metadata_editor.py" line="975" />
             <source>Auto-transition triggered</source>
             <translation>Automatischer Übergang ausgelöst</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="972" />
+            <location filename="../../../gui/metadata_editor.py" line="975" />
             <source>Action triggered via UI</source>
             <translation>Aktion per Oberfläche ausgelöst</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1018" />
-            <location filename="../../../gui/metadata_editor.py" line="988" />
+            <location filename="../../../gui/metadata_editor.py" line="1022" />
+            <location filename="../../../gui/metadata_editor.py" line="991" />
             <source>Workflow Updated</source>
             <translation>Ablauf aktualisiert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="988" />
+            <location filename="../../../gui/metadata_editor.py" line="991" />
             <source>State transitioned to %1</source>
             <translation>Status gewechselt zu %1</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1018" />
+            <location filename="../../../gui/metadata_editor.py" line="1022" />
             <source>Rule assigned: %1</source>
             <translation>Regel zugewiesen: %1</translation>
         </message>
+        <message>
+            <location filename="../../../gui/metadata_editor.py" line="1048" />
+            <source>Unsaved Changes</source>
+            <translation>Ungespeicherte Änderungen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/metadata_editor.py" line="1049" />
+            <source>The shown document has unsaved changes. Save them?</source>
+            <translation>Das angezeigte Dokument hat ungespeicherte Änderungen. Speichern?</translation>
+        </message>
         <message numerus="yes">
-            <location filename="../../../gui/metadata_editor.py" line="1147" />
+            <location filename="../../../gui/metadata_editor.py" line="1181" />
             <source>%n document(s) selected.</source>
             <translation>
                 <numerusform>%n Dokument(e) ausgewählt.</numerusform>
@@ -4439,366 +4449,366 @@ Sind Sie sicher?</translation>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="2358" />
-            <location filename="../../../gui/metadata_editor.py" line="1249" />
+            <location filename="../../../gui/metadata_editor.py" line="2393" />
+            <location filename="../../../gui/metadata_editor.py" line="1283" />
             <source>Saved</source>
             <translation>Gespeichert</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="2358" />
-            <location filename="../../../gui/metadata_editor.py" line="1249" />
+            <location filename="../../../gui/metadata_editor.py" line="2393" />
+            <location filename="../../../gui/metadata_editor.py" line="1283" />
             <source>Changes saved to Database.</source>
             <translation>Änderungen in Datenbank gespeichert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1476" />
+            <location filename="../../../gui/metadata_editor.py" line="1510" />
             <source>No source mapping available.</source>
             <translation>Keine Quell-Zuordnung verfügbar.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1761" />
+            <location filename="../../../gui/metadata_editor.py" line="1795" />
             <source>Recipient</source>
             <translation>Empfänger</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1762" />
+            <location filename="../../../gui/metadata_editor.py" line="1796" />
             <source>IBAN</source>
             <translation>IBAN</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1922" />
-            <location filename="../../../gui/metadata_editor.py" line="1906" />
-            <location filename="../../../gui/metadata_editor.py" line="1763" />
+            <location filename="../../../gui/metadata_editor.py" line="1956" />
+            <location filename="../../../gui/metadata_editor.py" line="1940" />
+            <location filename="../../../gui/metadata_editor.py" line="1797" />
             <source>Amount</source>
             <translation>Betrag</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1765" />
+            <location filename="../../../gui/metadata_editor.py" line="1799" />
             <source>Incomplete data for GiroCode:
 Missing</source>
             <translation>Unvollständige Daten für GiroCode:
 Fehlend</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1779" />
+            <location filename="../../../gui/metadata_editor.py" line="1813" />
             <source>Invalid IBAN Checksum!
 Cannot generate Payment Code.</source>
             <translation>Ungültige IBAN-Prüfsumme!
 Zahlungscode kann nicht generiert werden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1803" />
+            <location filename="../../../gui/metadata_editor.py" line="1837" />
             <source>QR Library not installed.
 Please install 'qrcode' package.</source>
             <translation>QR-Bibliothek nicht installiert.
 Bitte 'qrcode'-Paket installieren.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1806" />
+            <location filename="../../../gui/metadata_editor.py" line="1840" />
             <source>Invalid Amount format.</source>
             <translation>Ungültiges Betragsformat.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1809" />
+            <location filename="../../../gui/metadata_editor.py" line="1843" />
             <source>Error generating QR:</source>
             <translation>Fehler beim QR-Code-Generieren:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1819" />
+            <location filename="../../../gui/metadata_editor.py" line="1853" />
             <source>Cannot copy: Incomplete GiroCode data.</source>
             <translation>Kopieren fehlgeschlagen: Unvollständige GiroCode-Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1832" />
+            <location filename="../../../gui/metadata_editor.py" line="1866" />
             <source>GiroCode payload copied to clipboard.</source>
             <translation>GiroCode-Daten in die Zwischenablage kopiert.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1834" />
+            <location filename="../../../gui/metadata_editor.py" line="1868" />
             <source>Copy Error</source>
             <translation>Kopierfehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1894" />
+            <location filename="../../../gui/metadata_editor.py" line="1928" />
             <source>Statement Type:</source>
             <translation>Auszugsart:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1894" />
+            <location filename="../../../gui/metadata_editor.py" line="1928" />
             <source>Account Holder:</source>
             <translation>Kontoinhaber:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1895" />
+            <location filename="../../../gui/metadata_editor.py" line="1929" />
             <source>Bank:</source>
             <translation>Bank:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1896" />
+            <location filename="../../../gui/metadata_editor.py" line="1930" />
             <source>Account Number:</source>
             <translation>Kontonummer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1896" />
+            <location filename="../../../gui/metadata_editor.py" line="1930" />
             <source>Card Number:</source>
             <translation>Kartennummer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1897" />
+            <location filename="../../../gui/metadata_editor.py" line="1931" />
             <source>Statement Number:</source>
             <translation>Auszugsnummer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1897" />
+            <location filename="../../../gui/metadata_editor.py" line="1931" />
             <source>Statement Date:</source>
             <translation>Auszugsdatum:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1898" />
+            <location filename="../../../gui/metadata_editor.py" line="1932" />
             <source>Period Start:</source>
             <translation>Zeitraum von:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1898" />
+            <location filename="../../../gui/metadata_editor.py" line="1932" />
             <source>Period End:</source>
             <translation>Zeitraum bis:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1917" />
-            <location filename="../../../gui/metadata_editor.py" line="1899" />
+            <location filename="../../../gui/metadata_editor.py" line="1951" />
+            <location filename="../../../gui/metadata_editor.py" line="1933" />
             <source>Currency:</source>
             <translation>Währung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1899" />
+            <location filename="../../../gui/metadata_editor.py" line="1933" />
             <source>Opening Balance:</source>
             <translation>Anfangssaldo:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1900" />
+            <location filename="../../../gui/metadata_editor.py" line="1934" />
             <source>Closing Balance:</source>
             <translation>Endsaldo:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1900" />
+            <location filename="../../../gui/metadata_editor.py" line="1934" />
             <source>Total Debits:</source>
             <translation>Summe Belastungen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1901" />
+            <location filename="../../../gui/metadata_editor.py" line="1935" />
             <source>Total Credits:</source>
             <translation>Summe Gutschriften:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1901" />
+            <location filename="../../../gui/metadata_editor.py" line="1935" />
             <source>Credit Limit:</source>
             <translation>Kreditrahmen:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1902" />
+            <location filename="../../../gui/metadata_editor.py" line="1936" />
             <source>Minimum Payment:</source>
             <translation>Mindestzahlung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1902" />
+            <location filename="../../../gui/metadata_editor.py" line="1936" />
             <source>Payment Due:</source>
             <translation>Fällig am:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1903" />
+            <location filename="../../../gui/metadata_editor.py" line="1937" />
             <source>Transactions</source>
             <translation>Buchungen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1904" />
+            <location filename="../../../gui/metadata_editor.py" line="1938" />
             <source>Booking Date</source>
             <translation>Buchungstag</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1904" />
+            <location filename="../../../gui/metadata_editor.py" line="1938" />
             <source>Value Date</source>
             <translation>Wertstellung</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1922" />
-            <location filename="../../../gui/metadata_editor.py" line="1905" />
+            <location filename="../../../gui/metadata_editor.py" line="1956" />
+            <location filename="../../../gui/metadata_editor.py" line="1939" />
             <source>Description</source>
             <translation type="unfinished">Beschreibung</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1905" />
+            <location filename="../../../gui/metadata_editor.py" line="1939" />
             <source>Counterparty</source>
             <translation>Gegenpartei</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1906" />
+            <location filename="../../../gui/metadata_editor.py" line="1940" />
             <source>Balance</source>
             <translation>Saldo</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1909" />
+            <location filename="../../../gui/metadata_editor.py" line="1943" />
             <source>Subject:</source>
             <translation>Betreff:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1909" />
+            <location filename="../../../gui/metadata_editor.py" line="1943" />
             <source>Summary:</source>
             <translation>Zusammenfassung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1910" />
+            <location filename="../../../gui/metadata_editor.py" line="1944" />
             <source>Requested Action:</source>
             <translation>Erbetene Handlung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1910" />
+            <location filename="../../../gui/metadata_editor.py" line="1944" />
             <source>Deadline:</source>
             <translation>Frist:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1911" />
+            <location filename="../../../gui/metadata_editor.py" line="1945" />
             <source>Amount Mentioned:</source>
             <translation>Genannter Betrag:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1911" />
+            <location filename="../../../gui/metadata_editor.py" line="1945" />
             <source>Reference Numbers:</source>
             <translation>Referenznummern:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1914" />
+            <location filename="../../../gui/metadata_editor.py" line="1948" />
             <source>Employee:</source>
             <translation>Mitarbeiter:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1914" />
+            <location filename="../../../gui/metadata_editor.py" line="1948" />
             <source>Employee ID:</source>
             <translation>Personalnummer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1915" />
+            <location filename="../../../gui/metadata_editor.py" line="1949" />
             <source>Employer:</source>
             <translation>Arbeitgeber:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1915" />
+            <location filename="../../../gui/metadata_editor.py" line="1949" />
             <source>Pay Period Start:</source>
             <translation>Abrechnungszeitraum von:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1916" />
+            <location filename="../../../gui/metadata_editor.py" line="1950" />
             <source>Pay Period End:</source>
             <translation>Abrechnungszeitraum bis:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1916" />
+            <location filename="../../../gui/metadata_editor.py" line="1950" />
             <source>Payment Date:</source>
             <translation>Auszahlungsdatum:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1917" />
+            <location filename="../../../gui/metadata_editor.py" line="1951" />
             <source>Tax Class:</source>
             <translation>Steuerklasse:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1917" />
+            <location filename="../../../gui/metadata_editor.py" line="1951" />
             <source>Gross Pay:</source>
             <translation>Bruttobezug:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1918" />
+            <location filename="../../../gui/metadata_editor.py" line="1952" />
             <source>Income Tax:</source>
             <translation>Lohnsteuer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1918" />
+            <location filename="../../../gui/metadata_editor.py" line="1952" />
             <source>Solidarity Surcharge:</source>
             <translation>Solidaritätszuschlag:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1919" />
+            <location filename="../../../gui/metadata_editor.py" line="1953" />
             <source>Church Tax:</source>
             <translation>Kirchensteuer:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1919" />
+            <location filename="../../../gui/metadata_editor.py" line="1953" />
             <source>Social Security:</source>
             <translation>Sozialversicherung:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1920" />
+            <location filename="../../../gui/metadata_editor.py" line="1954" />
             <source>Net Pay:</source>
             <translation>Nettobezug:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1920" />
+            <location filename="../../../gui/metadata_editor.py" line="1954" />
             <source>Payout Amount:</source>
             <translation>Auszahlungsbetrag:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1920" />
+            <location filename="../../../gui/metadata_editor.py" line="1954" />
             <source>Payout IBAN:</source>
             <translation>Auszahlungs-IBAN:</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1921" />
+            <location filename="../../../gui/metadata_editor.py" line="1955" />
             <source>Pay Items</source>
             <translation>Abrechnungspositionen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1922" />
+            <location filename="../../../gui/metadata_editor.py" line="1956" />
             <source>Category</source>
             <translation>Kategorie</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1944" />
+            <location filename="../../../gui/metadata_editor.py" line="1978" />
             <source>printed next to a known label</source>
             <translation>neben einer bekannten Beschriftung gedruckt</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1945" />
+            <location filename="../../../gui/metadata_editor.py" line="1979" />
             <source>found at its usual position</source>
             <translation>an der üblichen Position gefunden</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1946" />
+            <location filename="../../../gui/metadata_editor.py" line="1980" />
             <source>confirmed by a calculation or format check</source>
             <translation>durch eine Rechen- oder Formatprüfung bestätigt</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1947" />
+            <location filename="../../../gui/metadata_editor.py" line="1981" />
             <source>read by the AI model only</source>
             <translation>nur vom KI-Modell gelesen</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1949" />
+            <location filename="../../../gui/metadata_editor.py" line="1983" />
             <source>Please review this value.</source>
             <translation>Bitte diesen Wert prüfen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1956" />
+            <location filename="../../../gui/metadata_editor.py" line="1990" />
             <source>Source: %s</source>
             <translation>Quelle: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1958" />
+            <location filename="../../../gui/metadata_editor.py" line="1992" />
             <source>Originally read: %s</source>
             <translation>Ursprünglich gelesen: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="1959" />
+            <location filename="../../../gui/metadata_editor.py" line="1993" />
             <source>Edit the value or confirm it to clear this marker.</source>
             <translation>Wert bearbeiten oder bestätigen, um die Markierung zu entfernen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="2056" />
-            <location filename="../../../gui/metadata_editor.py" line="1990" />
-            <location filename="../../../gui/metadata_editor.py" line="1989" />
+            <location filename="../../../gui/metadata_editor.py" line="2090" />
+            <location filename="../../../gui/metadata_editor.py" line="2024" />
+            <location filename="../../../gui/metadata_editor.py" line="2023" />
             <source>Confirm value</source>
             <translation>Wert bestätigen</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/metadata_editor.py" line="2008" />
+            <location filename="../../../gui/metadata_editor.py" line="2042" />
             <source>%n field(s) need review</source>
             <translation>
                 <numerusform>%n Feld muss geprüft werden</numerusform>
@@ -4806,12 +4816,12 @@ Bitte 'qrcode'-Paket installieren.</translation>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="2349" />
+            <location filename="../../../gui/metadata_editor.py" line="2384" />
             <source>Warning</source>
             <translation>Warnung</translation>
         </message>
         <message>
-            <location filename="../../../gui/metadata_editor.py" line="2350" />
+            <location filename="../../../gui/metadata_editor.py" line="2385" />
             <source>Semantic data could not be re-validated (%1). Other fields were saved.</source>
             <translation>Semantische Daten konnten nicht erneut validiert werden (%1). Andere Felder wurden gespeichert.</translation>
         </message>

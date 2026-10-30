@@ -232,7 +232,7 @@ def test_unrecognised_direction_does_not_keep_previous_selection(editor):
     doc = _invoice("doc-b", "Sender B", "20.00", [], "NEW")
     doc.semantic_data.direction = None
     doc.semantic_data.tenant_context = "something-else"
-    editor.display_documents([doc])
+    editor.display_documents([doc], force=True)
 
     assert editor.direction_combo.currentData() == "Unknown"
     assert editor.context_combo.currentData() == "Unknown"

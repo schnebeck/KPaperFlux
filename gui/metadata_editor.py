@@ -224,6 +224,8 @@ class MetadataEditorWidget(QWidget):
         # Multi-selection: the shown documents and the field values right after display
         self._batch_docs: list[Document] = []
         self._batch_baseline: dict[str, Any] = {}
+        # True while the shown values differ from the database
+        self._dirty = False
         
         # Debounce timer for GiroCode updates
         self.giro_timer = QTimer()
@@ -967,6 +969,7 @@ class MetadataEditorWidget(QWidget):
         """Action handler for workflow button clicks."""
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
+        self._offer_to_save_pending()
 
         source = "SYSTEM" if is_auto else "USER"
         comment = self.tr("Auto-transition triggered") if is_auto else self.tr("Action triggered via UI")
@@ -983,7 +986,7 @@ class MetadataEditorWidget(QWidget):
                 self.db_manager.update_document_metadata(u, {"semantic_data": sd})
 
         # 3. Refresh UI
-        self.display_documents([self.doc])
+        self.display_documents([self.doc], force=True)
         self.metadata_saved.emit()
         show_notification(self, self.tr("Workflow Updated"), self.tr("State transitioned to %1").replace("%1", target_state))
 
@@ -991,6 +994,7 @@ class MetadataEditorWidget(QWidget):
         """Handler for manual rule assignment (adds a new workflow to the dict)."""
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
+        self._offer_to_save_pending()
 
         logger.debug(f"Manually assigning rule '{new_rule_id}'")
 
@@ -1013,7 +1017,7 @@ class MetadataEditorWidget(QWidget):
         for u in self.current_uuids:
             self.db_manager.update_document_metadata(u, {"semantic_data": sd})
 
-        self.display_documents([self.doc])
+        self.display_documents([self.doc], force=True)
         self.metadata_saved.emit()
         show_notification(self, self.tr("Workflow Updated"), self.tr("Rule assigned: %1").replace("%1", new_rule_id or self.tr("None")))
 
@@ -1021,14 +1025,34 @@ class MetadataEditorWidget(QWidget):
         """Enable save button and update live workflow previews."""
         if getattr(self, "_locked_for_load", False):
             return
+        self._dirty = True
         self.btn_save.setEnabled(True)
         from gui.theme import CLR_SUCCESS_LIGHT, CLR_SUCCESS
         self.btn_save.setStyleSheet(f"background-color: {CLR_SUCCESS_LIGHT}; font-weight: bold; border: 1px solid {CLR_SUCCESS};")
         
     def _reset_dirty(self):
         """Disable save button and reset style."""
+        self._dirty = False
         self.btn_save.setEnabled(False)
         self.btn_save.setStyleSheet("")
+
+    def is_dirty(self) -> bool:
+        """True while the editor holds changes that are not saved yet."""
+        return self._dirty
+
+    def _offer_to_save_pending(self) -> None:
+        """Asks whether unsaved changes are saved before the shown documents are replaced."""
+        if not self._dirty or not self.current_uuids:
+            return
+        reply = QMessageBox.question(
+            self, self.tr("Unsaved Changes"),
+            self.tr("The shown document has unsaved changes. Save them?"),
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard,
+            QMessageBox.StandardButton.Save,
+        )
+        if reply == QMessageBox.StandardButton.Save:
+            self.save_changes()
+        self._reset_dirty()
 
     def on_lock_clicked(self, checked):
         if not self.current_uuids or not self.db_manager:
@@ -1085,7 +1109,17 @@ class MetadataEditorWidget(QWidget):
             elif widget.__class__.__name__ in ["TagInputWidget", "MultiSelectComboBox"]:
                 widget.setEnabled(not checked)
 
-    def display_documents(self, docs: list[Document]):
+    def display_documents(self, docs: list[Document], force: bool = False) -> None:
+        """
+        Shows one document or a multi-selection.
+
+        A reload of the same selection keeps unsaved edits (background refreshes must not
+        replace what the user is typing); switching to other documents offers to save them.
+        """
+        if not force and self._dirty:
+            if [d.uuid for d in docs] == self.current_uuids:
+                return
+            self._offer_to_save_pending()
         self._locked_for_load = True
         self.doc = None
         self.current_uuids = [d.uuid for d in docs]
@@ -1244,8 +1278,8 @@ class MetadataEditorWidget(QWidget):
             if updates:
                 self.db_manager.update_document_metadata(doc.uuid, updates)
 
-        self.metadata_saved.emit()
         self._reset_dirty()
+        self.metadata_saved.emit()
         show_notification(self, self.tr("Saved"), self.tr("Changes saved to Database."))
 
     @staticmethod
@@ -2058,6 +2092,7 @@ class MetadataEditorWidget(QWidget):
         menu.popup(self.semantic_table.viewport().mapToGlobal(pos))
 
     def clear(self):
+        self._offer_to_save_pending()
         self.current_uuids = []
         self.doc = None
         self._batch_docs = []
@@ -2353,6 +2388,6 @@ class MetadataEditorWidget(QWidget):
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)
 
-        self.metadata_saved.emit()
         self._reset_dirty()
+        self.metadata_saved.emit()
         show_notification(self, self.tr("Saved"), self.tr("Changes saved to Database."))

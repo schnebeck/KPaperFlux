@@ -50,3 +50,44 @@ def test_multi_selection_save_keeps_each_filename(window, db):
     assert db.get_document_by_uuid("doc-a").original_filename == "a.pdf"
     assert db.get_document_by_uuid("doc-b").original_filename == "b.pdf"
     assert db.get_document_by_uuid("doc-b").tags == ["shared", "batch"]
+
+
+def _select(window, qtbot, uuids):
+    window._on_document_selected(uuids)
+    qtbot.wait(50)  # let deferred signals settle
+
+
+def test_loaded_document_is_not_dirty(window, qtbot):
+    _select(window, qtbot, ["doc-a"])
+
+    assert not window.editor_widget.is_dirty()
+
+
+def test_refresh_of_same_selection_keeps_unsaved_edits(window, qtbot):
+    _select(window, qtbot, ["doc-a"])
+    window.editor_widget.storage_location_edit.setText("Shelf 3")
+    assert window.editor_widget.is_dirty()
+
+    # A background pipeline burst reloads the current selection
+    _select(window, qtbot, ["doc-a"])
+
+    assert window.editor_widget.storage_location_edit.text() == "Shelf 3"
+    assert window.editor_widget.is_dirty()
+
+
+@pytest.mark.parametrize("answer, expected", [("Save", "Shelf 3"), ("Discard", None)])
+def test_switching_documents_offers_to_save(window, db, qtbot, answer, expected):
+    from PyQt6.QtWidgets import QMessageBox
+
+    _select(window, qtbot, ["doc-a"])
+    window.editor_widget.storage_location_edit.setText("Shelf 3")
+
+    button = getattr(QMessageBox.StandardButton, answer)
+    with patch("gui.metadata_editor.QMessageBox.question", return_value=button) as question, \
+         patch("gui.metadata_editor.show_notification"):
+        _select(window, qtbot, ["doc-b"])
+
+    question.assert_called_once()
+    assert (db.get_document_by_uuid("doc-a").storage_location or None) == expected
+    assert window.editor_widget.current_uuids == ["doc-b"]
+    assert not window.editor_widget.is_dirty()
