@@ -1,11 +1,11 @@
 from PyQt6.QtWidgets import (    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
-    QSpinBox, QPushButton, QProgressBar, QMessageBox, QCheckBox,
-    QStackedWidget, QWidget, QFormLayout, QFrame
+    QPushButton, QProgressBar, QMessageBox, QStackedWidget, QWidget,
+    QFormLayout, QFrame
 )
 from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer, QSettings
-from PyQt6.QtGui import QPixmap, QIcon
-from typing import Optional, List, Tuple
+from PyQt6.QtGui import QPixmap
+from typing import Optional, List
 from core.scanner import get_scanner_driver, ScannerDriver
 from core.logger import get_logger
 import os

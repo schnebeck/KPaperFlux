@@ -2,11 +2,9 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QLabel,
     QMessageBox, QApplication
 )
-from PyQt6.QtCore import Qt
 import fitz
 import os
 import json
-import logging
 
 from core.logger import get_logger
 logger = get_logger("gui.splitter_dialog")

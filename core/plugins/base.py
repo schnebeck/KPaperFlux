@@ -10,7 +10,7 @@ Description:    Defines base classes for the KPaperFlux plugin system,
 ------------------------------------------------------------------------------
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from pathlib import Path
 
 class ApiContext:
@@ -80,7 +80,6 @@ class KPaperFluxPlugin(QObject):
         Returns:
             Status or result of the plugin execution.
         """
-        pass
 
     def get_settings_widget(self, parent=None):
         """

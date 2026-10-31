@@ -10,14 +10,13 @@ Description:    Drivers and interfaces for scanner interaction. Supports SANE-ba
 ------------------------------------------------------------------------------
 """
 
-import datetime
 import glob
 import os
 import subprocess
 import tempfile
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("scanner")
@@ -45,7 +44,6 @@ class ScannerDriver(ABC):
         Returns:
             A list of tuples containing (name, vendor, model, type).
         """
-        pass
         
     @abstractmethod
     def get_source_list(self, device_name: str) -> List[str]:
@@ -58,7 +56,6 @@ class ScannerDriver(ABC):
         Returns:
             A list of supported source strings.
         """
-        pass
 
     @abstractmethod
     def get_resolution_list(self, device_name: str, source: Optional[str] = None) -> List[int]:
@@ -72,7 +69,6 @@ class ScannerDriver(ABC):
         Returns:
             A list of supported resolutions in DPI.
         """
-        pass
 
     @abstractmethod
     def get_full_capabilities(self, device_name: str) -> Dict[str, Any]:
@@ -92,7 +88,6 @@ class ScannerDriver(ABC):
                }
             }
         """
-        pass
 
     @abstractmethod
     def scan_page(self, device_name: str, dpi: int = 200, color_mode: str = "Color") -> Optional[str]:
@@ -107,7 +102,6 @@ class ScannerDriver(ABC):
         Returns:
             The path to the scanned page (temporary file), or None if failed.
         """
-        pass
 
     @abstractmethod
     def scan_pages(
@@ -135,7 +129,6 @@ class ScannerDriver(ABC):
         Returns:
             A list of temporary file paths for the scanned pages.
         """
-        pass
 
 
 class MockScanner(ScannerDriver):

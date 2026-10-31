@@ -2,7 +2,6 @@
 import fitz  # PyMuPDF
 from typing import Optional, Dict, Any
 from lxml import etree
-import decimal
 from core.logger import get_logger
 
 logger = get_logger("core.utils.zugferd")

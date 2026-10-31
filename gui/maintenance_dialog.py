@@ -5,11 +5,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QEvent
 from core.logger import get_logger
 logger = get_logger("gui.maintenance_dialog")
-import os
 from pathlib import Path
 
 # Core Imports
-from core.integrity import IntegrityManager, IntegrityReport
+from core.integrity import IntegrityManager
 from core.vault import remove_derived_files
 from core.pipeline import PipelineProcessor
 

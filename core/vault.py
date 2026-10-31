@@ -11,7 +11,6 @@ Description:    Manages physical storage of document files in a secure vault.
 ------------------------------------------------------------------------------
 """
 
-import os
 import shutil
 from pathlib import Path
 from typing import Optional, Union

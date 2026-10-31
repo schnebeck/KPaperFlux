@@ -11,7 +11,7 @@ Description:    Exports Semantic Document Structure (JSON) to multi-sheet
 ------------------------------------------------------------------------------
 """
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 import pandas as pd
 

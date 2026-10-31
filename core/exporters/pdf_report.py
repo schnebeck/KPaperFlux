@@ -22,9 +22,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.enums import TA_CENTER
-from reportlab.pdfgen import canvas
 
-from PyQt6.QtCore import QLocale, QDateTime, QCoreApplication, Qt
+from PyQt6.QtCore import QLocale, QDateTime, QCoreApplication
 
 from core.logger import get_logger
 logger = get_logger("exporters.pdf_report")

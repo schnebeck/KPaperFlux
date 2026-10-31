@@ -2,15 +2,14 @@ from typing import Optional
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QFrame,
-    QPushButton, QSizePolicy, QGraphicsDropShadowEffect, QMenu, QApplication, QMessageBox
+    QPushButton, QSizePolicy, QMenu, QApplication, QMessageBox
 )
 from PyQt6.QtCore import (
-    Qt, pyqtSignal, QSize, QMimeData, QPoint, QPropertyAnimation,
-    pyqtProperty, QTimer, QEvent, QSignalBlocker
+    Qt, pyqtSignal, QSize, QMimeData, QPropertyAnimation, pyqtProperty,
+    QTimer, QEvent, QSignalBlocker
 )
 from PyQt6.QtGui import (
-    QPixmap, QIcon, QCursor, QColor, QDrag, QAction, QPainter, QPen, QBrush,
-    QImage, QTransform
+    QPixmap, QCursor, QColor, QDrag, QPainter, QPen, QBrush, QImage, QTransform
 )
 import fitz  # PyMuPDF for thumbnails
 import os

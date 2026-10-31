@@ -13,7 +13,7 @@ Description:    Repository for managing persistence of VirtualDocument models in
 
 import json
 from datetime import date, datetime
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 
 from core.models.virtual import VirtualDocument
 

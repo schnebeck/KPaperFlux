@@ -10,17 +10,16 @@ Description:    Main document list widget with tree representation and sorting.
 """
 
 from PyQt6.QtWidgets import (
-    QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QTreeWidgetItem,
-    QTreeWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QAbstractItemView, QStyledItemDelegate, QMessageBox, QTreeWidgetItemIterator, QDialog
+    QHeaderView, QMenu, QTreeWidgetItem, QTreeWidget, QWidget,
+    QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QAbstractItemView, QStyledItemDelegate,
+    QMessageBox, QTreeWidgetItemIterator
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QEvent, QTimer
+from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QTimer
 from PyQt6.QtGui import QBrush, QColor
 from gui.theme import CLR_REVIEW
 from pathlib import Path
-from typing import Optional, List, Any, Dict
+from typing import Optional, Any, Dict
 import datetime
-import os
 import json
 from core.logger import get_logger
 from core.deadline_monitor import compute_tier, URGENCY_ICON, URGENCY_TOOLTIP
@@ -31,11 +30,10 @@ logger = get_logger("gui.document_list")
 from gui.utils import show_selectable_message_box
 from core.database import DatabaseManager
 from core.config import AppConfig
-from core.metadata_normalizer import MetadataNormalizer
 from core.semantic_translator import SemanticTranslator
 
 # GUI Imports
-from gui.utils import format_date, format_datetime, show_selectable_message_box
+from gui.utils import format_datetime, show_selectable_message_box
 from gui.export_dialog import ExportDialog
 from gui.dialogs.save_list_dialog import SaveListDialog
 from gui.delegates.tag_delegate import TagDelegate

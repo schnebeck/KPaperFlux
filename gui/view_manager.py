@@ -1,11 +1,10 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTreeWidget, QTreeWidgetItem, QInputDialog, QMessageBox, QLabel
+    QTreeWidget, QTreeWidgetItem, QInputDialog, QMessageBox
 )
 from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.filter_tree import NodeType, FilterNode
-import json
 
 class ViewManagerDialog(QDialog):
     view_selected = pyqtSignal(dict) # Emits the view state dict

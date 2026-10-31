@@ -1,6 +1,6 @@
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QDateEdit, 
-                             QStackedWidget, QLabel)
+from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QComboBox, QDateEdit, QStackedWidget, 
+                             QLabel)
 from PyQt6.QtCore import Qt, QDate, pyqtSignal
 
 class DateRangePicker(QWidget):

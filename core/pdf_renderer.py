@@ -13,24 +13,19 @@ Description:    Highly creative and diverse PDF renderer. Supports multiple
 """
 
 import json
-import random
 from pathlib import Path
-from datetime import datetime
-from decimal import Decimal
-from typing import Optional, List, Any, Dict
+from typing import List, Any
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
-from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
-    Frame, PageTemplate, BaseDocTemplate, NextPageTemplate, Image as RLImage
+    Table, TableStyle, Paragraph, Spacer, Frame,
+    PageTemplate, BaseDocTemplate, NextPageTemplate, Image as RLImage
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfgen import canvas
 
-from core.models.semantic import SemanticExtraction, AddressInfo
+from core.models.semantic import SemanticExtraction
 from core.logger import get_logger
 from core.utils.formatting import format_currency
 

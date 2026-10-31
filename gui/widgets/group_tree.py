@@ -12,9 +12,9 @@ Description:    Collapsible sidebar GroupTreeWidget that displays document
                 membership assignment from DocumentListWidget.
 ------------------------------------------------------------------------------
 """
-from typing import Optional, List
+from typing import Optional
 
-from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from PyQt6.QtGui import QAction, QColor, QDragEnterEvent, QDropEvent
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,

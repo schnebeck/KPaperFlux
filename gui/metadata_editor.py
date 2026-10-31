@@ -19,11 +19,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap, QImage, QAction
 import json
 import io
-import logging
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.metadata_editor")
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QLocale, QSize, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QSize, QEvent
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 from core.models.types import DocType
@@ -40,7 +39,7 @@ from gui.widgets.group_membership_chips import GroupMembershipWidget
 # Core Models
 from core.body_layout import AUXILIARY_BODIES, KNOWN_BODIES, expected_bodies
 from core.models.semantic import (
-    AddressInfo, FieldReviewState, MetaHeader, SemanticExtraction, SubscriptionInfo, WorkflowInfo, WorkflowLog,
+    AddressInfo, FieldReviewState, MetaHeader, SemanticExtraction, WorkflowInfo, WorkflowLog,
 )
 from gui.widgets import review_marker
 from gui.widgets.body_fields_tab import BodyFieldsTab

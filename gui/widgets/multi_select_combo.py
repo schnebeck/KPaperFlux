@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QComboBox, QLineEdit, QStylePainter, QStyleOptionComboBox, QStyle
+from PyQt6.QtWidgets import QComboBox, QStylePainter, QStyleOptionComboBox, QStyle
 from PyQt6.QtGui import QStandardItemModel, QStandardItem, QPalette
-from PyQt6.QtCore import Qt, pyqtSignal, QRect
+from PyQt6.QtCore import Qt, pyqtSignal
 
 class MultiSelectComboBox(QComboBox):
     """

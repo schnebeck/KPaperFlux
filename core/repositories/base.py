@@ -11,7 +11,7 @@ Description:    Base class for repository implementations. Provides shared
 """
 
 import sqlite3
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.database import DatabaseManager

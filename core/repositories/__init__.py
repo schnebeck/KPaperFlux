@@ -12,3 +12,5 @@ Description:    Package initializer for core repositories. Exports PhysicalRepos
 
 from .physical_repo import PhysicalRepository
 from .logical_repo import LogicalRepository
+
+__all__ = ["PhysicalRepository", "LogicalRepository"]

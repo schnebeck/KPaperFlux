@@ -10,13 +10,10 @@ Description:    Interactive cockpit for document statistics and quick filters.
 """
 
 import json
-import os
-import shutil
-from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
-                             QHBoxLayout, QScrollArea, QSizePolicy, QMenu, QInputDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer, QRect, QSize, QEvent
-from PyQt6.QtGui import QAction, QCursor, QPalette, QPainter, QColor, QFont, QPen, QBrush, QLinearGradient, QPainterPath
+                             QHBoxLayout, QScrollArea, QMenu, QInputDialog)
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, QSize, QEvent
+from PyQt6.QtGui import QCursor, QPainter, QColor, QPen, QLinearGradient, QPainterPath
 
 from gui.dialogs.cockpit_entry_dialog import CockpitEntryDialog
 from core.config import AppConfig
@@ -144,8 +141,8 @@ class StatCard(QFrame):
         title_row.setSpacing(10)
         
         from gui.theme import (
-            CLR_TEXT, CLR_TEXT_SECONDARY, CLR_TEXT_MUTED,
-            FONT_BASE, FONT_LG, FONT_METRIC, FONT_ICON, RADIUS_MD, RADIUS_SM,
+            CLR_TEXT, CLR_TEXT_SECONDARY, FONT_BASE,
+            FONT_LG, FONT_METRIC, FONT_ICON, RADIUS_MD, RADIUS_SM,
         )
         icon_lbl = QLabel(icon)
         icon_lbl.setStyleSheet(

@@ -1,8 +1,7 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, QFrame
-from PyQt6.QtGui import QCloseEvent, QIcon
-from PyQt6.QtCore import Qt, QSettings, pyqtSignal
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QFrame
+from PyQt6.QtGui import QCloseEvent
+from PyQt6.QtCore import QSettings, pyqtSignal
 from gui.pdf_viewer import DualPdfViewerWidget
-import os
 
 class ComparisonDialog(QDialog):
     """

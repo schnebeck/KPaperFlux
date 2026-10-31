@@ -10,12 +10,11 @@ Description:    Manages lifecycle of plugins: discovery, loading, and
 ------------------------------------------------------------------------------
 """
 
-import os
 import json
 import importlib.util
 import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from core.plugins.base import KPaperFluxPlugin, ApiContext
 

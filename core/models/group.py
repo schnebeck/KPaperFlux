@@ -12,7 +12,7 @@ Description:    DocumentGroup model for user-defined document grouping.
 ------------------------------------------------------------------------------
 """
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class DocumentGroup(BaseModel):

@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-                             QLabel, QComboBox, QFrame)
-from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, QEvent
+                             QComboBox, QFrame)
+from PyQt6.QtCore import pyqtSignal, QEvent
 from core.logger import get_logger
 logger = get_logger("gui.widgets.filter_group")
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QTimer, QSettings, QPoint, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings, QPoint, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame,

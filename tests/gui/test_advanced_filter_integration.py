@@ -1,7 +1,8 @@
 
 import pytest
 from PyQt6.QtCore import Qt
-from gui.advanced_filter import AdvancedFilterWidget, FilterConditionWidget
+from gui.advanced_filter import AdvancedFilterWidget
+from gui.widgets.filter_condition import FilterConditionWidget
 
 @pytest.fixture
 def advanced_widget(qapp):

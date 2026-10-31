@@ -11,10 +11,10 @@ Description:    Panel for managing complex search filters and document rules.
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QLabel, QComboBox, QLineEdit, QScrollArea, QFrame,
-                             QDateEdit, QDoubleSpinBox, QMessageBox, QInputDialog, QMenu, QCheckBox,
-                             QSizePolicy, QProgressDialog, QStackedWidget, QTabWidget, QDialog,
-                             QToolButton, QButtonGroup, QLayout, QFileDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSettings, QPoint, QCoreApplication, QEvent
+                             QMessageBox, QInputDialog, QMenu, QCheckBox, QSizePolicy, QProgressDialog,
+                             QStackedWidget, QDialog, QToolButton, QButtonGroup, QLayout,
+                             QFileDialog)
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
 import json
 from pathlib import Path
@@ -25,16 +25,10 @@ logger = get_logger("gui.advanced_filter")
 try:
     from gui.filter_manager import FilterManagerDialog
     from core.filter_tree import NodeType, FilterNode
-    from core.metadata_normalizer import MetadataNormalizer
-    from core.semantic_translator import SemanticTranslator
     from core.query_parser import QueryParser
-    from core.models.types import DocType
-    from gui.widgets.multi_select_combo import MultiSelectComboBox
-    from gui.widgets.date_range_picker import DateRangePicker
     from gui.widgets.tag_input import TagInputWidget
     # NEU: Beide aus separaten Dateien importieren
     from gui.widgets.filter_group import FilterGroupWidget
-    from gui.widgets.filter_condition import FilterConditionWidget
     from gui.workers import BatchTaggingWorker
     from core.workflow import WorkflowRuleRegistry
 except ImportError as e:

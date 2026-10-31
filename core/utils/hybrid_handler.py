@@ -11,9 +11,6 @@ Description:    Handles the creation and maintenance of hybrid PDF containers
 """
 
 import fitz
-import os
-import io
-from typing import Optional
 from core.utils.forensics import get_pdf_class, PDFClass
 
 from core.logger import get_logger

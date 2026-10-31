@@ -16,15 +16,14 @@ import os
 import json
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSize
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QLabel, QMessageBox, QFrame,
     QLineEdit, QComboBox, QInputDialog,
-    QStackedWidget, QButtonGroup, QDialog, QDialogButtonBox,
-    QToolButton,
+    QStackedWidget, QButtonGroup, QDialog, QToolButton,
 )
 
 from core.config import AppConfig
@@ -32,10 +31,9 @@ from core.logger import get_logger
 from core.workflow import (
     WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition,
 )
-from gui.widgets.workflow_graph import WorkflowGraphWidget, StateNode, TransitionEdge
-from gui.widgets.workflow_rule_editor import WorkflowLocaleDialog, WorkflowRuleFormEditor
+from gui.widgets.workflow_rule_editor import WorkflowRuleFormEditor
 from gui.widgets.workflow_dashboard import (
-    WorkflowRuleCard, _CardBoard, WorkflowDashboardWidget, WorkflowProcessingWidget,
+    WorkflowDashboardWidget, WorkflowProcessingWidget,
 )
 
 logger = get_logger("gui.workflow_manager")

@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QCursor
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QCursor
 from PyQt6.QtWidgets import (
     QCheckBox, QComboBox, QFrame, QGraphicsItem, QGraphicsScene, QGraphicsView,
     QHBoxLayout, QInputDialog, QLabel, QLineEdit, QPushButton,
@@ -35,12 +35,7 @@ from core.workflow import (
 from gui.widgets.workflow_graph_items import (
     StateNode, AnchorDot, TransitionEdge, AddTransitionDialog,
     EndpointHandle, CtrlHandle,
-    NODE_W, NODE_H, H_GAP, V_GAP, ARROW, BORDER_R, BACK_DROP, MULTI_OFF,
-    ANCHOR_NAMES, CTRL_DIST_MIN, ANCHOR_SNAP,
-    C_CURRENT, C_VISITED, C_DEFAULT, C_FINAL_OK, C_FINAL_NG,
-    C_AVAIL, C_BLOCKED, C_AUTO, C_BG_CUR, C_BG_TGT, C_BG_VIS, C_BG_DEF,
-    C_PENDING, C_BG_PEND, C_SCENE_BG,
-    _anchor_point, _anchor_tangent, _compute_layout,
+    C_SCENE_BG, _compute_layout,
 )
 
 logger = get_logger("gui.widgets.workflow_graph")

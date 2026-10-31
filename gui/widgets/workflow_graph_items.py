@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 from collections import deque
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import (
@@ -25,8 +25,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
     QGraphicsItem,
-    QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QVBoxLayout,
+    QLineEdit,
 )
 
 from core.logger import get_logger

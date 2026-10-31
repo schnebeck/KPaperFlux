@@ -4,11 +4,10 @@ import json
 import time
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
-    QTextEdit, QComboBox, QTableWidget, QTableWidgetItem,
-    QPushButton, QLabel, QCheckBox, QHeaderView, QFrame, QMessageBox,
-    QScrollArea
+    QTextEdit, QComboBox, QTableWidget, QPushButton,
+    QLabel, QCheckBox, QHeaderView, QFrame, QMessageBox, QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QEvent
+from PyQt6.QtCore import pyqtSignal, QEvent
 from core.models.reporting import ReportDefinition, Aggregation, ReportComponent
 from core.config import AppConfig
 from core.reporting import ReportRegistry

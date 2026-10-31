@@ -1,9 +1,8 @@
 from PyQt6.QtWidgets import (    QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, 
-    QLabel, QGroupBox, QLineEdit, QTableWidget, QTableWidgetItem,
-    QHeaderView, QInputDialog, QMessageBox, QComboBox
+    QLabel, QGroupBox, QTableWidget, QTableWidgetItem, QHeaderView,
+    QInputDialog, QMessageBox
 )
 from gui.utils import show_selectable_message_box
-from PyQt6.QtCore import Qt
 from core.vocabulary import VocabularyManager
 
 class VocabularySettingsWidget(QWidget):

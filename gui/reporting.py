@@ -1,15 +1,15 @@
 import json
 import math
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QTableWidget, QTableWidgetItem,
                              QHeaderView, QFrame, QScrollArea, QComboBox, QSizePolicy,
                              QMenu, QTextEdit, QToolButton, QFileDialog, QMessageBox, QLineEdit,
                              QInputDialog, QDialog, QListWidget, QListWidgetItem, QSplitter)
-from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QCoreApplication, QTimer, QThread, QEvent
-from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QAction, QBrush, QIcon
+from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QTimer, QThread, QEvent
+from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
 
 from core.config import AppConfig
 from core.reporting import ReportGenerator, ReportRegistry
@@ -1218,7 +1218,6 @@ class ReportingWidget(QWidget):
                 
         elif fmt == "pdf":
             from PyQt6.QtCore import QBuffer, QIODevice
-            from PyQt6.QtGui import QPixmap
             
             # 1. Execute report to get fresh data
             results = self.repo_gen.run_custom_report(self.db_manager, definition)

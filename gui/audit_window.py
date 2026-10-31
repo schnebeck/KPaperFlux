@@ -3,16 +3,14 @@ logger = get_logger("gui.audit_window")
 import tempfile
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, 
-    QLabel, QFrame, QScrollArea, QPushButton, QMainWindow, QStackedWidget
+    QLabel, QFrame, QPushButton, QMainWindow, QStackedWidget
 )
-from PyQt6.QtPdfWidgets import QPdfView
-from PyQt6.QtCore import Qt, pyqtSignal, QMarginsF, QEvent, QSettings
-from PyQt6.QtGui import QFont, QTextDocument, QPageLayout
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings
 try:
-    from PyQt6.QtPrintSupport import QPrinter
+    pass
 except ImportError as e:
     import sys
     logger.error(f"Critical internal import failed in audit_window.py (PyQt6.QtPrintSupport): {e}")
@@ -20,7 +18,6 @@ except ImportError as e:
 
 from core.models.virtual import VirtualDocument as Document
 from core.semantic_renderer import SemanticRenderer
-from core.pdf_renderer import ProfessionalPdfRenderer
 from core.workflow import build_workflow_data
 from gui.widgets.workflow_controls import WorkflowControlsWidget
 from gui.pdf_viewer import PdfViewerWidget

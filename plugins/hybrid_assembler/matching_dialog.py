@@ -1,17 +1,14 @@
 import os
 import glob
-import json
 from concurrent.futures import ThreadPoolExecutor
 
-import cv2
 import fitz
-import numpy as np
 from core.logger import get_logger, get_silent_logger
 logger = get_logger("HybridPlugin")
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QFileDialog,
-    QProgressBar, QCheckBox, QMessageBox, QFrame, QWidget
+    QProgressBar, QCheckBox, QMessageBox, QWidget
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSettings
 from core.utils.hybrid_engine import HybridEngine

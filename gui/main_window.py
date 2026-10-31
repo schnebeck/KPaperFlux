@@ -9,7 +9,7 @@ Description:    Main application window orchestrating the UI and backend logic.
 ------------------------------------------------------------------------------
 """
 
-from typing import Optional, List, Any, Dict
+from typing import Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog,
     QMessageBox, QSplitter, QCheckBox, QDialog, QDialogButtonBox, QStatusBar,
@@ -27,7 +27,6 @@ from core.logger import get_logger, get_silent_logger
 from PyQt6.QtCore import QEvent
 
 logger = get_logger("gui.main_window")
-import fitz
 from pathlib import Path
 
 # Core Imports
@@ -55,8 +54,6 @@ from gui.batch_tag_dialog import BatchTagDialog
 from gui.tag_manager import TagManagerDialog
 from gui.activity_widgets import BackgroundActivityStatusBar
 from gui.utils import (
-    format_datetime,
-    format_date,
     show_selectable_message_box,
     show_notification
 )

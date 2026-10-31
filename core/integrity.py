@@ -12,15 +12,13 @@ Description:    Integrity management service for coordinating Database and Vault
 """
 
 import hashlib
-import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set
 
 from core.database import DatabaseManager
 from core.models.virtual import VirtualDocument as Document
-from core.models.virtual import VirtualDocument
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
 from core.vault import DocumentVault, remove_derived_files

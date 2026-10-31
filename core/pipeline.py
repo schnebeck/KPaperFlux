@@ -22,13 +22,12 @@ import threading
 import uuid
 from concurrent.futures import CancelledError
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("pipeline")
 
 import pikepdf
-from pdf2image import convert_from_path
 
 from core.config import AppConfig
 from core.database import DatabaseManager
@@ -748,42 +747,6 @@ class PipelineProcessor:
         self.logical_repo.save(merged_doc)
         logger.info(f"[Pipeline] Logically merged {len(uuids)} documents into {merged_doc.uuid}")
         return True
-
-    def merge_documents_physical(self, uuids: List[str]) -> Optional[VirtualDocument]:
-        """
-        Physical merge implementation (deprecated, use logical merge instead).
-        """
-        return None
-
-    def _detect_and_extract_text(self, doc_uuid: str, path: Path) -> str:
-        """
-        Determines if Native or Scanned and extracts text accordingly.
-
-        Args:
-            doc_uuid: UUID for logging.
-            path: Path to the PDF file.
-
-        Returns:
-            Extracted text content.
-        """
-        try:
-            if self._is_native_pdf(path):
-                logger.info(f"[{doc_uuid}] Detected Native PDF. Extracting text directly.")
-                text_map = self._extract_text_native(path)
-                text = "\n".join(text_map.values())
-                # Fallback check
-                if len(text.strip()) < 50:
-                    logger.info(f"[{doc_uuid}] Native text insufficient (<50 chars). Falling back to OCR.")
-                    text_map = self._run_ocr(path)
-                    return "\n".join(text_map.values())
-                return text
-            else:
-                logger.info(f"[{doc_uuid}] Detected Scanned PDF/Image. Running OCR.")
-                text_map = self._run_ocr(path)
-                return "\n".join(text_map.values())
-        except Exception as e:
-            logger.info(f"Extraction Error [{doc_uuid}]: {e}")
-            return ""
 
     def _extract_stage0_text(self, path: Path) -> Dict[str, str]:
         """

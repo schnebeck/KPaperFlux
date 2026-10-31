@@ -1,14 +1,12 @@
 
 import cv2
 import fitz
-import numpy as np
 from pathlib import Path
 from typing import List, Optional
 
 from PyQt6.QtGui import QAction
 from core.plugins.base import KPaperFluxPlugin
 from core.utils.hybrid_engine import HybridEngine
-from core.utils.forensics import check_pdf_immutable
 from core.logger import get_logger
 
 logger = get_logger("plugins.hybrid_assembler")

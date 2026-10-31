@@ -13,7 +13,6 @@ Description:    Forensic analysis for PDFs. Detects digital signatures,
 import fitz
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 from core.logger import get_silent_logger
 
 class PDFClass(Enum):

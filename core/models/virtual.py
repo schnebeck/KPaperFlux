@@ -1,11 +1,10 @@
 import json
 import sqlite3
 import uuid
-import logging
-from datetime import datetime, date
+from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from core.models.semantic import SemanticExtraction
 

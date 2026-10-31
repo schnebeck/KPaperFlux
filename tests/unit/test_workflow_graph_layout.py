@@ -13,7 +13,8 @@ import pytest
 from PyQt6.QtCore import QPointF
 
 from core.workflow import WorkflowRule, WorkflowState, WorkflowTransition
-from gui.widgets.workflow_graph import _compute_layout, NODE_W, H_GAP
+from gui.widgets.workflow_graph import _compute_layout
+from gui.widgets.workflow_graph_items import NODE_W, H_GAP
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

@@ -1,5 +1,4 @@
 from typing import Any, Dict, Optional
-import json
 import fitz  # PyMuPDF
 from pydantic import BaseModel
 

@@ -1,7 +1,7 @@
 
 import re
 import uuid
-from typing import List, Dict, Set, Any
+from typing import List, Dict, Set
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QMessageBox
 

@@ -106,7 +106,7 @@ def test_compute_layout_falls_back_to_bfs_for_missing_state():
     # DONE should NOT be at the same position as NEW
     assert pos["DONE"] != pos["NEW"]
     # DONE's x comes from BFS layer 1, independent of NEW's manual position
-    from gui.widgets.workflow_graph import NODE_W, H_GAP
+    from gui.widgets.workflow_graph_items import NODE_W, H_GAP
     expected_done_x = 1 * (NODE_W + H_GAP) + NODE_W / 2
     assert pos["DONE"].x() == pytest.approx(expected_done_x, abs=1)
 

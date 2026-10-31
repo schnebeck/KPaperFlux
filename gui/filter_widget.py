@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QDateEdit, QComboBox, 
     QLineEdit, QPushButton, QGroupBox, QVBoxLayout
 )
-from PyQt6.QtCore import pyqtSignal, QDate, Qt
+from PyQt6.QtCore import pyqtSignal, QDate
 from core.query_parser import QueryParser
 
 class FilterWidget(QWidget):

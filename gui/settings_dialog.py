@@ -1,14 +1,12 @@
-import json
 import sys
 from typing import Optional
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
     QComboBox, QHBoxLayout, QFileDialog, QMessageBox, QLabel, QTabWidget, QWidget, QTextEdit,
-    QSpinBox, QLayout, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-    QToolButton, QGroupBox
+    QSpinBox, QCheckBox, QTableWidget, QTableWidgetItem, QAbstractItemView, QToolButton, QGroupBox
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QEvent, QCoreApplication, QUrl
+from PyQt6.QtCore import pyqtSignal, Qt, QEvent, QUrl
 from PyQt6.QtGui import QDesktopServices
 from core.logger import get_logger
 logger = get_logger("gui.settings_dialog")

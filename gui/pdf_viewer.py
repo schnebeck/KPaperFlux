@@ -12,7 +12,6 @@ Description:    High-performance PDF viewer based on fitz (PyMuPDF).
 """
 from typing import List, Optional, Tuple, Callable, Any, Union
 from pathlib import Path
-import sys
 import os
 from core.logger import get_logger, get_silent_logger
 
@@ -20,12 +19,11 @@ logger = get_logger("gui.pdf_viewer")
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QFrame, QMessageBox, QLineEdit, QSplitter, QGraphicsDropShadowEffect, QScrollArea,
-    QSizePolicy
+    QFrame, QLineEdit, QSplitter, QGraphicsDropShadowEffect, QScrollArea, QSizePolicy
 )
 from PyQt6.QtCore import (
     Qt, pyqtSignal, QTimer, QSize, QRect, QPoint, QEvent, 
-    QPropertyAnimation, QEasingCurve, QObject
+    QPropertyAnimation, QObject
 )
 from PyQt6.QtGui import (
     QImage, QPixmap, QPainter, QColor, QGuiApplication, 
@@ -35,7 +33,6 @@ from PyQt6.QtGui import (
 
 import fitz
 
-from core.models.virtual import SourceReference
 from core.vault import resolve_view_path
 from core.utils.hybrid_engine import HybridEngine
 from gui.workers import MatchAnalysisWorker, stop_thread

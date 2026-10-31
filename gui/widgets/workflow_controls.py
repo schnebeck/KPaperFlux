@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QVBoxLayout, QMenu
-from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QMenu
+from PyQt6.QtCore import pyqtSignal
 from core.workflow import WorkflowRuleRegistry, WorkflowEngine, WorkflowState, StateType
 from typing import Dict, Any, Optional
 from core.logger import get_logger

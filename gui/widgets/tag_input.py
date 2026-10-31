@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QLineEdit, QLabel, 
-                             QPushButton, QFrame, QSizePolicy, QScrollArea, QVBoxLayout)
+                             QPushButton, QFrame, QScrollArea)
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
-from PyQt6.QtGui import QKeyEvent
 
 class TagBadge(QFrame):
     """A premium pill/badge representing a single tag."""

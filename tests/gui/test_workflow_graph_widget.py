@@ -502,7 +502,7 @@ def test_state_node_bounding_rect_contains_selection_ring():
     pixels on drag that Qt never cleared.
     """
     from PyQt6.QtCore import QRectF
-    from gui.widgets.workflow_graph import StateNode, NODE_W, NODE_H
+    from gui.widgets.workflow_graph_items import StateNode, NODE_W, NODE_H
     from core.workflow import WorkflowState
 
     state_def = WorkflowState(label="Test")
@@ -523,7 +523,7 @@ def test_state_node_bounding_rect_contains_selection_ring():
 def test_state_node_bounding_rect_contains_initial_triangle():
     """The initial-state UML triangle must lie within boundingRect()."""
     from PyQt6.QtCore import QRectF
-    from gui.widgets.workflow_graph import StateNode, NODE_W, NODE_H
+    from gui.widgets.workflow_graph_items import StateNode, NODE_W, NODE_H
     from core.workflow import WorkflowState
 
     state_def = WorkflowState(label="Start", initial=True)
@@ -547,7 +547,7 @@ def test_state_node_no_overdraw_render(qtbot):
     """
     from PyQt6.QtCore import QRectF, Qt
     from PyQt6.QtGui import QColor, QImage, QPainter
-    from gui.widgets.workflow_graph import StateNode, NODE_W, NODE_H
+    from gui.widgets.workflow_graph_items import StateNode, NODE_W, NODE_H
     from core.workflow import WorkflowState
 
     # Build a selected node in edit mode

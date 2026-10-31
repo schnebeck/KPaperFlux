@@ -12,7 +12,6 @@ Description:    Application entry point. Initializes the Qt environment,
 """
 
 import sys
-import os
 import argparse
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication

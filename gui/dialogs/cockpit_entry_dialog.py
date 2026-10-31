@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-                             QPushButton, QComboBox, QSpinBox, QColorDialog)
+                             QPushButton, QComboBox, QColorDialog)
 from PyQt6.QtCore import Qt
 
 class CockpitEntryDialog(QDialog):

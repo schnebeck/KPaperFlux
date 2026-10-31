@@ -2,10 +2,9 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTr
                              QInputDialog, QTextEdit, QStyle, QFileDialog)
 from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings
-from PyQt6.QtGui import QAction, QIcon, QCloseEvent
+from PyQt6.QtGui import QIcon, QCloseEvent
 from core.filter_tree import FilterTree, NodeType, FilterNode
 from core.exchange import ExchangeService
-import json
 
 class ManagerTreeWidget(QTreeWidget):
     """

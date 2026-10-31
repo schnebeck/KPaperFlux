@@ -10,7 +10,7 @@ Description:    Utility to generate SEPA Credit Transfer (EPC-QR) payloads,
 ------------------------------------------------------------------------------
 """
 
-from typing import Optional, Any
+from typing import Optional
 from core.logger import get_logger
 logger = get_logger("core.utils.girocode")
 

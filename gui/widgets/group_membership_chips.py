@@ -12,7 +12,7 @@ Description:    GroupMembershipWidget — tag-cloud-style chip display for the
                 A '+' button opens GroupPickerDialog to add memberships.
 ------------------------------------------------------------------------------
 """
-from typing import List, Optional
+from typing import Optional
 
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 from PyQt6.QtWidgets import (

@@ -1,7 +1,8 @@
 
 import pytest
 from PyQt6.QtWidgets import QComboBox, QLineEdit
-from gui.advanced_filter import AdvancedFilterWidget, FilterConditionWidget
+from gui.advanced_filter import AdvancedFilterWidget
+from gui.widgets.filter_condition import FilterConditionWidget
 from gui.widgets.multi_select_combo import MultiSelectComboBox
 from gui.widgets.date_range_picker import DateRangePicker
 

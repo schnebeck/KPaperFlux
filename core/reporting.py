@@ -18,7 +18,7 @@ from decimal import Decimal
 from typing import Dict, List, Any, Optional
 
 from core.models.virtual import VirtualDocument as Document
-from core.models.reporting import ReportDefinition, Aggregation
+from core.models.reporting import ReportDefinition
 from core.logger import get_logger
 
 logger = get_logger("core.reporting")

@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, 
-                             QPushButton, QLabel, QCheckBox, QComboBox, QDialogButtonBox, QMessageBox)
+                             QPushButton, QLabel, QComboBox, QDialogButtonBox, QMessageBox)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
 
 class ColumnManagerDialog(QDialog):
     def __init__(self, parent, fixed_columns: dict, dynamic_columns: list, available_keys: list, header):

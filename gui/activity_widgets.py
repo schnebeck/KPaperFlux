@@ -11,9 +11,9 @@ Description:    Minimalist status bar widget for background activity.
 """
 
 from PyQt6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QProgressBar, QPushButton, QFrame
+    QHBoxLayout, QLabel, QProgressBar, QPushButton, QFrame
 )
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QSize
+from PyQt6.QtCore import pyqtSignal, pyqtSlot
 
 class BackgroundActivityStatusBar(QFrame):
     """

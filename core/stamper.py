@@ -13,7 +13,6 @@ Description:    Applies persistent and manageable text tokens/stamps to PDF
 
 import io
 import uuid
-import zlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -21,8 +20,6 @@ import pikepdf
 import tempfile
 import os
 import shutil
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from core.utils.forensics import get_pdf_class, PDFClass
 from core.utils.hybrid_handler import prepare_hybrid_container, restore_zugferd_xml

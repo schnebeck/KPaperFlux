@@ -12,8 +12,7 @@ Description:    Workflow rule editor widgets: WorkflowLocaleDialog for
 """
 from __future__ import annotations
 
-import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QTimer, QSettings
 from PyQt6.QtWidgets import (
@@ -22,14 +21,13 @@ from PyQt6.QtWidgets import (
     QHeaderView, QCheckBox, QToolButton, QDialog, QComboBox,
     QTreeWidget, QTreeWidgetItem,
     QDialogButtonBox, QListWidget,
-    QLabel, QPushButton, QMessageBox, QProgressBar, QSizePolicy,
+    QLabel, QPushButton, QMessageBox, QSizePolicy,
 )
 
 from core.logger import get_logger
 from core.workflow import (
-    WorkflowRule, WorkflowState, WorkflowTransition,
-    WorkflowCondition, WorkflowL10nPatch, StateType,
-    WORKFLOW_FIELD_CATALOG, WORKFLOW_FIELD_GROUPS,
+    WorkflowRule, WorkflowCondition, WorkflowL10nPatch,
+    StateType, WORKFLOW_FIELD_CATALOG, WORKFLOW_FIELD_GROUPS,
 )
 from gui.widgets.workflow_graph import WorkflowGraphWidget, StateNode, TransitionEdge
 
@@ -89,8 +87,8 @@ class WorkflowLocaleDialog(QDialog):
 
         # ── Left: locale list ─────────────────────────────────────────────
         from gui.theme import (
-            CLR_NAV_BG, CLR_BORDER, CLR_PRIMARY_LIGHT, CLR_PRIMARY,
-            CLR_TEXT_MUTED, FONT_BASE, BTN_HEIGHT, placeholder_label,
+            CLR_NAV_BG, CLR_BORDER, CLR_PRIMARY_LIGHT, CLR_TEXT_MUTED,
+            FONT_BASE, BTN_HEIGHT,
         )
         left = QFrame()
         left.setFixedWidth(170)
@@ -405,10 +403,10 @@ class WorkflowRuleFormEditor(QWidget):
         lp_layout.setSpacing(0)
 
         from gui.theme import (
-            CLR_PRIMARY_LIGHT, CLR_BORDER, CLR_BORDER_STRONG,
-            CLR_PRIMARY, CLR_TEXT_MUTED, CLR_TEXT_SECONDARY,
-            CLR_SURFACE_ROW, CLR_SURFACE_HOVER,
-            FONT_BASE, FONT_SM, FONT_LG, BTN_HEIGHT,
+            CLR_PRIMARY_LIGHT, CLR_BORDER, CLR_PRIMARY,
+            CLR_TEXT_MUTED, CLR_TEXT_SECONDARY, CLR_SURFACE_ROW,
+            FONT_BASE, FONT_LG,
+            BTN_HEIGHT,
         )
         _hdr_style = f"background:{CLR_PRIMARY_LIGHT}; border-bottom:1px solid {CLR_BORDER};"
         _hdr_lbl_style = f"font-weight:bold; color:{CLR_PRIMARY}; font-size:{FONT_BASE}px;"

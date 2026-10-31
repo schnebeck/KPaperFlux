@@ -14,7 +14,7 @@ import tempfile
 import traceback
 import time
 from concurrent.futures import CancelledError
-from typing import Any, Optional, Union, List, Dict
+from typing import Any, Optional
 
 import cv2
 import fitz

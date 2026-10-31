@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-                             QLabel, QComboBox, QLineEdit, QStackedWidget,
-                             QMenu, QCheckBox, QSizePolicy)
-from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, QEvent
+from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QPushButton, QComboBox,
+                             QLineEdit, QStackedWidget, QMenu, QCheckBox,
+                             QSizePolicy)
+from PyQt6.QtCore import pyqtSignal, QEvent
 
 from core.logger import get_logger
 logger = get_logger("gui.widgets.filter_condition")

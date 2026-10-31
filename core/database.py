@@ -12,19 +12,15 @@ Description:    Central database manager for SQLite persistence. Handles
 ------------------------------------------------------------------------------
 """
 
-import calendar
 import json
-import os
 import shutil
 import sqlite3
 import threading
-import traceback
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Set
 
 from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction

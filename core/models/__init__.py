@@ -14,3 +14,5 @@ from .physical import PhysicalFile
 from .virtual import VirtualDocument, SourceReference, VirtualPage
 from .types import DocType
 from .reporting import ReportDefinition, Aggregation
+
+__all__ = ["PhysicalFile", "VirtualDocument", "SourceReference", "VirtualPage", "DocType", "ReportDefinition", "Aggregation"]
