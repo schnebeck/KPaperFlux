@@ -1043,6 +1043,32 @@ class MetadataEditorWidget(QWidget):
         self.btn_save.setEnabled(False)
         self.btn_save.setStyleSheet("")
 
+    def _confirm_overwrite_if_changed(self) -> bool:
+        """
+        Asks before saving over a version that changed in the database since it
+        was shown (e.g. the analysis finished while the user was editing).
+
+        Returns:
+            True to save; False if the user chose to reload the current version.
+        """
+        if self.doc is None or not hasattr(self.db_manager, "get_document_by_uuid"):
+            return True
+        current = self.db_manager.get_document_by_uuid(self.doc.uuid)
+        if not isinstance(current, Document) or current.last_used == self.doc.last_used:
+            return True
+        reply = QMessageBox.question(
+            self, self.tr("Document Changed"),
+            self.tr("This document was changed in the background (for example by the analysis) "
+                    "while you were editing.\n\nSave your version anyway? Choose No to load the current version."),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            return True
+        self._reset_dirty()
+        self.display_documents([current], force=True)
+        return False
+
     def _on_pay_subscription_edited(self, *_args: Any) -> None:
         if not getattr(self, "_locked_for_load", False):
             self._pay_subscription_edited = True
@@ -2129,6 +2155,8 @@ class MetadataEditorWidget(QWidget):
         if self._batch_docs:
             self._save_batch_changes()
             return
+        if not self._confirm_overwrite_if_changed():
+            return
         # 1. Base Metadata
         custom_tags = self.tags_edit.getTags()
 
@@ -2348,6 +2376,11 @@ class MetadataEditorWidget(QWidget):
 
         for uuid in self.current_uuids:
              self.db_manager.update_document_metadata(uuid, updates)
+        if self.doc is not None:
+            # Our own save moved last_used; keep it, so the next save is no conflict
+            saved = self.db_manager.get_document_by_uuid(self.doc.uuid)
+            if isinstance(saved, Document):
+                self.doc.last_used = saved.last_used
 
         self._reset_dirty()
         self.metadata_saved.emit()

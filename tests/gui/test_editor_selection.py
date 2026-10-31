@@ -129,3 +129,32 @@ def test_list_shows_tag_changes_made_outside_the_editor(window, db):
 
     cached = window.list_widget.documents_cache["doc-a"]
     assert cached.tags == ["shared", "renamed"]
+
+
+@pytest.mark.parametrize("answer, expected_status", [("Yes", "NEW"), ("No", "PROCESSED")])
+def test_save_over_a_background_change_asks_first(window, db, qtbot, answer, expected_status):
+    from PyQt6.QtWidgets import QMessageBox
+
+    _select(window, qtbot, ["doc-a"])
+    window.editor_widget.storage_location_edit.setText("Box A")
+    # The analysis finishes meanwhile (last_used moves with every content change)
+    db.update_document_metadata("doc-a", {"status": "PROCESSED", "last_used": "2099-01-01T00:00:00"})
+
+    with patch("gui.metadata_editor.QMessageBox.question",
+               return_value=getattr(QMessageBox.StandardButton, answer)) as question, \
+         patch("gui.metadata_editor.show_notification"):
+        window.editor_widget.save_changes()
+
+    question.assert_called_once()
+    assert db.get_document_by_uuid("doc-a").status == expected_status
+
+
+def test_second_save_without_background_change_does_not_ask(window, db, qtbot):
+    _select(window, qtbot, ["doc-a"])
+    with patch("gui.metadata_editor.show_notification"):
+        window.editor_widget.storage_location_edit.setText("Box A")
+        window.editor_widget.save_changes()
+        _select(window, qtbot, ["doc-a"])  # the refresh after saving may select another row
+        window.editor_widget.storage_location_edit.setText("Box B")
+        window.editor_widget.save_changes()  # the modal guard fails the test if it asks
+    assert db.get_document_by_uuid("doc-a").storage_location == "Box B"

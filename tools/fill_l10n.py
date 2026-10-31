@@ -134,6 +134,9 @@ def fill():
         "Keep older duplicates (%s)": "Ältere Dubletten behalten (%s)",
         "Really delete %n duplicates?": ("%n Dublette wirklich löschen?", "%n Dubletten wirklich löschen?"),
         "Analyze Again": "Erneut analysieren",
+        "Document Changed": "Dokument geändert",
+        "This document was changed in the background (for example by the analysis) while you were editing.\n\nSave your version anyway? Choose No to load the current version.":
+            "Dieses Dokument wurde im Hintergrund geändert (zum Beispiel durch die Analyse), während Sie es bearbeitet haben.\n\nIhre Fassung trotzdem speichern? Mit Nein wird der aktuelle Stand geladen.",
         "Analysis Running": "Analyse läuft",
         "The analysis is still finishing a document. Nothing was deleted; please try again in a moment.":
             "Die Analyse schließt gerade noch ein Dokument ab. Es wurde nichts gelöscht; bitte gleich noch einmal versuchen.",
