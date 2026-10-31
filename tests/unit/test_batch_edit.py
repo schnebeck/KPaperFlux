@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_batch_edit.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: batch edit.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from decimal import Decimal
 from unittest.mock import MagicMock, patch

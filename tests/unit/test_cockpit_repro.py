@@ -1,4 +1,16 @@
 """
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_cockpit_repro.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Regression tests: cockpit stats refresh is triggered after
+                document operations.
+------------------------------------------------------------------------------
+"""
+
+"""
 Regression tests: cockpit stats refresh is triggered after document operations.
 Tests target DocumentActionController directly to avoid UI dialogs.
 """

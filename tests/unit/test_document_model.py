@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_document_model.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: document model.
+------------------------------------------------------------------------------
+"""
+
 from datetime import date
 from decimal import Decimal
 from core.models.virtual import VirtualDocument as Document

@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_filter_tokens.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter tokens.
+------------------------------------------------------------------------------
+"""
+
 from core.filter_token_registry import FilterTokenRegistry
 from core.semantic_translator import SemanticTranslator
 from PyQt6.QtWidgets import QApplication

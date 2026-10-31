@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/integration/test_l10n_integrity.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: l10n integrity.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import xml.etree.ElementTree as ET
 from pathlib import Path

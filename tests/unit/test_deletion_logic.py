@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_deletion_logic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: deletion logic.
+------------------------------------------------------------------------------
+"""
 
 import os
 from core.database import DatabaseManager

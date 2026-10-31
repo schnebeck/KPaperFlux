@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_translation_formatting.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: translation formatting.
+------------------------------------------------------------------------------
+"""
+
 import xml.etree.ElementTree as ET
 import os
 

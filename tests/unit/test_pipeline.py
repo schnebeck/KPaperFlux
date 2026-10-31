@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_pipeline.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: pipeline.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from core.pipeline import PipelineProcessor

@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_saved_views.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: saved views.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from core.filter_tree import NodeType, FilterNode, FilterTree

@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_workflow_dashboard_widget.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: workflow dashboard widget.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6.QtWidgets import QLabel
 from gui.workflow_manager import WorkflowDashboardWidget

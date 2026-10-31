@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_advanced_filter_toggle.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: advanced filter toggle.
+------------------------------------------------------------------------------
+"""
+
 from gui.advanced_filter import AdvancedFilterWidget
 
 def test_filter_toggle_logic(qtbot):

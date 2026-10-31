@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_relative_dates.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: relative dates.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import json
 from datetime import datetime, timedelta

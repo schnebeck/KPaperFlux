@@ -1,4 +1,15 @@
 """
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_multi_workflow.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Claude Sonnet 4.6
+Description:    Tests for multi-workflow support per document.
+------------------------------------------------------------------------------
+"""
+
+"""
 Tests for multi-workflow support per document.
 Verifies that documents with multiple type_tags can have N concurrent workflows.
 """

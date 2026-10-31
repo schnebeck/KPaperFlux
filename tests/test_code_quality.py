@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/test_code_quality.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: code quality.
+------------------------------------------------------------------------------
+"""
 
 import ast
 import re
@@ -235,7 +245,8 @@ def test_ui_text_is_translatable():
 def test_files_have_project_header():
     """Quality Gate: every source file starts with the project header (see CLAUDE.md / coding rules)."""
     root_dir = Path(__file__).parent.parent
-    missing = [str(f.relative_to(root_dir)) for f in [*get_python_files(root_dir), root_dir / "main.py"]
+    files = [*get_python_files(root_dir), root_dir / "main.py", *sorted((root_dir / "tests").rglob("*.py"))]
+    missing = [str(f.relative_to(root_dir)) for f in files
                if "Project:        KPaperFlux" not in f.read_text(encoding="utf-8")[:300]]
     if missing:
         pytest.fail("Quality Gate Failed: files without project header!\n" + "\n".join(f"  - {m}" for m in missing))

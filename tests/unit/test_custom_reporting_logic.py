@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_custom_reporting_logic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: custom reporting logic.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from decimal import Decimal

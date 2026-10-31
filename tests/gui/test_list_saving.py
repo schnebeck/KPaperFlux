@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_list_saving.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: list saving.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from gui.main_window import MainWindow

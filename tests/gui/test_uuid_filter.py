@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_uuid_filter.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: uuid filter.
+------------------------------------------------------------------------------
+"""
+
 from gui.widgets.filter_condition import FilterConditionWidget
 
 def test_uuid_filter_fields(qapp):

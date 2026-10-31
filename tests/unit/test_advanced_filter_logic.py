@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_advanced_filter_logic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: advanced filter logic.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import uuid
 from core.database import DatabaseManager

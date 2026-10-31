@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_filter_categories_full.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter categories full.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from gui.advanced_filter import AdvancedFilterWidget
 from core.filter_tree import FilterTree

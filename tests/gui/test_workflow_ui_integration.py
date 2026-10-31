@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_workflow_ui_integration.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: workflow ui integration.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6.QtCore import Qt
 from gui.widgets.workflow_controls import WorkflowControlsWidget

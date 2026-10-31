@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_workflow_l10n.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: workflow l10n.
+------------------------------------------------------------------------------
+"""
+
 from gui.widgets.workflow_controls import WorkflowControlsWidget
 
 def test_workflow_controls_translation_calls(qapp):

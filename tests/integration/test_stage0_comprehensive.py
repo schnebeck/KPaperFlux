@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/integration/test_stage0_comprehensive.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: stage0 comprehensive.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import os
 import shutil

@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_json_query.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: json query.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from core.query_builder import QueryBuilder
 

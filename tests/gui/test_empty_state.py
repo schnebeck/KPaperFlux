@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_empty_state.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: empty state.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from gui.main_window import MainWindow
 from core.database import DatabaseManager

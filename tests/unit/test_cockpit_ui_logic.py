@@ -1,4 +1,16 @@
 """
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_cockpit_ui_logic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Verify that DocumentActionController emits the correct signals
+                after import.
+------------------------------------------------------------------------------
+"""
+
+"""
 Verify that DocumentActionController emits the correct signals after import.
 Tests call _on_import_finished directly to avoid dialog interactions.
 """

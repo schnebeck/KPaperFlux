@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_customization.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: customization.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6.QtCore import QSettings, QCoreApplication
 from core.database import DatabaseManager

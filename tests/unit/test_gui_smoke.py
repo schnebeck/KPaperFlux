@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_gui_smoke.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: gui smoke.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6.QtWidgets import QApplication
 from unittest.mock import MagicMock

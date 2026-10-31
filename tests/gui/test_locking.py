@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_locking.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: locking.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox

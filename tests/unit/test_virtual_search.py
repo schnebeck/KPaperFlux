@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_virtual_search.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: virtual search.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from core.database import DatabaseManager
 

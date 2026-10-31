@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_layout.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: layout.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from PyQt6.QtWidgets import QSplitter

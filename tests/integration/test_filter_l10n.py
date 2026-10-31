@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/integration/test_filter_l10n.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter l10n.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QTranslator

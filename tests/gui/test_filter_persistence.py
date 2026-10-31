@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_filter_persistence.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter persistence.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6.QtCore import Qt
 from decimal import Decimal

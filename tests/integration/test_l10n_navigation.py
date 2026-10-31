@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/integration/test_l10n_navigation.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: l10n navigation.
+------------------------------------------------------------------------------
+"""
+
 from gui.advanced_filter import AdvancedFilterWidget
 from core.filter_tree import FilterTree
 

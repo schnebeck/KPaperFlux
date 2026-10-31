@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_pdf_logo_rendering.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: pdf logo rendering.
+------------------------------------------------------------------------------
+"""
 
 import os
 import tempfile

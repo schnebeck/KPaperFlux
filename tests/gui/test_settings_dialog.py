@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_settings_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: settings dialog.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from PyQt6.QtCore import Qt

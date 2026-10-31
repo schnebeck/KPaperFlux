@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_exchange_service.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: exchange service.
+------------------------------------------------------------------------------
+"""
+
 import os
 import json
 from core.exchange import ExchangeService, ExchangePayload

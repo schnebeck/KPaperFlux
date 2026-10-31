@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_stamper.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: stamper.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from core.stamper import DocumentStamper

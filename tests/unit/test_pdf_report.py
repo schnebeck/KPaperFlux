@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_pdf_report.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: pdf report.
+------------------------------------------------------------------------------
+"""
+
 import os
 from core.exporters.pdf_report import PdfReportGenerator
 from core.exchange import ExchangeService

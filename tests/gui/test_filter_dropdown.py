@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_filter_dropdown.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter dropdown.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from gui.advanced_filter import AdvancedFilterWidget
 

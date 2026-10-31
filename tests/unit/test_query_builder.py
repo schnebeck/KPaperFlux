@@ -1,4 +1,15 @@
 """
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_query_builder.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Claude Sonnet 4.6
+Description:    Regression tests for core.query_builder.QueryBuilder.
+------------------------------------------------------------------------------
+"""
+
+"""
 Regression tests for core.query_builder.QueryBuilder.
 
 These tests exercise every operator, field type, and special case that was

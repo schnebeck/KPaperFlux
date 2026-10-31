@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_v2_features.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: v2 features.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from decimal import Decimal
 from core.database import DatabaseManager

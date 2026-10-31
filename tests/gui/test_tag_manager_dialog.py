@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_tag_manager_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: tag manager dialog.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from PyQt6.QtWidgets import QMessageBox

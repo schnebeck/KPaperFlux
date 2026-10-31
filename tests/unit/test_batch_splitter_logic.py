@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_batch_splitter_logic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: batch splitter logic.
+------------------------------------------------------------------------------
+"""
+
 import unittest
 from unittest.mock import MagicMock, patch
 import os

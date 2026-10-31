@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_v2_pipeline.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: v2 pipeline.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import pikepdf
 from core.pipeline import PipelineProcessor

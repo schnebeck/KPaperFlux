@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/performance/test_document_list_lazy.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: document list lazy.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import time
 from PyQt6.QtWidgets import QApplication

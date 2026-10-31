@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_reporting_integration.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: reporting integration.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from PyQt6.QtCore import QMimeData, QUrl

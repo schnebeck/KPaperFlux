@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_semantic_filter.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: semantic filter.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import uuid
 from decimal import Decimal

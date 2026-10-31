@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_filter_manager_details.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter manager details.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock
 from gui.filter_manager import FilterManagerDialog

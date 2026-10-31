@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_filter_manager_integration.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter manager integration.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6.QtWidgets import QDialog, QMessageBox
 from gui.advanced_filter import AdvancedFilterWidget

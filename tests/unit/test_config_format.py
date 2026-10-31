@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_config_format.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: config format.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtCore import QSettings
 import pytest
 

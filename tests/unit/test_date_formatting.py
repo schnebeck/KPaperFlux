@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_date_formatting.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: date formatting.
+------------------------------------------------------------------------------
+"""
+
 from datetime import datetime, date
 from gui.utils import format_date, format_datetime
 

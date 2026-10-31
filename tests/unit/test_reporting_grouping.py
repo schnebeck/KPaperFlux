@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_reporting_grouping.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: reporting grouping.
+------------------------------------------------------------------------------
+"""
 
 from core.reporting import ReportGenerator
 from core.models.reporting import ReportDefinition, Aggregation

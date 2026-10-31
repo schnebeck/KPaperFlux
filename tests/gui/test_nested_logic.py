@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_nested_logic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: nested logic.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from gui.advanced_filter import AdvancedFilterWidget

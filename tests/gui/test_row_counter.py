@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_row_counter.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: row counter.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import QStyleOptionViewItem
 from gui.document_list import RowNumberDelegate
 

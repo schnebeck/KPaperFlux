@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_workflow_automation.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: workflow automation.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock
 from PyQt6.QtWidgets import QApplication

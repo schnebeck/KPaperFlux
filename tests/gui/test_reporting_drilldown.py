@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_reporting_drilldown.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: reporting drilldown.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock
 from PyQt6.QtCore import Qt

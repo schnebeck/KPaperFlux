@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_filter_search.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter search.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from core.filter_tree import FilterTree
 

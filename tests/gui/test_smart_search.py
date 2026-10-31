@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_smart_search.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: smart search.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from core.query_parser import QueryParser

@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_metadata_normalizer.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: metadata normalizer.
+------------------------------------------------------------------------------
+"""
 
 from core.metadata_normalizer import MetadataNormalizer
 from core.models.virtual import VirtualDocument as Document

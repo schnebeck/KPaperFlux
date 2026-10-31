@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_filter_widgets_l10n.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: filter widgets l10n.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import QApplication
 from gui.widgets.filter_group import FilterGroupWidget
 from core.filter_tree import FilterTree

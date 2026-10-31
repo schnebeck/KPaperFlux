@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_advanced_filter_integration.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: advanced filter integration.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from gui.advanced_filter import AdvancedFilterWidget

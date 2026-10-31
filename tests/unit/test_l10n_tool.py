@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_l10n_tool.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: l10n tool.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import xml.etree.ElementTree as ET
 from tools.l10n_tool import L10nTool, MasterMappingTool

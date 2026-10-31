@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/integration/test_hybrid_matching_accuracy.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: hybrid matching accuracy.
+------------------------------------------------------------------------------
+"""
+
 import unittest
 import pytest
 import fitz

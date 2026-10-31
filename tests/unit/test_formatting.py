@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_formatting.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: formatting.
+------------------------------------------------------------------------------
+"""
+
 from core.utils.formatting import format_currency, format_date
 
 # --- GERMAN (DE) TESTS ---

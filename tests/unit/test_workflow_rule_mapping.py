@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_workflow_rule_mapping.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: workflow rule mapping.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from core.models.virtual import VirtualDocument

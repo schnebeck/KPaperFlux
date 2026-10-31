@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_vault.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: vault.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from pathlib import Path
 from core.vault import DocumentVault

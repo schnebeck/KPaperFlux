@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_document_list.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: document list.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock
 from decimal import Decimal

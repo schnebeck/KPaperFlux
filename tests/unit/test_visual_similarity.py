@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_visual_similarity.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: visual similarity.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from unittest.mock import MagicMock, patch

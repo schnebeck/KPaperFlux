@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_main_window.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: main window.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from unittest.mock import MagicMock
 from PyQt6.QtWidgets import QTableWidget

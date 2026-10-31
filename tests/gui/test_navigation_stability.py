@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_navigation_stability.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: navigation stability.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from PyQt6 import QtCore
 from gui.advanced_filter import AdvancedFilterWidget

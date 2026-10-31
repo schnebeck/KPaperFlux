@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_hybrid_plugin_gui.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: hybrid plugin gui.
+------------------------------------------------------------------------------
+"""
+
 from unittest.mock import MagicMock
 from plugins.hybrid_assembler.plugin import HybridAssemblerPlugin
 

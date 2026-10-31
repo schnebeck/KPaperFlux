@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/integration/test_archive_breadcrumb_fix.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: archive breadcrumb fix.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from gui.document_list import DocumentListWidget

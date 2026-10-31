@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_reporting.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: reporting.
+------------------------------------------------------------------------------
+"""
+
 from decimal import Decimal
 from core.models.virtual import VirtualDocument
 from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, MonetarySummation, TaxBreakdownRow

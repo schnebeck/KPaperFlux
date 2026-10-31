@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_batch_tagging.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: batch tagging.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from gui.batch_tag_dialog import BatchTagDialog

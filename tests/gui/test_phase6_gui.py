@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/gui/test_phase6_gui.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: phase6 gui.
+------------------------------------------------------------------------------
+"""
 
 import pytest
 from PyQt6.QtCore import Qt, QDate

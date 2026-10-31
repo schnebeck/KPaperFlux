@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/integration/test_cockpit_workflow.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: cockpit workflow.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import uuid
 from PyQt6.QtCore import Qt

@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/conftest.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Shared pytest fixtures for tests.
+------------------------------------------------------------------------------
+"""
+
 import os
 import shutil
 import tempfile

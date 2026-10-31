@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_workflow_cockpit_logic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: workflow cockpit logic.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 import uuid
 from core.database import DatabaseManager

@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_workflow_engine_logic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: workflow engine logic.
+------------------------------------------------------------------------------
+"""
+
 import pytest
 from core.workflow import WorkflowEngine, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition
 

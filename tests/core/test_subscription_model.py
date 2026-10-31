@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/core/test_subscription_model.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tests: subscription model.
+------------------------------------------------------------------------------
+"""
+
 from core.models.semantic import SemanticExtraction, SubscriptionInfo
 
 def test_subscription_info_model():
