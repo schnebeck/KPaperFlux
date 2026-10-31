@@ -36,7 +36,7 @@ try:
 except ImportError as e:
     logger.warning(f"Import error in advanced_filter.py: {e}")
     # --- MOCKS START ---
-    # ... (Mocks bleiben zur Sicherheit drin, gekürzt für Übersicht)
+    # ... (mocks kept as a safety net, shortened for readability)
     class FilterManagerDialog(QDialog):
         filter_selected = pyqtSignal(object)
         def __init__(self, *args, **kwargs) -> None: super().__init__()

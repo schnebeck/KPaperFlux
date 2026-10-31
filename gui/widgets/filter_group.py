@@ -17,13 +17,8 @@ from typing import Optional
 
 logger = get_logger("gui.widgets.filter_group")
 
-# Core Import: Jetzt sauber möglich, da ausgelagert!
-try:
-    from gui.widgets.filter_condition import FilterConditionWidget
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in filter_group.py: {e}")
-    sys.exit(1)
+# Core import: possible now that the module is separate
+from gui.widgets.filter_condition import FilterConditionWidget
 
 class FilterGroupWidget(QWidget):
     """
@@ -162,7 +157,7 @@ class FilterGroupWidget(QWidget):
         for child in self.children_widgets:
              if hasattr(child, "update_metadata"):
                  child.update_metadata(extra_keys, available_tags, available_system_tags, self.available_workflow_steps)
-                 # FilterConditionWidget hat jetzt auch update_metadata!
+                 # FilterConditionWidget provides update_metadata as well
 
     def remove_child(self, child_widget) -> None:
         if child_widget in self.children_widgets:

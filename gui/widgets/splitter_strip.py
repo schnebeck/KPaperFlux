@@ -28,13 +28,7 @@ import os
 from core.logger import get_logger, get_silent_logger
 logger = get_logger("gui.widgets.splitter_strip")
 
-# Fallback für Utils, falls das Modul nicht im Pfad ist
-try:
-    from gui.utils import show_selectable_message_box
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in splitter_strip.py (gui.utils): {e}")
-    sys.exit(1)
+from gui.utils import show_selectable_message_box
 
 class SplitDividerWidget(QWidget):
     """
@@ -578,7 +572,7 @@ class SplitterStripWidget(QWidget):
         self.scroll.setWidget(self.content_widget)
         self.layout.addWidget(self.scroll)
 
-        # v28.5: Tastatur-Events abfangen (Focus-Problem lösen)
+        # Intercept keyboard events (focus problem)
         self.scroll.installEventFilter(self)
 
     def showEvent(self, event: QShowEvent) -> None:
@@ -619,11 +613,11 @@ class SplitterStripWidget(QWidget):
                         w.update()
                         layout_changed = True
 
-        # --- FIX: Zwinge das Layout zur Neuberechnung der Positionen ---
+        # --- FIX: force the layout to recalculate positions ---
         if layout_changed:
             self.content_layout.invalidate()
             self.content_layout.activate()
-            self.content_widget.adjustSize() # Wichtig für die ScrollArea!
+            self.content_widget.adjustSize() # Required for the scroll area
 
     def load_document(self, pipeline, entity_uuid: str) -> None:
         self.current_uuid = entity_uuid
@@ -861,7 +855,7 @@ class SplitterStripWidget(QWidget):
         # --- 1. GRENZEN BESTIMMEN (Objekt-basiert) ---
         current_idx = self.content_layout.indexOf(self.selected_widgets[0])
 
-        # Statt Indizes merken wir uns die WIDGETS (Scheren), die die Grenzen bilden.
+        # Instead of indices, remember the WIDGETS (scissors) that form the boundaries.
         self.drag_boundary_left_widget = None
         self.drag_boundary_right_widget = None
 
@@ -894,16 +888,16 @@ class SplitterStripWidget(QWidget):
                 # --- FIX: Offset berechnen statt Mitte erzwingen ---
                 cursor_pos = QCursor.pos()
 
-                # Hotspot relativ zum Thumbnail-Widget (0,0 ist oben links vom Bild)
+                # Hotspot relative to the thumbnail widget (0,0 is the image's top left)
                 hotspot = widget.mapFromGlobal(cursor_pos)
 
-                # Clamp: Sicherstellen, dass Hotspot innerhalb der Bildgrenzen liegt
+                # Clamp: keep the hotspot inside the image
                 hotspot.setX(max(0, min(hotspot.x(), px.width())))
                 hotspot.setY(max(0, min(hotspot.y(), px.height())))
 
                 drag.setHotSpot(hotspot)
 
-        # --- 3. LÜCKE ERZEUGEN & ORIGINAL VERSTECKEN ---
+        # --- 3. CREATE THE GAP & HIDE THE ORIGINAL ---
 
         # Scroll-Position merken
         h_bar = self.scroll.horizontalScrollBar()
@@ -923,15 +917,15 @@ class SplitterStripWidget(QWidget):
                 total_width += spacing * (len(self.selected_widgets) - 1)
             self.drag_placeholder_width = total_width
 
-            # Placeholder erstellen (Lücke)
+            # Create the placeholder (gap)
             self.drag_placeholder = DragPlaceholderWidget(
                 self.drag_placeholder_width,
                 is_static=True,
                 parent=self.content_widget
             )
 
-            # Originale verstecken (NICHT LÖSCHEN, nur unsichtbar machen)
-            # Wir ersetzen das ERSTE Widget durch den Placeholder
+            # Hide the originals (do NOT delete, only make invisible)
+            # Replace the FIRST widget with the placeholder
             first_w = self.selected_widgets[0]
             start_idx = self.content_layout.indexOf(first_w)
 
@@ -940,7 +934,7 @@ class SplitterStripWidget(QWidget):
 
             for w in self.selected_widgets:
                 w.hide()
-                # Wir nehmen sie temporär aus dem Layout, damit die Indizes sauber bleiben
+                # Take them out of the layout temporarily so the indices stay consistent
                 self.content_layout.removeWidget(w)
 
             self.content_layout.invalidate()
@@ -1007,11 +1001,11 @@ class SplitterStripWidget(QWidget):
         """
         if not self.drag_placeholder: return
 
-        # Aktueller Index der Lücke
+        # Current index of the gap
         gap_idx = self.content_layout.indexOf(self.drag_placeholder)
 
         # --- GRENZEN DYNAMISCH BERECHNEN ---
-        # Wir fragen die Grenz-Scheren, wo sie JETZT gerade sind.
+        # Ask the boundary scissors where they are NOW.
         idx_min = 0
         idx_max = self.content_layout.count()
 
@@ -1049,23 +1043,23 @@ class SplitterStripWidget(QWidget):
                 idx_left = i
                 break
 
-        # --- C. PRÜFUNG: BEWEGUNG NACH RECHTS (Nachbar ist rechts von uns) ---
+        # --- C. CHECK: MOVING RIGHT (neighbour is to our right) ---
         if neighbor_right:
             geo = neighbor_right.geometry()
-            # KORREKTUR: Wir wollen swappen, wenn wir EINDRINGEN.
-            # Wenn wir von links kommen, reicht es, 20% in den Nachbarn reinzuziehen.
+            # Swap when we ENTER the neighbour.
+            # Coming from the left, dragging 20% into the neighbour is enough.
             threshold_x = geo.x() + (geo.width() * 0.2)
 
             if mouse_pos.x() > threshold_x:
                 self._slide_gap_to(idx_right + 1) # Hinter den Nachbarn
                 return
 
-        # --- D. PRÜFUNG: BEWEGUNG NACH LINKS (Nachbar ist links von uns) ---
+        # --- D. CHECK: MOVING LEFT (neighbour is to our left) ---
         if neighbor_left:
             geo = neighbor_left.geometry()
-            # KORREKTUR: Wir kommen von rechts (Werte werden kleiner).
-            # Wir wollen swappen, wenn wir die rechte Kante um 20% unterschritten haben.
-            # Also bei 80% der Breite des Nachbarn stehen.
+            # Coming from the right (values decrease).
+            # Swap once we are 20% past the neighbour's right edge,
+            # i.e. at 80% of the neighbour's width.
             threshold_x = geo.x() + (geo.width() * 0.8)
 
             if mouse_pos.x() < threshold_x:
@@ -1139,7 +1133,7 @@ class SplitterStripWidget(QWidget):
         self._scroll_timer.stop()
         self._auto_scroll_speed = 0
 
-        # 1. Wo ist die Lücke gelandet?
+        # 1. Where did the gap end up?
         final_idx = -1
         if self.drag_placeholder:
             final_idx = self.content_layout.indexOf(self.drag_placeholder)
@@ -1151,7 +1145,7 @@ class SplitterStripWidget(QWidget):
             self._show_selection()
             return
 
-        # 2. Originale an dieser Position einfügen
+        # 2. Insert the originals at that position
         self.content_widget.setUpdatesEnabled(False)
         try:
             for i, w in enumerate(self.selected_widgets):
@@ -1159,10 +1153,10 @@ class SplitterStripWidget(QWidget):
                 w.show()
 
             # --- FIX: BOUNDARY FLAG TRANSFER -----------------------------------
-            # Wir müssen sicherstellen, dass die Seite, die jetzt ganz vorne im
-            # Segment steht, das "is_boundary"-Flag erbt.
+            # Make sure the page that is now first in the
+            # segment inherits the "is_boundary" flag.
 
-            # A. Grenzen des aktuellen Segments finden (wo haben wir gerade gearbeitet?)
+            # A. Find the boundaries of the current segment (where did we just work?)
             seg_start_index = 0
             if self.drag_boundary_left_widget:
                 idx = self.content_layout.indexOf(self.drag_boundary_left_widget)
@@ -1173,7 +1167,7 @@ class SplitterStripWidget(QWidget):
                 idx = self.content_layout.indexOf(self.drag_boundary_right_widget)
                 if idx != -1: seg_end_index = idx
 
-            # B. Alle Seiten in diesem Segment scannen
+            # B. Scan all pages of this segment
             segment_pages = []
             boundary_flag_detected = False
 
@@ -1185,14 +1179,14 @@ class SplitterStripWidget(QWidget):
                 # Nur Thumbnails beachten
                 if isinstance(w, PageThumbnailWidget):
                     segment_pages.append(w)
-                    # Hatte IRGENDEINE Seite hier drin vorher das Boundary-Flag?
+                    # Did ANY page in here have the boundary flag before?
                     if w.page_info.get("is_boundary", False):
                         boundary_flag_detected = True
-                        w.page_info["is_boundary"] = False # Erstmal löschen
+                        w.page_info["is_boundary"] = False  # cleared first; the new head gets it below
 
-            # C. Dem neuen "Kopf" das Flag geben
+            # C. Give the flag to the new "head"
             if segment_pages and boundary_flag_detected:
-                # Die erste Seite im visuellen Layout ist jetzt der Chef
+                # The first page in the visual layout is now the head
                 segment_pages[0].page_info["is_boundary"] = True
 
             # -------------------------------------------------------------------
@@ -1290,10 +1284,10 @@ class SplitterStripWidget(QWidget):
             self.content_layout.activate()
 
     def eventFilter(self, obj, event):
-        # v28.5: Tastatur-Steuerung für die ScrollArea abfangen
+        # Intercept keyboard navigation for the scroll area
         if obj == self.scroll and event.type() == QEvent.Type.KeyPress:
             self.keyPressEvent(event)
-            return True # Wir haben das Event verarbeitet
+            return True # Event handled
 
         return super().eventFilter(obj, event)
 
@@ -1309,7 +1303,7 @@ class SplitterStripWidget(QWidget):
                     break
 
         spacing = self.content_layout.spacing()
-        # Ein "Blatt-Schritt" ist Thumbnail + Trenner (40px)
+        # One "page step" is thumbnail + divider (40px)
         step = thumb_w + spacing + 40
 
         viewport_w = self.scroll.viewport().width()

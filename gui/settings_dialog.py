@@ -10,7 +10,6 @@ Description:    Settings dialog: language, vault and transfer paths, analysis
 ------------------------------------------------------------------------------
 """
 
-import sys
 from typing import Optional
 
 from PyQt6.QtWidgets import (
@@ -30,20 +29,9 @@ from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, creat
 from core.identity_parser import parse_identity_signature
 
 # GUI Imports
-# Hinweis: Falls diese Module fehlen, muss die Dateistruktur entsprechend existieren.
-try:
-    from gui.vocabulary_settings import VocabularySettingsWidget
-except ImportError as e:
-    logger.error(f"Critical internal import failed in settings_dialog.py (VocabularySettingsWidget): {e}")
-    sys.exit(1)
+from gui.vocabulary_settings import VocabularySettingsWidget
 
-# Hilfsfunktion für Message Boxen (Fallback, falls gui.utils fehlt)
-try:
-    from gui.utils import show_selectable_message_box
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in settings_dialog.py (gui.utils): {e}")
-    sys.exit(1)
+from gui.utils import show_selectable_message_box
 
 class SettingsDialog(QDialog):
 

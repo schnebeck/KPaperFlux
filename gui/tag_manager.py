@@ -22,20 +22,9 @@ from typing import Optional
 logger = get_logger("gui.tag_manager")
 
 # Core Imports
-try:
-    from core.database import DatabaseManager
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in tag_manager.py (core.database): {e}")
-    sys.exit(1)
+from core.database import DatabaseManager
 
-# Hilfsfunktion für Message Boxen (Fallback)
-try:
-    from gui.utils import show_selectable_message_box, show_notification
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in tag_manager.py (gui.utils): {e}")
-    sys.exit(1)
+from gui.utils import show_selectable_message_box, show_notification
 
 class TagManagerDialog(QDialog):
     def __init__(self, db_manager: DatabaseManager, parent: Optional[QWidget]=None) -> None:

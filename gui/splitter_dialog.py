@@ -24,19 +24,9 @@ from typing import Optional
 logger = get_logger("gui.splitter_dialog")
 
 # Projekt-Imports
-try:
-    from gui.widgets.splitter_strip import SplitterStripWidget, PageThumbnailWidget, SplitDividerWidget
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in splitter_dialog.py: {e}")
-    sys.exit(1)
+from gui.widgets.splitter_strip import SplitterStripWidget, PageThumbnailWidget, SplitDividerWidget
 
-try:
-    from gui.utils import show_selectable_message_box
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in splitter_dialog.py (gui.utils): {e}")
-    sys.exit(1)
+from gui.utils import show_selectable_message_box
 
 class SplitterDialog(QDialog):
     """

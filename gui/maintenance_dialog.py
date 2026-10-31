@@ -24,13 +24,7 @@ from core.integrity import IntegrityManager
 from core.vault import remove_derived_files
 from core.pipeline import PipelineProcessor
 
-# Hilfsfunktion für Message Boxen (Fallback)
-try:
-    from gui.utils import show_selectable_message_box
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in maintenance_dialog.py (gui.utils): {e}")
-    sys.exit(1)
+from gui.utils import show_selectable_message_box
 
 class MaintenanceDialog(QDialog):
     def __init__(self, parent, integrity_manager: IntegrityManager, pipeline: PipelineProcessor) -> None:

@@ -20,18 +20,12 @@ from typing import Optional
 
 logger = get_logger("gui.widgets.filter_condition")
 
-# Mocks / Core Imports (angepasst für Standalone-Fähigkeit)
-try:
-    from core.metadata_normalizer import MetadataNormalizer
-    from core.semantic_translator import SemanticTranslator
-    from core.models.types import DocType
-    from gui.widgets.multi_select_combo import MultiSelectComboBox
-    from gui.widgets.date_range_picker import DateRangePicker
-    from core.filter_token_registry import FilterTokenRegistry
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in filter_condition.py: {e}")
-    sys.exit(1)
+from core.metadata_normalizer import MetadataNormalizer
+from core.semantic_translator import SemanticTranslator
+from core.models.types import DocType
+from gui.widgets.multi_select_combo import MultiSelectComboBox
+from gui.widgets.date_range_picker import DateRangePicker
+from core.filter_token_registry import FilterTokenRegistry
 
 
 class FilterConditionWidget(QWidget):

@@ -23,13 +23,6 @@ from PyQt6.QtWidgets import (
     QLabel, QFrame, QPushButton, QMainWindow, QStackedWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings
-try:
-    pass
-except ImportError as e:
-    import sys
-    logger.error(f"Critical internal import failed in audit_window.py (PyQt6.QtPrintSupport): {e}")
-    sys.exit(1)
-
 from core.models.virtual import VirtualDocument as Document
 from core.semantic_renderer import SemanticRenderer
 from core.workflow import build_workflow_data
