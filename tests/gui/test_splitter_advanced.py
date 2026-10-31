@@ -74,3 +74,51 @@ def test_move_logic(splitter, qtbot):
     
     new_widgets = [splitter.content_layout.itemAt(i).widget() for i in range(splitter.content_layout.count())]
     assert new_widgets[-1] == thumbs[0]
+
+
+def _thumbs(splitter):
+    return [splitter.content_layout.itemAt(i).widget() for i in range(splitter.content_layout.count())
+            if isinstance(splitter.content_layout.itemAt(i).widget(), PageThumbnailWidget)]
+
+
+def _select(splitter, widgets):
+    splitter.on_selection_requested(widgets[0], Qt.KeyboardModifier.NoModifier)
+    for w in widgets[1:]:
+        splitter.on_selection_requested(w, Qt.KeyboardModifier.ControlModifier)
+
+
+def test_undo_rotate_selection_is_one_step(splitter):
+    thumbs = _thumbs(splitter)
+    _select(splitter, thumbs[:2])
+    splitter._rotate_selected_right()
+    assert len(splitter.undo_stack) == 1
+
+    splitter.revert_last_edit()
+
+    assert [t.current_rotation for t in thumbs[:2]] == [0, 0]
+    assert splitter.undo_stack == []
+
+
+def test_undo_delete_selection_does_not_delete_again(splitter):
+    thumbs = _thumbs(splitter)
+    _select(splitter, thumbs[:2])
+    splitter._delete_selected()
+
+    splitter.revert_last_edit()
+    splitter.revert_last_edit()  # nothing left: must not re-delete
+
+    assert [t.is_deleted for t in thumbs[:2]] == [False, False]
+
+
+def test_undo_split_after_reorder_does_not_crash(splitter, qtbot):
+    dividers = [w for w in splitter.findChildren(SplitDividerWidget) if not w.is_boundary]
+    dividers[0].set_active(True)
+    splitter.on_split_clicked(dividers[0].page_index_before, dividers[0])
+    _select(splitter, _thumbs(splitter)[:3])
+    splitter._reverse_selected_sorting()
+    qtbot.wait(10)  # let deleteLater() destroy the old dividers
+
+    splitter.revert_last_edit()  # reverse
+    splitter.revert_last_edit()  # split
+
+    assert splitter.get_active_splits() == []

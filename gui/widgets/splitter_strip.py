@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QFrame,
     QPushButton, QSizePolicy, QGraphicsDropShadowEffect, QMenu, QApplication, QMessageBox
@@ -526,6 +528,7 @@ class SplitterStripWidget(QWidget):
         self.current_uuid = None
         self.pipeline = None
         self.undo_stack = [] # List of (type, data)
+        self._suppress_recording = False  # selection actions record one entry, not one per page
         self.selected_widgets = []
         self.last_selected_widget = None
         self.drag_placeholder = None
@@ -767,18 +770,31 @@ class SplitterStripWidget(QWidget):
              if child.widget(): child.widget().deleteLater()
         self.selected_widgets = []
         self.last_selected_widget = None
+        self.undo_stack = []  # its entries refer to the widgets just removed
 
     def remove_thumbnail(self, widget):
         pass
 
     def on_split_clicked(self, index, widget=None):
         if widget:
-            self.record_action("SPLIT", widget)
+            # Record the position: _rebuild_dividers() replaces divider widgets
+            self.record_action("SPLIT", widget.page_index_before)
         self.split_action_triggered.emit(index)
 
     def record_action(self, action_type: str, data):
+        if self._suppress_recording:
+            return
         self.undo_stack.append((action_type, data))
         self.split_action_triggered.emit(-1)
+
+    def _divider_at(self, page_index_before: int) -> Optional[SplitDividerWidget]:
+        """The divider in the gap after the given page index."""
+        for i in range(self.content_layout.count()):
+            item = self.content_layout.itemAt(i)
+            widget = item.widget() if item else None
+            if isinstance(widget, SplitDividerWidget) and widget.page_index_before == page_index_before:
+                return widget
+        return None
 
     def on_selection_requested(self, widget, modifiers):
         if modifiers & Qt.KeyboardModifier.ControlModifier:
@@ -1380,8 +1396,12 @@ class SplitterStripWidget(QWidget):
         # Snapshot state for undo: technically we just need the list of widgets
         # since toggle_delete() is reversible.
         widgets = list(self.selected_widgets)
-        for w in widgets:
-            w.toggle_delete()
+        self._suppress_recording = True
+        try:
+            for w in widgets:
+                w.toggle_delete()
+        finally:
+            self._suppress_recording = False
 
         self.record_action("DELETE_SELECTION", widgets)
 
@@ -1390,8 +1410,12 @@ class SplitterStripWidget(QWidget):
             return
 
         widgets = list(self.selected_widgets)
-        for w in widgets:
-            w.rotate_right()
+        self._suppress_recording = True
+        try:
+            for w in widgets:
+                w.rotate_right()
+        finally:
+            self._suppress_recording = False
 
         self.record_action("ROTATE_SELECTION", widgets)
 
@@ -1402,9 +1426,11 @@ class SplitterStripWidget(QWidget):
         action_type, data = self.undo_stack.pop()
 
         if action_type == "SPLIT":
-            blocker = QSignalBlocker(data)
-            data.set_active(not data.is_active)
-            blocker.unblock()
+            divider = self._divider_at(data)
+            if divider is not None:
+                blocker = QSignalBlocker(divider)
+                divider.set_active(not divider.is_active)
+                blocker.unblock()
         elif action_type == "ROTATE":
             blocker = QSignalBlocker(data)
             data.rotate_right()
