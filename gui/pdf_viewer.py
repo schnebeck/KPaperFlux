@@ -12,7 +12,6 @@ Description:    High-performance PDF viewer based on fitz (PyMuPDF).
 """
 from typing import List, Optional, Tuple, Callable, Any, Union
 from pathlib import Path
-import tempfile
 import sys
 import os
 from core.logger import get_logger, get_silent_logger
@@ -360,8 +359,11 @@ class PdfCanvas(QScrollArea):
         Loads a new PDF document into the canvas.
         
         Args:
-            fitz_doc: The fitz Document object to load or None to clear.
+            fitz_doc: The fitz Document object to load or None to clear. The canvas
+                takes ownership and closes the previous document.
         """
+        if self.doc is not None and self.doc is not fitz_doc and not self.doc.is_closed:
+            self.doc.close()
         self.doc = fitz_doc
         self.current_page_idx = 0
         self.rotation = 0 # Reset rotation on new document
@@ -863,9 +865,19 @@ class DualPdfViewerWidget(QWidget):
                     worker.wait()
                 logger.info("[DualPdfViewer] Background thread stopped.")
             self._diff_worker = None
-            
-        self.left_viewer.canvas.doc = None
-        self.right_viewer.canvas.doc = None
+
+        self.left_viewer.canvas.set_document(None)
+        self.right_viewer.canvas.set_document(None)
+        self._discard_diff_file()
+
+    def _discard_diff_file(self) -> None:
+        """Deletes the temporary diff PDF of the current comparison."""
+        if self._diff_temp_path and self._diff_temp_path.exists():
+            try:
+                self._diff_temp_path.unlink()
+            except OSError as e:
+                logger.warning(f"Could not delete diff file {self._diff_temp_path}: {e}")
+        self._diff_temp_path = None
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Ensures background threads are stopped before widget destruction."""
@@ -1031,7 +1043,7 @@ class DualPdfViewerWidget(QWidget):
         self._zoom_delta = 0.0 
         self._orig_left_path = Path(left_path_raw)
         self._orig_right_path = Path(right_path_raw)
-        self._diff_temp_path = None
+        self._discard_diff_file()
 
         self.left_viewer.load_document(str(self._orig_left_path))
         self.right_viewer.load_document(str(self._orig_right_path))
@@ -1118,7 +1130,6 @@ class PdfViewerWidget(QWidget):
         self.sync_active = True 
         self.current_uuid: Optional[str] = None
         self.current_pages_data: List[dict] = []
-        self.temp_pdf_path: Optional[Path] = None
         self.search_text = ""
         self.global_search_offset = 0
         self.global_search_total = 0   # Total hits across all results
@@ -1486,14 +1497,10 @@ class PdfViewerWidget(QWidget):
                 self.clear()
                 return
 
-            fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="kview_")
-            os.close(fd)
-            self.temp_pdf_path = Path(temp_path)
-            out_doc.save(str(self.temp_pdf_path))
+            # Keep the stitched preview in memory: no copy of the document lands in /tmp
+            data = out_doc.tobytes()
             out_doc.close()
-
-            # Load the temporary file into the canvas
-            self.canvas.set_document(fitz.open(str(self.temp_pdf_path)))
+            self.canvas.set_document(fitz.open(stream=data, filetype="pdf"))
             self._update_toolbar_policy()
             self.on_document_status_ready()
             
@@ -1653,15 +1660,7 @@ class PdfViewerWidget(QWidget):
         self.current_uuid = None
         self.integrity_bar.clear()
         self.canvas.set_document(None)
-        
-        # Cleanup temporary PDF if it exists
-        if self.temp_pdf_path and self.temp_pdf_path.exists():
-            try:
-                self.temp_pdf_path.unlink()
-            except Exception as e:
-                logger.warning(f"Could not delete temporary PDF {self.temp_pdf_path}: {e}")
-            self.temp_pdf_path = None
-            
+
         self.update_ui_state(0)
         self.edit_zoom.setText("100%")
         self.btn_fit.setChecked(True)
