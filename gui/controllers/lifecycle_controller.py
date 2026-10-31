@@ -95,7 +95,10 @@ class LifecycleController(QObject):
 
         deleted_count = 0
         for uuid in uuids:
-            if self._is_trash_mode:
+            # Purge only what is already in the trash: the document's own state decides,
+            # not the view mode (which other widgets can leave out of step)
+            doc = self.pipeline.logical_repo.get_by_uuid(uuid)
+            if doc is not None and doc.deleted:
                 if self.pipeline.delete_entity(uuid, purge=True):
                     deleted_count += 1
                 continue
