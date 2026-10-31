@@ -919,10 +919,18 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         # Load new translator if not English
         if lang != "en":
-            from PyQt6.QtCore import QTranslator
+            from PyQt6.QtCore import QLibraryInfo, QTranslator
             translator = QTranslator()
             base_dir = Path(__file__).resolve().parent.parent
             qm_path = base_dir / "resources" / "l10n" / lang / "gui_strings.qm"
+
+            # Qt's own strings (standard dialog buttons such as Save, Discard, Cancel)
+            qt_translator = QTranslator()
+            if qt_translator.load(f"qtbase_{lang}", QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
+                app.installTranslator(qt_translator)
+                self._translators.append(qt_translator)
+            else:
+                logger.warning(f"[L10n] Qt base translation for '{lang}' not found")
 
             if qm_path.exists():
                 if translator.load(str(qm_path)):

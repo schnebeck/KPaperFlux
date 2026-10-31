@@ -91,3 +91,17 @@ def test_switching_documents_offers_to_save(window, db, qtbot, answer, expected)
     assert (db.get_document_by_uuid("doc-a").storage_location or None) == expected
     assert window.editor_widget.current_uuids == ["doc-b"]
     assert not window.editor_widget.is_dirty()
+
+
+def test_german_ui_translates_standard_buttons(window):
+    from PyQt6.QtWidgets import QMessageBox
+
+    window._switch_language("de", refresh_ui=False)
+    try:
+        box = QMessageBox()
+        box.setStandardButtons(QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard)
+        texts = {box.button(b).text().replace("&", "") for b in (QMessageBox.StandardButton.Save,
+                                                                  QMessageBox.StandardButton.Discard)}
+        assert texts == {"Speichern", "Verwerfen"}
+    finally:
+        window._switch_language("en", refresh_ui=False)
