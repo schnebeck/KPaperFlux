@@ -98,3 +98,22 @@ def test_delete_restore_purge_report_unknown_uuid(memory_db, logical_repo):
     assert memory_db.restore_document("missing") is False
     assert memory_db.purge_document("missing") is False
     assert memory_db.purge_document("known") is True
+
+
+def test_list_count_and_sum_agree_on_archived_documents(memory_db, logical_repo):
+    from decimal import Decimal
+    from core.models.semantic import FinanceBody, MonetarySummation
+    for uuid, archived in (("active", False), ("archived", True)):
+        logical_repo.save(VirtualDocument(
+            uuid=uuid, archived=archived, source_mapping=[SourceReference(file_uuid="f", pages=[1])],
+            semantic_data=SemanticExtraction(bodies={"finance_body": FinanceBody(
+                monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.00")))})))
+
+    query = {"operator": "AND", "conditions": []}
+    listed = memory_db.search_documents_advanced(query)
+    assert [d.uuid for d in listed] == ["active"]
+    assert memory_db.count_documents_advanced(query) == len(listed)
+    assert memory_db.sum_documents_advanced(query) == 10.0
+
+    archive_view = {"field": "archived", "op": "equals", "value": True}
+    assert memory_db.count_documents_advanced(archive_view) == 1

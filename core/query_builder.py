@@ -12,8 +12,9 @@ Description:    Pure SQL fragment builder for structured filter query dicts.
 ------------------------------------------------------------------------------
 """
 
+import re
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from core.logger import get_logger
 
@@ -90,6 +91,40 @@ class QueryBuilder:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
+    # Columns of virtual_documents a filter may reference directly (anything else is no field)
+    COLUMNS: frozenset = frozenset({
+        "uuid", "status", "export_filename", "last_used", "last_processed_at", "is_immutable",
+        "cached_full_text", "created_at", "deleted", "deleted_at", "locked_at", "exported_at",
+        "page_count_virt", "type_tags", "tags", "pdf_class", "archived", "storage_location",
+        "ai_confidence", "process_id",
+    })
+    _JSON_PATH = re.compile(r"[\w\-\[\]]+(\.[\w\-\[\]]+)*")
+
+    @classmethod
+    def referenced_fields(cls, node: Dict[str, Any]) -> Set[str]:
+        """All field names used anywhere in a query tree."""
+        if "field" in node:
+            return {node["field"]}
+        fields: Set[str] = set()
+        for child in node.get("conditions", []):
+            if isinstance(child, dict):
+                fields |= cls.referenced_fields(child)
+        return fields
+
+    def build_scoped_where(self, query: Optional[Dict[str, Any]]) -> Tuple[str, List[Any]]:
+        """
+        WHERE fragment for document lists, counts, sums and trends: deleted and
+        archived documents are excluded unless the query filters on those fields.
+        """
+        query = query or {}
+        where_clause, params = self.build_where(query)
+        fields = self.referenced_fields(query)
+        if "deleted" not in fields:
+            where_clause = f"({where_clause}) AND deleted = 0"
+        if "archived" not in fields:
+            where_clause = f"({where_clause}) AND archived = 0"
+        return where_clause, params
+
     def build_where(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
         """
         Recursively translates a query node into a SQL WHERE fragment.
@@ -116,7 +151,9 @@ class QueryBuilder:
         1. Static FIELD_MAP lookup.
         2. ``semantic:`` / ``json:`` prefix → dynamic json_extract path.
         3. ``stamp_field:`` prefix → correlated subquery over stamp form fields.
-        4. Fallback: return field name as-is (column pass-through).
+        4. A column of virtual_documents (COLUMNS).
+        Anything else maps to NULL, so a field name from an imported filter can
+        never be pasted into the SQL.
 
         Args:
             field: Logical field name.
@@ -128,7 +165,10 @@ class QueryBuilder:
             return self.FIELD_MAP[field]
 
         if field.startswith(("json:", "semantic:")):
-            path = field.split(":", 1)[1].replace("'", "''")
+            path = field.split(":", 1)[1]
+            if not self._JSON_PATH.fullmatch(path):
+                logger.warning(f"Ignoring filter on invalid semantic path: {field!r}")
+                return "NULL"
             return f"json_extract(semantic_data, '$.{path}')"
 
         if field.startswith("stamp_field:"):
@@ -142,7 +182,10 @@ class QueryBuilder:
                 f" WHERE json_extract(f.value, '$.label') = '{label}')"
             )
 
-        return field
+        if field in self.COLUMNS:
+            return field
+        logger.warning(f"Ignoring filter on unknown field: {field!r}")
+        return "NULL"
 
     def map_op(self, expr: str, op: str, val: Any) -> Tuple[str, List[Any]]:
         """

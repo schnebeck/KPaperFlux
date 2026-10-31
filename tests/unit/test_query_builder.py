@@ -47,12 +47,36 @@ class TestMapField:
         assert "form_fields" in expr
         assert "Betrag" in expr
 
-    def test_unknown_field_passthrough(self, qb):
-        assert qb.map_field("some_column") == "some_column"
+    def test_known_column_passthrough(self, qb):
+        assert qb.map_field("storage_location") == "storage_location"
 
-    def test_sql_injection_in_semantic_path_escaped(self, qb):
-        expr = qb.map_field("semantic:foo'bar")
-        assert "''" in expr  # single-quote escaped
+    def test_unknown_field_is_not_pasted_into_sql(self, qb):
+        assert qb.map_field("some_column") == "NULL"
+        assert qb.map_field("1=1) OR (1") == "NULL"
+
+    def test_invalid_semantic_path_is_rejected(self, qb):
+        assert qb.map_field("semantic:foo'bar") == "NULL"
+        assert qb.map_field("semantic:foo') OR 1=1 --") == "NULL"
+
+    def test_valid_semantic_paths(self, qb):
+        assert qb.map_field("semantic:workflows.rule-x.current_step") == \
+            "json_extract(semantic_data, '$.workflows.rule-x.current_step')"
+        assert qb.map_field("semantic:bodies.finance_body.line_items[0]").endswith("line_items[0]')")
+
+
+class TestScopedWhere:
+    def test_excludes_deleted_and_archived_by_default(self, qb):
+        where, _ = qb.build_scoped_where({"field": "status", "op": "equals", "value": "NEW"})
+        assert "deleted = 0" in where and "archived = 0" in where
+
+    def test_query_on_archived_or_deleted_keeps_them(self, qb):
+        where, _ = qb.build_scoped_where({"operator": "AND", "conditions": [
+            {"field": "archived", "op": "equals", "value": True}]})
+        assert "archived = 0" not in where and "deleted = 0" in where
+
+    def test_text_mentioning_deleted_does_not_disable_the_scope(self, qb):
+        where, _ = qb.build_scoped_where({"field": "cached_full_text", "op": "contains", "value": "deleted"})
+        assert "deleted = 0" in where
 
 
 # ── resolve_relative_date ──────────────────────────────────────────────────

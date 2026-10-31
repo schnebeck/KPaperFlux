@@ -442,13 +442,8 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         if not query or (not query.get("conditions") and not query.get("field")):
              return self.get_all_entities_view()
 
-        where_clause, params = self._qb.build_where(query)
-        
-        # Exclude deleted/archived documents unless explicitly searched
-        if "deleted" not in where_clause.lower():
-            where_clause = f"({where_clause}) AND deleted = 0"
-        if "archived" not in where_clause.lower():
-            where_clause = f"({where_clause}) AND archived = 0"
+        # Deleted/archived documents only when the query filters on them
+        where_clause, params = self._qb.build_scoped_where(query)
             
         sql = f"""
             SELECT {self._doc_select}
@@ -469,12 +464,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         Returns:
             The count of matching records.
         """
-        if not query or (not query.get("conditions") and not query.get("field")):
-            return self.count_documents()
-
-        where_clause, params = self._qb.build_where(query)
-        if "deleted" not in where_clause.lower():
-            where_clause = f"({where_clause}) AND deleted = 0"
+        where_clause, params = self._qb.build_scoped_where(query)
 
         sql = f"SELECT COUNT(*) FROM virtual_documents WHERE {where_clause}"
         cursor = self.connection.cursor()
@@ -495,9 +485,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         if not self.connection:
             return 0.0
 
-        where_clause, params = self._qb.build_where(query or {})
-        if "deleted" not in where_clause.lower():
-            where_clause = f"({where_clause}) AND deleted = 0"
+        where_clause, params = self._qb.build_scoped_where(query)
 
         expr = self._qb.map_field(field)
         # Use CAST for safety with JSON values stored as strings
@@ -520,9 +508,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         """
         if not self.connection: return []
         
-        where_clause, params = self._qb.build_where(query or {})
-        if "deleted" not in where_clause.lower():
-            where_clause = f"({where_clause}) AND deleted = 0"
+        where_clause, params = self._qb.build_scoped_where(query)
             
         # Determine time field: prefer doc_date if it's a financial aggregation
         time_expr = self._qb.map_field("doc_date")
@@ -1070,9 +1056,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         if not text:
             return 0
         
-        where_clause, params = self._qb.build_where(query)
-        if "deleted" not in where_clause.lower():
-            where_clause = f"({where_clause}) AND deleted = 0"
+        where_clause, params = self._qb.build_scoped_where(query)
             
         # SQL trick to count occurrences: (length(haystack) - length(replace(haystack, needle, ''))) / length(needle)
         # We use LOWER() for case-insensitive matching.
