@@ -10,13 +10,13 @@ Description:    Handles all debug/maintenance operations from the Debug menu.
 ------------------------------------------------------------------------------
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QMessageBox
 
 from core.logger import get_logger
-from core.integrity import IntegrityManager
+from core.integrity import IntegrityCheckRefused, IntegrityManager
 from core.database import DatabaseManager
 from core.pipeline import PipelineProcessor
 
@@ -68,7 +68,7 @@ class DebugController(QObject):
         )
         if reply == QMessageBox.StandardButton.Yes:
             mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
-            mgr.prune_orphaned_vault_files()
+            self._run_guarded(mgr.prune_orphaned_vault_files)
 
     def show_broken(self) -> None:
         mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
@@ -96,11 +96,12 @@ class DebugController(QObject):
     def deduplicate_vault(self) -> None:
         from gui.utils import show_selectable_message_box
 
-        msg = (
-            "This will IDENTIFY duplicates by HASH and SIZE.\n\n"
-            "STEP 1: Delete newer duplicate files from Vault.\n"
-            "STEP 2: Remove ALL entities from the list that pointed to these files.\n\n"
-            "This is DESTRUCTIVE. Continue?"
+        msg = self.tr(
+            "Duplicates are identified by hash and size.\n\n"
+            "Step 1: newer duplicate files are deleted from the vault; their documents "
+            "then reference the kept file.\n"
+            "Step 2: documents whose files are missing and identical documents are moved "
+            "to the trash. Locked documents are not changed.\n\nContinue?"
         )
         reply = show_selectable_message_box(
             self._parent,
@@ -111,8 +112,29 @@ class DebugController(QObject):
         )
         if reply == QMessageBox.StandardButton.Yes:
             mgr = IntegrityManager(self.db_manager, self.pipeline.vault)
-            mgr.deduplicate_vault()
+            self._run_guarded(mgr.deduplicate_vault)
             self.list_refresh_requested.emit()
+
+    def _run_guarded(self, action: Callable[[], object]) -> None:
+        """Runs a destructive maintenance action; shows why it was refused."""
+        from gui.utils import show_selectable_message_box
+
+        try:
+            action()
+        except IntegrityCheckRefused as e:
+            reasons = {
+                IntegrityCheckRefused.VAULT_MISSING: self.tr("The vault directory is missing or empty."),
+                IntegrityCheckRefused.MASS_ORPHANS: self.tr("%1 of %2 documents reference missing files."),
+                IntegrityCheckRefused.MASS_GHOSTS: self.tr("%1 of %2 vault files belong to no document."),
+            }
+            reason = reasons[e.reason].replace("%1", str(e.affected)).replace("%2", str(e.total))
+            show_selectable_message_box(
+                self._parent,
+                self.tr("Maintenance Stopped"),
+                self.tr("Nothing was changed because the vault looks incomplete:\n%s\n\n"
+                        "Check that the vault drive is mounted and the right profile is open.") % reason,
+                icon=QMessageBox.Icon.Warning,
+            )
 
     def prune_orphan_workflows(self) -> None:
         """Remove workflow entries whose rule_id no longer exists in the registry."""

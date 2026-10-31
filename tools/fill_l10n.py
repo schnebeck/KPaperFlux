@@ -135,6 +135,14 @@ def fill():
         "Keep older duplicates (%s)": "Ältere Dubletten behalten (%s)",
         "Really delete %n duplicates?": ("%n Dublette wirklich löschen?", "%n Dubletten wirklich löschen?"),
         "Analyze Again": "Erneut analysieren",
+        "Maintenance Stopped": "Wartung abgebrochen",
+        "The vault directory is missing or empty.": "Das Vault-Verzeichnis fehlt oder ist leer.",
+        "%1 of %2 documents reference missing files.": "%1 von %2 Dokumenten verweisen auf fehlende Dateien.",
+        "%1 of %2 vault files belong to no document.": "%1 von %2 Dateien im Vault gehören zu keinem Dokument.",
+        "Nothing was changed because the vault looks incomplete:\n%s\n\nCheck that the vault drive is mounted and the right profile is open.":
+            "Es wurde nichts geändert, weil der Vault unvollständig wirkt:\n%s\n\nPrüfen Sie, ob das Vault-Laufwerk eingehängt und das richtige Profil geöffnet ist.",
+        "Duplicates are identified by hash and size.\n\nStep 1: newer duplicate files are deleted from the vault; their documents then reference the kept file.\nStep 2: documents whose files are missing and identical documents are moved to the trash. Locked documents are not changed.\n\nContinue?":
+            "Duplikate werden über Hash und Größe erkannt.\n\nSchritt 1: Neuere doppelte Dateien werden aus dem Vault gelöscht; ihre Dokumente verweisen dann auf die behaltene Datei.\nSchritt 2: Dokumente mit fehlenden Dateien und identische Dokumente kommen in den Papierkorb. Gesperrte Dokumente bleiben unverändert.\n\nFortfahren?",
         "Analyze %n document(s) again?\n\nExtracted values you have not confirmed are replaced by the new analysis. Workflows and confirmed values are kept.": (
             "%n Dokument erneut analysieren?\n\nNicht bestätigte Werte werden durch die neue Analyse ersetzt. Abläufe und bestätigte Werte bleiben erhalten.",
             "%n Dokumente erneut analysieren?\n\nNicht bestätigte Werte werden durch die neue Analyse ersetzt. Abläufe und bestätigte Werte bleiben erhalten."),

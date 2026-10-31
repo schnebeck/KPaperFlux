@@ -28,6 +28,32 @@ from core.logger import get_logger
 
 logger = get_logger("integrity")
 
+# Destructive maintenance refuses to run when it would affect more than this share
+# of all documents or vault files (and at least MASS_CHANGE_MIN of them).
+MASS_CHANGE_RATIO: float = 0.5
+MASS_CHANGE_MIN: int = 5
+
+
+class IntegrityCheckRefused(RuntimeError):
+    """
+    A destructive maintenance step was refused because the vault state looks implausible.
+
+    Attributes:
+        reason: VAULT_MISSING, MASS_ORPHANS or MASS_GHOSTS.
+        affected: Number of documents or files that would have been changed.
+        total: Number of documents or files in total.
+    """
+
+    VAULT_MISSING = "VAULT_MISSING"
+    MASS_ORPHANS = "MASS_ORPHANS"
+    MASS_GHOSTS = "MASS_GHOSTS"
+
+    def __init__(self, reason: str, affected: int = 0, total: int = 0) -> None:
+        super().__init__(f"{reason}: {affected} of {total}")
+        self.reason = reason
+        self.affected = affected
+        self.total = total
+
 
 @dataclass
 class IntegrityReport:
@@ -37,6 +63,21 @@ class IntegrityReport:
 
     orphans: List[Document]  # Entities pointing to missing physical files/entries
     ghosts: List[Path]  # Files in Vault not used by any Entity
+    entity_count: int = 0
+    vault_file_count: int = 0
+    vault_available: bool = True
+
+    def refuse_implausible_orphans(self) -> None:
+        """Raises IntegrityCheckRefused if pruning the orphans would look like a missing vault."""
+        if not self.vault_available or (self.vault_file_count == 0 and self.entity_count > 0):
+            raise IntegrityCheckRefused(IntegrityCheckRefused.VAULT_MISSING, self.entity_count, self.entity_count)
+        if len(self.orphans) >= MASS_CHANGE_MIN and len(self.orphans) > MASS_CHANGE_RATIO * self.entity_count:
+            raise IntegrityCheckRefused(IntegrityCheckRefused.MASS_ORPHANS, len(self.orphans), self.entity_count)
+
+    def refuse_implausible_ghosts(self) -> None:
+        """Raises IntegrityCheckRefused if deleting the ghosts would look like a wrong or empty database."""
+        if len(self.ghosts) >= MASS_CHANGE_MIN and len(self.ghosts) > MASS_CHANGE_RATIO * self.vault_file_count:
+            raise IntegrityCheckRefused(IntegrityCheckRefused.MASS_GHOSTS, len(self.ghosts), self.vault_file_count)
 
 
 class IntegrityManager:
@@ -93,6 +134,8 @@ class IntegrityManager:
 
         # 2. Get all Vault files (originals keep their import extension; derived/ is a subdirectory)
         vault_path = Path(self.vault.base_path)
+        if not vault_path.is_dir():
+            return IntegrityReport(orphans=[], ghosts=[], entity_count=len(all_entities), vault_available=False)
         vault_files = [f for f in vault_path.iterdir() if f.is_file() and not f.name.startswith(".")]
         vault_basenames = {f.name for f in vault_files}
 
@@ -109,19 +152,14 @@ class IntegrityManager:
             ent_broken = False
             if not ent.source_mapping:
                 ent_broken = True
-            else:
-                for ref in ent.source_mapping:
-                    pf = all_phys.get(ref.file_uuid)
-                    if not pf or not pf.file_path:
-                        ent_broken = True
-                        break
-
-                    fname = os.path.basename(pf.file_path)
-                    if fname not in vault_basenames:
-                        ent_broken = True
-                        break
-                    else:
-                        used_filenames.add(fname)
+            # Check every reference: an intact file of a broken entity is still in use
+            for ref in ent.source_mapping:
+                pf = all_phys.get(ref.file_uuid)
+                fname = Path(pf.file_path).name if pf and pf.file_path else None
+                if fname in vault_basenames:
+                    used_filenames.add(fname)
+                else:
+                    ent_broken = True
 
             if ent_broken:
                 orphan_doc = Document(uuid=ent.uuid, original_filename=ent.export_filename or f"Entity {ent.uuid[:8]}", status=ent.status)
@@ -133,7 +171,8 @@ class IntegrityManager:
             if fname not in used_filenames:
                 ghosts.append(file_map[fname])
 
-        return IntegrityReport(orphans=orphans, ghosts=ghosts)
+        return IntegrityReport(orphans=orphans, ghosts=ghosts, entity_count=len(all_entities),
+                               vault_file_count=len(vault_files))
 
     # --- ACTION METHODS ---
 
@@ -146,6 +185,7 @@ class IntegrityManager:
         """
         logger.info("\n=== PRUNE: Orphaned Vault Files ===")
         report = self.check_integrity()
+        report.refuse_implausible_ghosts()
         count = 0
         for g in report.ghosts:
             try:
@@ -162,23 +202,26 @@ class IntegrityManager:
 
     def prune_broken_entity_references(self) -> int:
         """
-        Deletes all entities that point to non-existent vault files.
+        Moves all entities that point to non-existent vault files to the trash.
 
         Returns:
-            The number of entities deleted.
+            The number of entities moved.
+
+        Raises:
+            IntegrityCheckRefused: If the vault looks missing or most documents would be affected.
         """
         logger.info("\n=== PRUNE: Broken Entity References ===")
         report = self.check_integrity()
+        report.refuse_implausible_orphans()
         count = 0
         for o in report.orphans:
-            try:
-                logger.info(f"Deleting broken entity: {o.uuid}")
-                self.logic_repo.delete_by_uuid(o.uuid)
+            if self._is_protected(o.uuid):
+                continue
+            logger.info(f"Moving broken entity to trash: {o.uuid}")
+            if self.logic_repo.mark_deleted(o.uuid):
                 count += 1
-            except Exception as e:
-                logger.info(f"Error deleting entity {o.uuid}: {e}")
 
-        logger.info(f"Finished. Removed {count} entities.")
+        logger.info(f"Finished. Moved {count} entities to the trash.")
         logger.info("=======================================\n")
         return count
 
@@ -192,6 +235,7 @@ class IntegrityManager:
         4. Identifies and deletes logical entities with identical source mappings.
         """
         logger.info("\n=== ACTION: Deduplicate Vault (LIVE Hash/Size) ===")
+        self.check_integrity().refuse_implausible_orphans()
 
         # 1. Physical Deduplication
         all_phys = self.phys_repo.get_all()
@@ -261,13 +305,14 @@ class IntegrityManager:
         for mkey, ents in mapping_groups.items():
             if len(ents) < 2:
                 continue
-            ents.sort(key=lambda x: x.created_at if x.created_at else "")
-            redundant = ents[1:]
-            logger.info(f"  [Match] Keeping oldest entity: {ents[0].uuid}. Found {len(redundant)} redundant entries.")
+            # Keep an active copy, preferably a locked one, else the oldest
+            ents.sort(key=lambda x: (bool(x.deleted), not x.is_immutable, x.created_at or ""))
+            redundant = [e for e in ents[1:] if not e.deleted and not e.is_immutable]
+            logger.info(f"  [Match] Keeping entity: {ents[0].uuid}. Found {len(redundant)} redundant entries.")
             for red in redundant:
-                logger.info(f"    -> Deleting redundant entity: {red.uuid}")
-                self.logic_repo.delete_by_uuid(red.uuid)
-                logic_redundant_deleted += 1
+                logger.info(f"    -> Moving redundant entity to trash: {red.uuid}")
+                if self.logic_repo.mark_deleted(red.uuid):
+                    logic_redundant_deleted += 1
 
         logger.info("\nDeduplication complete.")
         logger.info(f"- Physical Duplicates removed: {phys_deleted}")
@@ -275,6 +320,11 @@ class IntegrityManager:
         logger.info(f"- Redundant Logical Entities removed: {logic_redundant_deleted}")
         logger.info("========================================================\n")
 
+
+    def _is_protected(self, uuid: str) -> bool:
+        """Locked documents are never changed by maintenance."""
+        doc = self.logic_repo.get_by_uuid(uuid)
+        return bool(doc and doc.is_immutable)
 
     def show_orphaned_vault_files(self) -> None:
         """Debug print of orphaned files."""

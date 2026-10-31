@@ -870,22 +870,68 @@
     <context>
         <name>DebugController</name>
         <message>
-            <location filename="../../../gui/controllers/debug_controller.py" line="142" />
+            <location filename="../../../gui/controllers/debug_controller.py" line="99" />
+            <source>Duplicates are identified by hash and size.
+
+Step 1: newer duplicate files are deleted from the vault; their documents then reference the kept file.
+Step 2: documents whose files are missing and identical documents are moved to the trash. Locked documents are not changed.
+
+Continue?</source>
+            <translation>Duplikate werden über Hash und Größe erkannt.
+
+Schritt 1: Neuere doppelte Dateien werden aus dem Vault gelöscht; ihre Dokumente verweisen dann auf die behaltene Datei.
+Schritt 2: Dokumente mit fehlenden Dateien und identische Dokumente kommen in den Papierkorb. Gesperrte Dokumente bleiben unverändert.
+
+Fortfahren?</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/controllers/debug_controller.py" line="126" />
+            <source>The vault directory is missing or empty.</source>
+            <translation>Das Vault-Verzeichnis fehlt oder ist leer.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/controllers/debug_controller.py" line="127" />
+            <source>%1 of %2 documents reference missing files.</source>
+            <translation>%1 von %2 Dokumenten verweisen auf fehlende Dateien.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/controllers/debug_controller.py" line="128" />
+            <source>%1 of %2 vault files belong to no document.</source>
+            <translation>%1 von %2 Dateien im Vault gehören zu keinem Dokument.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/controllers/debug_controller.py" line="133" />
+            <source>Maintenance Stopped</source>
+            <translation>Wartung abgebrochen</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/controllers/debug_controller.py" line="134" />
+            <source>Nothing was changed because the vault looks incomplete:
+%s
+
+Check that the vault drive is mounted and the right profile is open.</source>
+            <translation>Es wurde nichts geändert, weil der Vault unvollständig wirkt:
+%s
+
+Prüfen Sie, ob das Vault-Laufwerk eingehängt und das richtige Profil geöffnet ist.</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/controllers/debug_controller.py" line="164" />
             <source>Orphaned Workflow References</source>
             <translation type="unfinished">Verwaiste Ablauf-Referenzen</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/debug_controller.py" line="143" />
+            <location filename="../../../gui/controllers/debug_controller.py" line="165" />
             <source>No orphaned workflow references found. All rule IDs in all documents match a known rule.</source>
             <translation type="unfinished">Keine verwaisten Ablauf-Referenzen gefunden. Alle Regel-IDs in allen Dokumenten entsprechen einer bekannten Regel.</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/debug_controller.py" line="162" />
+            <location filename="../../../gui/controllers/debug_controller.py" line="184" />
             <source>Prune Orphaned Workflow References</source>
             <translation type="unfinished">Verwaiste Ablauf-Referenzen bereinigen</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/controllers/debug_controller.py" line="185" />
+            <location filename="../../../gui/controllers/debug_controller.py" line="207" />
             <source>Removed orphaned workflow references from %n document(s).</source>
             <translation>
                 <numerusform>Verwaiste Ablauf-Referenz aus %n Dokument entfernt.</numerusform>
@@ -893,7 +939,7 @@
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/debug_controller.py" line="192" />
+            <location filename="../../../gui/controllers/debug_controller.py" line="214" />
             <source>Done</source>
             <translation type="unfinished">Fertig</translation>
         </message>
