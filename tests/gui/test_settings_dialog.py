@@ -66,6 +66,12 @@ def test_url_row_only_visible_in_rest_mode(qtbot, config: AppConfig) -> None:
     assert form.isRowVisible(dialog.edit_engine_llm_url)
 
 
+def _wait_for_result(qtbot, dialog, box, calls: int = 1) -> None:
+    """The connection test and signature analysis run in a worker thread."""
+    qtbot.waitUntil(lambda: box.call_count >= calls, timeout=3000)
+    qtbot.waitUntil(lambda: not dialog._busy_worker.isRunning(), timeout=3000)
+
+
 @pytest.mark.parametrize("health, expected_title", [
     ({"status": "ok", "llm_backend": True, "version": "0.1.0"}, "Success"),
     ({"status": "degraded", "llm_backend": False, "version": "0.1.0"}, "Connection Failed"),
@@ -79,6 +85,7 @@ def test_engine_connection_test(qtbot, config: AppConfig, health: dict, expected
     with patch("gui.settings_dialog.create_fluxsense_client", return_value=client), \
          patch("gui.settings_dialog.show_selectable_message_box") as box:
         dialog._test_engine_connection()
+        _wait_for_result(qtbot, dialog, box)
     assert box.call_args.args[1] == expected_title
 
 
@@ -91,6 +98,7 @@ def test_engine_connection_test_unavailable(qtbot, config: AppConfig) -> None:
     with patch("gui.settings_dialog.create_fluxsense_client", return_value=client), \
          patch("gui.settings_dialog.show_selectable_message_box") as box:
         dialog._test_engine_connection()
+        _wait_for_result(qtbot, dialog, box)
     assert box.call_args.args[1] == "Connection Failed"
 
 
@@ -105,6 +113,7 @@ def test_analyze_signature_saves_profile(qtbot, config: AppConfig) -> None:
          patch("gui.settings_dialog.create_fluxsense_client"), \
          patch("gui.settings_dialog.show_selectable_message_box") as box:
         dialog._analyze_signature("PRIVATE")
+        _wait_for_result(qtbot, dialog, box)
     assert "Erika Mustermann" in dialog.config.set_private_profile_json.call_args.args[0]
     assert box.call_args.args[1] == "Analysis Successful"
 
@@ -135,9 +144,11 @@ def test_unreachable_messages_are_generic(qtbot, config: AppConfig) -> None:
     with patch("gui.settings_dialog.create_fluxsense_client", return_value=client), \
          patch("gui.settings_dialog.show_selectable_message_box") as box:
         dialog._test_engine_connection()
+        _wait_for_result(qtbot, dialog, box)
         degraded = box.call_args.args[2]
         client.health.side_effect = FluxSenseError("refused", "BACKEND_UNREACHABLE")
         dialog._test_engine_connection()
+        _wait_for_result(qtbot, dialog, box, calls=2)
         refused = box.call_args.args[2]
     expected = "AI server not reachable at http://my-ai:8080/v1. Please check the AI server settings."
     assert degraded == expected and refused == expected
@@ -206,3 +217,20 @@ def test_parallel_analyses_setting(qtbot, config: AppConfig) -> None:
     with pytest.raises(ValueError):
         config.set_analysis_concurrency(0)
     config.set_analysis_concurrency(2)
+
+
+def test_connection_test_keeps_the_dialog_responsive(qtbot, config: AppConfig) -> None:
+    """The AI server call runs off the GUI thread: the call returns at once."""
+    import threading
+    release = threading.Event()
+    dialog = SettingsDialog()
+    qtbot.addWidget(dialog)
+    client = MagicMock()
+    client.health.side_effect = lambda: (release.wait(2), {"status": "ok", "llm_backend": True, "version": "1"})[1]
+    with patch("gui.settings_dialog.create_fluxsense_client", return_value=client), \
+         patch("gui.settings_dialog.show_selectable_message_box") as box:
+        dialog._test_engine_connection()
+        assert box.call_count == 0 and dialog._busy_worker.isRunning()
+        release.set()
+        _wait_for_result(qtbot, dialog, box)
+    assert box.call_args.args[1] == "Success"

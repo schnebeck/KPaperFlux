@@ -67,6 +67,22 @@ def stop_thread(thread: Optional[QThread], wait_ms: int = 2000) -> bool:
     thread._release_timer = timer  # keep the timer alive with the thread
     return False
 
+class FunctionWorker(QThread):
+    """Runs one blocking call (network, engine) off the GUI thread."""
+    succeeded = pyqtSignal(object)
+    failed = pyqtSignal(object)  # the exception
+
+    def __init__(self, function: Any) -> None:
+        super().__init__()
+        self._function = function
+
+    def run(self) -> None:
+        try:
+            self.succeeded.emit(self._function())
+        except Exception as e:  # handed to the GUI thread, which reports it
+            self.failed.emit(e)
+
+
 class BatchTaggingWorker(QThread):
     """
     Phase 106: Worker thread to apply tagging rules to many documents in background.

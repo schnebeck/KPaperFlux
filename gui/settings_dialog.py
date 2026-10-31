@@ -10,7 +10,7 @@ Description:    Settings dialog: language, vault and transfer paths, analysis
 ------------------------------------------------------------------------------
 """
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
@@ -32,6 +32,7 @@ from core.identity_parser import parse_identity_signature
 from gui.vocabulary_settings import VocabularySettingsWidget
 
 from gui.utils import show_selectable_message_box
+from gui.workers import FunctionWorker, stop_thread
 
 class SettingsDialog(QDialog):
 
@@ -44,6 +45,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.config = parent.app_config if parent and hasattr(parent, 'app_config') else AppConfig()
         self.plugin_manager = plugin_manager
+        self._busy_worker: Optional[FunctionWorker] = None
         self.setWindowTitle(self.tr("Settings"))
 
         self._setup_ui()
@@ -418,22 +420,47 @@ class SettingsDialog(QDialog):
             text += "\n" + self.tr("Energy management is configured: the AI server may still be waking up.")
         return text
 
+    def _run_in_background(self, function: Any, on_success: Any, on_error: Any) -> None:
+        """
+        Runs a blocking call (AI server, engine) in a worker thread so the dialog
+        stays responsive; the callbacks run in the GUI thread.
+        """
+        if self._busy_worker is not None and self._busy_worker.isRunning():
+            return
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        worker = FunctionWorker(function)
+
+        def finish(callback: Any, value: Any) -> None:
+            self.unsetCursor()
+            callback(value)
+        worker.succeeded.connect(lambda value: finish(on_success, value))
+        worker.failed.connect(lambda error: finish(on_error, error))
+        self._busy_worker = worker
+        worker.start()
+
+    def done(self, result: int) -> None:
+        """Closing while a call runs: drop its result and let the thread end on its own."""
+        worker = self._busy_worker
+        if worker is not None and worker.isRunning():
+            worker.succeeded.disconnect()
+            worker.failed.disconnect()
+            stop_thread(worker, wait_ms=0)
+        super().done(result)
+
     def _test_engine_connection(self) -> None:
         """Checks FluxSense and its AI server (lists models, analyzes nothing)."""
         client = self._create_engine_client()
-        self.setCursor(Qt.CursorShape.WaitCursor)
-        try:
-            health = client.health()
-        except FluxSenseError as e:
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-            if e.error_code in (ERROR_BACKEND_UNREACHABLE, ERROR_BACKEND_TIMEOUT):
+
+        def on_error(e: Exception) -> None:
+            if isinstance(e, FluxSenseError) and e.error_code in (ERROR_BACKEND_UNREACHABLE, ERROR_BACKEND_TIMEOUT):
                 text = self._failure_text(e.error_code, client.server_url())
             else:
                 text = self.tr("FluxSense is not available:") + f"\n{e}"
             show_selectable_message_box(self, self.tr("Connection Failed"), text, icon=QMessageBox.Icon.Critical)
-            return
-        self.setCursor(Qt.CursorShape.ArrowCursor)
 
+        self._run_in_background(client.health, lambda health: self._show_health(client, health), on_error)
+
+    def _show_health(self, client: FluxSenseClient, health: Dict[str, Any]) -> None:
         version = str(health.get("version", "?"))
         if health.get("llm_backend"):
             show_selectable_message_box(self, self.tr("Success"),
@@ -460,15 +487,15 @@ class SettingsDialog(QDialog):
             show_selectable_message_box(self, self.tr("Missing Input"), self.tr("Please enter a signature text first."), icon=QMessageBox.Icon.Warning)
             return
 
-        self.setCursor(Qt.CursorShape.WaitCursor)
-        try:
-            profile = parse_identity_signature(text, self._create_engine_client())
-        except FluxSenseError as e:
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-            show_selectable_message_box(self, self.tr("Error"), self.tr("AI Error: %s") % e, icon=QMessageBox.Icon.Critical)
-            return
-        self.setCursor(Qt.CursorShape.ArrowCursor)
+        client = self._create_engine_client()
+        self._run_in_background(
+            lambda: parse_identity_signature(text, client),
+            lambda profile: self._store_profile(id_type, profile),
+            lambda e: show_selectable_message_box(self, self.tr("Error"), self.tr("AI Error: %s") % e,
+                                                  icon=QMessageBox.Icon.Critical))
 
+    def _store_profile(self, id_type: str, profile: Any) -> None:
+        """Saves an identity profile returned by the engine and shows it."""
         if not profile:
             show_selectable_message_box(self, self.tr("Analysis Failed"), self.tr("AI returned no valid profile."), icon=QMessageBox.Icon.Warning)
             return
