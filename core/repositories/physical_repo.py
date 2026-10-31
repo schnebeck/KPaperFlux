@@ -12,6 +12,7 @@ Description:    Repository for managing persistence of PhysicalFile models in
 """
 
 import json
+import sqlite3
 from typing import List, Optional
 
 from core.models.physical import PhysicalFile
@@ -60,13 +61,10 @@ class PhysicalRepository(BaseRepository):
             file.created_at,
         )
 
-        try:
-            with self.db.transaction():
-                self.conn.execute(sql, values)
-            return True
-        except Exception as e:
-            logger.error(f"Save error: {e}")
-            return False
+        # Errors propagate: a silently failed save left documents half written
+        with self.db.transaction():
+            self.conn.execute(sql, values)
+        return True
 
     def get_by_uuid(self, uuid: str) -> Optional[PhysicalFile]:
         """
@@ -170,6 +168,6 @@ class PhysicalRepository(BaseRepository):
             with self.db.transaction():
                 self.conn.execute("DELETE FROM physical_files WHERE uuid = ?", (uuid,))
             return True
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Delete error: {e}")
             return False

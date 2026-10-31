@@ -329,20 +329,6 @@ class PipelineProcessor:
         canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
         return canonizer.split_entity(entity_uuid, split_after_page_index)
 
-    def restructure_file(self, file_uuid: str, new_mappings: List[List[Dict[str, Any]]]) -> List[str]:
-        """
-        Delegates to CanonizerService to completely restructure a file's entities.
-
-        Args:
-            file_uuid: The UUID of the physical file.
-            new_mappings: List of page mappings for new entities.
-
-        Returns:
-            A list of new entity UUIDs.
-        """
-        canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
-        return canonizer.restructure_file_entities(file_uuid, new_mappings)
-
     def update_entity_structure(self, entity_uuid: str, new_mapping: List[Any]) -> bool:
         """
         Updates the structure (pages/rotation) of an existing entity.
@@ -395,11 +381,8 @@ class PipelineProcessor:
         file_uuids_to_check = [ref.file_uuid for ref in old_doc.source_mapping]
         created_at = old_doc.created_at
 
-        # 1. Delete Original
-        self.logical_repo.delete_by_uuid(original_entity_uuid)
-
-        # 2. Create New
-        new_uuids: List[str] = []
+        # 1. Build the new entities first
+        new_docs: List[VirtualDocument] = []
         for instr in instructions:
             pages_data = instr.get("pages", [])
             if not pages_data:
@@ -441,20 +424,30 @@ class PipelineProcessor:
 
 
             if mapping:
-                new_doc = VirtualDocument(
+                new_docs.append(VirtualDocument(
                     uuid=str(uuid.uuid4()),
                     source_mapping=mapping,
                     status=DocumentStatus.READY_FOR_PIPELINE,
                     created_at=created_at,
                     last_processed_at=datetime.datetime.now().isoformat(),
                     type_tags=["MANUAL_EDIT"],
-                )
-                self.logical_repo.save(new_doc)
-                new_uuids.append(new_doc.uuid)
+                ))
+
+        if not new_docs:
+            # Nothing resolvable: keep the original rather than leaving its pages without a document
+            logger.warning(f"Restructure of {original_entity_uuid} produced no pages; original kept.")
+            return []
+
+        # 2. Replace the original in one transaction (all or nothing)
+        with self.db.transaction():
+            self.logical_repo.delete_by_uuid(original_entity_uuid)
+            for new_doc in new_docs:
+                if not self.logical_repo.save(new_doc):
+                    raise RuntimeError(f"Could not save restructured document {new_doc.uuid}")
 
         # 3. Cleanup
         self.physical_cleanup(file_uuids_to_check)
-        return new_uuids
+        return [doc.uuid for doc in new_docs]
 
     def delete_entity(self, entity_uuid: str, purge: bool = False) -> bool:
         """

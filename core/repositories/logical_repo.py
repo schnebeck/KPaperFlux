@@ -12,6 +12,7 @@ Description:    Repository for managing persistence of VirtualDocument models in
 """
 
 import json
+import sqlite3
 from datetime import date, datetime
 from typing import Any, List, Optional
 
@@ -56,7 +57,10 @@ class LogicalRepository(BaseRepository):
             doc: The VirtualDocument instance to persist.
 
         Returns:
-            True if the operation was successful.
+            True.
+
+        Raises:
+            sqlite3.Error: If the record could not be written.
         """
         # 1. Prepare JSON structures
         mapping_json = doc.to_source_mapping_json()
@@ -130,13 +134,10 @@ class LogicalRepository(BaseRepository):
             doc.process_id
         )
 
-        try:
-            with self.db.transaction():
-                self.conn.execute(sql, values)
-            return True
-        except Exception as e:
-            logger.error(f"Save error: {e}")
-            return False
+        # Errors propagate: a silently failed save left documents half written
+        with self.db.transaction():
+            self.conn.execute(sql, values)
+        return True
 
     def get_by_uuid(self, uuid: str) -> Optional[VirtualDocument]:
         """
@@ -232,7 +233,7 @@ class LogicalRepository(BaseRepository):
             with self.db.transaction():
                 self.conn.execute("DELETE FROM virtual_documents WHERE uuid = ?", (uuid,))
             return True
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Delete error: {e}")
             return False
 
@@ -244,7 +245,7 @@ class LogicalRepository(BaseRepository):
             with self.db.transaction():
                 cursor = self.conn.execute(sql, (int(value), now, uuid))
                 return cursor.rowcount > 0
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"mark_{flag_col} error: {e}")
             return False
 

@@ -188,3 +188,50 @@ def test_stage0_workflow_comprehensive(test_env):
     assert cursor.fetchone()[0] == 0
 
     print("\n[SUCCESS] Stage 0 Comprehensive Integration Test passed.")
+
+
+def test_restructure_without_resolvable_pages_keeps_the_original(tmp_path):
+    from unittest.mock import MagicMock
+    from core.database import DatabaseManager
+    from core.models.virtual import SourceReference, VirtualDocument
+    from core.pipeline import PipelineProcessor
+
+    db = DatabaseManager(str(tmp_path / "restructure.db"))
+    db.init_db()
+    pipeline = PipelineProcessor(vault=MagicMock(), db=db)
+    pipeline.logical_repo.save(VirtualDocument(uuid="orig", source_mapping=[SourceReference(file_uuid="f", pages=[1])]))
+    pipeline.physical_cleanup = MagicMock()
+
+    assert pipeline.apply_restructure_instructions("orig", [{"pages": [{"file_page_index": 0}]}]) == []
+    assert pipeline.logical_repo.get_by_uuid("orig") is not None
+    pipeline.physical_cleanup.assert_not_called()
+
+
+def test_restructure_is_atomic(tmp_path):
+    from unittest.mock import MagicMock
+    import pytest
+    from core.database import DatabaseManager
+    from core.models.virtual import SourceReference, VirtualDocument
+    from core.pipeline import PipelineProcessor
+
+    db = DatabaseManager(str(tmp_path / "restructure.db"))
+    db.init_db()
+    pipeline = PipelineProcessor(vault=MagicMock(), db=db)
+    pipeline.logical_repo.save(VirtualDocument(uuid="orig", source_mapping=[SourceReference(file_uuid="f", pages=[1, 2])]))
+    original_save = pipeline.logical_repo.save
+    calls = []
+
+    def failing_second_save(doc):
+        calls.append(doc.uuid)
+        if len(calls) == 2:
+            raise RuntimeError("disk full")
+        return original_save(doc)
+    pipeline.logical_repo.save = failing_second_save
+
+    instructions = [{"pages": [{"file_uuid": "f", "file_page_index": 0}]},
+                    {"pages": [{"file_uuid": "f", "file_page_index": 1}]}]
+    with pytest.raises(RuntimeError):
+        pipeline.apply_restructure_instructions("orig", instructions)
+
+    rows = db.connection.execute("SELECT uuid FROM virtual_documents").fetchall()
+    assert [tuple(r) for r in rows] == [("orig",)]
