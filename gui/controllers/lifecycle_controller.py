@@ -164,7 +164,7 @@ class LifecycleController(QObject):
         """Permanently delete documents (hard purge, no confirmation)."""
         from gui.utils import show_notification
 
-        count = sum(1 for uid in uuids if self.pipeline.delete_entity(uid))
+        count = sum(1 for uid in uuids if self.pipeline.delete_entity(uid, purge=True))
         if count > 0:
             self.list_refresh_requested.emit()
             show_notification(
