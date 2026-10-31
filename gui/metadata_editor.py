@@ -22,7 +22,7 @@ import io
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.metadata_editor")
-from PyQt6.QtCore import Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QSize, QEvent
+from PyQt6.QtCore import QT_TRANSLATE_NOOP, Qt, pyqtSignal, QSignalBlocker, QDate, QTimer, QSize, QEvent
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 from core.models.types import DocType
@@ -199,18 +199,19 @@ class MetadataEditorWidget(QWidget):
     metadata_saved = pyqtSignal()
     open_workflow_process = pyqtSignal(str, object)   # rule_id, VirtualDocument
 
+    # Marked for pylupdate; translated with self.tr() at display time
     STATUS_MAP = {
-        "NEW": "New",
-        "READY_FOR_PIPELINE": "Ready for Pipeline",
-        "PROCESSING": "Processing",
-        "PROCESSING_S1": "Processing (Stage 1)",
-        "PROCESSING_S1_5": "Processing (Stamps)",
-        "PROCESSING_S2": "Processing (Semantic)",
-        "STAGE1_HOLD": "On Hold (Stage 1)",
-        "STAGE1_5_HOLD": "On Hold (Stamps)",
-        "STAGE2_HOLD": "On Hold (Semantic)",
-        "PROCESSED": "Processed",
-        "ERROR": "Error"
+        "NEW": QT_TRANSLATE_NOOP("MetadataEditorWidget", "New"),
+        "READY_FOR_PIPELINE": QT_TRANSLATE_NOOP("MetadataEditorWidget", "Ready for Pipeline"),
+        "PROCESSING": QT_TRANSLATE_NOOP("MetadataEditorWidget", "Processing"),
+        "PROCESSING_S1": QT_TRANSLATE_NOOP("MetadataEditorWidget", "Processing (Stage 1)"),
+        "PROCESSING_S1_5": QT_TRANSLATE_NOOP("MetadataEditorWidget", "Processing (Stamps)"),
+        "PROCESSING_S2": QT_TRANSLATE_NOOP("MetadataEditorWidget", "Processing (Semantic)"),
+        "STAGE1_HOLD": QT_TRANSLATE_NOOP("MetadataEditorWidget", "On Hold (Stage 1)"),
+        "STAGE1_5_HOLD": QT_TRANSLATE_NOOP("MetadataEditorWidget", "On Hold (Stamps)"),
+        "STAGE2_HOLD": QT_TRANSLATE_NOOP("MetadataEditorWidget", "On Hold (Semantic)"),
+        "PROCESSED": QT_TRANSLATE_NOOP("MetadataEditorWidget", "Processed"),
+        "ERROR": QT_TRANSLATE_NOOP("MetadataEditorWidget", "Error")
     }
 
     def __init__(self, db_manager: Optional[DatabaseManager] = None, pipeline: Optional[Any] = None) -> None:
@@ -1148,10 +1149,10 @@ class MetadataEditorWidget(QWidget):
                  self.chk_locked.setCheckState(Qt.CheckState.PartiallyChecked)
                  self.toggle_lock(False)
 
-        self.uuid_lbl.setText("<Multiple Selected>")
+        self.uuid_lbl.setText(self.tr("<Multiple Selected>"))
         self.created_at_lbl.setText("-")
         pages = sum((d.page_count or 0) for d in docs)
-        self.page_count_lbl.setText(f"Total: {pages}")
+        self.page_count_lbl.setText(self.tr("Total: %s") % pages)
 
         statuses = {getattr(d, "status", "NEW") for d in docs}
         if len(statuses) == 1:
@@ -1164,18 +1165,18 @@ class MetadataEditorWidget(QWidget):
                 self.status_combo.setCurrentText(stat) # Fallback if not in list
         else:
             self.status_combo.setCurrentIndex(-1) # No selection
-            self.status_combo.setPlaceholderText("<Multiple Values>")
+            self.status_combo.setPlaceholderText(self.tr("<Multiple Values>"))
 
         self.export_filename_edit.clear()
-        self.export_filename_edit.setPlaceholderText("<Multiple Values>")
+        self.export_filename_edit.setPlaceholderText(self.tr("<Multiple Values>"))
 
         self.sender_edit.clear()
-        self.sender_edit.setPlaceholderText("<Multiple Values>")
+        self.sender_edit.setPlaceholderText(self.tr("<Multiple Values>"))
 
         self.archived_chk.setTristate(True)
         self.archived_chk.setCheckState(Qt.CheckState.PartiallyChecked)
         self.storage_location_edit.clear()
-        self.storage_location_edit.setPlaceholderText("<Multiple Values>")
+        self.storage_location_edit.setPlaceholderText(self.tr("<Multiple Values>"))
 
         self.source_viewer.setPlainText(self.tr("%n document(s) selected.", "", len(docs)))
         self.semantic_viewer.setPlainText("-")
@@ -1660,10 +1661,9 @@ class MetadataEditorWidget(QWidget):
                     # Update Button Text
                     btn = self.semantic_table.cellWidget(row, 2)
                     if isinstance(btn, QPushButton):
-                        btn.setText(f"Open Table ({len(new_data)} items)")
+                        btn.setText(self.tr("Open Table (%n item(s))", "", len(new_data)))
 
-                    # Mark as dirty?
-                    self.save_btn.setEnabled(True)
+                    self._mark_dirty()
             except Exception as e:
                 show_selectable_message_box(self, "Error", f"Could not open nested editor: {e}")
         return callback
@@ -1758,7 +1758,7 @@ class MetadataEditorWidget(QWidget):
 
                 if type_hint == "NESTED_TABLE":
                     data_obj = json.loads(val)
-                    btn = QPushButton(f"Open Table ({len(data_obj)} items)")
+                    btn = QPushButton(self.tr("Open Table (%n item(s))", "", len(data_obj)))
                     # Connect with closure capturing current row and key
                     btn.clicked.connect(self._make_nested_editor_callback(key_path, val, row))
                     self.semantic_table.setCellWidget(row, 2, btn)

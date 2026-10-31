@@ -1,6 +1,9 @@
 
 import ast
+import re
 from pathlib import Path
+from typing import Optional
+
 import pytest
 
 class SilentFailureVisitor(ast.NodeVisitor):
@@ -184,6 +187,50 @@ def test_tr_uses_own_context():
                     + "\n".join(violations) + "\n\nHint: use self.tr() in a QObject subclass.")
 
 
+UI_TEXT_SETTERS = {"setText", "setToolTip", "setWindowTitle", "setPlaceholderText", "setTitle", "showMessage",
+                   "setStatusTip", "addAction", "addMenu"}
+UI_TEXT_WIDGETS = {"QLabel", "QPushButton", "QCheckBox", "QGroupBox", "QAction", "QRadioButton", "QToolButton", "QMenu"}
+# Literals that are not user-facing text
+UI_TEXT_ALLOWED = {"KPaperFlux v2", "KPaperFlux_Page_Move", "iban, total_gross, …"}
+
+
+def _literal_ui_text(node: ast.AST) -> Optional[str]:
+    """The visible words of a string literal or f-string (HTML tags removed), if any."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        text = node.value
+    elif isinstance(node, ast.JoinedStr):
+        text = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
+    else:
+        return None
+    if text in UI_TEXT_ALLOWED:
+        return None
+    visible = re.sub(r"<[^>]*>", "", text)
+    return text if re.search(r"[A-Za-zÄÖÜäöü]{3,}", visible) else None
+
+
+def test_ui_text_is_translatable():
+    """
+    Quality Gate: user-facing text passed to widgets must go through tr().
+    A literal in setText()/QLabel()/setToolTip() etc. stays English in every language.
+    """
+    root_dir = Path(__file__).parent.parent
+    violations = []
+    for base in ("gui", "plugins"):
+        for py_file in sorted((root_dir / base).rglob("*.py")):
+            tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call) or not node.args:
+                    continue
+                name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+                if name in UI_TEXT_SETTERS or name in UI_TEXT_WIDGETS:
+                    text = _literal_ui_text(node.args[0])
+                    if text:
+                        violations.append(f"  - {py_file.relative_to(root_dir)}:{node.lineno}: {name}({text[:50]!r})")
+    if violations:
+        pytest.fail("Quality Gate Failed: untranslated UI text!\n" + "\n".join(violations)
+                    + "\n\nHint: wrap the text in self.tr().")
+
+
 if __name__ == "__main__":
     # Allow running this script directly
     test_no_bare_except()
@@ -191,3 +238,4 @@ if __name__ == "__main__":
     test_no_fstring_in_tr()
     test_pyflakes_clean()
     test_tr_uses_own_context()
+    test_ui_text_is_translatable()

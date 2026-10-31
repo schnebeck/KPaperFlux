@@ -243,14 +243,14 @@ class ControlsOverlay(QWidget):
         # ROTATE BUTTON (Top Left)
         btn_rot = ReliefButton("↻")
         btn_rot.clicked.connect(self.callback_rotate)
-        btn_rot.setToolTip("Rotate 90°")
+        btn_rot.setToolTip(self.tr("Rotate 90°"))
         layout.addWidget(btn_rot)
 
         layout.addStretch()
 
         # MOVE HANDLE (Middle)
         self.btn_move = ReliefButton("↔")
-        self.btn_move.setToolTip("Drag to Move Page")
+        self.btn_move.setToolTip(self.tr("Drag to Move Page"))
         layout.addWidget(self.btn_move)
 
         layout.addStretch()
@@ -258,7 +258,7 @@ class ControlsOverlay(QWidget):
         # DELETE BUTTON (Top Right)
         btn_del = ReliefButton("✕")
         btn_del.clicked.connect(self.callback_delete)
-        btn_del.setToolTip("Delete / Restore Page")
+        btn_del.setToolTip(self.tr("Delete / Restore Page"))
         layout.addWidget(btn_del)
 
         # Size Policy: Expanding Width
@@ -315,7 +315,7 @@ class PageThumbnailWidget(QWidget):
         self.lbl_img.setStyleSheet("border: none; background: transparent;")
         self.lbl_img.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.lbl_img.setMinimumSize(0, 0)
-        self.lbl_img.setText("Loading...")
+        self.lbl_img.setText(self.tr("Loading..."))
 
         self.img_layout.addWidget(self.lbl_img)
         self.layout.addWidget(self.img_container)
@@ -385,13 +385,13 @@ class PageThumbnailWidget(QWidget):
             self.last_drawn_height = 0
             self.resizeEvent(None)
         else:
-            self.lbl_img.setText("Error")
+            self.lbl_img.setText(self.tr("Error"))
 
     def unload_content(self):
         if not self.loaded: return
         self.original_pixmap = None
         self.lbl_img.clear()
-        self.lbl_img.setText("Loading...")
+        self.lbl_img.setText(self.tr("Loading..."))
         self.loaded = False
 
     def _fetch_pixmap(self) -> QPixmap:

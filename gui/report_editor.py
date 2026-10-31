@@ -132,9 +132,9 @@ class ReportEditorWidget(QWidget):
         config_layout.addWidget(self.agg_table)
         
         btn_agg_layout = QHBoxLayout()
-        self.btn_add_agg = QPushButton("+ Add Aggregation")
+        self.btn_add_agg = QPushButton(self.tr("+ Add Aggregation"))
         self.btn_add_agg.clicked.connect(self._add_agg_row)
-        self.btn_del_agg = QPushButton("- Remove Selected")
+        self.btn_del_agg = QPushButton(self.tr("- Remove Selected"))
         self.btn_del_agg.clicked.connect(self._remove_agg_row)
         btn_agg_layout.addWidget(self.btn_add_agg)
         btn_agg_layout.addWidget(self.btn_del_agg)

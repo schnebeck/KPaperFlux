@@ -165,7 +165,7 @@ class AuditWindow(QMainWindow):
         self.workflow_controls_container.setVisible(not enabled)
         self.btn_close.setVisible(enabled)
         if enabled:
-            self.setWindowTitle(f"DEBUG: {self.windowTitle()}")
+            self.setWindowTitle(self.tr("DEBUG: %s") % self.windowTitle())
 
     def write_settings(self):
         """Saves current window layout to persistent storage."""
@@ -225,12 +225,12 @@ class AuditWindow(QMainWindow):
             self._render_worker.start()
         else:
             self.render_view.setHtml("<div style='text-align: center; padding-top: 100px; color: #666; font-style: italic;'>"
-                                     "Keine semantischen Daten vorhanden.</div>")
+                                     + self.tr("No semantic data available.") + "</div>")
             self.right_stack.setCurrentWidget(self.render_view)
 
         # Update Workflow & Title Immediately
         self._refresh_workflow_controls()
-        self.setWindowTitle(f"Audit: {doc.original_filename or doc.uuid}")
+        self.setWindowTitle(self.tr("Audit: %s") % (doc.original_filename or doc.uuid))
 
     def _refresh_workflow_controls(self):
         """Updates workflow control widgets based on current_doc's workflows dict."""

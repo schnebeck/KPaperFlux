@@ -46,7 +46,7 @@ class BatchTagDialog(QDialog):
         
         # Extra Force Remove
         self.extra_remove = QLineEdit()
-        self.extra_remove.setPlaceholderText("Optional: Tags to strip from everyone...")
+        self.extra_remove.setPlaceholderText(self.tr("Optional: Tags to strip from everyone..."))
         self.extra_remove.setCompleter(MultiTagCompleter(self.available_tags, self))
         form.addRow(self.tr("Force Remove Mixed:"), self.extra_remove)
         

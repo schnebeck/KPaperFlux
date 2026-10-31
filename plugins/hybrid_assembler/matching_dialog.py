@@ -578,7 +578,7 @@ class MatchingDialog(QDialog):
         path = res.get("output_path")
         if path and os.path.exists(path):
             dlg = ComparisonDialog(self)
-            dlg.setWindowTitle(f"Preview: {os.path.basename(path)}")
+            dlg.setWindowTitle(self.tr("Preview: %s") % os.path.basename(path))
             dlg.load_comparison(path, path)
             dlg.exec()
 

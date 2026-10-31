@@ -17,7 +17,7 @@ import math
 from collections import deque
 from typing import Callable, Dict, List, Optional, Tuple
 
-from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import (
     QBrush, QColor, QFont, QPainter, QPainterPath,
     QPainterPathStroker, QPen, QPolygonF, QCursor,
@@ -974,8 +974,11 @@ class CtrlHandle(QGraphicsItem):
         event.accept()
 
     def hoverEnterEvent(self, event) -> None:
-        side = "source" if self._which == "ctrl1" else "target"
-        self.setToolTip(f"Drag to reshape curve ({side} side) · Double-click to reset")
+        if self._which == "ctrl1":
+            tip = QCoreApplication.translate("WorkflowGraph", "Drag to reshape curve (source side) · Double-click to reset")
+        else:
+            tip = QCoreApplication.translate("WorkflowGraph", "Drag to reshape curve (target side) · Double-click to reset")
+        self.setToolTip(tip)
         self.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
 
     def hoverLeaveEvent(self, event) -> None:
