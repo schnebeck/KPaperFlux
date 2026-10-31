@@ -18,6 +18,7 @@ from typing import Any, Optional, Union, List, Dict
 
 import cv2
 import fitz
+from PyQt6 import sip
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer, QObject
 from core.logger import get_logger, get_silent_logger
 
@@ -57,7 +58,8 @@ def stop_thread(thread: Optional[QThread], wait_ms: int = 2000) -> bool:
     timer.setInterval(500)
 
     def release() -> None:
-        if not thread.isRunning():
+        # The owner may already have deleted the finished thread (deleteLater on QThread.finished)
+        if sip.isdeleted(thread) or not thread.isRunning():
             timer.stop()
             _detached_threads.discard(thread)
     timer.timeout.connect(release)

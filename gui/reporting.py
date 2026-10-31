@@ -18,13 +18,15 @@ from core.exporters.pdf_report import PdfReportGenerator
 from core.exchange import ExchangeService
 from gui.report_editor import ReportEditorWidget
 from gui.utils import show_notification, show_selectable_message_box
+from gui.workers import stop_thread
 
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("gui.reporting")
 
 class ReportWorker(QThread):
-    finished = pyqtSignal(dict)
+    # Not named 'finished': QThread.finished must stay available for the cleanup after run()
+    results_ready = pyqtSignal(dict)
     error = pyqtSignal(str)
 
     def __init__(self, repo_gen, db_manager, definition):
@@ -36,7 +38,7 @@ class ReportWorker(QThread):
     def run(self):
         try:
             results = self.repo_gen.run_custom_report(self.db_manager, self.definition)
-            self.finished.emit(results)
+            self.results_ready.emit(results)
         except Exception as e:
             self.error.emit(str(e))
 
@@ -411,14 +413,13 @@ class ReportingWidget(QWidget):
     def _stop_all_workers(self) -> None:
         """Stops and cleans up all pending report workers."""
         for worker in list(self.pending_workers):
-            try:
-                worker.finished.disconnect()
+            try:  # results of a hidden view are stale
+                worker.results_ready.disconnect()
                 worker.error.disconnect()
-            except RuntimeError:
+            except TypeError:
                 logger.debug("Signal already disconnected during worker cleanup.")
-            worker.quit()
-            worker.wait(1000)
-            worker.deleteLater()
+            # A running report is not interrupted; it ends on its own and is deleted then
+            stop_thread(worker, wait_ms=1000)
         self.pending_workers.clear()
 
     def hideEvent(self, event) -> None:
@@ -804,17 +805,19 @@ class ReportingWidget(QWidget):
             self.active_definitions.append(definition)
             
         worker = ReportWorker(self.repo_gen, self.db_manager, definition)
-        worker.finished.connect(lambda res, d=definition, w=worker: self._on_report_finished(res, d, w))
+        worker.results_ready.connect(lambda res, d=definition, w=worker: self._on_report_finished(res, d, w))
         worker.error.connect(lambda err, w=worker: self._on_report_error(err, w))
-        worker.finished.connect(worker.deleteLater)
+        # QThread.finished: run() has returned, so the thread may be released and deleted
+        worker.finished.connect(lambda w=worker: self._release_worker(w))
         self.pending_workers.append(worker)
         worker.start()
 
-    def _on_report_finished(self, results, definition, worker):
+    def _release_worker(self, worker: ReportWorker) -> None:
         if worker in self.pending_workers:
             self.pending_workers.remove(worker)
-        worker.finished.disconnect()
-        worker.error.disconnect()
+        worker.deleteLater()
+
+    def _on_report_finished(self, results, definition, worker):
 
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.combo_reports.setEnabled(True)
@@ -827,11 +830,6 @@ class ReportingWidget(QWidget):
         self.render_report(results, definition)
 
     def _on_report_error(self, error_msg, worker):
-        if worker in self.pending_workers:
-            self.pending_workers.remove(worker)
-        worker.finished.disconnect()
-        worker.error.disconnect()
-        worker.deleteLater()
 
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.combo_reports.setEnabled(True)
