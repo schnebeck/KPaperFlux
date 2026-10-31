@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QCom
     QFormLayout, QFrame
 )
 from gui.utils import show_selectable_message_box
+from gui.workers import stop_thread
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer, QSettings
 from PyQt6.QtGui import QPixmap
 from typing import Optional, List
@@ -123,6 +124,25 @@ def nearest_resolution(available: List[int], target: int) -> Optional[int]:
 
 
 class ScannerDialog(QDialog):
+    def done(self, result: int) -> None:
+        """
+        Closing while device discovery or a scan runs: detach the workers so their
+        late signals do not reach the deleted dialog; they end on their own.
+        """
+        for worker in (self.discovery_worker, self.cap_worker, self.worker):
+            if worker is not None and worker.isRunning():
+                for signal in ("finished", "error", "progress_update"):
+                    if hasattr(worker, signal):
+                        try:
+                            getattr(worker, signal).disconnect()
+                        except TypeError:
+                            logger.debug(f"{type(worker).__name__}.{signal} had no connections")
+                stop_thread(worker, wait_ms=0)
+        super().done(result)
+
+    def _adjust_size_later(self, msec: int) -> None:
+        self._resize_timer.start(msec)
+
     def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Scanner"))
@@ -134,6 +154,13 @@ class ScannerDialog(QDialog):
         self.discovery_running = False
         self.detail_loading = False
         self.device_caps = {} # Current device's sources/resolutions
+        self.discovery_worker: Optional[QThread] = None
+        self.cap_worker: Optional[QThread] = None
+        self.worker: Optional[QThread] = None
+        # Owned by the dialog: a pending resize dies with it (a bare singleShot would hit a deleted dialog)
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.timeout.connect(self.adjustSize)
         
         # Resolve icon path relative to project root
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -370,7 +397,7 @@ class ScannerDialog(QDialog):
             logger.debug(f"capabilities loaded (Foreground): {list(caps.get('resolutions', {}).keys())}")
             self._apply_capabilities(caps)
             self.stack.setCurrentIndex(1)
-            QTimer.singleShot(100, self.adjustSize)
+            self._adjust_size_later(100)
         else:
             logger.debug("capabilities refreshed (Background)")
             # If we loaded in background, update CMDS if we are currently on the same device
@@ -442,7 +469,7 @@ class ScannerDialog(QDialog):
         
         self.dpi_combo.blockSignals(False)
         self.dpi_combo.setEnabled(True)
-        QTimer.singleShot(50, self.adjustSize)
+        self._adjust_size_later(50)
             
     def _start_discovery(self) -> None:
         if self.discovery_running: return
@@ -457,7 +484,7 @@ class ScannerDialog(QDialog):
         self.loading_label.setText(self.tr("Suche nach Scannern..."))
         self.search_progress.setVisible(True)
         self.stack.setCurrentIndex(0) # Back to loading page
-        QTimer.singleShot(50, self.adjustSize)
+        self._adjust_size_later(50)
         self._start_discovery()
         
     def _on_devices_found(self, devices) -> None:
@@ -489,7 +516,7 @@ class ScannerDialog(QDialog):
             
             if self.stack.currentIndex() == 0:
                 self.stack.setCurrentIndex(1)
-                QTimer.singleShot(100, self.adjustSize)
+                self._adjust_size_later(100)
             
     def _on_discovery_error(self, msg) -> None:
         self.discovery_running = False
