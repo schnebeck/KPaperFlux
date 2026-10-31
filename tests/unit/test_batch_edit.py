@@ -257,3 +257,40 @@ def test_nested_table_edit_marks_editor_dirty(editor):
     assert editor.is_dirty()
     assert editor.semantic_table.cellWidget(0, 2).text() == "Open Table (2 item(s))"
     assert "b" in editor.semantic_table.item(0, 2).text()
+
+
+def _saved_bodies(mock_db) -> dict:
+    _, updates = mock_db.update_document_metadata.call_args.args
+    return updates["semantic_data"].bodies
+
+
+def test_subscription_tab_edit_is_saved(editor, mock_db):
+    editor.display_documents([_invoice("doc-a", "Sender A", "10.00", [], "NEW")])
+    editor.chk_sub_recurring.setChecked(True)
+
+    with patch("gui.metadata_editor.show_notification"):
+        editor.save_changes()
+
+    assert _saved_bodies(mock_db)["subscription_info"].is_recurring is True
+
+
+def test_document_without_contract_data_gets_no_legal_body(editor, mock_db):
+    editor.display_documents([_invoice("doc-a", "Sender A", "10.00", [], "NEW")])
+    editor.storage_location_edit.setText("Box A")
+
+    with patch("gui.metadata_editor.show_notification"):
+        editor.save_changes()
+
+    bodies = _saved_bodies(mock_db)
+    assert "legal_body" not in bodies
+    assert "subscription_info" not in bodies
+
+
+def test_payment_tab_edit_wins_over_unchanged_subscription_tab(editor, mock_db):
+    editor.display_documents([_invoice("doc-a", "Sender A", "10.00", [], "NEW")])
+    editor.chk_pay_recurring.setChecked(True)
+
+    with patch("gui.metadata_editor.show_notification"):
+        editor.save_changes()
+
+    assert _saved_bodies(mock_db)["subscription_info"].is_recurring is True

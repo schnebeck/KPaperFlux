@@ -226,6 +226,8 @@ class MetadataEditorWidget(QWidget):
         self._batch_baseline: dict[str, Any] = {}
         # True while the shown values differ from the database
         self._dirty = False
+        # Payment and subscription tab both edit subscription_info; the edited one wins
+        self._pay_subscription_edited = False
         
         # Debounce timer for GiroCode updates
         self.giro_timer = QTimer()
@@ -914,6 +916,10 @@ class MetadataEditorWidget(QWidget):
 
         # Connect Change Signals for Dirty Tracking
         self.status_combo.currentIndexChanged.connect(self._mark_dirty)
+        for signal in (self.chk_pay_recurring.toggled, self.pay_freq_combo.currentIndexChanged,
+                       self.pay_service_start_edit.dateChanged, self.pay_service_end_edit.dateChanged,
+                       self.pay_next_billing_edit.dateChanged):
+            signal.connect(self._on_pay_subscription_edited)
         self.export_filename_edit.textChanged.connect(self._mark_dirty)
         self.tags_edit.tagsChanged.connect(self._mark_dirty)
         self.doc_types_combo.selectionChanged.connect(self._mark_dirty)
@@ -1035,6 +1041,10 @@ class MetadataEditorWidget(QWidget):
         self._dirty = False
         self.btn_save.setEnabled(False)
         self.btn_save.setStyleSheet("")
+
+    def _on_pay_subscription_edited(self, *_args: Any) -> None:
+        if not getattr(self, "_locked_for_load", False):
+            self._pay_subscription_edited = True
 
     def is_dirty(self) -> bool:
         """True while the editor holds changes that are not saved yet."""
@@ -1305,6 +1315,7 @@ class MetadataEditorWidget(QWidget):
         self.current_uuids = [doc.uuid]
         self.doc = doc
         self._batch_docs = []
+        self._pay_subscription_edited = False
 
         with QSignalBlocker(self.chk_locked):
              self.chk_locked.setChecked(doc.is_immutable)
@@ -2247,28 +2258,34 @@ class MetadataEditorWidget(QWidget):
             }
         }
         
-        if "bodies" not in sd_dict_final: sd_dict_final["bodies"] = {}
-        sd_dict_final["bodies"]["subscription_info"] = sub_info
-        
-        # Merge legal_body into existing one if present to preserve issuer/beneficiary not in UI
-        existing_legal = sd_dict_final["bodies"].get("legal_body") or {}
-        existing_legal.update({k: v for k, v in legal_body.items() if v is not None})
-        sd_dict_final["bodies"]["legal_body"] = existing_legal
+        bodies = sd_dict_final.setdefault("bodies", {})
 
-        # 4. Payment Tab Subscription Persistence (Legacy)
-        if self.chk_pay_recurring.isChecked():
-            pay_sub_info = {
-                "is_recurring": True,
-                "frequency": self.pay_freq_combo.currentData(),
-                "service_period_start": self._get_qdate_str(self.pay_service_start_edit),
-                "service_period_end": self._get_qdate_str(self.pay_service_end_edit),
-                "next_billing_date": self._get_qdate_str(self.pay_next_billing_edit)
-            }
-            if "bodies" not in sd_dict_final: sd_dict_final["bodies"] = {}
-            sd_dict_final["bodies"]["subscription_info"] = pay_sub_info
+        # Legal body: only what the user entered, merged into an existing one
+        # (keeps issuer/beneficiary that the UI does not show)
+        legal_values = {k: v for k, v in legal_body.items() if v is not None and k != "notice_period"}
+        notice = legal_body["notice_period"]
+        if notice["value"] is not None or notice["original_text"]:
+            legal_values["notice_period"] = notice
+        if legal_values or bodies.get("legal_body"):
+            bodies["legal_body"] = {**(bodies.get("legal_body") or {}), **legal_values}
+
+        # 4. Subscription: the subscription tab, unless the payment tab's copy was edited
+        if self._pay_subscription_edited:
+            if self.chk_pay_recurring.isChecked():
+                bodies["subscription_info"] = {
+                    "is_recurring": True,
+                    "frequency": self.pay_freq_combo.currentData(),
+                    "service_period_start": self._get_qdate_str(self.pay_service_start_edit),
+                    "service_period_end": self._get_qdate_str(self.pay_service_end_edit),
+                    "next_billing_date": self._get_qdate_str(self.pay_next_billing_edit)
+                }
+            else:
+                bodies.pop("subscription_info", None)
+        elif sub_info["is_recurring"] or any(sub_info[k] for k in (
+                "next_billing_date", "service_period_start", "service_period_end")):
+            bodies["subscription_info"] = sub_info
         else:
-            if "bodies" in sd_dict_final:
-                sd_dict_final["bodies"].pop("subscription_info", None)
+            bodies.pop("subscription_info", None)
 
         # 5. Semantic Table Persistence (Mapping Back)
         for r in range(self.semantic_table.rowCount()):
