@@ -198,3 +198,15 @@ def test_saving_an_existing_group_keeps_memberships_and_children(repo):
     assert repo.get_by_id(parent.id).name == "Renamed"
     assert repo.get_document_uuids_in_group(parent.id) == ["doc-1"]
     assert repo.get_by_id(child.id).parent_id == parent.id
+
+
+def test_memberships_of_purged_documents_are_removed(repo):
+    db = repo.db
+    db.connection.execute("INSERT INTO virtual_documents (uuid) VALUES ('doc-purged')")
+    db.connection.commit()
+    group = repo.create("Group")
+    repo.add_membership("doc-purged", group.id)
+
+    db.purge_document("doc-purged")
+
+    assert repo.get_document_uuids_in_group(group.id) == []

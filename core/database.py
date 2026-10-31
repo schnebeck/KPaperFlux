@@ -1196,6 +1196,11 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             END;
             """,
             """
+            CREATE TRIGGER IF NOT EXISTS virtual_documents_group_cleanup AFTER DELETE ON virtual_documents BEGIN
+                DELETE FROM document_group_memberships WHERE document_uuid = old.uuid;
+            END;
+            """,
+            """
             CREATE TRIGGER IF NOT EXISTS virtual_documents_au AFTER UPDATE ON virtual_documents
             WHEN (old.export_filename IS NOT new.export_filename OR
                   old.type_tags IS NOT new.type_tags OR

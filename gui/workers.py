@@ -105,20 +105,23 @@ class BatchTaggingWorker(QThread):
         total = len(uuids)
 
         modified_count = 0
-        for i, uuid in enumerate(uuids):
-            if self.is_cancelled:
-                break
+        try:
+            for i, uuid in enumerate(uuids):
+                if self.is_cancelled:
+                    break
 
-            v_doc = repo.get_by_uuid(uuid)
-            if v_doc:
-                if engine.apply_rules_to_entity(v_doc, rules):
-                    repo.save(v_doc)
-                    modified_count += 1
+                v_doc = repo.get_by_uuid(uuid)
+                if v_doc:
+                    if engine.apply_rules_to_entity(v_doc, rules):
+                        repo.save(v_doc)
+                        modified_count += 1
 
-            if i % 10 == 0:
-                self.progress.emit(i + 1, total)
-
-        self.finished.emit(modified_count)
+                if i % 10 == 0:
+                    self.progress.emit(i + 1, total)
+        except Exception as e:  # never leave the progress dialog waiting
+            logger.error(f"Batch tagging failed: {e}", exc_info=True)
+        finally:
+            self.finished.emit(modified_count)
 
     def cancel(self) -> None:
         self.is_cancelled = True

@@ -225,10 +225,12 @@ class DocumentStamper:
             if "/Contents" not in first_page:
                 first_page.Contents = do_cmd_stream
             else:
-                if isinstance(first_page.Contents, (pikepdf.Array, list)):
-                    first_page.Contents.append(do_cmd_stream)
-                else:
-                    first_page.Contents = pikepdf.Array([first_page.Contents, do_cmd_stream])
+                # Wrap the page content in q/Q: a content stream that leaves a transformation
+                # or clipping active would otherwise move or clip the stamp
+                existing = list(first_page.Contents) if isinstance(first_page.Contents, pikepdf.Array) \
+                    else [first_page.Contents]
+                first_page.Contents = pikepdf.Array([target_pdf.make_stream(b"q\n"), *existing,
+                                                     target_pdf.make_stream(b"\nQ\n"), do_cmd_stream])
 
             target_pdf.save(output_path)
             target_pdf.close()

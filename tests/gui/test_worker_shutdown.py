@@ -137,3 +137,16 @@ def test_global_purge_is_refused_while_analysis_runs(window):
     assert loop.stopped
     assert box.call_count == 2  # confirmation, then "analysis running"
     restart.assert_called_once()
+
+
+def test_batch_tagging_reports_finished_even_on_errors():
+    from unittest.mock import MagicMock, patch
+
+    worker = workers.BatchTaggingWorker(MagicMock(), MagicMock(), rules=[MagicMock()], uuids=["a", "b"])
+    results = []
+    worker.finished.connect(results.append)
+    with patch("gui.workers.LogicalRepository") as repo_cls:
+        repo_cls.return_value.get_by_uuid.side_effect = RuntimeError("database locked")
+        worker.run()
+
+    assert results == [0]
