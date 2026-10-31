@@ -134,6 +134,8 @@ def fill():
         "Keep older duplicates (%s)": "Ältere Dubletten behalten (%s)",
         "Really delete %n duplicates?": ("%n Dublette wirklich löschen?", "%n Dubletten wirklich löschen?"),
         "Analyze Again": "Erneut analysieren",
+        "Edit List: %s": "Liste bearbeiten: %s",
+        "Could not open nested editor: %s": "Der Tabelleneditor konnte nicht geöffnet werden: %s",
         'DEBUG: %s': 'DEBUG: %s',
         'No semantic data available.': 'Keine semantischen Daten vorhanden.',
         'Audit: %s': 'Prüfung: %s',

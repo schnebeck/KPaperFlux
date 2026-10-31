@@ -1024,7 +1024,7 @@ Prüfen Sie, ob das Vault-Laufwerk eingehängt und das richtige Profil geöffnet
         </message>
         <message numerus="yes">
             <source>%n error(s) occurred during reprocessing. Check logs.</source>
-            <translation>
+            <translation type="vanished">
                 <numerusform>Bei der Neuverarbeitung ist %n Fehler aufgetreten. Details im Log.</numerusform>
                 <numerusform>Bei der Neuverarbeitung sind %n Fehler aufgetreten. Details im Log.</numerusform>
             </translation>
@@ -1081,7 +1081,7 @@ Hintergrundverarbeitung gestartet.</translation>
         </message>
         <message numerus="yes">
             <source>Stamp applied to %n document(s).</source>
-            <translation>
+            <translation type="vanished">
                 <numerusform>Stempel auf %n Dokument angebracht.</numerusform>
                 <numerusform>Stempel auf %n Dokumenten angebracht.</numerusform>
             </translation>
@@ -1135,7 +1135,7 @@ Hintergrundverarbeitung gestartet.</translation>
         </message>
         <message numerus="yes">
             <source>Restored %n document(s).</source>
-            <translation>
+            <translation type="vanished">
                 <numerusform>%n Dokument wiederhergestellt.</numerusform>
                 <numerusform>%n Dokumente wiederhergestellt.</numerusform>
             </translation>
@@ -1150,21 +1150,21 @@ Hintergrundverarbeitung gestartet.</translation>
         </message>
         <message numerus="yes">
             <source>Archived %n document(s)</source>
-            <translation>
+            <translation type="vanished">
                 <numerusform>%n Dokument archiviert</numerusform>
                 <numerusform>%n Dokumente archiviert</numerusform>
             </translation>
         </message>
         <message numerus="yes">
             <source>Restored %n document(s) from Archive</source>
-            <translation>
+            <translation type="vanished">
                 <numerusform>%n Dokument aus dem Archiv wiederhergestellt</numerusform>
                 <numerusform>%n Dokumente aus dem Archiv wiederhergestellt</numerusform>
             </translation>
         </message>
         <message numerus="yes">
             <source>Permanently deleted %n document(s).</source>
-            <translation>
+            <translation type="vanished">
                 <numerusform>%n Dokument endgültig gelöscht.</numerusform>
                 <numerusform>%n Dokumente endgültig gelöscht.</numerusform>
             </translation>
@@ -3331,14 +3331,14 @@ Hintergrundverarbeitung gestartet.</translation>
         </message>
         <message numerus="yes">
             <source>Archived %n document(s)</source>
-            <translation>
+            <translation type="vanished">
                 <numerusform>%n Dokument archiviert</numerusform>
                 <numerusform>%n Dokumente archiviert</numerusform>
             </translation>
         </message>
         <message numerus="yes">
             <source>Restored %n document(s) from Archive</source>
-            <translation>
+            <translation type="vanished">
                 <numerusform>%n Dokument aus dem Archiv wiederhergestellt</numerusform>
                 <numerusform>%n Dokumente aus dem Archiv wiederhergestellt</numerusform>
             </translation>
@@ -4148,6 +4148,7 @@ Sind Sie sicher?</translation>
             <translation>Verarbeitet</translation>
         </message>
         <message>
+            <location filename="../../../gui/metadata_editor.py" line="1668" />
             <location filename="../../../gui/metadata_editor.py" line="214" />
             <source>Error</source>
             <translation>Fehler</translation>
@@ -4670,6 +4671,11 @@ Sind Sie sicher?</translation>
             <source>No source mapping available.</source>
             <translation>Keine Quell-Zuordnung verfügbar.</translation>
         </message>
+        <message>
+            <location filename="../../../gui/metadata_editor.py" line="1652" />
+            <source>Edit List: %s</source>
+            <translation>Liste bearbeiten: %s</translation>
+        </message>
         <message numerus="yes">
             <location filename="../../../gui/metadata_editor.py" line="1761" />
             <location filename="../../../gui/metadata_editor.py" line="1664" />
@@ -4678,6 +4684,11 @@ Sind Sie sicher?</translation>
                 <numerusform>Tabelle öffnen (%n Eintrag)</numerusform>
                 <numerusform>Tabelle öffnen (%n Einträge)</numerusform>
             </translation>
+        </message>
+        <message>
+            <location filename="../../../gui/metadata_editor.py" line="1668" />
+            <source>Could not open nested editor: %s</source>
+            <translation>Der Tabelleneditor konnte nicht geöffnet werden: %s</translation>
         </message>
         <message>
             <location filename="../../../gui/metadata_editor.py" line="1794" />

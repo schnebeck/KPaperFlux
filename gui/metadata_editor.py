@@ -1649,7 +1649,7 @@ class MetadataEditorWidget(QWidget):
 
                 data = json.loads(current_json)
                 is_read_only = self.chk_locked.isChecked()
-                dlg = NestedTableDialog(data, f"Edit List: {key_path}", self, read_only=is_read_only)
+                dlg = NestedTableDialog(data, self.tr("Edit List: %s") % key_path, self, read_only=is_read_only)
                 if dlg.exec():
                     new_data = dlg.get_data()
                     new_json = json.dumps(new_data, ensure_ascii=False, default=str)
@@ -1665,7 +1665,7 @@ class MetadataEditorWidget(QWidget):
 
                     self._mark_dirty()
             except Exception as e:
-                show_selectable_message_box(self, "Error", f"Could not open nested editor: {e}")
+                show_selectable_message_box(self, self.tr("Error"), self.tr("Could not open nested editor: %s") % e)
         return callback
 
     def _populate_semantic_table(self, sd: Dict):

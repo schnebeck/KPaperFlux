@@ -236,3 +236,24 @@ def test_unrecognised_direction_does_not_keep_previous_selection(editor):
 
     assert editor.direction_combo.currentData() == "Unknown"
     assert editor.context_combo.currentData() == "Unknown"
+
+
+def test_nested_table_edit_marks_editor_dirty(editor):
+    from PyQt6.QtWidgets import QPushButton, QTableWidgetItem
+
+    editor.display_documents([_invoice("doc-a", "Sender A", "10.00", [], "NEW")])
+    editor.semantic_table.setRowCount(1)
+    editor.semantic_table.setItem(0, 2, QTableWidgetItem('[{"name": "a"}]'))
+    editor.semantic_table.setCellWidget(0, 2, QPushButton())
+    callback = editor._make_nested_editor_callback("finance.line_items", '[{"name": "a"}]', 0)
+
+    with patch("gui.metadata_editor.NestedTableDialog") as dialog, \
+         patch("gui.metadata_editor.show_selectable_message_box") as error_box:
+        dialog.return_value.exec.return_value = True
+        dialog.return_value.get_data.return_value = [{"name": "a"}, {"name": "b"}]
+        callback()
+
+    error_box.assert_not_called()
+    assert editor.is_dirty()
+    assert editor.semantic_table.cellWidget(0, 2).text() == "Open Table (2 item(s))"
+    assert "b" in editor.semantic_table.item(0, 2).text()
