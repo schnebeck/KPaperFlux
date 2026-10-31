@@ -610,7 +610,8 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         """Executes a SELECT query and returns a list of hydrated Document objects."""
         cursor = self.connection.cursor()
         cursor.execute(sql, params)
-        return [self._hydrator.hydrate(row) for row in cursor.fetchall()]
+        docs = (self._hydrator.hydrate(row) for row in cursor.fetchall())
+        return [doc for doc in docs if doc is not None]  # a broken row is logged by the hydrator
 
     def search_documents(self, search_text: str) -> List[Document]:
         """

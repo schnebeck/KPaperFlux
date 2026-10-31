@@ -11,10 +11,10 @@ Description:    Item delegate that paints tags as colored pills in the
 """
 
 import json
-from pathlib import Path
 from PyQt6.QtWidgets import QWidget, QStyledItemDelegate, QStyle
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
+from core.paths import RESOURCES_DIR
 from core.logger import get_logger
 from typing import Optional
 
@@ -30,7 +30,7 @@ class TagDelegate(QStyledItemDelegate):
 
     def _load_styles(self):
         try:
-            path = Path("resources") / "tag_styles.json"
+            path = RESOURCES_DIR / "tag_styles.json"
             if path.exists():
                 with open(path, "r") as f:
                     return json.load(f)

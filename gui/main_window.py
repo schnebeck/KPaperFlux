@@ -23,6 +23,7 @@ import os
 import sys
 import tempfile
 import json
+from core.paths import RESOURCES_DIR
 from core.logger import get_logger, get_silent_logger
 from PyQt6.QtCore import QEvent
 
@@ -127,7 +128,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.filter_config_path = self.app_config.get_config_dir() / "filter_tree.json"
 
         self.setWindowTitle(self.tr("KPaperFlux"))
-        self.setWindowIcon(QIcon("resources/icon.png"))
+        self.setWindowIcon(QIcon(str(RESOURCES_DIR / "icon.png")))
         self.resize(1000, 700)
         self.setAcceptDrops(True)
 

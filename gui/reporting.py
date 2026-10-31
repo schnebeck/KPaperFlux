@@ -746,6 +746,8 @@ class ReportingWidget(QWidget):
             rid = rid.replace("default_", "custom_")
             config["id"] = rid
                         
+        rid = Path(str(rid)).name or "imported"  # an imported id must not leave the reports directory
+        config["id"] = rid
         out_path = Path(self.report_dir) / f"{rid}.json"
         try:
             with open(out_path, "w", encoding="utf-8") as f:
@@ -1052,7 +1054,7 @@ class ReportingWidget(QWidget):
         timer.start(1000)
 
     def _save_report(self, definition) -> None:
-        path = Path(self.report_dir) / f"{definition.id}.json"
+        path = Path(self.report_dir) / f"{Path(definition.id).name}.json"
         try:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(definition.model_dump_json(indent=2))

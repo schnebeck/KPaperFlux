@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 from PyQt6.QtCore import QSettings, QStandardPaths
 
+from core.paths import RESOURCES_DIR
 from core.logger import get_logger
 
 
@@ -66,7 +67,7 @@ class AppConfig:
     MAX_ANALYSIS_CONCURRENCY: int = 4
 
     APP_ID: str = "kpaperflux"
-    BUNDLED_RESOURCES_DIR: Path = Path(__file__).resolve().parent.parent / "resources"
+    BUNDLED_RESOURCES_DIR: Path = RESOURCES_DIR
     _active_profile: Optional[str] = None
 
     def __init__(self, profile: Optional[str] = None) -> None:

@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, Optional, List
+from core.paths import RESOURCES_DIR
 from core.models.semantic import SemanticExtraction
 from core.logger import get_logger
 from core.utils.formatting import format_currency, format_date
@@ -26,7 +27,7 @@ class SemanticRenderer:
     using external JSON templates for maximum flexibility.
     """
     
-    def __init__(self, l10n_dir: str = "resources/l10n", locale: str = "de") -> None:
+    def __init__(self, l10n_dir: str = str(RESOURCES_DIR / "l10n"), locale: str = "de") -> None:
         # Normalize locale to 2-letter code (de_DE -> de)
         self.locale = locale.split("_")[0].lower()
         self.l10n_dir = l10n_dir

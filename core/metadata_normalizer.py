@@ -16,6 +16,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Generator
 
+from core.paths import RESOURCES_DIR
 from core.models.virtual import VirtualDocument as Document
 
 from core.logger import get_logger
@@ -141,7 +142,7 @@ class MetadataNormalizer:
         """
         if cls._config is None:
             # Try to resolve relative to this file or root
-            path = os.path.join("resources", "type_definitions.json")
+            path = str(RESOURCES_DIR / "type_definitions.json")
             if os.path.exists(path):
                 try:
                     with open(path, "r", encoding="utf-8") as f:

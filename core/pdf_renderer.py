@@ -25,6 +25,7 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
+from core.paths import RESOURCES_DIR
 from core.models.semantic import SemanticExtraction
 from core.logger import get_logger
 from core.utils.formatting import format_currency
@@ -86,7 +87,7 @@ class ProfessionalPdfRenderer:
 
     def _load_unit_codes(self) -> dict:
         for loc in [self.locale, "en"]:
-            path = Path("resources") / "l10n" / loc / "units.json"
+            path = RESOURCES_DIR / "l10n" / loc / "units.json"
             if path.exists():
                 try:
                     with open(path, "r", encoding="utf-8") as f: return json.load(f)

@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QTranslator, QCoreApplication
 from PyQt6.QtGui import QIcon
 
+from core.paths import RESOURCES_DIR
 from core.vault import DocumentVault
 from core.database import DatabaseManager
 from core.pipeline import PipelineProcessor
@@ -80,7 +81,7 @@ def main() -> None:
         
     QCoreApplication.setOrganizationName("kpaperflux")
     QCoreApplication.setApplicationName(app_id)
-    app.setWindowIcon(QIcon("resources/icon.png"))
+    app.setWindowIcon(QIcon(str(RESOURCES_DIR / "icon.png")))
     
     app_config = AppConfig(profile=args.profile)
 
