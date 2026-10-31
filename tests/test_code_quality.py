@@ -48,6 +48,23 @@ def get_python_files(root_dir):
             python_files.append(path)
     return python_files
 
+def test_no_bare_except():
+    """
+    Quality Gate: Fails on bare 'except:' clauses. They also catch KeyboardInterrupt
+    and SystemExit and hide which errors a block really expects.
+    """
+    root_dir = Path(__file__).parent.parent
+    violations = []
+    for py_file in [*get_python_files(root_dir), root_dir / "main.py"]:
+        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ExceptHandler) and node.type is None:
+                violations.append(f"  - {py_file.relative_to(root_dir)}:{node.lineno}")
+    if violations:
+        pytest.fail("Quality Gate Failed: bare 'except:' found!\n" + "\n".join(violations)
+                    + "\n\nHint: catch the specific exceptions the block expects.")
+
+
 def test_no_silent_except_pass():
     """
     Quality Gate: Fails if any 'try: ... except: pass' (or ...) blocks are found.
@@ -59,16 +76,11 @@ def test_no_silent_except_pass():
     all_violations = []
     
     for py_file in py_files:
-        try:
-            content = py_file.read_text(encoding="utf-8")
-            tree = ast.parse(content)
-            visitor = SilentFailureVisitor(str(py_file.relative_to(root_dir)))
-            visitor.visit(tree)
-            all_violations.extend(visitor.violations)
-        except Exception as e:
-            # If we can't parse a file, we skip it (might be a template or invalid py)
-            print(f"Skipping {py_file} due to parse error: {e}")
-            
+        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+        visitor = SilentFailureVisitor(str(py_file.relative_to(root_dir)))
+        visitor.visit(tree)
+        all_violations.extend(visitor.violations)
+
     if all_violations:
         msg = "\n".join([f"  - {f}:{l} -> Illegal 'except: pass' block found." for f, l in all_violations])
         pytest.fail(f"Quality Gate Failed: Silent exceptions detected!\n{msg}\n\nHint: Replace 'pass' with at least a logger.warning() or logger.debug() call.")
@@ -105,14 +117,10 @@ def test_no_fstring_in_tr():
     all_violations = []
 
     for py_file in py_files:
-        try:
-            content = py_file.read_text(encoding="utf-8")
-            tree = ast.parse(content)
-            visitor = TrFstringVisitor(str(py_file.relative_to(root_dir)))
-            visitor.visit(tree)
-            all_violations.extend(visitor.violations)
-        except Exception as e:
-            print(f"Skipping {py_file} due to parse error: {e}")
+        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+        visitor = TrFstringVisitor(str(py_file.relative_to(root_dir)))
+        visitor.visit(tree)
+        all_violations.extend(visitor.violations)
 
     if all_violations:
         msg = "\n".join([f"  - {f}:{l} -> tr(f\"...\") found." for f, l in all_violations])
@@ -122,13 +130,13 @@ def test_no_fstring_in_tr():
         )
 
 
-def test_no_undefined_names():
+def test_pyflakes_clean():
     """
-    Quality Gate: Fails if pyflakes finds an undefined name (missing import, typo).
-    Such names only raise NameError when the code path runs, e.g. a rarely used menu action.
+    Quality Gate: Fails on any pyflakes finding. Undefined names only raise NameError
+    when the code path runs (e.g. a rarely used menu action); unused imports and
+    variables, duplicate dict keys and broken format strings hide real mistakes.
     """
     from pyflakes.api import check
-    from pyflakes.messages import UndefinedName
     from pyflakes.reporter import Reporter
 
     class _Collector(Reporter):
@@ -136,8 +144,7 @@ def test_no_undefined_names():
             self.messages: list = []
 
         def flake(self, message) -> None:
-            if isinstance(message, UndefinedName):
-                self.messages.append(message)
+            self.messages.append(message)
 
         def syntaxError(self, filename, msg, lineno, offset, text) -> None:
             self.messages.append(f"{filename}:{lineno}: syntax error: {msg}")
@@ -152,7 +159,7 @@ def test_no_undefined_names():
 
     if collector.messages:
         msg = "\n".join(f"  - {m}" for m in collector.messages)
-        pytest.fail(f"Quality Gate Failed: undefined names detected!\n{msg}")
+        pytest.fail(f"Quality Gate Failed: pyflakes findings!\n{msg}")
 
 
 def test_tr_uses_own_context():
@@ -179,7 +186,8 @@ def test_tr_uses_own_context():
 
 if __name__ == "__main__":
     # Allow running this script directly
+    test_no_bare_except()
     test_no_silent_except_pass()
     test_no_fstring_in_tr()
-    test_no_undefined_names()
+    test_pyflakes_clean()
     test_tr_uses_own_context()
