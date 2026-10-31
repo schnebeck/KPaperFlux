@@ -13,8 +13,8 @@ Description:    Repository for managing persistence of VirtualDocument models in
 
 import json
 import sqlite3
-from datetime import date, datetime
-from typing import Any, List, Optional
+from datetime import datetime
+from typing import List, Optional
 
 from core.models.virtual import VirtualDocument
 
@@ -23,24 +23,6 @@ from .base import BaseRepository
 from core.logger import get_logger
 logger = get_logger("repositories.logical")
 
-from decimal import Decimal
-from pydantic import BaseModel
-
-
-class EnhancedJSONEncoder(json.JSONEncoder):
-    """
-    Custom JSON encoder to handle datetime, date, Decimal, and Pydantic models.
-    Ensures that semantic data remains serializable even with complex types.
-    """
-
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        if isinstance(obj, Decimal):
-            return float(obj)
-        if isinstance(obj, BaseModel):
-            return obj.model_dump()
-        return super().default(obj)
 
 
 class LogicalRepository(BaseRepository):
@@ -64,7 +46,8 @@ class LogicalRepository(BaseRepository):
         """
         # 1. Prepare JSON structures
         mapping_json = doc.to_source_mapping_json()
-        semantic_json = json.dumps(doc.semantic_data, cls=EnhancedJSONEncoder) if doc.semantic_data else None
+        # Same serialisation as DatabaseManager.update_document_metadata (Decimal as exact string)
+        semantic_json = doc.semantic_data.model_dump_json() if doc.semantic_data else None
         type_tags_json = json.dumps(doc.type_tags) if doc.type_tags else None
         tags_json = json.dumps(doc.tags) if doc.tags else None
 

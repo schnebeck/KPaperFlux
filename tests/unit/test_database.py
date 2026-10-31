@@ -131,3 +131,25 @@ def test_nested_transactions_are_atomic(memory_db):
 
     rows = memory_db.connection.execute("SELECT uuid FROM virtual_documents").fetchall()
     assert rows == []
+
+
+def test_amount_filter_matches_both_save_paths(memory_db, logical_repo):
+    """Repository save and update_document_metadata store Decimals alike; numeric filters compare numbers."""
+    from decimal import Decimal
+    from core.models.semantic import FinanceBody, MonetarySummation
+
+    def sd(total: str) -> SemanticExtraction:
+        return SemanticExtraction(bodies={"finance_body": FinanceBody(
+            monetary_summation=MonetarySummation(grand_total_amount=Decimal(total)))})
+    logical_repo.save(VirtualDocument(uuid="via-repo", semantic_data=sd("120.50"),
+                                      source_mapping=[SourceReference(file_uuid="f", pages=[1])]))
+    logical_repo.save(VirtualDocument(uuid="via-update", source_mapping=[SourceReference(file_uuid="f", pages=[1])]))
+    memory_db.update_document_metadata("via-update", {"semantic_data": sd("130.00")})
+
+    stored = [r[0] for r in memory_db.connection.execute(
+        "SELECT json_type(semantic_data, '$.bodies.finance_body.monetary_summation.grand_total_amount') "
+        "FROM virtual_documents ORDER BY uuid")]
+    assert stored[0] == stored[1]
+
+    query = {"field": "semantic:bodies.finance_body.monetary_summation.grand_total_amount", "op": "lt", "value": 1000}
+    assert sorted(d.uuid for d in memory_db.search_documents_advanced(query)) == ["via-repo", "via-update"]

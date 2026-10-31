@@ -14,6 +14,7 @@ Description:    Pure SQL fragment builder for structured filter query dicts.
 
 import re
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from core.logger import get_logger
@@ -100,6 +101,17 @@ class QueryBuilder:
     })
     _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
     _JSON_PATH = re.compile(r"[\w\-\[\]]+(\.[\w\-\[\]]+)*")
+
+    @staticmethod
+    def _as_number(val: Any) -> Optional[float]:
+        """The value as a number for comparisons, None for text and dates."""
+        if isinstance(val, bool):
+            return None
+        if isinstance(val, (int, float, Decimal)):
+            return float(val)
+        if isinstance(val, str) and re.fullmatch(r"-?\d+(\.\d+)?", val.strip()):
+            return float(val)
+        return None
 
     @classmethod
     def referenced_fields(cls, node: Dict[str, Any]) -> Set[str]:
@@ -254,6 +266,10 @@ class QueryBuilder:
 
         if op in ("gt", "gte", "lt", "lte"):
             sql_ops = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
+            number = self._as_number(val)
+            if number is not None:
+                # JSON numbers and numeric strings (Decimal) compare as numbers
+                return f"CAST({expr} AS REAL) {sql_ops[op]} ?", [number]
             return f"{expr} {sql_ops[op]} ?", [val]
 
         if op == "is_empty":

@@ -40,7 +40,6 @@ from core.models.semantic import (
     VisualAuditResult,
 )
 from core.models.virtual import SourceReference, VirtualDocument
-from core.repositories.logical_repo import EnhancedJSONEncoder
 
 FIXTURE = Path(__file__).parent.parent / "resources" / "fluxsense" / "synthetic_stack_result.json"
 
@@ -218,12 +217,12 @@ def test_contract_round_trip_through_repository_json(result: Dict[str, Any], pag
     """semantic_data survives the DB JSON encoding and re-hydration with engine state intact."""
     invoice, statement, _ = adapt_result(result, page_refs)
     for entity in (invoice, statement):
-        raw = json.loads(json.dumps(entity.semantic, cls=EnhancedJSONEncoder))
+        raw = json.loads(entity.semantic.model_dump_json())
         restored = SemanticExtraction.model_validate(raw)
         assert restored.engine is not None
         assert restored.engine.model_dump() == entity.semantic.engine.model_dump()
         assert type(restored.bodies[next(iter(restored.bodies))]) in (FinanceBody, StatementBody)
-    restored = SemanticExtraction.model_validate(json.loads(json.dumps(invoice.semantic, cls=EnhancedJSONEncoder)))
+    restored = SemanticExtraction.model_validate_json(invoice.semantic.model_dump_json())
     assert restored.bodies["finance_body"].monetary_summation.grand_total_amount == Decimal("357.0")
 
 
