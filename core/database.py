@@ -24,7 +24,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
 
 from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction
@@ -1269,79 +1269,56 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         with self._write() as conn:
             self.execute(sql, tuple(vals))
 
+    def _rewrite_user_tags(self, match: List[str], rewrite: Callable[[List[str]], List[str]]) -> int:
+        """
+        Applies *rewrite* to the user tags of every document that carries one of *match*.
+        All changes are written in one transaction.
+
+        Returns:
+            The number of documents modified.
+        """
+        if not match:
+            return 0
+        placeholders = ", ".join("?" for _ in match)
+        sql_find = f"""
+            SELECT uuid, tags FROM virtual_documents
+            WHERE json_valid(tags) AND EXISTS (
+                SELECT 1 FROM json_each(virtual_documents.tags) WHERE value IN ({placeholders})
+            )
+        """
+        count = 0
+        with self._write() as conn:
+            for uid, tags_json in conn.execute(sql_find, tuple(match)).fetchall():
+                tags = json.loads(tags_json)
+                new_tags = list(dict.fromkeys(rewrite(tags)))
+                if new_tags != tags:
+                    conn.execute("UPDATE virtual_documents SET tags = ? WHERE uuid = ?",
+                                 (json.dumps(new_tags), uid))
+                    count += 1
+        return count
+
     def rename_tag(self, old_tag: str, new_tag: str) -> int:
         """
         Renames a tag across all documents.
         Returns the number of documents modified.
         """
-        cursor = self.connection.cursor()
-        sql_find = "SELECT uuid, tags FROM virtual_documents WHERE tags LIKE ?"
-        cursor.execute(sql_find, (f'%"%s"%' % old_tag.replace('"', '""'),))
-        rows = cursor.fetchall()
-        
-        count = 0
-        for uid, tags_json in rows:
-            try:
-                tags = json.loads(tags_json or "[]")
-                if old_tag in tags:
-                    # Replace
-                    tags = [new_tag if t == old_tag else t for t in tags]
-                    # Unique
-                    tags = list(dict.fromkeys(tags))
-                    self.update_document_metadata(uid, {"tags": tags})
-                    count += 1
-            except Exception:
-                continue
-        return count
+        return self._rewrite_user_tags([old_tag], lambda tags: [new_tag if t == old_tag else t for t in tags])
 
     def delete_tag(self, tag: str) -> int:
         """
         Removes a tag from all documents.
+        Returns the number of documents modified.
         """
-        cursor = self.connection.cursor()
-        sql_find = "SELECT uuid, tags FROM virtual_documents WHERE tags LIKE ?"
-        cursor.execute(sql_find, (f'%"%s"%' % tag.replace('"', '""'),))
-        rows = cursor.fetchall()
-        
-        count = 0
-        for uid, tags_json in rows:
-            try:
-                tags = json.loads(tags_json or "[]")
-                if tag in tags:
-                    tags = [t for t in tags if t != tag]
-                    self.update_document_metadata(uid, {"tags": tags})
-                    count += 1
-            except Exception:
-                continue
-        return count
+        return self._rewrite_user_tags([tag], lambda tags: [t for t in tags if t != tag])
 
     def merge_tags(self, tags_to_merge: List[str], target_tag: str) -> int:
         """
         Merges multiple tags into a single target tag.
+        Returns the number of documents modified.
         """
-        cursor = self.connection.cursor()
-        sql_find = "SELECT uuid, tags FROM virtual_documents"
-        cursor.execute(sql_find)
-        rows = cursor.fetchall()
-        
-        count = 0
         merge_set = set(tags_to_merge)
-        for uid, tags_json in rows:
-            try:
-                tags = json.loads(tags_json or "[]")
-                current_set = set(tags)
-                if current_set.intersection(merge_set):
-                    # Remove merging tags
-                    new_tags = [t for t in tags if t not in merge_set]
-                    # Add target if not present
-                    if target_tag not in new_tags:
-                        new_tags.append(target_tag)
-                    
-                    self.update_document_metadata(uid, {"tags": new_tags})
-                    count += 1
-            except Exception:
-                continue
-        return count
+        return self._rewrite_user_tags(
+            list(merge_set), lambda tags: [t for t in tags if t not in merge_set] + [target_tag])
 
     # --- Saved Layouts ---
 
