@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tools/l10n_tool.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Programmatic editor of the translation catalog used by
+                fill_l10n.py.
+------------------------------------------------------------------------------
+"""
+
 import xml.etree.ElementTree as ET
 import os
 from pathlib import Path

@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/utils.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    GUI helpers: localized date formatting, message boxes,
+                notifications and opening files.
+------------------------------------------------------------------------------
+"""
+
 import subprocess
 import shutil
 from datetime import datetime, date

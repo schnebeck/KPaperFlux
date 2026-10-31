@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/widgets/filter_condition.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    One filter condition row: field, operator, value and remove
+                button.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QPushButton, QComboBox,
                              QLineEdit, QStackedWidget, QMenu, QCheckBox,
                              QSizePolicy)

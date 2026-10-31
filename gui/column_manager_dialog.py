@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/column_manager_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Dialog to choose, order and rename the columns of the document
+                list.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, 
                              QPushButton, QLabel, QComboBox, QDialogButtonBox, QMessageBox)
 from PyQt6.QtCore import Qt

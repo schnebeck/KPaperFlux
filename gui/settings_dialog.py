@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/settings_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Settings dialog: language, vault and transfer paths, analysis
+                engine connection and logging.
+------------------------------------------------------------------------------
+"""
+
 import sys
 from typing import Optional
 

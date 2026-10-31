@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/semantic_renderer.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Renders semantic data into human-readable text using JSON
+                templates per locale.
+------------------------------------------------------------------------------
+"""
+
 import json
 from pathlib import Path
 from datetime import datetime

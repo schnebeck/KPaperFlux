@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/batch_tag_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Dialog to add or remove user tags on several selected
+                documents at once.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (
     QWidget, QDialog, QVBoxLayout, QLabel, QLineEdit, 
     QDialogButtonBox, QFormLayout, QGroupBox

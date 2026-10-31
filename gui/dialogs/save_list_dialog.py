@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/dialogs/save_list_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Dialog to save the current filter as a named list.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout, QLabel, QLineEdit, QCheckBox, QDialogButtonBox, QMessageBox
 from gui.utils import show_selectable_message_box
 from typing import Optional

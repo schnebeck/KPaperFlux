@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/l10n_registry.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Strings that are only built at runtime, registered here so
+                pylupdate6 extracts them.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtCore import QObject
 
 class L10nMarker(QObject):

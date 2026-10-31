@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/widgets/filter_group.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Group of filter conditions or nested groups joined by AND/OR.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QComboBox, QFrame)
 from PyQt6.QtCore import pyqtSignal, QEvent

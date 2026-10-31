@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/delegates/tag_delegate.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Item delegate that paints tags as colored pills in the
+                document list.
+------------------------------------------------------------------------------
+"""
 
 import json
 from pathlib import Path

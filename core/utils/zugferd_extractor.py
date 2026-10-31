@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/utils/zugferd_extractor.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Detects and extracts embedded ZUGFeRD / Factur-X XML from PDF
+                files (used by developer scripts).
+------------------------------------------------------------------------------
+"""
 
 import fitz  # PyMuPDF
 from typing import Optional, Dict, Any

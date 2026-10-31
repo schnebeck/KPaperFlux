@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/widgets/multi_select_combo.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Combo box that selects several items via checkboxes.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import QWidget, QComboBox, QStylePainter, QStyleOptionComboBox, QStyle
 from PyQt6.QtGui import QPaintEvent, QStandardItemModel, QStandardItem, QPalette
 from PyQt6.QtCore import Qt, pyqtSignal

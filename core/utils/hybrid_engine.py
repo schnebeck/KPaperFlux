@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/utils/hybrid_engine.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Image-based matching and alignment of native PDFs with their
+                scans (ORB features, homography, difference masks).
+------------------------------------------------------------------------------
+"""
 
 import cv2
 import numpy as np

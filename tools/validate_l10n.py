@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tools/validate_l10n.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Checks the .ts translation files in resources/l10n for XML
+                integrity.
+------------------------------------------------------------------------------
+"""
+
 #!/usr/bin/env python3
 import xml.etree.ElementTree as ET
 import sys

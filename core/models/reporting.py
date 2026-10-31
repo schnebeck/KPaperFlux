@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/models/reporting.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Pydantic models of report definitions: aggregations, visual
+                components and the definition itself.
+------------------------------------------------------------------------------
+"""
 
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field

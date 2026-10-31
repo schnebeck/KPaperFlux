@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/widgets/splitter_strip.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Page strip of the splitter: thumbnails, split dividers, drag
+                and drop, rotation, deletion and undo.
+------------------------------------------------------------------------------
+"""
+
 from typing import Optional
 
 from PyQt6.QtWidgets import (

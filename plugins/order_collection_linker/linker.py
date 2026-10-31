@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           plugins/order_collection_linker/linker.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Plugin that links documents of one order chain (offer, order,
+                invoice) into collections.
+------------------------------------------------------------------------------
+"""
 
 import re
 import uuid

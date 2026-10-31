@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/vocabulary_settings.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Settings widget for the vocabulary: document types, tags and
+                their aliases.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (    QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, 
     QLabel, QGroupBox, QTableWidget, QTableWidgetItem, QHeaderView,
     QInputDialog, QMessageBox

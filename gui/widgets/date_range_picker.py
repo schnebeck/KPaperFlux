@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/widgets/date_range_picker.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Widget to choose a date filter: a date, the last N days, a
+                custom range or a month.
+------------------------------------------------------------------------------
+"""
 
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QComboBox, QDateEdit, QStackedWidget, 
                              QLabel)

@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           plugins/hybrid_assembler/plugin.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Plugin that assembles hybrid PDFs from native text layers and
+                scanned signatures or stamps.
+------------------------------------------------------------------------------
+"""
 
 import cv2
 import fitz

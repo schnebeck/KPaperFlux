@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/filter_widget.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Simple filter widget for date, document type and tags.
+------------------------------------------------------------------------------
+"""
 
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QDateEdit, QComboBox, 

@@ -1,3 +1,13 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/completers.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Completers for comma-separated tag input.
+------------------------------------------------------------------------------
+"""
 
 from PyQt6.QtWidgets import QCompleter
 from PyQt6.QtCore import Qt

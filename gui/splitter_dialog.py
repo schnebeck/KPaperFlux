@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/splitter_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Dialog that hosts the page strip for splitting, reordering and
+                rotating document pages.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (
     QWidget, QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QLabel,
     QMessageBox, QApplication

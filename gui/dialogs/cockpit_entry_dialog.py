@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/dialogs/cockpit_entry_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Dialog to create or edit a cockpit card (title, filter,
+                aggregation, color).
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QComboBox, QColorDialog)
 from PyQt6.QtCore import Qt

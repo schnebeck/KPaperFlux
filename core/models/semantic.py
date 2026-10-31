@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/models/semantic.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Pydantic models of the semantic layer: meta header, EN 16931
+                finance and other bodies, workflows, engine review state.
+------------------------------------------------------------------------------
+"""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional

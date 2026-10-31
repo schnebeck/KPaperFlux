@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/maintenance_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Maintenance dialog for vault integrity: entries without files
+                and files without entries.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QListWidget,
     QPushButton, QHBoxLayout, QMessageBox, QLabel, QListWidgetItem

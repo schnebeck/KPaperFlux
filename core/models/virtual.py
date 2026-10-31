@@ -1,3 +1,16 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/models/virtual.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    VirtualDocument (logical document over pages of physical
+                files), its source mapping, pipeline status values and row
+                mapping.
+------------------------------------------------------------------------------
+"""
+
 import json
 import sqlite3
 import uuid

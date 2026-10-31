@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/filter_manager.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Manager for the filter tree: folders, saved lists and their
+                import/export.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,                              QWidget, QLineEdit, QPushButton, QSplitter, QLabel, QMessageBox, QMenu,
                              QInputDialog, QTextEdit, QStyle, QFileDialog)
 from gui.utils import show_selectable_message_box

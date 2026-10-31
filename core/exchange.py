@@ -1,3 +1,16 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/exchange.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Exchange format for portable KPaperFlux data (filters,
+                reports, layouts): JSON payloads in standalone files or
+                embedded in PDFs.
+------------------------------------------------------------------------------
+"""
+
 from typing import Any, Dict, Optional
 import fitz  # PyMuPDF
 from pydantic import BaseModel

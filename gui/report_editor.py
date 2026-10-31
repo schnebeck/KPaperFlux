@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/report_editor.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Editor for a single report definition with an integrated
+                filter builder.
+------------------------------------------------------------------------------
+"""
 
 import os
 import json

@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/reporting.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Reporting view: runs report definitions in the background and
+                renders charts, tables and layouts.
+------------------------------------------------------------------------------
+"""
+
 import json
 import math
 from pathlib import Path

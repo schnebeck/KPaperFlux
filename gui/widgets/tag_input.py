@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/widgets/tag_input.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Tag input with removable pills and completion.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QLineEdit, QLabel, 
                              QPushButton, QFrame, QScrollArea)
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent

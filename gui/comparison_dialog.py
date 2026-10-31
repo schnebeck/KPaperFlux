@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/comparison_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Modal dialog for the side-by-side comparison of two documents.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QFrame
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtCore import QSettings, pyqtSignal

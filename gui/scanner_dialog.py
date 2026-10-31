@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/scanner_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Scanner dialog: device discovery, capabilities (sources,
+                resolutions) and scanning via the scanner driver.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import (    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
     QPushButton, QProgressBar, QMessageBox, QStackedWidget, QWidget,
     QFormLayout, QFrame

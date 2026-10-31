@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           plugins/hybrid_assembler/matching_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Hybrid assembler dialog: matches scans to native PDFs in the
+                background and merges them into hybrid PDFs.
+------------------------------------------------------------------------------
+"""
+
 import os
 import glob
 from concurrent.futures import ThreadPoolExecutor

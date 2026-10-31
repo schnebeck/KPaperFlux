@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/audit_window.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Non-modal audit window: the document beside a rendered report
+                of its semantic data, with workflow controls.
+------------------------------------------------------------------------------
+"""
+
 from core.logger import get_logger, get_silent_logger
 from PyQt6.QtGui import QCloseEvent
 

@@ -1,3 +1,14 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           core/utils/formatting.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Locale-aware formatting of currency amounts and dates.
+------------------------------------------------------------------------------
+"""
+
 from decimal import Decimal
 from datetime import datetime
 from typing import Any, Union

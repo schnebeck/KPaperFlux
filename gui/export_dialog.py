@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/export_dialog.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Export dialog and background worker for CSV, Excel/ZIP and
+                merged PDF exports.
+------------------------------------------------------------------------------
+"""
+
 from typing import Callable, Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal

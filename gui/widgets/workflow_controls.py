@@ -1,3 +1,15 @@
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           gui/widgets/workflow_controls.py
+Version:        1.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Antigravity
+Description:    Workflow controls of the metadata editor: current state,
+                transition buttons and progress.
+------------------------------------------------------------------------------
+"""
+
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QMenu
 from PyQt6.QtCore import pyqtSignal
 from core.workflow import WorkflowRuleRegistry, WorkflowEngine, WorkflowState, StateType
