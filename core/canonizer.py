@@ -31,12 +31,13 @@ from core.engines.fluxsense_adapter import (
     adapt_result,
     engine_error_info,
     flatten_source_mapping,
+    map_pages_to_source,
     page_texts_from_result,
     user_message,
 )
 from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, create_fluxsense_client
 from core.models.identity import IdentityProfile
-from core.models.semantic import SemanticExtraction, WorkflowInfo
+from core.models.semantic import EngineInfo, SemanticExtraction, WorkflowInfo
 from core.models.virtual import SourceReference, VirtualDocument, DocumentStatus
 from core.reanalysis import carry_over_user_state
 from core.repositories.logical_repo import LogicalRepository
@@ -567,11 +568,32 @@ class CanonizerService:
             self.logical_repo.save(v_doc)
             return True
 
-        for idx, entity in enumerate(entities):
-            target_doc = v_doc if idx == 0 else VirtualDocument(
-                uuid=str(uuid.uuid4()), status=DocumentStatus.NEW, created_at=v_doc.created_at)
-            self._apply_entity(target_doc, entity)
+        covered = {page for entity in entities for page in entity.pages}
+        uncovered = [page for page in range(1, len(job.page_refs) + 1) if page not in covered]
+        # One transaction: a split is applied completely or not at all
+        with self.db.transaction():
+            for idx, entity in enumerate(entities):
+                target_doc = v_doc if idx == 0 else VirtualDocument(
+                    uuid=str(uuid.uuid4()), status=DocumentStatus.NEW, created_at=v_doc.created_at)
+                self._apply_entity(target_doc, entity)
+            if uncovered:
+                self._hold_remainder(v_doc, uncovered, job.page_refs)
         return True
+
+    def _hold_remainder(self, v_doc: VirtualDocument, pages: List[int], page_refs: List[PageRef]) -> None:
+        """
+        Keeps pages the engine assigned to no document in a held document of their
+        own, so they stay visible; 'Reprocess' analyzes them again.
+        """
+        message = f"The analysis assigned pages {pages} to no document; they are kept here for review."
+        logger.warning(f"{v_doc.uuid}: {message}")
+        remainder = VirtualDocument(
+            uuid=str(uuid.uuid4()), status=DocumentStatus.STAGE1_HOLD, created_at=v_doc.created_at,
+            source_mapping=map_pages_to_source(pages, page_refs),
+            semantic_data=SemanticExtraction(engine=EngineInfo(name="fluxsense", status="PARTIAL", errors=[message])),
+            last_processed_at=datetime.now().isoformat(),
+        )
+        self.logical_repo.save(remainder)
 
     def process_virtual_document(self, v_doc: VirtualDocument) -> bool:
         """

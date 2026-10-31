@@ -752,3 +752,43 @@ def test_image_only_file_is_kept_not_purged(db: DatabaseManager, physical_pdf: P
     service.logical_repo.save(v_doc)
     assert service.process_virtual_document(v_doc) is True
     assert service.logical_repo.get_by_uuid("doc-1").status == DocumentStatus.SKIPPED_EMPTY
+
+
+def test_pages_left_out_by_the_engine_are_kept_in_a_held_document(db: DatabaseManager, physical_pdf: Path,
+                                                                    stack_result: Dict[str, Any]) -> None:
+    partial = copy.deepcopy(stack_result)
+    partial["logical_documents"] = partial["logical_documents"][:2]  # page 5 belongs to no document
+    service = _service(db, FakeClient([partial]))
+    v_doc = _ingest(service, physical_pdf, [1, 2, 3, 4, 5])
+
+    assert service.process_virtual_document(v_doc) is True
+
+    docs = _all_docs(service)
+    assert [d.source_mapping[0].pages for d in docs] == [[1, 2], [3, 4], [5]]
+    remainder = docs[-1]
+    assert remainder.status == DocumentStatus.STAGE1_HOLD
+    assert "[5]" in remainder.semantic_data.engine.errors[0]
+
+
+def test_split_is_applied_atomically(db: DatabaseManager, physical_pdf: Path, stack_result: Dict[str, Any]) -> None:
+    """If writing one part of a split fails, no part is written."""
+    service = _service(db, FakeClient([stack_result]))
+    v_doc = _ingest(service, physical_pdf, [1, 2, 3, 4, 5])
+    job = service.begin_analysis(v_doc)
+    outcome = service.run_analysis(job)
+    original_apply = service._apply_entity
+    calls = []
+
+    def failing_second(target_doc, entity):
+        calls.append(target_doc.uuid)
+        if len(calls) == 2:
+            raise OSError("disk full")
+        original_apply(target_doc, entity)
+    service._apply_entity = failing_second
+
+    with pytest.raises(OSError):
+        service.finish_analysis(job, outcome)
+
+    docs = _all_docs(service)
+    assert len(docs) == 1
+    assert docs[0].source_mapping[0].pages == [1, 2, 3, 4, 5]
