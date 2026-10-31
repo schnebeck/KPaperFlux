@@ -13,7 +13,7 @@ from typing import Optional, List, Any, Dict
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog,
     QMessageBox, QSplitter, QCheckBox, QDialog, QDialogButtonBox, QStatusBar,
-    QStackedWidget, QProgressDialog,
+    QStackedWidget, QProgressDialog, QApplication,
 )
 from PyQt6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QCloseEvent, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt, QSettings, QCoreApplication, QTimer, PYQT_VERSION_STR
@@ -40,7 +40,7 @@ from core.config import AppConfig
 from core.integrity import IntegrityManager
 from core.exchange import ExchangeService, ExchangePayload
 # GUI Imports
-from gui.workers import MainLoopWorker, SimilarityWorker
+from gui.workers import MainLoopWorker, SimilarityWorker, stop_thread
 from gui.document_list import DocumentListWidget
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget
@@ -100,6 +100,8 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                  app_config: Optional[AppConfig] = None) -> None:
         super().__init__()
         self._translators: list[PyQt6.QtCore.QTranslator] = []
+        self._close_timer: Optional[QTimer] = None
+        self._current_sim_worker: Optional[SimilarityWorker] = None
         self.pipeline = pipeline
         self.db_manager = db_manager
         self.app_config = app_config or AppConfig()
@@ -1109,7 +1111,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         def on_progress(current, total):
             if progress.wasCanceled():
-                worker.terminate()
+                worker.cancel()
                 return
             percent = int((current / total) * 100) if total > 0 else 0
             progress.setValue(percent)
@@ -1118,6 +1120,8 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         def on_finished(duplicates):
             progress.close()
             self._current_sim_worker = None
+            if worker.is_cancelled:
+                return
 
             if not duplicates:
                 show_notification(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."))
@@ -1340,27 +1344,46 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
              self.pending_selection = []
 
     def closeEvent(self, event: QCloseEvent):
-        """Handle window close."""
-        if hasattr(self, 'ai_worker') and self.ai_worker:
-            self.ai_worker.stop()
-            self.ai_worker.wait(2000)
-        # Cancel background workers to kill subprocesses
-        if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
-            self.main_loop_worker.stop()
-            self.main_loop_worker.wait(2000)
-        if hasattr(self, 'import_worker') and self.import_worker:
-            self.import_worker.cancel()
-            self.import_worker.wait(2000)
-        if hasattr(self, 'batch_worker') and self.batch_worker:
-            self.batch_worker.cancel()
-            self.batch_worker.wait(2000)
-        if hasattr(self, 'reprocess_worker') and self.reprocess_worker:
-            self.reprocess_worker.cancel()
-            self.reprocess_worker.wait(2000)
+        """
+        Stops background work before the application quits.
+
+        A running analysis step (an engine call can take minutes) is not cut off:
+        the window closes at once and the application quits when the step is done,
+        so no thread is destroyed while running and no database write is interrupted.
+        """
+        loop = getattr(self, "main_loop_worker", None)
+        if loop is not None and loop.isRunning():
+            loop.stop()
+            if not loop.wait(3000):
+                logger.info("Waiting for the running analysis step before quitting.")
+                QApplication.instance().setQuitOnLastWindowClosed(False)
+                self.hide()
+                event.ignore()
+                if self._close_timer is None:
+                    self._close_timer = QTimer(self)
+                    self._close_timer.timeout.connect(self._close_when_idle)
+                    self._close_timer.start(500)
+                return
+
+        controller = getattr(self, "doc_controller", None)
+        for worker in (getattr(getattr(controller, "importer", None), "import_worker", None),
+                       getattr(getattr(controller, "processor", None), "reprocess_worker", None),
+                       getattr(getattr(self, "advanced_filter", None), "worker", None),
+                       getattr(self, "_current_sim_worker", None)):
+            if worker is not None and worker.isRunning():
+                stop_thread(worker)
 
         self.write_settings()
         self.save_filter_tree()
         super().closeEvent(event)
+
+    def _close_when_idle(self) -> None:
+        """Completes a close that waited for the running analysis step."""
+        if self.main_loop_worker.isRunning():
+            return
+        self._close_timer.stop()
+        QApplication.instance().setQuitOnLastWindowClosed(True)
+        self.close()
 
     def write_settings(self):
         settings = QSettings()

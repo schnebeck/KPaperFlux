@@ -24,7 +24,7 @@ from core.pdf_renderer import ProfessionalPdfRenderer
 from core.workflow import build_workflow_data
 from gui.widgets.workflow_controls import WorkflowControlsWidget
 from gui.pdf_viewer import PdfViewerWidget
-from gui.workers import SemanticRenderingWorker
+from gui.workers import SemanticRenderingWorker, stop_thread
 
 logger = get_logger("Audit")
 
@@ -215,8 +215,7 @@ class AuditWindow(QMainWindow):
 
             # Cleanup previous worker if any
             if self._render_worker and self._render_worker.isRunning():
-                self._render_worker.terminate()
-                self._render_worker.wait()
+                stop_thread(self._render_worker)
 
             self._render_worker = SemanticRenderingWorker(
                 doc.semantic_data, 
@@ -296,8 +295,7 @@ class AuditWindow(QMainWindow):
         
         # Cleanup worker
         if self._render_worker and self._render_worker.isRunning():
-            self._render_worker.terminate()
-            self._render_worker.wait()
+            stop_thread(self._render_worker)
             
         # Cleanup temp files
         for f in self.temp_files:

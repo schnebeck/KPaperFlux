@@ -29,6 +29,42 @@ from core.repositories.logical_repo import LogicalRepository
 from core.canonizer import CanonizerService
 from core.similarity import SimilarityManager
 
+# Threads that did not stop in time; kept referenced until they end on their own.
+_detached_threads: set = set()
+
+
+def stop_thread(thread: Optional[QThread], wait_ms: int = 2000) -> bool:
+    """
+    Asks a worker thread to stop (cancel() or stop()) and waits for it.
+
+    A thread that does not end within wait_ms is never terminated (that can leave
+    locks or the database inconsistent); it stays referenced until it ends.
+
+    Returns:
+        True if the thread is no longer running.
+    """
+    if thread is None:
+        return True
+    for method in ("cancel", "stop"):
+        if hasattr(thread, method):
+            getattr(thread, method)()
+            break
+    if not thread.isRunning() or thread.wait(wait_ms):
+        return True
+    logger.warning(f"{type(thread).__name__} did not stop within {wait_ms} ms; letting it finish.")
+    _detached_threads.add(thread)
+    timer = QTimer()
+    timer.setInterval(500)
+
+    def release() -> None:
+        if not thread.isRunning():
+            timer.stop()
+            _detached_threads.discard(thread)
+    timer.timeout.connect(release)
+    timer.start()
+    thread._release_timer = timer  # keep the timer alive with the thread
+    return False
+
 class BatchTaggingWorker(QThread):
     """
     Phase 106: Worker thread to apply tagging rules to many documents in background.
@@ -382,10 +418,18 @@ class SimilarityWorker(QThread):
     progress = pyqtSignal(int, int) # processed, total
     finished = pyqtSignal(list)      # list of duplicates
 
+    class _Cancelled(Exception):
+        """Raised from the progress callback to leave the comparison loop."""
+
     def __init__(self, db_manager, vault, threshold=0.85):
         super().__init__()
         self.sim_manager = SimilarityManager(db_manager, vault)
         self.threshold = threshold
+        self.is_cancelled = False
+
+    def cancel(self) -> None:
+        """Stops the comparison at the next progress step."""
+        self.is_cancelled = True
 
     def run(self):
         try:
@@ -394,12 +438,16 @@ class SimilarityWorker(QThread):
                 progress_callback=self._on_progress
             )
             self.finished.emit(duplicates)
+        except self._Cancelled:
+            logger.info("Similarity search cancelled.")
+            self.finished.emit([])
         except Exception as e:
-            logger.info(f"Similarity Worker Error: {e}")
-            traceback.print_exc()
+            logger.error(f"Similarity Worker Error: {e}", exc_info=True)
             self.finished.emit([])
 
     def _on_progress(self, current, total):
+        if self.is_cancelled:
+            raise self._Cancelled()
         self.progress.emit(current, total)
 
 class MatchAnalysisWorker(QThread):

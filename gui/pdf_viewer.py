@@ -38,7 +38,7 @@ import fitz
 from core.models.virtual import SourceReference
 from core.vault import resolve_view_path
 from core.utils.hybrid_engine import HybridEngine
-from gui.workers import MatchAnalysisWorker
+from gui.workers import MatchAnalysisWorker, stop_thread
 from gui.widgets.integrity_status_bar import IntegrityStatusBar
 
 class ToastOverlay(QLabel):
@@ -863,16 +863,7 @@ class DualPdfViewerWidget(QWidget):
     def stop(self) -> None:
         """Gracefully terminates background threads and clears references."""
         if self._diff_worker:
-            worker = self._diff_worker
-            logger.info(f"[DualPdfViewer] Stopping background worker. Status: {worker.isRunning()}")
-            if worker.isRunning():
-                worker.cancel()
-                logger.info("[DualPdfViewer] Cancellation requested. Waiting for thread...")
-                if not worker.wait(5000): # Wait up to 5 seconds
-                    logger.info("[DualPdfViewer] Worker stuck. Forcing termination!")
-                    worker.terminate()
-                    worker.wait()
-                logger.info("[DualPdfViewer] Background thread stopped.")
+            stop_thread(self._diff_worker, wait_ms=5000)
             self._diff_worker = None
 
         self.left_viewer.canvas.set_document(None)
