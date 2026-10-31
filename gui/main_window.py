@@ -98,6 +98,14 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self._translators: list[PyQt6.QtCore.QTranslator] = []
         self._close_timer: Optional[QTimer] = None
         self._current_sim_worker: Optional[SimilarityWorker] = None
+        # Created by the _setup_* methods; None until then
+        self.list_widget: Optional[DocumentListWidget] = None
+        self.pdf_viewer: Optional[PdfViewerWidget] = None
+        self.editor_widget: Optional[MetadataEditorWidget] = None
+        self.cockpit_widget: Optional[CockpitWidget] = None
+        self.advanced_filter: Optional[AdvancedFilterWidget] = None
+        self.main_loop_worker: Optional[MainLoopWorker] = None
+        self._debug_windows: list = []
         self.pipeline = pipeline
         self.db_manager = db_manager
         self.app_config = app_config or AppConfig()
@@ -145,7 +153,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self._on_tab_changed(0)
 
-        if self.db_manager and hasattr(self, "list_widget") and isinstance(self.list_widget, DocumentListWidget):
+        if self.db_manager and self.list_widget is not None and isinstance(self.list_widget, DocumentListWidget):
             self.list_widget.refresh_list()
 
         if self.db_manager:
@@ -183,7 +191,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         """React to a completed scheduler run that applied at least one transition."""
         if count > 0:
             logger.info(f"[Scheduler] Applied {count} auto-transitions")
-            if hasattr(self, "list_widget"):
+            if self.list_widget is not None:
                 self.list_widget.refresh_list()
 
     def _setup_pages(self) -> None:
@@ -251,7 +259,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.pdf_viewer.export_requested.connect(self.export_documents_slot)
         self.pdf_viewer.reprocess_requested.connect(self.reprocess_document_slot)
         self.pdf_viewer.delete_requested.connect(self.delete_document_slot)
-        if hasattr(self, "list_widget"):
+        if self.list_widget is not None:
             self.pdf_viewer.document_changed.connect(self.list_widget.refresh_list)
         self.pdf_viewer.split_requested.connect(self.open_splitter_dialog_slot)
         self.pdf_viewer.canvas.hit_overflow.connect(self._on_pdf_hit_overflow)
@@ -361,31 +369,31 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.doc_controller = DocumentActionController(self, self.pipeline, self.db_manager)
 
         self.doc_controller.list_refresh_requested.connect(
-            self.list_widget.refresh_list if hasattr(self, "list_widget") else lambda: None
+            self.list_widget.refresh_list if self.list_widget is not None else lambda: None
         )
         self.doc_controller.stats_refresh_requested.connect(self.cockpit_widget.refresh_stats)
         self.doc_controller.status_updated.connect(self.main_status_label.setText)
         self.doc_controller.editor_reload_requested.connect(self._on_editor_reload)
         self.doc_controller.editor_clear_requested.connect(
-            self.editor_widget.clear if hasattr(self, "editor_widget") else lambda: None
+            self.editor_widget.clear if self.editor_widget is not None else lambda: None
         )
         self.doc_controller.viewer_clear_requested.connect(self.pdf_viewer.clear)
         self.doc_controller.list_select_requested.connect(
-            self.list_widget.select_document if hasattr(self, "list_widget") else lambda u: None
+            self.list_widget.select_document if self.list_widget is not None else lambda u: None
         )
         self.doc_controller.document_reselect_requested.connect(
             lambda u: self.list_widget.document_selected.emit([u])
-            if hasattr(self, "list_widget") else None
+            if self.list_widget is not None else None
         )
         self.doc_controller.splitter_dialog_requested.connect(self.open_splitter_dialog_slot)
 
         # Keep controller in sync with trash-mode toggling
-        if hasattr(self, "advanced_filter"):
+        if self.advanced_filter is not None:
             self.advanced_filter.trash_mode_changed.connect(self.doc_controller.set_trash_mode)
 
     def _on_editor_reload(self, processed_uuids: list) -> None:
         """Reload editor if any of the processed docs are currently shown."""
-        if not hasattr(self, "editor_widget") or not self.editor_widget or not self.db_manager:
+        if self.editor_widget is None or not self.db_manager:
             return
         if not self.editor_widget.isVisible():
             return
@@ -405,7 +413,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self.debug_controller = DebugController(self, self.pipeline, self.db_manager)
         self.debug_controller.list_refresh_requested.connect(
-            self.list_widget.refresh_list if hasattr(self, "list_widget") else lambda: None
+            self.list_widget.refresh_list if self.list_widget is not None else lambda: None
         )
 
     def _wire_signals(self) -> None:
@@ -421,20 +429,20 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         # ── Section A: multi-subscriber signals through ApplicationBus ────────
 
         # editor_widget.metadata_saved → bus → 3 subscribers
-        if hasattr(self, "editor_widget"):
+        if self.editor_widget is not None:
             self.editor_widget.metadata_saved.connect(self.bus.metadata_saved)
-        if hasattr(self, "list_widget"):
+        if self.list_widget is not None:
             self.bus.metadata_saved.connect(self.list_widget.refresh_list)
-        if hasattr(self, "cockpit_widget"):
+        if self.cockpit_widget is not None:
             self.bus.metadata_saved.connect(self.cockpit_widget.refresh_stats)
-        if hasattr(self, "advanced_filter"):
+        if self.advanced_filter is not None:
             self.bus.metadata_saved.connect(self.advanced_filter.refresh_dynamic_data)
 
         # advanced_filter.filter_changed → bus → 2 subscribers
-        if hasattr(self, "advanced_filter"):
+        if self.advanced_filter is not None:
             self.advanced_filter.filter_changed.connect(self.bus.filter_changed)
         self.bus.filter_changed.connect(self._on_filter_changed)
-        if hasattr(self, "list_widget"):
+        if self.list_widget is not None:
             self.bus.filter_changed.connect(self.list_widget.apply_advanced_filter)
 
         # ── Section B: single-subscriber cross-subsystem signals (direct) ─────
@@ -470,7 +478,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             total += count
         if total:
             logger.info(f"Startup sweep: reset {total} document(s) with stale workflow states.")
-            if hasattr(self, "list_widget"):
+            if self.list_widget is not None:
                 self.list_widget.refresh_list()
 
     def setup_shortcuts(self) -> None:
@@ -484,7 +492,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         # self.shortcut_save.activated.connect(lambda: self.editor_widget.save_changes()) # editor_widget might be MetadataEditor or something else
 
         self.shortcut_search = QShortcut(QKeySequence("Ctrl+F"), self)
-        if hasattr(self, "advanced_filter"):
+        if self.advanced_filter is not None:
             def focus_search() -> None:
                 if not self.advanced_filter.isVisible():
                     self._toggle_filter_view(True)
@@ -521,21 +529,21 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
     def _on_global_search_triggered(self, search_text: str) -> None:
         """Stores global search terms and updates viewer if active."""
         self.current_search_text = search_text
-        if hasattr(self, 'list_widget'):
+        if self.list_widget is not None:
             self.list_widget.current_filter_text = search_text
             self.list_widget.view_context = "Search"
             self.list_widget.refresh_list(force_select_first=True)
         
-        if hasattr(self, 'pdf_viewer') and self.pdf_viewer.current_uuid:
+        if self.pdf_viewer is not None and self.pdf_viewer.current_uuid:
             self._sync_global_search_context(self.pdf_viewer.current_uuid)
             self.pdf_viewer.set_highlight_text(search_text)
-        elif hasattr(self, 'pdf_viewer'):
+        elif self.pdf_viewer is not None:
             self.pdf_viewer.set_highlight_text(search_text)
 
     def _sync_global_search_context(self, current_uuid: str) -> None:
         """Calculates global hit offset and total for the PDF viewer."""
-        if not hasattr(self, 'pdf_viewer') or not self.current_search_text or not self.list_widget:
-            if hasattr(self, 'pdf_viewer'):
+        if self.pdf_viewer is None or not self.current_search_text or not self.list_widget:
+            if self.pdf_viewer is not None:
                 self.pdf_viewer.global_search_total = 0
                 self.pdf_viewer.global_search_offset = 0
             return
@@ -555,17 +563,17 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
     def _on_search_cleared(self) -> None:
         """Resets all search-related state when 'Show All' is clicked."""
         self.current_search_text = ""
-        if hasattr(self, 'advanced_filter'):
+        if self.advanced_filter is not None:
             self.advanced_filter.clear_search()
             self.advanced_filter.set_active(False) # [NEW] Sync reset
-        if hasattr(self, "pdf_viewer"):
+        if self.pdf_viewer is not None:
             self.pdf_viewer.set_highlight_text("")
             self.pdf_viewer.global_search_total = 0
             self.pdf_viewer.global_search_offset = 0
 
     def _on_pdf_hits_updated(self, current: int, total: int) -> None:
         """Routes hit updates from viewer to sidebar with global context."""
-        if not hasattr(self, 'advanced_filter'):
+        if self.advanced_filter is None:
             return
             
         # Use global totals if session-wide search is active
@@ -698,7 +706,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
     def _on_group_selected(self, group_id: str) -> None:
         """Filter the document list to show only members of the selected group."""
-        if not hasattr(self, "list_widget"):
+        if self.list_widget is None:
             return
         if group_id == _GROUP_ALL:
             self.list_widget.set_group_filter(None)
@@ -714,25 +722,25 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self.current_search_text = text
         
-        if hasattr(self, 'pdf_viewer'):
+        if self.pdf_viewer is not None:
             self.pdf_viewer.set_highlight_text(text)
             
         logger.debug(f"MainWindow updated current_search_text to: '{self.current_search_text}'")
 
     def _on_pipeline_documents_processed(self) -> None:
         """Unified handler for background pipeline completions."""
-        if hasattr(self, 'list_widget'):
+        if self.list_widget is not None:
             self.list_widget.refresh_list()
         
         self._refresh_current_editor_selection()
         
         # Refresh Stats
-        if hasattr(self, "cockpit_widget"):
+        if self.cockpit_widget is not None:
              self.cockpit_widget.refresh_stats()
 
     def _refresh_current_editor_selection(self) -> None:
         """Re-fetches and updates the content of the metadata editor for current selection."""
-        if not hasattr(self, 'list_widget') or not hasattr(self, 'editor_widget') or not self.db_manager:
+        if self.list_widget is None or self.editor_widget is None or not self.db_manager:
             return
             
         # Only refresh if editor is actually open/visible 
@@ -767,8 +775,8 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
     def _on_document_selected(self, uuids: list[str]) -> None:
         """Callback when selection changes in document list."""
         if not uuids:
-            if hasattr(self, 'editor_widget'): self.editor_widget.clear()
-            if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
+            if self.editor_widget is not None: self.editor_widget.clear()
+            if self.pdf_viewer is not None: self.pdf_viewer.clear()
             self._selected_sum = 0.0
             self._refresh_status_bar()
             return
@@ -808,11 +816,8 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                 logger.info(f"[Search-Hit-Debug] Term: '{self.current_search_text}', UUID: '{uuid}', Found on Pages: {hits} -> Jumping to {target_index}")
 
         # Update Info Panel
-        if hasattr(self, 'info_panel') and self.info_panel:
-            self.info_panel.load_document(primary_doc)
-
         # Update Editor (Batch aware)
-        if hasattr(self, 'editor_widget'):
+        if self.editor_widget is not None:
             self.editor_widget.setVisible(True)
             self.editor_widget.display_documents(docs)
 
@@ -827,7 +832,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             self.left_pane_splitter.setSizes([sizes[0], int(total*0.6), int(total*0.4)])
 
         # Update PDF Viewer - CONSOLIDATED SINGLE LOAD CALL
-        if hasattr(self, 'pdf_viewer'):
+        if self.pdf_viewer is not None:
             if not self.pdf_viewer.isVisible():
                 self.pdf_viewer.setVisible(True)
 
@@ -841,7 +846,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
     def delete_selected_slot(self) -> None:
         """Handle deletion via Menu Hack."""
-        if hasattr(self, 'list_widget'):
+        if self.list_widget is not None:
             uuids = self.list_widget.get_selected_uuids()
             if uuids:
                 self.delete_document_slot(uuids)
@@ -895,7 +900,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.list_widget.refresh_list()
         self._update_transfer_menu_visibility()
         
-        if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
+        if self.main_loop_worker:
             logger.info("[Core] Settings changed. Re-connecting the analysis engine on the next document.")
             if hasattr(self.main_loop_worker, 'canonizer'):
                 self.main_loop_worker.canonizer.reset_engine_client()
@@ -1090,7 +1095,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
     def find_duplicates_slot(self) -> None:
         """Open Duplicate Finder with Progress Spinner."""
-        if not hasattr(self, "db_manager") or not self.db_manager: return
+        if not self.db_manager: return
 
         # Create and Show Progress Dialog
         progress = QProgressDialog(self.tr("Searching for duplicates..."), self.tr("Cancel"), 0, 100, self)
@@ -1321,7 +1326,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
     def toggle_editor_visibility(self, checked: bool) -> None:
         """Toggle the visibility of the metadata editor widget."""
-        if hasattr(self, 'editor_widget'):
+        if self.editor_widget is not None:
             self.editor_widget.setVisible(checked)
 
     def update_status_bar(self, visible_count: int, total_count: int) -> None:
@@ -1331,11 +1336,11 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self._refresh_status_bar()
 
         if visible_count == 0:
-            if hasattr(self, 'pdf_viewer'):
+            if self.pdf_viewer is not None:
                 self.pdf_viewer.clear()
             self.pending_selection = []
 
-        if visible_count > 0 and hasattr(self, 'pending_selection') and self.pending_selection:
+        if visible_count > 0 and self.pending_selection:
              self.list_widget.select_rows_by_uuids(self.pending_selection)
              self.pending_selection = []
 
@@ -1388,13 +1393,13 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         settings.setValue("mainSplitter", self.main_splitter.saveState())
         settings.setValue("leftPaneSplitter", self.left_pane_splitter.saveState())
 
-        if hasattr(self, 'list_widget') and hasattr(self.list_widget, 'save_state'):
+        if self.list_widget is not None and hasattr(self.list_widget, 'save_state'):
             self.list_widget.save_state()
 
         if hasattr(self.list_widget, 'get_selected_uuids'):
              settings.setValue("selectedUUIDs", self.list_widget.get_selected_uuids())
 
-        if hasattr(self, 'main_loop_worker') and hasattr(self.main_loop_worker, 'is_paused'):
+        if self.main_loop_worker is not None and hasattr(self.main_loop_worker, 'is_paused'):
              settings.setValue("ai_paused", bool(self.main_loop_worker.is_paused))
 
     def read_settings(self) -> None:
@@ -1416,7 +1421,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             ai_paused = str(settings.value("ai_paused", "false")).lower() == "true"
         except Exception:
             ai_paused = False
-        if ai_paused and hasattr(self, 'main_loop_worker'):
+        if ai_paused and self.main_loop_worker is not None:
             self.main_loop_worker.set_paused(True)
             self.activity_panel.on_pause_state_changed(True)
 
@@ -1429,7 +1434,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                  total = sum(sizes) if sum(sizes) > 0 else 700
                  self.left_pane_splitter.setSizes([70, int(total*0.6), int(total*0.3)])
 
-        if hasattr(self, 'list_widget') and hasattr(self.list_widget, 'restore_state'):
+        if self.list_widget is not None and hasattr(self.list_widget, 'restore_state'):
             self.list_widget.restore_state()
 
         self.pending_selection = settings.value("selectedUUIDs", [])
@@ -1493,7 +1498,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                                      buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
-            if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
+            if self.main_loop_worker:
                 self.main_loop_worker.stop()
                 self.main_loop_worker.wait(5000)
 
@@ -1505,17 +1510,11 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             if success:
                 # Clear all caches and views
                 self.list_widget.refresh_list()
-                if hasattr(self, 'editor_widget'): self.editor_widget.clear()
-                if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
+                if self.editor_widget is not None: self.editor_widget.clear()
+                if self.pdf_viewer is not None: self.pdf_viewer.clear()
 
-                if hasattr(self, "cockpit_widget"):
+                if self.cockpit_widget is not None:
                     self.cockpit_widget.refresh_stats()
-
-                if hasattr(self, "filter_tree_widget"):
-                    self.filter_tree_widget.load_tree()
-
-                if hasattr(self, "filter_input"):
-                    self.filter_input.clear()
 
                 if self.pipeline:
                     self._init_main_loop_worker()
@@ -1532,7 +1531,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if not self.pipeline:
             return
 
-        if hasattr(self, 'main_loop_worker') and self.main_loop_worker:
+        if self.main_loop_worker:
             self.main_loop_worker.stop()
             self.main_loop_worker.wait(2000)
 
@@ -1565,8 +1564,6 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         win.display_document(doc)
         
         # Ensure it stays alive while open
-        if not hasattr(self, '_debug_windows'):
-            self._debug_windows = []
         self._debug_windows.append(win)
         win.closed.connect(lambda: self._debug_windows.remove(win) if win in self._debug_windows else None)
         
@@ -1579,7 +1576,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         # Preserve the Explorer selection so it is restored when the user returns.
         doc_uuid = str(doc.uuid)
         self._last_selected_uuid = doc_uuid
-        if hasattr(self, "list_widget"):
+        if self.list_widget is not None:
             self.list_widget.target_uuid_to_restore = doc_uuid
         self.central_stack.setCurrentIndex(2)   # Workflow Manager page
         self.workflow_manager.open_document_in_process(rule_id, doc)
@@ -1688,10 +1685,10 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                           self.main_status_label.setText(self.tr("Document updated (%n part(s)).", "", len(new_uuids)))
 
                       self.list_widget.refresh_list()
-                      if hasattr(self, 'pdf_viewer'): self.pdf_viewer.clear()
-                      if hasattr(self, 'editor_widget'): self.editor_widget.clear()
+                      if self.pdf_viewer is not None: self.pdf_viewer.clear()
+                      if self.editor_widget is not None: self.editor_widget.clear()
 
-                      if hasattr(self, "cockpit_widget"):
+                      if self.cockpit_widget is not None:
                           self.cockpit_widget.refresh_stats()
 
                   except Exception as e:
@@ -1703,7 +1700,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
     def go_home_slot(self) -> None:
         """Switch to Cockpit."""
         self.central_stack.setCurrentIndex(0)
-        if hasattr(self, "cockpit_widget") and self.cockpit_widget:
+        if self.cockpit_widget:
             self.cockpit_widget.refresh_stats()
 
 
