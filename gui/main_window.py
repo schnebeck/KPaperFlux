@@ -1356,6 +1356,9 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         the window closes at once and the application quits when the step is done,
         so no thread is destroyed while running and no database write is interrupted.
         """
+        if self.editor_widget is not None and self._close_timer is None and self.isVisible():
+            self.editor_widget._offer_to_save_pending()  # unsaved edits are offered, not dropped
+
         loop = getattr(self, "main_loop_worker", None)
         if loop is not None and loop.isRunning():
             loop.stop()

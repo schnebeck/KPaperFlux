@@ -158,3 +158,17 @@ def test_second_save_without_background_change_does_not_ask(window, db, qtbot):
         window.editor_widget.storage_location_edit.setText("Box B")
         window.editor_widget.save_changes()  # the modal guard fails the test if it asks
     assert db.get_document_by_uuid("doc-a").storage_location == "Box B"
+
+
+def test_closing_the_window_offers_to_save_unsaved_edits(window, db, qtbot):
+    from PyQt6.QtWidgets import QMessageBox
+
+    window.show()
+    _select(window, qtbot, ["doc-a"])
+    window.editor_widget.storage_location_edit.setText("Box C")
+    with patch("gui.metadata_editor.QMessageBox.question", return_value=QMessageBox.StandardButton.Save) as question, \
+         patch("gui.metadata_editor.show_notification"):
+        window.close()
+
+    question.assert_called_once()
+    assert db.get_document_by_uuid("doc-a").storage_location == "Box C"
