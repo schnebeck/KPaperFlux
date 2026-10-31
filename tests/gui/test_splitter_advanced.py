@@ -1,5 +1,4 @@
 import pytest
-from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from gui.widgets.splitter_strip import SplitterStripWidget, PageThumbnailWidget, SplitDividerWidget
 

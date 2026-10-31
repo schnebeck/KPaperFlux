@@ -2,8 +2,6 @@ import pytest
 from unittest.mock import MagicMock, patch
 from gui.main_window import MainWindow
 from core.models.virtual import VirtualDocument as Document
-from gui.dialogs.save_list_dialog import SaveListDialog
-from PyQt6.QtWidgets import QApplication
 
 @pytest.fixture
 def mock_db():

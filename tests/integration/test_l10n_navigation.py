@@ -1,6 +1,3 @@
-import pytest
-from PyQt6.QtWidgets import QApplication, QToolButton
-from PyQt6.QtCore import Qt, QEvent
 from gui.advanced_filter import AdvancedFilterWidget
 from core.filter_tree import FilterTree
 

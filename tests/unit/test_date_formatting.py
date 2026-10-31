@@ -1,7 +1,5 @@
-import pytest
 from datetime import datetime, date
 from gui.utils import format_date, format_datetime
-from PyQt6.QtCore import QLocale, QLibraryInfo
 
 def test_format_date_regression():
     """

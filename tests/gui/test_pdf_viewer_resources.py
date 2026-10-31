@@ -45,7 +45,8 @@ def pipeline(tmp_path) -> PipelineProcessor:
 
 
 def _temp_copies() -> set:
-    return set(Path(tempfile.gettempdir()).glob("kview_*.pdf"))
+    """Any PDF in the temp directory (whatever its name), so a reintroduced temp copy is caught."""
+    return set(Path(tempfile.gettempdir()).glob("*.pdf"))
 
 
 def test_viewing_documents_leaves_no_temp_copies(qtbot, pipeline):

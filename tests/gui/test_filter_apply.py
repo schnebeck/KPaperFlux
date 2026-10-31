@@ -1,5 +1,4 @@
 import pytest
-from PyQt6.QtWidgets import QComboBox, QLineEdit
 from gui.advanced_filter import AdvancedFilterWidget
 from unittest.mock import MagicMock
 

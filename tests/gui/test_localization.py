@@ -2,7 +2,7 @@ import os
 import sys
 import pytest
 from pathlib import Path
-from PyQt6.QtCore import QTranslator, QLocale, QCoreApplication
+from PyQt6.QtCore import QTranslator
 from PyQt6.QtWidgets import QApplication
 
 pytestmark = pytest.mark.localized

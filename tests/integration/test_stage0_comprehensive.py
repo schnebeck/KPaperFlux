@@ -2,20 +2,16 @@ import pytest
 import os
 import shutil
 import tempfile
-import json
-import uuid
 import pikepdf
-from pathlib import Path
 from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager
 from core.vault import DocumentVault
-from core.models.virtual import VirtualDocument, SourceReference
 
 def create_dummy_pdf(path, pages=1):
     """Create a multi-page PDF with some text content."""
     pdf = pikepdf.Pdf.new()
     for i in range(pages):
-        page = pdf.add_blank_page(page_size=(595, 842))
+        pdf.add_blank_page(page_size=(595, 842))
         # pikepdf doesn't easily 'draw' text without a content stream, 
         # but for Stage 0 we only need the presence of pages and valid PDF structure.
     pdf.save(path)

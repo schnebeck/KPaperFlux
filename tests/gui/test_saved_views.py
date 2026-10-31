@@ -1,6 +1,5 @@
 
 import pytest
-from PyQt6.QtWidgets import QHeaderView
 from core.filter_tree import NodeType, FilterNode, FilterTree
 from gui.document_list import DocumentListWidget
 from gui.view_manager import ViewManagerDialog

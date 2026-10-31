@@ -1,13 +1,11 @@
 
 import pytest
-import datetime
 from decimal import Decimal
-from PyQt6.QtCore import Qt, QDate
-from PyQt6.QtWidgets import QTreeWidget
+from PyQt6.QtCore import Qt
 from unittest.mock import MagicMock
-from gui.document_list import DocumentListWidget, SortableTreeWidgetItem
+from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager, Document
-from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, AddressInfo, MonetarySummation
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, MonetarySummation
 
 @pytest.fixture
 def mock_db():

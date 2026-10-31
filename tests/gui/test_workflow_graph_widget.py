@@ -545,9 +545,8 @@ def test_state_node_no_overdraw_render(qtbot):
     geometry that analytically fits but actually overdraws due to anti-aliasing
     or pen rounding.
     """
-    from PyQt6.QtCore import QRectF, Qt
     from PyQt6.QtGui import QColor, QImage, QPainter
-    from gui.widgets.workflow_graph_items import StateNode, NODE_W, NODE_H
+    from gui.widgets.workflow_graph_items import StateNode
     from core.workflow import WorkflowState
 
     # Build a selected node in edit mode

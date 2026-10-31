@@ -1,6 +1,3 @@
-import pytest
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt, QEvent
 from gui.widgets.workflow_controls import WorkflowControlsWidget
 
 def test_workflow_controls_translation_calls(qapp):

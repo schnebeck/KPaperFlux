@@ -1,10 +1,9 @@
 import pytest
-import uuid
 from decimal import Decimal
 from core.database import DatabaseManager
 from core.repositories import LogicalRepository
 from core.models.virtual import VirtualDocument
-from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, WorkflowInfo, WorkflowLog, MonetarySummation
+from core.models.semantic import SemanticExtraction, FinanceBody, WorkflowInfo, WorkflowLog, MonetarySummation
 
 @pytest.fixture
 def db_manager():

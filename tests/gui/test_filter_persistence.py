@@ -1,12 +1,10 @@
 import pytest
-from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
-from datetime import date
 from decimal import Decimal
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
 from core.models.virtual import VirtualDocument as Document
-from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody, MonetarySummation
+from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, MonetarySummation
 
 @pytest.fixture
 def db_manager():
@@ -77,7 +75,7 @@ def test_refresh_preserves_basic_filter(doc_list_widget, db_manager):
     # Verify Filter Persisted
     assert get_visible_count(doc_list_widget) == 1
     # u1 should be the one visible
-    item = doc_list_widget.tree.topLevelItem(0)
+    doc_list_widget.tree.topLevelItem(0)
     # Since doc2 is hidden, only doc1 is visible. 
     # But populate_tree might have reordered. 
     # Check all visible items.

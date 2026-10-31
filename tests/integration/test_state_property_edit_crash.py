@@ -24,7 +24,7 @@ Description:    Regression tests for the segfault that occurred when editing
 """
 import pytest
 from PyQt6.QtWidgets import QFormLayout
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt
 from PyQt6.QtTest import QTest
 
 from core.workflow import WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition, StateType

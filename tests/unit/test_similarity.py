@@ -5,7 +5,6 @@ from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, MonetarySummation
 from core.database import DatabaseManager
 from unittest.mock import MagicMock
-import datetime
 from decimal import Decimal
 
 @pytest.fixture

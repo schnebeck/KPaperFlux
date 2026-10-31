@@ -2,7 +2,6 @@ import pytest
 import os
 import zipfile
 import pandas as pd
-from datetime import datetime
 from core.models.virtual import VirtualDocument as Document
 from core.exporter import DocumentExporter
 from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody, MonetarySummation
@@ -161,7 +160,6 @@ def test_export_semantic_fields(tmp_path, monkeypatch):
             
             print(f"Columns: {df.columns}")
             
-            col_map = {c: c for c in df.columns}
             
             # Since translator might not translate "lbl_inv_num", look for it
             inv_col = next((c for c in df.columns if "lbl_inv_num" in c or "invoice_number" in c), None)

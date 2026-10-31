@@ -1,7 +1,7 @@
 import pytest
 from PyQt6.QtCore import Qt
 from gui.widgets.workflow_controls import WorkflowControlsWidget
-from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition, WorkflowCondition
+from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowState, WorkflowTransition
 
 @pytest.fixture
 def controls(qtbot):

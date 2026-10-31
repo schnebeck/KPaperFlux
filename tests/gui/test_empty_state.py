@@ -1,8 +1,5 @@
 import pytest
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
 from gui.main_window import MainWindow
-from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
 from core.models.virtual import VirtualDocument as Document
 from unittest.mock import MagicMock, patch
@@ -18,7 +15,7 @@ def main_window(db_manager, qapp):
     # Mock pipeline for MainWindow
     pipeline = MagicMock()
     # Mock the background worker (it would start the analysis loop)
-    with patch('gui.main_window.MainLoopWorker') as MockWorker:
+    with patch('gui.main_window.MainLoopWorker'):
          
          mw = MainWindow(pipeline=pipeline, db_manager=db_manager)
          

@@ -1,10 +1,8 @@
 import pytest
-import json
-from decimal import Decimal
 from PyQt6.QtWidgets import QDialog, QMessageBox
 from gui.advanced_filter import AdvancedFilterWidget
 from gui.filter_manager import FilterManagerDialog
-from core.filter_tree import FilterTree, NodeType
+from core.filter_tree import FilterTree
 from unittest.mock import MagicMock, patch
 
 @pytest.fixture

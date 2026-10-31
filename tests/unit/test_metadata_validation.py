@@ -10,7 +10,6 @@ Description:    Unit tests for metadata normalization and validation,
 ------------------------------------------------------------------------------
 """
 
-import pytest
 from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo
 
 def test_iban_bic_normalization():

@@ -1,12 +1,10 @@
-import pytest
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt, QTranslator, QLibraryInfo
 from gui.widgets.filter_group import FilterGroupWidget
 from core.filter_tree import FilterTree
 
 def test_filter_group_l10n_retrieval(qapp):
     """Verifies that FilterGroupWidget and its elements are translatable."""
-    tree = FilterTree()
+    FilterTree()
     widget = FilterGroupWidget(is_root=True)
     
     # Check default English (source)
@@ -28,7 +26,7 @@ def test_filter_group_l10n_retrieval(qapp):
 def test_filter_group_language_change_event(qapp):
     """Verifies that sending a LanguageChange event does not crash and updates UI."""
     from PyQt6.QtCore import QEvent
-    tree = FilterTree()
+    FilterTree()
     widget = FilterGroupWidget(is_root=True)
     widget.add_condition()
     

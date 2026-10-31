@@ -1,10 +1,7 @@
 import pytest
-from PyQt6.QtWidgets import QApplication
 from unittest.mock import MagicMock, patch
 from gui.main_window import MainWindow
 from core.models.virtual import VirtualDocument as Document
-from gui.dialogs.save_list_dialog import SaveListDialog
-from PyQt6.QtCore import Qt
 
 @pytest.fixture
 def mock_db():
@@ -27,7 +24,7 @@ def main_window(mock_db, qapp, tmp_path):
     # Patch Config to return tmp vault path
     with patch('core.config.AppConfig.get_vault_path', return_value=str(tmp_path)):
         # Patch FilterTree persistence to avoid writing to actual cwd
-        with patch('gui.main_window.FilterTree') as MockTree:
+        with patch('gui.main_window.FilterTree'):
              # We want a real-ish FilterTree behavior for add_filter, so maybe we use real object if possible?
              # Or just Mock the tree behavior.
              # If we use real MainWindow, it instantiates FilterTree.
@@ -40,7 +37,6 @@ def main_window(mock_db, qapp, tmp_path):
              # MainWindow() constructor doesn't take db_manager. It creates it or takes it?
              # MainWindow() usually creates DatabaseManager().
              # We should patch DatabaseManager class.
-             pass
              
     # Better approach: 
     with patch('gui.main_window.DatabaseManager', return_value=mock_db):

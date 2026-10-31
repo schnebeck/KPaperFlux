@@ -1,7 +1,5 @@
 from PyQt6.QtCore import QSettings
 import pytest
-import os
-from pathlib import Path
 
 from core.config import AppConfig
 

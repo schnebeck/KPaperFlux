@@ -5,7 +5,7 @@ Verifies that documents with multiple type_tags can have N concurrent workflows.
 import pytest
 from core.models.virtual import VirtualDocument
 from core.models.semantic import SemanticExtraction, WorkflowInfo
-from core.workflow import WorkflowRuleRegistry, WorkflowRule, WorkflowEngine
+from core.workflow import WorkflowRuleRegistry, WorkflowRule
 from core.filter_tree import FilterTree, FilterNode, NodeType
 from core.rules_engine import RulesEngine
 from unittest.mock import MagicMock

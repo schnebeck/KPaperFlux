@@ -1,11 +1,9 @@
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QWidget, QMessageBox
+from PyQt6.QtWidgets import QMessageBox
 from unittest.mock import MagicMock, patch
 from core.models.virtual import VirtualDocument as Document
 from gui.main_window import MainWindow
-from gui.document_list import DocumentListWidget
-from gui.metadata_editor import MetadataEditorWidget
 import datetime
 
 @pytest.fixture

@@ -6,7 +6,6 @@ from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
 from core.models.virtual import VirtualDocument as Document
 from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo
-from PyQt6.QtCore import QDate
 
 def test_query_parser():
     parser = QueryParser()

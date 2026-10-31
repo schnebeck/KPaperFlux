@@ -15,11 +15,10 @@ Description:    MetadataEditor per-field review: amber markers with reasons /
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import patch
 
 import pytest
-from PyQt6.QtCore import Qt
 
 from core.database import DatabaseManager
 from core.engines.fluxsense_adapter import adapt_result, flatten_source_mapping

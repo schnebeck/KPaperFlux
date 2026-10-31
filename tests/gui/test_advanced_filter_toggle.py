@@ -1,5 +1,3 @@
-import pytest
-from PyQt6.QtWidgets import QCheckBox, QComboBox
 from gui.advanced_filter import AdvancedFilterWidget
 
 def test_filter_toggle_logic(qtbot):

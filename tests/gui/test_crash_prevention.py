@@ -1,10 +1,8 @@
 import pytest
 from unittest.mock import MagicMock
-from PyQt6.QtCore import Qt
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
 from core.models.virtual import VirtualDocument as Document
-from decimal import Decimal
 
 @pytest.fixture
 def mock_db():
@@ -98,7 +96,7 @@ def test_column_widths(mock_db, qtbot):
     qtbot.addWidget(widget)
     
     header = widget.tree.header()
-    col_count = widget.tree.columnCount()
+    widget.tree.columnCount()
     
     # Check visible columns (e.g. 0-6)
     for i in range(7):

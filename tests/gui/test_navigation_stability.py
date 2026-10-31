@@ -1,5 +1,4 @@
 import pytest
-from PyQt6.QtWidgets import QApplication
 from PyQt6 import QtCore
 from gui.advanced_filter import AdvancedFilterWidget
 from core.database import DatabaseManager

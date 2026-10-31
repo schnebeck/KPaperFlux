@@ -1,5 +1,5 @@
 import pytest
-from core.filter_tree import FilterTree, NodeType
+from core.filter_tree import FilterTree
 
 @pytest.fixture
 def populated_tree():

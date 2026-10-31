@@ -1,7 +1,5 @@
 import pytest
-from PyQt6.QtWidgets import QApplication
 from gui.advanced_filter import AdvancedFilterWidget
-from unittest.mock import MagicMock
 
 @pytest.fixture
 def filter_widget(qapp):

@@ -1,6 +1,6 @@
 
 import pytest
-from PyQt6.QtWidgets import QSplitter, QWidget
+from PyQt6.QtWidgets import QSplitter
 from gui.main_window import MainWindow
 from gui.metadata_editor import MetadataEditorWidget
 from gui.pdf_viewer import PdfViewerWidget

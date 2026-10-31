@@ -1,6 +1,4 @@
-import pytest
 from core.models.semantic import SemanticExtraction, SubscriptionInfo
-from decimal import Decimal
 
 def test_subscription_info_model():
     """Verify that SubscriptionInfo can be parsed into SemanticExtraction bodies."""

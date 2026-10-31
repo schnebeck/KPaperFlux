@@ -1,4 +1,3 @@
-import pytest
 from core.utils.formatting import format_currency, format_date
 
 # --- GERMAN (DE) TESTS ---

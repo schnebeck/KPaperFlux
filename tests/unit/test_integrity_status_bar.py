@@ -11,7 +11,6 @@ Description:    Unit tests for IntegrityStatusBar chip visibility and content
 ------------------------------------------------------------------------------
 """
 from unittest.mock import MagicMock
-import pytest
 
 
 # ---------------------------------------------------------------------------

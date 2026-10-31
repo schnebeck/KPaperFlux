@@ -1,6 +1,5 @@
 
 import os
-import pytest
 import pikepdf
 from core.scanner import MockScanner, get_scanner_driver, ScannerDriver
 

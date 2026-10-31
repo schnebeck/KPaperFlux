@@ -1,8 +1,6 @@
 import pytest
-import os
 from unittest.mock import MagicMock, patch
-from PyQt6.QtWidgets import QApplication, QFileDialog, QMessageBox
-from PyQt6.QtCore import Qt, QMimeData, QUrl
+from PyQt6.QtCore import QMimeData, QUrl
 from gui.reporting import ReportingWidget
 from core.reporting import ReportDefinition
 

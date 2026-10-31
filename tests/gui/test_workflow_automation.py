@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from PyQt6.QtWidgets import QApplication
 from gui.metadata_editor import MetadataEditorWidget
 from core.models.virtual import VirtualDocument

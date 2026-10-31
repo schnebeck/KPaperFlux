@@ -1,10 +1,8 @@
 import pytest
-from unittest.mock import MagicMock, patch, ANY
-import os
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 from core.pipeline import PipelineProcessor
 from core.models.physical import PhysicalFile
-from core.models.virtual import VirtualDocument, VirtualDocument as Document, SourceReference
+from core.models.virtual import VirtualDocument
 import datetime
 import uuid
 

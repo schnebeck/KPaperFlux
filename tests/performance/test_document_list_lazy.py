@@ -1,7 +1,6 @@
 import pytest
 import time
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
 from gui.document_list import DocumentListWidget
 from core.models.virtual import VirtualDocument
 from unittest.mock import MagicMock

@@ -10,9 +10,6 @@ Description:    Unit tests for the centralized logging system.
 """
 
 import logging
-import os
-import pytest
-from pathlib import Path
 from core.logger import setup_logging, get_logger, set_component_level
 
 def test_logger_singleton_root():

@@ -1,6 +1,5 @@
 import pytest
 import xml.etree.ElementTree as ET
-from pathlib import Path
 from tools.l10n_tool import L10nTool, MasterMappingTool
 
 @pytest.fixture

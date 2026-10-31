@@ -1,8 +1,6 @@
 import pytest
-import os
 import uuid
 import datetime
-import sqlite3
 from core.database import DatabaseManager
 from core.repositories import LogicalRepository
 from core.models.virtual import VirtualDocument

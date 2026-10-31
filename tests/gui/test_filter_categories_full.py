@@ -1,8 +1,6 @@
 import pytest
-import os
-from PyQt6.QtCore import Qt
 from gui.advanced_filter import AdvancedFilterWidget
-from core.filter_tree import FilterTree, NodeType
+from core.filter_tree import FilterTree
 
 @pytest.fixture
 def filter_widget(qtbot):

@@ -16,9 +16,8 @@ Description:    Unit tests for WorkflowScheduler — background auto-transition
                   - transitions_applied signal carries correct count
 ------------------------------------------------------------------------------
 """
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from core.models.virtual import VirtualDocument
 from core.models.semantic import SemanticExtraction, WorkflowInfo

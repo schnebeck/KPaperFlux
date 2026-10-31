@@ -1,6 +1,5 @@
-import pytest
 import json
-from core.filter_tree import FilterTree, FilterNode, NodeType
+from core.filter_tree import FilterTree, NodeType
 
 def test_tree_initialization():
     tree = FilterTree()

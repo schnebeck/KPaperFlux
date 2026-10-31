@@ -1,7 +1,6 @@
 
 import pytest
 import os
-import shutil
 import tempfile
 from pathlib import Path
 from core.vault import DocumentVault

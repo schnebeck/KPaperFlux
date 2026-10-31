@@ -11,7 +11,6 @@ Description:    Unit tests for core.deadline_monitor.compute_tier().
 
 from datetime import date, timedelta
 
-import pytest
 
 from core.deadline_monitor import UrgencyTier, compute_tier, URGENCY_ICON
 

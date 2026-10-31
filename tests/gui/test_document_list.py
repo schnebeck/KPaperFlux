@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock
-from datetime import date
 from decimal import Decimal
 from gui.document_list import DocumentListWidget
 from core.models.virtual import VirtualDocument as Document

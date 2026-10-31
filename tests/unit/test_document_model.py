@@ -1,4 +1,3 @@
-import pytest
 from datetime import date
 from decimal import Decimal
 from core.models.virtual import VirtualDocument as Document
@@ -41,6 +40,5 @@ def test_document_optional_fields():
     assert doc.phash == "a1b2c3d4"
     assert doc.text_content == "Total: 12.99"
 
-from pydantic import ValidationError
 
 # Removed flaky validation test

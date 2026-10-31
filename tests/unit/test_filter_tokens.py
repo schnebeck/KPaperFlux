@@ -1,4 +1,3 @@
-import pytest
 from core.filter_token_registry import FilterTokenRegistry
 from core.semantic_translator import SemanticTranslator
 from PyQt6.QtWidgets import QApplication

@@ -1,8 +1,6 @@
 
 import pytest
-import os
 import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 from core.database import DatabaseManager
 from core.vault import DocumentVault

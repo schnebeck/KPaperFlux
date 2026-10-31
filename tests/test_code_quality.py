@@ -157,7 +157,8 @@ def test_pyflakes_clean():
 
     root_dir = Path(__file__).parent.parent
     collector = _Collector()
-    for py_file in [*get_python_files(root_dir), root_dir / "main.py"]:
+    test_files = sorted((root_dir / "tests").rglob("*.py"))
+    for py_file in [*get_python_files(root_dir), root_dir / "main.py", *test_files]:
         check(py_file.read_text(encoding="utf-8"), str(py_file.relative_to(root_dir)), collector)
 
     if collector.messages:

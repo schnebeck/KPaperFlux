@@ -32,3 +32,10 @@ def test_unexpected_message_box_fails_fast(qapp) -> None:
 def test_unexpected_dialog_exec_fails_fast(qapp) -> None:
     with pytest.raises(AssertionError, match="Unexpected modal dialog"):
         QDialog().exec()
+
+
+def test_network_connections_fail_fast() -> None:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        with pytest.raises(AssertionError, match="Unexpected network connection"):
+            sock.connect(("127.0.0.1", 9))

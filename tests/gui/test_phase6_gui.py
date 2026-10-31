@@ -1,7 +1,6 @@
 
 import pytest
 from PyQt6.QtCore import Qt, QDate
-from PyQt6.QtWidgets import QTableWidget
 from gui.filter_widget import FilterWidget
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager

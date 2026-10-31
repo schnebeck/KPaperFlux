@@ -2,7 +2,6 @@
 import pytest
 import os
 import fitz
-import pikepdf
 from unittest.mock import MagicMock, patch
 from core.utils.forensics import get_pdf_class, PDFClass
 from core.utils.hybrid_handler import prepare_hybrid_container, restore_zugferd_xml

@@ -17,7 +17,6 @@ import zipfile
 from pathlib import Path
 
 import fitz
-import pytest
 
 from core.exporter import DocumentExporter
 from core.models.virtual import VirtualDocument, SourceReference

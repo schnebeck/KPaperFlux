@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 from core.reporting import ReportGenerator
 from core.models.reporting import ReportDefinition, Aggregation
 from core.models.virtual import VirtualDocument
-from core.models.semantic import SemanticExtraction, MetaHeader, FinanceBody, MonetarySummation
 
 @pytest.fixture
 def sample_data():

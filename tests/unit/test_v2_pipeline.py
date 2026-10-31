@@ -1,6 +1,4 @@
 import pytest
-import os
-from pathlib import Path
 import pikepdf
 from core.pipeline import PipelineProcessor
 from core.database import DatabaseManager

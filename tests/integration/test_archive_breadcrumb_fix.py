@@ -1,9 +1,7 @@
 
 import pytest
-from PyQt6.QtCore import Qt
 from gui.document_list import DocumentListWidget
 from core.database import DatabaseManager
-from core.models.virtual import VirtualDocument
 
 @pytest.fixture
 def db_manager(tmp_path):

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from PyQt6.QtWidgets import QPushButton, QTableWidget
+from PyQt6.QtWidgets import QTableWidget
 from gui.main_window import MainWindow
 
 @pytest.fixture
@@ -17,7 +17,6 @@ def test_main_window_title(qtbot, mock_db):
     # retranslate_ui sets it to "KPaperFlux v2"
     assert window.windowTitle().startswith("KPaperFlux")
 
-from PyQt6.QtGui import QAction
 
 def test_import_action_exists(qtbot, mock_db):
     """Test that the Import Document action exists in the menu."""

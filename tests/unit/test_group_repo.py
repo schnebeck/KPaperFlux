@@ -10,9 +10,7 @@ Description:    Unit tests for GroupRepository CRUD and membership operations.
 ------------------------------------------------------------------------------
 """
 import pytest
-from unittest.mock import MagicMock
 
-from core.models.group import DocumentGroup
 from core.repositories.group_repo import GroupRepository
 
 
@@ -97,7 +95,7 @@ class TestGroupHierarchy:
 
     def test_get_children_top_level(self, repo):
         g1 = repo.create("Top1")
-        g2 = repo.create("Top2")
+        repo.create("Top2")
         repo.create("Sub", parent_id=g1.id)
         top = repo.get_children(None)
         top_names = [g.name for g in top]
@@ -106,8 +104,8 @@ class TestGroupHierarchy:
 
     def test_get_children_of_parent(self, repo):
         parent = repo.create("Parent")
-        child1 = repo.create("Child1", parent_id=parent.id)
-        child2 = repo.create("Child2", parent_id=parent.id)
+        repo.create("Child1", parent_id=parent.id)
+        repo.create("Child2", parent_id=parent.id)
         children = repo.get_children(parent.id)
         names = [g.name for g in children]
         assert "Child1" in names and "Child2" in names

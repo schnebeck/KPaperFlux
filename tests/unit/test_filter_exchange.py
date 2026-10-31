@@ -1,8 +1,7 @@
-import pytest
 import os
 import json
 import fitz
-from core.filter_tree import FilterTree, NodeType
+from core.filter_tree import FilterTree
 from core.exchange import ExchangeService, ExchangePayload
 
 def test_filter_tree_exchange_persistence(tmp_path):

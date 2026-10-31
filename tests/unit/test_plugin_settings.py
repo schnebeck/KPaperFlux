@@ -11,10 +11,10 @@ Description:    Tests for PluginManager.get_plugin_info_list and the Plugins
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from core.plugins.manager import PluginManager
-from core.plugins.base import KPaperFluxPlugin, ApiContext
+from core.plugins.base import KPaperFluxPlugin
 
 
 # ---------------------------------------------------------------------------

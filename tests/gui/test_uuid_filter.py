@@ -1,8 +1,4 @@
-import pytest
-from PyQt6.QtWidgets import QApplication
-from gui.advanced_filter import AdvancedFilterWidget
 from gui.widgets.filter_condition import FilterConditionWidget
-from PyQt6.QtCore import Qt
 
 def test_uuid_filter_fields(qapp):
     widget = FilterConditionWidget()

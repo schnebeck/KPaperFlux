@@ -7,11 +7,9 @@ from pathlib import Path
 # Add project root to sys.path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from core.config import AppConfig
 from core.database import DatabaseManager
 from core.vault import DocumentVault
 from core.pipeline import PipelineProcessor
-from core.models.virtual import VirtualDocument
 
 def smoke_test_import():
     print("=== Starting Smoke Test: Import (V2) ===")

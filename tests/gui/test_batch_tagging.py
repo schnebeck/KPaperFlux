@@ -4,7 +4,6 @@ from gui.batch_tag_dialog import BatchTagDialog
 from gui.main_window import MainWindow
 from core.database import DatabaseManager
 from core.models.virtual import VirtualDocument as Document
-from PyQt6.QtWidgets import QDialog
 from unittest.mock import MagicMock, patch
 
 def test_batch_tag_dialog_parsing(qtbot):

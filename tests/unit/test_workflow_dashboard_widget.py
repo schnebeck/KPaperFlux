@@ -1,5 +1,5 @@
 import pytest
-from PyQt6.QtWidgets import QApplication, QLabel
+from PyQt6.QtWidgets import QLabel
 from gui.workflow_manager import WorkflowDashboardWidget
 from core.database import DatabaseManager
 from core.repositories import LogicalRepository

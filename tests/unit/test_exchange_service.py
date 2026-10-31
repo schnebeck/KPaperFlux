@@ -1,4 +1,3 @@
-import pytest
 import os
 import json
 from core.exchange import ExchangeService, ExchangePayload

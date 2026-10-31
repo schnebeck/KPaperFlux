@@ -1,6 +1,5 @@
 import pytest
 from PyQt6.QtCore import QSettings, QCoreApplication
-import os
 from core.database import DatabaseManager
 from gui.document_list import DocumentListWidget
 

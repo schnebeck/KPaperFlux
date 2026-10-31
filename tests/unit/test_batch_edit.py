@@ -2,7 +2,6 @@ import pytest
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-from PyQt6.QtWidgets import QLineEdit, QTextEdit
 from core.models.virtual import VirtualDocument as Document
 from gui.metadata_editor import MetadataEditorWidget
 from core.database import DatabaseManager

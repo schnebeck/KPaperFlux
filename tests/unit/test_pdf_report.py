@@ -1,4 +1,3 @@
-import pytest
 import os
 from core.exporters.pdf_report import PdfReportGenerator
 from core.exchange import ExchangeService

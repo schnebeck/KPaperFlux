@@ -10,8 +10,6 @@ Description:    Unit tests for the ApplicationBus event broker.
 """
 from unittest.mock import MagicMock
 
-import pytest
-from PyQt6.QtCore import QCoreApplication
 
 from gui.app_bus import ApplicationBus
 
@@ -92,7 +90,6 @@ class TestApplicationBus:
 
     def test_bus_does_not_import_gui_widgets(self) -> None:
         """ApplicationBus must not depend on any gui sub-modules (only PyQt6)."""
-        import importlib
         import sys
 
         # Reload the module in isolation to inspect its dependencies.

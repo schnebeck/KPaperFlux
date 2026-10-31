@@ -1,8 +1,6 @@
 
-import pytest
 from core.reporting import ReportGenerator
 from core.models.reporting import ReportDefinition, Aggregation
-from decimal import Decimal
 
 def test_generalized_numeric_grouping():
     """

@@ -1,6 +1,6 @@
 import pytest
 from PyQt6.QtWidgets import QApplication
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from gui.workflow_manager import WorkflowManagerWidget, WorkflowRuleFormEditor, WorkflowRuleManagerDialog
 from gui.document_list import DocumentListWidget

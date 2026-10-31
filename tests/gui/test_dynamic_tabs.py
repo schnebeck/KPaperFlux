@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 from PyQt6.QtWidgets import QApplication
 from gui.metadata_editor import MetadataEditorWidget
 from core.models.virtual import VirtualDocument
-from core.models.semantic import SemanticExtraction, WorkflowInfo
+from core.models.semantic import SemanticExtraction
 
 @pytest.fixture
 def app():

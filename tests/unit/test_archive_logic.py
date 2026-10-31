@@ -1,6 +1,5 @@
 
 import os
-import pytest
 from core.database import DatabaseManager
 from core.pipeline import PipelineProcessor
 from core.repositories.logical_repo import LogicalRepository

@@ -7,8 +7,7 @@ They run without any database connection.
 """
 
 import pytest
-from unittest.mock import patch
-from datetime import date, timedelta
+from datetime import date
 
 from core.query_builder import QueryBuilder
 

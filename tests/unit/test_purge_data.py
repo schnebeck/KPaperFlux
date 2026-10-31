@@ -1,6 +1,5 @@
 
 import os
-import pytest
 from core.database import DatabaseManager
 
 def test_purge_all_data_destructive(tmp_path):

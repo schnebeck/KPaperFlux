@@ -53,6 +53,24 @@ def no_unexpected_modal_dialogs(monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch):
+    """
+    Tests never reach a real AI server or FluxSense service: any outgoing
+    network connection fails the test. Tests that need a server mock the client.
+    """
+    import socket
+
+    real_connect = socket.socket.connect
+
+    def guarded_connect(sock, address):
+        if sock.family == getattr(socket, "AF_UNIX", None):
+            return real_connect(sock, address)
+        raise AssertionError(f"Unexpected network connection in test: {address}")
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+    yield
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "localized: mark test to run with real language settings")
     # Redirect HOME and the XDG locations before any QSettings/QStandardPaths lookup,

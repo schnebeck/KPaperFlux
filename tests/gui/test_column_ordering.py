@@ -1,7 +1,6 @@
 
 import pytest
-from PyQt6.QtWidgets import QHeaderView, QTreeWidget
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QHeaderView
 from gui.document_list import DocumentListWidget
 
 @pytest.fixture

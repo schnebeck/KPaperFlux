@@ -1,5 +1,4 @@
 import pytest
-import sqlite3
 import uuid
 import datetime
 from core.database import DatabaseManager
@@ -103,9 +102,9 @@ def test_delete_restore_purge_report_unknown_uuid(memory_db, logical_repo):
 def test_list_count_and_sum_agree_on_archived_documents(memory_db, logical_repo):
     from decimal import Decimal
     from core.models.semantic import FinanceBody, MonetarySummation
-    for uuid, archived in (("active", False), ("archived", True)):
+    for doc_uuid, archived in (("active", False), ("archived", True)):
         logical_repo.save(VirtualDocument(
-            uuid=uuid, archived=archived, source_mapping=[SourceReference(file_uuid="f", pages=[1])],
+            uuid=doc_uuid, archived=archived, source_mapping=[SourceReference(file_uuid="f", pages=[1])],
             semantic_data=SemanticExtraction(bodies={"finance_body": FinanceBody(
                 monetary_summation=MonetarySummation(grand_total_amount=Decimal("10.00")))})))
 

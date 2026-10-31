@@ -1,9 +1,7 @@
 import pytest
-from PyQt6.QtWidgets import QApplication, QStyle
-from PyQt6.QtGui import QIcon
 from unittest.mock import MagicMock
-from gui.filter_manager import FilterManagerDialog, NodeType
-from core.filter_tree import FilterTree, FilterNode
+from gui.filter_manager import FilterManagerDialog
+from core.filter_tree import FilterTree
 from core.models.virtual import VirtualDocument as Document
 
 @pytest.fixture
@@ -33,7 +31,7 @@ def test_static_list_icon_and_details(qapp, filter_tree, mock_db_manager):
     dialog = FilterManagerDialog(filter_tree, db_manager=mock_db_manager)
     
     # Find "My Static List" item
-    root_item = dialog.tree_widget.invisibleRootItem()
+    dialog.tree_widget.invisibleRootItem()
     # Assuming flat list under root as per populate_tree implementation loop
     # root.children -> recursive add
     # The tree widget structure mimics the filter tree
@@ -82,14 +80,13 @@ def test_folder_details(qapp, filter_tree):
     folder = filter_tree.add_folder(filter_tree.root, "My Folder")
     filter_tree.add_filter(folder, "Child Filter", {})
     
-    dialog = FilterManagerDialog(filter_tree)
+    FilterManagerDialog(filter_tree)
     # Refresh tree manually or ensure init did it (init calls populate)
     # But we modified tree AFTER init in this test setup?
     # Ah, `filter_tree` fixture is created, then passed to dialog.
     # The folder addition happens NOW? No, `add_folder` modifies model.
     # If we modify model AFTER dialog creation, we need repopulate.
     # Let's modify before creation.
-    pass
 
 def test_folder_details_logic(qapp):
     tree = FilterTree()

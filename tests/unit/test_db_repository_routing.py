@@ -12,12 +12,11 @@ Description:    Tests that DatabaseManager routes hydration calls through
 """
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from core.database import DatabaseManager
-from core.models.physical import PhysicalFile
 from core.models.virtual import VirtualDocument
 
 

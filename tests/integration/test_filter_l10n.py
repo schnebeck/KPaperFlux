@@ -1,9 +1,7 @@
 import pytest
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QTranslator, QLocale
+from PyQt6.QtCore import QTranslator
 from gui.widgets.filter_condition import FilterConditionWidget
-from core.filter_token_registry import FilterTokenRegistry
-from core.semantic_translator import SemanticTranslator
 import sys
 import os
 

@@ -1,5 +1,4 @@
 
-import pytest
 from core.metadata_normalizer import MetadataNormalizer
 from core.models.virtual import VirtualDocument as Document
 
@@ -43,9 +42,7 @@ class TestMetadataNormalizer:
         doc = Document(file_path="dummy.pdf", original_filename="dummy.pdf")
         doc.type_tags = ["Invoice"] # Assume configured type
         # No more direct dict assignment with 'summary'
-        pass
         
         # We need to mock get_config to return a definition for 'Invoice'
         # Or depend on the real resources/type_definitions.json if available.
         # Ideally we verify the private methods first.
-        pass

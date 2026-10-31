@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from PyQt6.QtWidgets import QDialog, QMessageBox
+from PyQt6.QtWidgets import QMessageBox
 from gui.tag_manager import TagManagerDialog
 from core.database import DatabaseManager
 

@@ -2,9 +2,7 @@
 Regression tests: cockpit stats refresh is triggered after document operations.
 Tests target DocumentActionController directly to avoid UI dialogs.
 """
-import pytest
 from unittest.mock import MagicMock, patch
-from PyQt6.QtWidgets import QApplication
 
 
 def _make_controller(qtbot):

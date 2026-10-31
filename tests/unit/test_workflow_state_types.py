@@ -10,14 +10,12 @@ Description:    Unit tests for StateType enum, WorkflowState.is_terminal /
                 updated get_initial_state() / completion_percent() helpers.
 ------------------------------------------------------------------------------
 """
-import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from core.workflow import (
     StateType,
     WorkflowRule,
     WorkflowState,
-    WorkflowEngine,
     get_initial_state,
     completion_percent,
 )

@@ -1,10 +1,8 @@
 
 import pytest
-import os
 from core.stamper import DocumentStamper
 import pikepdf
 from reportlab.pdfgen import canvas
-from pathlib import Path
 
 @pytest.fixture
 def create_pdf(tmp_path):

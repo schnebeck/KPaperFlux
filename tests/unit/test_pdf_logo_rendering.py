@@ -3,7 +3,6 @@ import os
 import tempfile
 import unittest
 import fitz
-import numpy as np
 from pathlib import Path
 from core.pdf_renderer import ProfessionalPdfRenderer
 from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, FinanceBody
@@ -77,7 +76,6 @@ class TestPdfLogoRendering(unittest.TestCase):
         sample_y = max(0, min(sample_y, pix.height - 1))
         
         # Check a 10x10 block for non-white pixels
-        found_content = False
         non_white_count = 0
         for y in range(max(0, sample_y-5), min(pix.height, sample_y+5)):
             for x in range(max(0, sample_x-5), min(pix.width, sample_x+5)):

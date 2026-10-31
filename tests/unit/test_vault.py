@@ -1,6 +1,4 @@
 import pytest
-import os
-import shutil
 from pathlib import Path
 from core.vault import DocumentVault
 from core.models.virtual import VirtualDocument as Document
