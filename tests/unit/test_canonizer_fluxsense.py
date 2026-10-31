@@ -478,11 +478,22 @@ def test_unexpected_engine_exception_holds_instead_of_locking(db: DatabaseManage
 
 def test_coding_errors_still_stop_the_worker(db: DatabaseManager, physical_pdf: Path, stack_result: Dict[str, Any]) -> None:
     """Critical errors are re-raised (after holding the document), as before."""
-    service = _service(db, FakeClient([TypeError("bug")]))
+    service = _service(db, FakeClient([NameError("bug")]))
     _ingest_many(service, physical_pdf, 1)
-    with pytest.raises(TypeError):
+    with pytest.raises(NameError):
         service.process_pending_documents(limit=1)
     assert service.logical_repo.get_by_uuid("doc-0").status == DocumentStatus.STAGE1_HOLD
+
+
+@pytest.mark.parametrize("data_error", [ValueError("malformed evidence"), TypeError("unexpected None")])
+def test_data_errors_hold_only_that_document(db: DatabaseManager, physical_pdf: Path, stack_result: Dict[str, Any],
+                                             data_error: Exception) -> None:
+    """ValueError/TypeError mostly come from data: the document is held, the queue goes on."""
+    service = _service(db, FakeClient([data_error, _single_page_result(stack_result)]))
+    _ingest_many(service, physical_pdf, 2)
+    assert service.process_pending_documents(limit=2) == 1
+    statuses = sorted(d.status for d in _all_docs(service))
+    assert statuses == sorted([DocumentStatus.PROCESSED, DocumentStatus.STAGE1_HOLD])
 
 
 def test_interrupted_batch_is_requeued(db: DatabaseManager, physical_pdf: Path) -> None:
@@ -661,3 +672,4 @@ def test_stitching_uses_the_process_wide_pymupdf_lock() -> None:
     from core.engines import analysis_input
     pdflock = pytest.importorskip("fluxsense.pdflock")
     assert analysis_input._pymupdf_lock() is pdflock.PYMUPDF_LOCK
+

@@ -52,8 +52,9 @@ logger = get_logger("canonizer")
 # Re-extraction of an already classified document: keep its page range (no re-segmentation).
 RESUMPTION_STATES: Tuple[str, ...] = (DocumentStatus.STAGE2_PENDING, DocumentStatus.PROCESSING_S2)
 FRESH_STATES: Tuple[str, ...] = (DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE)
-# Coding errors stop the background worker instead of being logged per document.
-CRITICAL_ERRORS: Tuple[type, ...] = (NameError, AttributeError, SyntaxError, TypeError, ValueError)
+# Coding errors stop the background worker instead of being logged per document. ValueError
+# (incl. pydantic validation) and TypeError mostly come from data and only hold that document.
+CRITICAL_ERRORS: Tuple[type, ...] = (NameError, AttributeError, SyntaxError, ImportError)
 
 
 @dataclass
