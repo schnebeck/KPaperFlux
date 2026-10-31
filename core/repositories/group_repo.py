@@ -45,7 +45,7 @@ class GroupRepository(BaseRepository):
             sort_order = excluded.sort_order, filter_query = excluded.filter_query
         """
         try:
-            with self.db._write() as conn:
+            with self.db.transaction() as conn:
                 conn.execute(sql, (
                     group.id,
                     group.name,
@@ -115,7 +115,7 @@ class GroupRepository(BaseRepository):
     def rename(self, group_id: str, new_name: str) -> bool:
         """Rename an existing group. Returns True on success."""
         try:
-            with self.db._write() as conn:
+            with self.db.transaction() as conn:
                 conn.execute(
                     "UPDATE document_groups SET name = ? WHERE id = ?",
                     (new_name, group_id),
@@ -131,7 +131,7 @@ class GroupRepository(BaseRepository):
         Child groups are re-parented to NULL (ON DELETE SET NULL).
         """
         try:
-            with self.db._write() as conn:
+            with self.db.transaction() as conn:
                 conn.execute("DELETE FROM document_groups WHERE id = ?", (group_id,))
             return True
         except Exception as exc:
@@ -159,7 +159,7 @@ class GroupRepository(BaseRepository):
     def add_membership(self, document_uuid: str, group_id: str) -> bool:
         """Add a document to a group. No-op if already a member."""
         try:
-            with self.db._write() as conn:
+            with self.db.transaction() as conn:
                 conn.execute(
                     "INSERT OR IGNORE INTO document_group_memberships (document_uuid, group_id) VALUES (?, ?)",
                     (document_uuid, group_id),
@@ -172,7 +172,7 @@ class GroupRepository(BaseRepository):
     def remove_membership(self, document_uuid: str, group_id: str) -> bool:
         """Remove a document from a group."""
         try:
-            with self.db._write() as conn:
+            with self.db.transaction() as conn:
                 conn.execute(
                     "DELETE FROM document_group_memberships WHERE document_uuid = ? AND group_id = ?",
                     (document_uuid, group_id),

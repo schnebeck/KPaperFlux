@@ -131,7 +131,7 @@ class LogicalRepository(BaseRepository):
         )
 
         try:
-            with self.conn:
+            with self.db.transaction():
                 self.conn.execute(sql, values)
             return True
         except Exception as e:
@@ -207,7 +207,7 @@ class LogicalRepository(BaseRepository):
             The number of virtual documents updated.
         """
         docs = self.get_by_source_file(old_file_uuid)
-        with self.conn:
+        with self.db.transaction():
             for doc in docs:
                 for ref in doc.source_mapping:
                     if ref.file_uuid == old_file_uuid:
@@ -229,7 +229,7 @@ class LogicalRepository(BaseRepository):
             True if the operation was successful.
         """
         try:
-            with self.conn:
+            with self.db.transaction():
                 self.conn.execute("DELETE FROM virtual_documents WHERE uuid = ?", (uuid,))
             return True
         except Exception as e:
@@ -241,7 +241,7 @@ class LogicalRepository(BaseRepository):
         now = datetime.now().isoformat() if value else None
         sql = f"UPDATE virtual_documents SET {flag_col} = ?, {timestamp_col} = ? WHERE uuid = ?"
         try:
-            with self.conn:
+            with self.db.transaction():
                 cursor = self.conn.execute(sql, (int(value), now, uuid))
                 return cursor.rowcount > 0
         except Exception as e:

@@ -117,3 +117,17 @@ def test_list_count_and_sum_agree_on_archived_documents(memory_db, logical_repo)
 
     archive_view = {"field": "archived", "op": "equals", "value": True}
     assert memory_db.count_documents_advanced(archive_view) == 1
+
+
+def test_nested_transactions_are_atomic(memory_db):
+    """An error in an outer transaction also rolls back what a nested one wrote."""
+    import pytest as _pytest
+    with _pytest.raises(RuntimeError):
+        with memory_db.transaction() as conn:
+            conn.execute("INSERT INTO virtual_documents (uuid) VALUES ('outer')")
+            with memory_db.transaction() as inner:
+                inner.execute("INSERT INTO virtual_documents (uuid) VALUES ('inner')")
+            raise RuntimeError("abort after the nested block")
+
+    rows = memory_db.connection.execute("SELECT uuid FROM virtual_documents").fetchall()
+    assert rows == []

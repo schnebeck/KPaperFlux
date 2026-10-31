@@ -49,7 +49,7 @@ class OrderCollectionLinker(KPaperFluxPlugin):
         updates = 0
         new_processes = 0
         
-        with db.connection:
+        with db.transaction():
             for cluster in process_clusters:
                 # Does anyone in the cluster have an existing PID?
                 active_pid = next((doc_to_process[u] for u in cluster if u in doc_to_process), None)

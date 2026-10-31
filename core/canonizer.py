@@ -184,7 +184,6 @@ class CanonizerService:
 
     def _lock_pending(self, limit: int) -> List[str]:
         """Atomically locks up to `limit` waiting documents (PROCESSING_S1 / PROCESSING_S2)."""
-        cursor = self.db.connection.cursor()
         # Fetch entities - but only those NOT currently being processed by another worker
         query = """
             SELECT uuid, status
@@ -193,21 +192,16 @@ class CanonizerService:
               AND deleted = 0
             LIMIT ?
         """
-        cursor.execute(query, (limit,))
-        rows = cursor.fetchall()
-
         uuids: List[str] = []
-        for row in rows:
-            uuid_val, current = row
-            target = DocumentStatus.PROCESSING_S1 if current in [DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE] else DocumentStatus.PROCESSING_S2
-            cursor.execute(
-                "UPDATE virtual_documents SET status = ? WHERE uuid = ? AND status = ?",
-                (target, uuid_val, current),
-            )
-            if cursor.rowcount > 0:
-                uuids.append(uuid_val)
-
-        self.db.connection.commit()
+        with self.db.transaction() as conn:
+            for uuid_val, current in conn.execute(query, (limit,)).fetchall():
+                target = DocumentStatus.PROCESSING_S1 if current in [DocumentStatus.NEW, DocumentStatus.READY_FOR_PIPELINE] else DocumentStatus.PROCESSING_S2
+                cursor = conn.execute(
+                    "UPDATE virtual_documents SET status = ? WHERE uuid = ? AND status = ?",
+                    (target, uuid_val, current),
+                )
+                if cursor.rowcount > 0:
+                    uuids.append(uuid_val)
         if uuids:
             logger.info(f"Locked {len(uuids)} documents for processing.")
         return uuids
@@ -284,13 +278,13 @@ class CanonizerService:
         Returns:
             Number of re-queued documents.
         """
-        cursor = self.db.connection.cursor()
         released = 0
-        for locked, queued in ((DocumentStatus.PROCESSING_S1, DocumentStatus.READY_FOR_PIPELINE),
-                               (DocumentStatus.PROCESSING_S2, DocumentStatus.STAGE2_PENDING)):
-            cursor.execute("UPDATE virtual_documents SET status = ? WHERE status = ? AND deleted = 0", (queued, locked))
-            released += cursor.rowcount
-        self.db.connection.commit()
+        with self.db.transaction() as conn:
+            for locked, queued in ((DocumentStatus.PROCESSING_S1, DocumentStatus.READY_FOR_PIPELINE),
+                                   (DocumentStatus.PROCESSING_S2, DocumentStatus.STAGE2_PENDING)):
+                cursor = conn.execute("UPDATE virtual_documents SET status = ? WHERE status = ? AND deleted = 0",
+                                      (queued, locked))
+                released += cursor.rowcount
         if released:
             logger.warning(f"Re-queued {released} document(s) whose analysis was interrupted.")
         return released
@@ -308,11 +302,10 @@ class CanonizerService:
         Returns:
             True if the transition was successful.
         """
-        cursor = self.db.connection.cursor()
         placeholders = ",".join(["?"] * len(allowed_old))
         sql = f"UPDATE virtual_documents SET status = ? WHERE uuid = ? AND status IN ({placeholders})"
-        cursor.execute(sql, [target_status, v_doc.uuid] + allowed_old)
-        self.db.connection.commit()
+        with self.db.transaction() as conn:
+            cursor = conn.execute(sql, [target_status, v_doc.uuid] + allowed_old)
 
         if cursor.rowcount > 0:
             v_doc.status = target_status

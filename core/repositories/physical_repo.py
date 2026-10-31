@@ -61,7 +61,7 @@ class PhysicalRepository(BaseRepository):
         )
 
         try:
-            with self.conn:
+            with self.db.transaction():
                 self.conn.execute(sql, values)
             return True
         except Exception as e:
@@ -167,7 +167,7 @@ class PhysicalRepository(BaseRepository):
             True if the deletion was executed without error.
         """
         try:
-            with self.conn:
+            with self.db.transaction():
                 self.conn.execute("DELETE FROM physical_files WHERE uuid = ?", (uuid,))
             return True
         except Exception as e:
