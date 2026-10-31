@@ -38,6 +38,7 @@ from gui.widgets.group_membership_chips import GroupMembershipWidget
 
 # Core Models
 from core.body_layout import AUXILIARY_BODIES, KNOWN_BODIES, expected_bodies
+from core.semantic_edit import section_root, set_path
 from core.models.semantic import (
     AddressInfo, FieldReviewState, MetaHeader, SemanticExtraction, WorkflowInfo, WorkflowLog,
 )
@@ -2306,64 +2307,8 @@ class MetadataEditorWidget(QWidget):
                 continue
 
             # Map back to target dict
-            root = sd_dict_final
-            if section == "Meta":
-                if "meta_header" not in sd_dict_final:
-                    sd_dict_final["meta_header"] = {}
-                root = sd_dict_final["meta_header"]
-            elif section == "Custom":
-                if "custom_fields" not in sd_dict_final:
-                    sd_dict_final["custom_fields"] = {}
-                root = sd_dict_final["custom_fields"]
-            else:
-                body_key = section.lower() + "_body"
-                if "bodies" in sd_dict_final and (body_key in sd_dict_final["bodies"] or section.lower() in sd_dict_final["bodies"]):
-                    if body_key in sd_dict_final["bodies"]:
-                        root = sd_dict_final["bodies"][body_key]
-                    else:
-                        root = sd_dict_final["bodies"][section.lower()]
-                elif section.lower() in sd_dict_final:
-                    root = sd_dict_final[section.lower()]
-                elif body_key in sd_dict_final:
-                    root = sd_dict_final[body_key]
-                else:
-                    if "bodies" not in sd_dict_final:
-                        sd_dict_final["bodies"] = {}
-                    if body_key not in sd_dict_final["bodies"]:
-                        sd_dict_final["bodies"][body_key] = {}
-                    root = sd_dict_final["bodies"][body_key]
-
-            parts = field_path.split(".")
-            target = root
-            for i, part in enumerate(parts[:-1]):
-                if part.isdigit():
-                    idx = int(part)
-                    if isinstance(target, list):
-                        while len(target) <= idx:
-                            target.append({})
-                        target = target[idx]
-                    else:
-                        if part not in target:
-                            target[part] = {}
-                        target = target[part]
-                else:
-                    if part not in target:
-                        if i + 1 < len(parts) and parts[i + 1].isdigit():
-                            target[part] = []
-                        else:
-                            target[part] = {}
-                    target = target[part]
-
-            last_key = parts[-1]
-            typed_val = self._typed_value(val_text, item_val.data(ROLE_ORIGINAL_TYPE))
-
-            if isinstance(target, list) and last_key.isdigit():
-                idx = int(last_key)
-                while len(target) <= idx:
-                    target.append(None)
-                target[idx] = typed_val
-            else:
-                target[last_key] = typed_val
+            set_path(section_root(sd_dict_final, section), field_path,
+                     self._typed_value(val_text, item_val.data(ROLE_ORIGINAL_TYPE)))
 
         # 6. Body tabs (statement / correspondence / payslip): fields the user edited there
         for body_tab in self._body_tabs():
