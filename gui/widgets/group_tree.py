@@ -166,7 +166,6 @@ class GroupTreeWidget(QWidget):
 
     def _find_item(self, group_id: str) -> Optional[QTreeWidgetItem]:
         """Search tree for item with matching group_id UserRole data."""
-        iterator = QTreeWidgetItem
         def _search(item: QTreeWidgetItem) -> Optional[QTreeWidgetItem]:
             if item.data(0, Qt.ItemDataRole.UserRole) == group_id:
                 return item

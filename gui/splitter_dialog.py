@@ -132,7 +132,6 @@ class SplitterDialog(QDialog):
             except Exception as e:
                 logger.warning(f"Batch size adjustment failed for {info['path']}: {e}")
 
-        count = len(file_info_list)
         msg = self.tr("Import Assistant: Batch (%n file(s))", "", len(file_info_list))
         self.setWindowTitle(msg)
         self.strip.load_from_paths(file_info_list)

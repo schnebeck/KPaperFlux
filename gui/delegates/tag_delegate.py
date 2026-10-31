@@ -69,7 +69,6 @@ class TagDelegate(QStyledItemDelegate):
         tags = [t.strip() for t in tag_string.split(',') if t.strip()]
         
         # Geometry
-        total_width = option.rect.width()
         current_x = option.rect.x() + 2
         
         # Height constraint: Center vertically, max 18px or row_height-4

@@ -45,7 +45,6 @@ class QueryParser:
         remaining_tokens = []
 
         year_pattern = re.compile(r"^(20\d{2})$")
-        relative_days_pattern = re.compile(r"^in\s+(\d+)\s+tagen?$")
         
         full_query = query.lower()
         today = datetime.now().date()

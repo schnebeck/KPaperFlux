@@ -101,7 +101,6 @@ class BarChartWidget(ChartWidget):
         s_count = len(self.series)
         g_spacing = 15
         g_width = (c_w - (b_count - 1) * g_spacing) / b_count
-        b_width = g_width / s_count
 
         # X/Y Axis
         painter.setPen(QPen(QColor("#bdc3c7"), 1))

@@ -1077,7 +1077,6 @@ class AdvancedFilterWidget(QWidget):
 
         # 3. Handle Scope
         final_query = text_query
-        scope_msg = self.tr("in all documents")
 
         if self.chk_search_scope.isChecked():
             # Merge with "Filter View"
@@ -1087,7 +1086,6 @@ class AdvancedFilterWidget(QWidget):
                     "operator": "AND",
                     "conditions": [current_filter, text_query]
                 }
-                scope_msg = self.tr("in current view")
 
         logger.debug(f"[Search] Final Query: {final_query}")
 

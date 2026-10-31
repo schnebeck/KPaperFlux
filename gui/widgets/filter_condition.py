@@ -264,7 +264,6 @@ class FilterConditionWidget(QWidget):
                             menus[current_path] = menus[parent_path].addMenu(display_part)
                     
                     # Add the final action
-                    leaf_name = parts[-1]
                     display_leaf = translator.beautify_key(k).split(" > ")[-1]
                     
                     is_parent = any(sk.startswith(k + ".") for sk in sorted_keys)

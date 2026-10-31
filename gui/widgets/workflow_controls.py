@@ -117,8 +117,8 @@ class WorkflowControlsWidget(QWidget):
                 
                 if can_run:
                     btn.setFixedHeight(28)
-                    btn.setStyleSheet(f"""
-                        QPushButton {{
+                    btn.setStyleSheet("""
+                        QPushButton {
                             background-color: #ffffff; 
                             color: #555; 
                             border: 1px solid #ccc;
@@ -126,11 +126,11 @@ class WorkflowControlsWidget(QWidget):
                             font-size: 14px;
                             padding: 0px 15px;
                             border-radius: 4px;
-                        }}
-                        QPushButton:hover {{
+                        }
+                        QPushButton:hover {
                             background-color: #f8f9fa;
                             border-color: #bbb;
-                        }}
+                        }
                     """)
                     btn.setEnabled(True)
                 else:

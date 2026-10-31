@@ -141,7 +141,6 @@ class DuplicateFinderDialog(QDialog):
         
     def _format_doc_info(self, doc: Document) -> str:
         text_preview = (doc.text_content or "")[:200]
-        sd = doc.semantic_data or {}
         return (
             f"<b>Filename:</b> {doc.original_filename}<br>"
             f"<b>Date:</b> {doc.doc_date or '-'}<br>"

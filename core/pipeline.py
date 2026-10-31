@@ -981,7 +981,6 @@ class PipelineProcessor:
         Returns:
             The generated filename string.
         """
-        sd = doc.semantic_data or {}
         sender = doc.sender_name or "Unknown"
 
 

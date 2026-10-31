@@ -172,7 +172,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         if not self.connection:
             return
 
-        with self._write() as conn:
+        with self._write():
             self.connection.execute(create_physical_files_table)
             self.connection.execute(create_virtual_documents_table)
             self.connection.execute(create_document_groups_table)
@@ -299,7 +299,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             new_status: The new status string (e.g., 'PROCESSED').
         """
         sql = "UPDATE virtual_documents SET status = ? WHERE uuid = ?"
-        with self._write() as conn:
+        with self._write():
             self.connection.execute(sql, (new_status, uuid))
 
     def get_document_by_uuid(self, uuid: str) -> Optional[Document]:
@@ -344,7 +344,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
                 last_processed_at = NULL
             WHERE uuid = ?
         """
-        with self._write() as conn:
+        with self._write():
             self.connection.execute(sql, (uuid,))
 
     def queue_for_semantic_extraction(self, uuids: List[str]) -> None:
@@ -359,7 +359,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             SET status = 'STAGE2_PENDING'
             WHERE uuid = ? AND deleted = 0
         """
-        with self._write() as conn:
+        with self._write():
             for uid in uuids:
                 self.connection.execute(sql, (uid,))
 
@@ -670,7 +670,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         """
         now = datetime.now().isoformat()
         sql = "UPDATE virtual_documents SET deleted = 1, deleted_at = ? WHERE uuid = ?"
-        with self._write() as conn:
+        with self._write():
             cursor = self.connection.execute(sql, (now, uuid))
             return cursor.rowcount > 0
 
@@ -678,7 +678,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         """Soft-deletes multiple documents and records the deletion timestamp."""
         now = datetime.now().isoformat()
         sql = "UPDATE virtual_documents SET deleted = 1, deleted_at = ? WHERE uuid = ?"
-        with self._write() as conn:
+        with self._write():
             for uid in uuids:
                 self.connection.execute(sql, (now, uid))
 
@@ -693,7 +693,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             True if successful.
         """
         sql = "DELETE FROM virtual_documents WHERE uuid = ?"
-        with self._write() as conn:
+        with self._write():
             cursor = self.connection.execute(sql, (uuid,))
             return cursor.rowcount > 0
 
@@ -709,7 +709,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
                      SELECT 1 FROM json_each(source_mapping)
                      WHERE json_extract(value, '$.file_uuid') = ?
                  )"""
-        with self._write() as conn:
+        with self._write():
             self.connection.execute(sql, (source_uuid,))
 
     def restore_document(self, uuid: str) -> bool:
@@ -717,7 +717,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         Restores a document from the trash bin and clears the deletion timestamp.
         """
         sql = "UPDATE virtual_documents SET deleted = 0, deleted_at = NULL WHERE uuid = ?"
-        with self._write() as conn:
+        with self._write():
             cursor = self.connection.execute(sql, (uuid,))
             return cursor.rowcount > 0
 
@@ -1207,7 +1207,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             END;
             """
         ]
-        with self._write() as conn:
+        with self._write():
             for trigger_sql in triggers:
                 self.execute(trigger_sql)
 
@@ -1252,7 +1252,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             END;
             """
         ]
-        with self._write() as conn:
+        with self._write():
             for trigger_sql in triggers:
                 self.execute(trigger_sql)
 
@@ -1263,7 +1263,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         cols = ", ".join([f"{k} = ?" for k in updates.keys()])
         sql = f"UPDATE {table} SET {cols} WHERE {pk_col} = ?"
         vals = list(updates.values()) + [pk_val]
-        with self._write() as conn:
+        with self._write():
             self.execute(sql, tuple(vals))
 
     def _rewrite_user_tags(self, match: List[str], rewrite: Callable[[List[str]], List[str]]) -> int:
@@ -1404,7 +1404,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, 1, 0, ?, ?, ?, ?, ?)
         """
         try:
-            with self._write() as conn:
+            with self._write():
                 if isinstance(doc.semantic_data, SemanticExtraction):
                     sd_json = json.dumps(doc.semantic_data.model_dump(mode='json'))
                 else:

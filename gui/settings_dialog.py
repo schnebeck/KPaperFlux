@@ -22,7 +22,6 @@ from core.identity_parser import parse_identity_signature
 try:
     from gui.vocabulary_settings import VocabularySettingsWidget
 except ImportError as e:
-    import sys
     logger.error(f"Critical internal import failed in settings_dialog.py (VocabularySettingsWidget): {e}")
     sys.exit(1)
 

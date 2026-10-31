@@ -11,7 +11,6 @@ Description:    Migration tool for renaming 'Dashboard' to 'Cockpit'.
 
 import os
 import sys
-import json
 import shutil
 from pathlib import Path
 
@@ -55,7 +54,7 @@ def migrate_config():
     # 2. Migrate CWD config (dev only)
     if cwd_config.exists():
         if (CONFIG_DIR / "cockpit_config.json").exists():
-            print(f"[!] Warning: dashboard_config.json in CWD exists but cockpit_config.json already in config dir.")
+            print("[!] Warning: dashboard_config.json in CWD exists but cockpit_config.json already in config dir.")
         else:
             try:
                 shutil.move(str(cwd_config), str(new_config))

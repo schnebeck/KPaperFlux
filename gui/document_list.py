@@ -18,7 +18,7 @@ from PyQt6.QtCore import pyqtSignal, Qt, QPoint, QSettings, QLocale, QTimer
 from PyQt6.QtGui import QBrush, QColor
 from gui.theme import CLR_REVIEW
 from pathlib import Path
-from typing import Optional, Any, Dict
+from typing import Any, Callable, Dict, Optional
 import datetime
 import json
 from core.logger import get_logger
@@ -27,7 +27,6 @@ from core.deadline_monitor import compute_tier, URGENCY_ICON, URGENCY_TOOLTIP
 logger = get_logger("gui.document_list")
 
 # Core Imports
-from gui.utils import show_selectable_message_box
 from core.database import DatabaseManager
 from core.config import AppConfig
 from core.semantic_translator import SemanticTranslator
@@ -1003,14 +1002,9 @@ class DocumentListWidget(QWidget):
         self.documents_cache[doc.uuid] = doc
 
         # 3. Format Data
-        created_str = format_datetime(doc.created_at)
         filename = doc.original_filename or f"Entity {doc.uuid[:8]}"
         pages_str = str(doc.page_count if doc.page_count is not None else 0)
-        status = getattr(doc, "status", "NEW")
         type_tags = getattr(doc, "type_tags", [])
-        locked_str = "Yes" if getattr(doc, "is_immutable", False) else "No"
-        processed_str = format_datetime(doc.last_processed_at) or "-"
-        used_str = format_datetime(doc.last_used) or "-"
 
         # 4. Apply to Fixed Columns
         target_item.setText(2, filename)
@@ -1331,9 +1325,6 @@ class DocumentListWidget(QWidget):
 
     def _create_tree_item(self, doc) -> SortableTreeWidgetItem:
         """Centralized factory for document list items."""
-        created_str = format_datetime(doc.created_at)
-        created_sort = str(doc.created_at) if doc.created_at else ""
-
         filename = doc.original_filename or f"Entity {doc.uuid[:8]}"
         pages_sort = doc.page_count if doc.page_count is not None else 0
         pages_str = str(pages_sort)
@@ -1348,9 +1339,7 @@ class DocumentListWidget(QWidget):
         locked_at_str = format_datetime(doc.locked_at) or "-"
         processed_str = format_datetime(doc.last_processed_at) or "-"
         exported_str = format_datetime(doc.exported_at) or "-"
-        
-        sd = doc.semantic_data
-        
+
         hit_count = self.current_hit_map.get(doc.uuid, 0)
         
         icon = ""
@@ -1545,15 +1534,16 @@ class DocumentListWidget(QWidget):
                         doc.file_path = str(potential)
 
         # Build a path resolver so the exporter can look up vault file paths by UUID
-        path_resolver = None
+        path_resolver: Optional[Callable[[str], Optional[str]]] = None
         if self.db_manager and self.db_manager.connection:
             conn = self.db_manager.connection
 
-            def path_resolver(file_uuid: str) -> Optional[str]:
+            def resolve_vault_path(file_uuid: str) -> Optional[str]:
                 cursor = conn.cursor()
                 cursor.execute("SELECT file_path FROM physical_files WHERE uuid = ?", (file_uuid,))
                 row = cursor.fetchone()
                 return row[0] if row else None
+            path_resolver = resolve_vault_path
 
         dlg = ExportDialog(self, documents, path_resolver=path_resolver)
         if dlg.exec():
@@ -1651,7 +1641,6 @@ class DocumentListWidget(QWidget):
         """Translates technical tags into pretty UI labels."""
         if not tag: return ""
         t_str = str(tag).replace("_", " ")
-        t_upper = t_str.upper()
         
         # 1. Check explicit mapping (using underscored keys from TAG_MAPPING)
         orig_upper = str(tag).upper()

@@ -59,7 +59,7 @@ class StamperDialog(QDialog):
         # Color
         color_layout = QHBoxLayout()
         self.lbl_color = QLabel("   ")
-        self.lbl_color.setStyleSheet(f"background-color: rgb(255,0,0); border: 1px solid black;")
+        self.lbl_color.setStyleSheet("background-color: rgb(255,0,0); border: 1px solid black;")
         self.lbl_color.setFixedSize(20, 20)
         
         btn_color = QPushButton(self.tr("Select Color..."))

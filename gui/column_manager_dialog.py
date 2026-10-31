@@ -87,7 +87,6 @@ class ColumnManagerDialog(QDialog):
         if is_fixed:
             label = self.fixed_columns[l_idx]
             key = None
-            is_new = False
         else:
             # Dynamic
             # Valid only if within range
@@ -95,7 +94,6 @@ class ColumnManagerDialog(QDialog):
             if 0 <= dyn_idx < len(self.dynamic_columns):
                 key = self.dynamic_columns[dyn_idx]
                 label = self.pretty_labels.get(key, key)
-                is_new = False
             else:
                 return # Should not happen unless inconsistent
                 

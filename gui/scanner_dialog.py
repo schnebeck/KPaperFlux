@@ -319,7 +319,7 @@ class ScannerDialog(QDialog):
              self.device_caps = cached_caps
              self._apply_capabilities(cached_caps)
              # Refresh in background anyway to stay up-to-date
-             logger.debug(f"Refreshing capabilities in background...")
+             logger.debug("Refreshing capabilities in background...")
              self._fetch_device_details(device_id, background=True)
              return
 
@@ -360,7 +360,7 @@ class ScannerDialog(QDialog):
             self.stack.setCurrentIndex(1)
             QTimer.singleShot(100, self.adjustSize)
         else:
-            logger.debug(f"capabilities refreshed (Background)")
+            logger.debug("capabilities refreshed (Background)")
             # If we loaded in background, update CMDS if we are currently on the same device
             if self.device_combo.currentData() == device_id:
                 # Silently update sources if they changed

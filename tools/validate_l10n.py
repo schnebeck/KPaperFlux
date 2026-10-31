@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import xml.etree.ElementTree as ET
-import os
 import sys
 from pathlib import Path
 

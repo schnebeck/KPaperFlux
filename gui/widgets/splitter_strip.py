@@ -942,7 +942,7 @@ class SplitterStripWidget(QWidget):
 
         # --- 4. DRAG STARTEN ---
         self.is_dragging = True
-        drag_result = drag.exec(Qt.DropAction.MoveAction)
+        drag.exec(Qt.DropAction.MoveAction)
 
         # --- 5. CLEANUP NACH DROP ---
         self.is_dragging = False
@@ -960,7 +960,6 @@ class SplitterStripWidget(QWidget):
         if not self.selected_widgets: return True
 
         # Map widgets to segments
-        segments = []
         curr_segment = 0
         widget_to_seg = {}
 

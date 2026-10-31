@@ -22,7 +22,7 @@ import sys
 from collections import defaultdict
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 # --- Configuration ---
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -492,7 +492,7 @@ def main() -> None:
 
     scan_dirs = ALL_SCAN_DIRS if scan_all else DEFAULT_SCAN_DIRS
 
-    print(f"\nKPaperFlux Clone Detector")
+    print("\nKPaperFlux Clone Detector")
     print(f"Scanning: {', '.join(scan_dirs)}")
     print(f"Min function size: {MIN_NODES} AST nodes")
     print(f"Near-clone threshold: {threshold:.0%}")

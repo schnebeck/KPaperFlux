@@ -296,7 +296,6 @@ class DocumentExporter:
                     # Auto-adjust columns
                     for i, col in enumerate(df.columns):
                         # Simple heuristic
-                        width = 20
                         col_str = str(col).lower()
                         if "amount" in col_str or "betrag" in col_str or "rate" in col_str:
                             worksheet.set_column(i, i, 15, money_fmt)
