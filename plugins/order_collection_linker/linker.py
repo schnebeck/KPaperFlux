@@ -1,4 +1,5 @@
 
+import re
 import uuid
 from typing import List, Dict, Set, Any
 from PyQt6.QtGui import QAction
@@ -6,6 +7,14 @@ from PyQt6.QtWidgets import QMessageBox
 
 from core.plugins.base import KPaperFluxPlugin
 from core.models.virtual import VirtualDocument as Document
+
+# Fields and reference types that link documents of one order chain. Customer numbers and
+# buyer references stay the same across all invoices of a supplier and would merge unrelated orders.
+LINKING_FINANCE_FIELDS = ("invoice_number", "order_number", "project_reference")
+NON_LINKING_REFERENCE_TYPES = {"CUSTOMER_ID", "CUSTOMER_NUMBER", "BUYER_REFERENCE", "ACCOUNT_NUMBER",
+                               "TAX_ID", "VAT_ID", "IBAN"}
+GENERIC_TOKENS = {"NULL", "NONE", "UNKNOWN", "RECHNUNG"}
+
 
 class OrderCollectionLinker(KPaperFluxPlugin):
     """
@@ -32,45 +41,9 @@ class OrderCollectionLinker(KPaperFluxPlugin):
             QMessageBox.information(parent, self.tr("Order Collection"), self.tr("No document data available to build collections."))
             return
 
-        # Map to track which IDs point to which documents
-        # Key: Technical ID (e.g. 'PRJ-2024-001'), Value: Set of Document UUIDs
-        nexus_map: Dict[str, Set[str]] = {}
-        
         # Track established process_ids
         doc_to_process: Dict[str, str] = {d.uuid: d.process_id for d in all_docs if d.process_id}
-
-        for doc in all_docs:
-            identifiers = self._extract_nexus_identifiers(doc)
-            for ident in identifiers:
-                if ident not in nexus_map:
-                    nexus_map[ident] = set()
-                nexus_map[ident].add(doc.uuid)
-
-        # Build Document Adjacency (Sharing a common nexus ID)
-        links: Dict[str, Set[str]] = {d.uuid: set() for d in all_docs}
-        for cluster in nexus_map.values():
-            for u1 in cluster:
-                for u2 in cluster:
-                    if u1 != u2:
-                        links[u1].add(u2)
-
-        # Connected Components Discovery
-        visited = set()
-        process_clusters = []
-        for doc in all_docs:
-            if doc.uuid not in visited:
-                cluster = []
-                stack = [doc.uuid]
-                visited.add(doc.uuid)
-                while stack:
-                    curr = stack.pop()
-                    cluster.append(curr)
-                    for neighbor in links[curr]:
-                        if neighbor not in visited:
-                            visited.add(neighbor)
-                            stack.append(neighbor)
-                if len(cluster) > 1:
-                    process_clusters.append(cluster)
+        process_clusters = self.find_process_clusters(all_docs)
 
         # Apply Process Mapping
         updates = 0
@@ -101,29 +74,68 @@ class OrderCollectionLinker(KPaperFluxPlugin):
         if updates > 0 and self.api.main_window:
             self.api.main_window.list_widget.refresh_list()
 
+    def find_process_clusters(self, docs: List[Document]) -> List[List[str]]:
+        """
+        Groups documents that share a linking identifier (directly or through others).
+
+        Returns:
+            Lists of document UUIDs with at least two members.
+        """
+        nexus_map: Dict[str, Set[str]] = {}
+        for doc in docs:
+            for ident in self._extract_nexus_identifiers(doc):
+                nexus_map.setdefault(ident, set()).add(doc.uuid)
+
+        links: Dict[str, Set[str]] = {d.uuid: set() for d in docs}
+        for members in nexus_map.values():
+            for uid in members:
+                links[uid] |= members - {uid}
+
+        visited: Set[str] = set()
+        clusters: List[List[str]] = []
+        for doc in docs:
+            if doc.uuid in visited:
+                continue
+            cluster, stack = [], [doc.uuid]
+            visited.add(doc.uuid)
+            while stack:
+                current = stack.pop()
+                cluster.append(current)
+                for neighbor in links[current] - visited:
+                    visited.add(neighbor)
+                    stack.append(neighbor)
+            if len(cluster) > 1:
+                clusters.append(cluster)
+        return clusters
+
     def _extract_nexus_identifiers(self, doc: Document) -> Set[str]:
         """
         Gathers technical reference tokens for organic linking.
         Prioritizes high-fidelity extraction fields from Stage 2.
         """
+        sd = doc.semantic_data
+        if sd is None:
+            return set()
         tokens = set()
-        
+
         # 1. Standard Header identifiers
-        if doc.doc_number: tokens.add(str(doc.doc_number).strip().upper())
-            
+        if doc.doc_number:
+            tokens.add(str(doc.doc_number).strip().upper())
+
         # 2. Financial Context (EN 16931 BT-fields)
-        fb = doc.semantic_data.bodies.get("finance_body")
+        fb = sd.bodies.get("finance_body")
         if fb:
-            for field in ["invoice_number", "order_number", "customer_id", "project_reference", "buyer_reference"]:
+            for field in LINKING_FINANCE_FIELDS:
                 val = getattr(fb, field, None)
-                if val: tokens.add(str(val).strip().upper())
+                if val:
+                    tokens.add(str(val).strip().upper())
 
         # 3. Dedicated Semantic References list (Neutral IDs)
-        if doc.semantic_data.meta_header and doc.semantic_data.meta_header.references:
-            for ref in doc.semantic_data.meta_header.references:
-                if ref.ref_value:
+        if sd.meta_header and sd.meta_header.references:
+            for ref in sd.meta_header.references:
+                if ref.ref_value and str(ref.ref_type).upper() not in NON_LINKING_REFERENCE_TYPES:
                     tokens.add(str(ref.ref_value).strip().upper())
-                    
-        # Noise Filter: min length 3, ignore common generic patterns
-        return {t for t in tokens if len(t) > 2 and t not in ["NULL", "NONE", "UNKNOWN", "RECHNUNG"]}
+
+        # Noise filter: identifiers have at least 4 characters and a digit
+        return {t for t in tokens if len(t) >= 4 and re.search(r"\d", t) and t not in GENERIC_TOKENS}
 
