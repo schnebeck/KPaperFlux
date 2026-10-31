@@ -117,3 +117,35 @@ def test_normal_zoom_keeps_full_supersampling(qtbot, pipeline, monkeypatch):
     expected = canvas.devicePixelRatioF() * canvas.SUPERSAMPLING
     assert sizes[-1][0] == pytest.approx(page.rect.width * expected, abs=2)
     assert canvas.display_label.width() == pytest.approx(page.rect.width, abs=2)
+
+
+@pytest.mark.parametrize("rotation", [0, 90, 180, 270])
+def test_coordinate_mapping_round_trips_for_every_rotation(qtbot, pipeline, rotation):
+    viewer = PdfViewerWidget(pipeline=pipeline)
+    qtbot.addWidget(viewer)
+    viewer.load_document(DOC_UUID)
+    canvas = viewer.canvas
+    canvas.zoom_factor = 1.5
+    canvas.rotation = rotation
+    canvas.render_current_page()
+
+    widget_point = canvas._get_widget_coords(100.0, 700.0)
+    pdf_x, pdf_y = canvas._get_pdf_coords(widget_point)
+
+    assert pdf_x == pytest.approx(100.0, abs=1.0) and pdf_y == pytest.approx(700.0, abs=1.0)
+
+
+def test_rotated_view_maps_a_word_to_its_rotated_position(qtbot, pipeline):
+    viewer = PdfViewerWidget(pipeline=pipeline)
+    qtbot.addWidget(viewer)
+    viewer.load_document(DOC_UUID)
+    canvas = viewer.canvas
+    canvas.zoom_factor = 1.0
+    canvas.rotation = 90
+    canvas.render_current_page()
+    word = next(w for w in canvas.doc[0].get_text("words") if w[4] == "Synthetic")
+
+    point = canvas._get_widget_coords((word[0] + word[2]) / 2, (word[1] + word[3]) / 2)
+
+    # After a 90° turn the text near the top-left of the page sits at the right edge
+    assert point.x() > canvas.display_label.width() * 0.6

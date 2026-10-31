@@ -569,44 +569,36 @@ class PdfCanvas(QScrollArea):
         else:
             super().wheelEvent(event)
 
-    def _get_pdf_coords(self, pos: QPoint) -> Optional[Tuple[float, float]]:
-        """Maps widget coordinates (logical pixels) to PDF points."""
-        if not self.doc:
-            return None
+    def _display_transform(self) -> Tuple[fitz.Matrix, fitz.Point, float, float]:
+        """
+        The page-to-display mapping in logical pixels: the matrix used for rendering
+        (zoom and rotation, without the device pixel ratio), the top-left corner
+        of the transformed page and the centering offset in the label.
+        """
+        matrix = fitz.Matrix(self.zoom_factor, self.zoom_factor).prerotate(self.rotation)
+        page_rect = self.doc[self.current_page_idx].rect * matrix
         pixmap = self.display_label.pixmap()
-        if not pixmap:
-            return None
-        dpr_total = pixmap.devicePixelRatio()
-        
-        # Pixmap size in logical pixels
-        pw_logic = pixmap.width() / dpr_total
-        ph_logic = pixmap.height() / dpr_total
-        
-        # Centering offset in the label
+        pw_logic = pixmap.width() / pixmap.devicePixelRatio()
+        ph_logic = pixmap.height() / pixmap.devicePixelRatio()
         offset_x = (self.display_label.width() - pw_logic) / 2
         offset_y = (self.display_label.height() - ph_logic) / 2
-        
-        pdf_x = (pos.x() - offset_x) / self.zoom_factor
-        pdf_y = (pos.y() - offset_y) / self.zoom_factor
-        return pdf_x, pdf_y
+        return matrix, page_rect.tl, offset_x, offset_y
+
+    def _get_pdf_coords(self, pos: QPoint) -> Optional[Tuple[float, float]]:
+        """Maps widget coordinates (logical pixels) to PDF points, honouring the view rotation."""
+        if not self.doc or not self.display_label.pixmap():
+            return None
+        matrix, origin, offset_x, offset_y = self._display_transform()
+        point = (fitz.Point(pos.x() - offset_x, pos.y() - offset_y) + origin) * ~matrix
+        return point.x, point.y
 
     def _get_widget_coords(self, pdf_x: float, pdf_y: float) -> QPoint:
-        """Maps PDF points to widget coordinates (logical pixels)."""
-        pixmap = self.display_label.pixmap()
-        if not pixmap:
+        """Maps PDF points to widget coordinates (logical pixels), honouring the view rotation."""
+        if not self.doc or not self.display_label.pixmap():
             return QPoint(0, 0)
-        dpr_total = pixmap.devicePixelRatio()
-        
-        pw_logic = pixmap.width() / dpr_total
-        ph_logic = pixmap.height() / dpr_total
-        
-        offset_x = (self.display_label.width() - pw_logic) / 2
-        offset_y = (self.display_label.height() - ph_logic) / 2
-        
-        return QPoint(
-            int(pdf_x * self.zoom_factor + offset_x), 
-            int(pdf_y * self.zoom_factor + offset_y)
-        )
+        matrix, origin, offset_x, offset_y = self._display_transform()
+        point = fitz.Point(pdf_x, pdf_y) * matrix - origin
+        return QPoint(int(point.x + offset_x), int(point.y + offset_y))
 
     def extract_word_at_pos(self, pos: QPoint) -> None:
         """Extracts and copies the word at the specified position."""
