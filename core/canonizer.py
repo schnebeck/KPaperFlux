@@ -38,6 +38,7 @@ from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, creat
 from core.models.identity import IdentityProfile
 from core.models.semantic import SemanticExtraction, WorkflowInfo
 from core.models.virtual import SourceReference, VirtualDocument, DocumentStatus
+from core.reanalysis import carry_over_user_state
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
 from core.rules_engine import RulesEngine
@@ -318,25 +319,47 @@ class CanonizerService:
             return True
         return False
 
+    def _is_trailing_blank(self, v_doc: VirtualDocument) -> bool:
+        """
+        True if the document consists of the last pages of a single file that has
+        other pages before them (the blank back side of an ADF scan).
+        """
+        if len(v_doc.source_mapping) != 1 or not v_doc.source_mapping[0].pages:
+            return False
+        ref = v_doc.source_mapping[0]
+        pf = self.physical_repo.get_by_uuid(ref.file_uuid)
+        return bool(pf and pf.page_count_phys and max(ref.pages) == pf.page_count_phys and min(ref.pages) > 1)
+
     def _discard_empty(self, v_doc: VirtualDocument) -> None:
         """
-        Handles a document without any text: trailing pages of a file are ADF
-        artifacts and are purged, others are marked SKIPPED_EMPTY.
+        Handles a document without any text: blank trailing pages of a longer file
+        are ADF artifacts and are purged; anything else (e.g. a photo or an
+        image-only scan) is kept and marked SKIPPED_EMPTY.
         """
-        is_at_end = False
-        if v_doc.source_mapping:
-            last_ref = v_doc.source_mapping[-1]
-            pf = self.physical_repo.get_by_uuid(last_ref.file_uuid)
-            if pf and pf.page_count_phys and last_ref.pages and max(last_ref.pages) == pf.page_count_phys:
-                is_at_end = True
-
-        if is_at_end:
-            logger.info(f"No text content resolved for {v_doc.uuid} (End-of-File). Purging ADF artifact.")
+        if self._is_trailing_blank(v_doc):
+            logger.info(f"No text content resolved for {v_doc.uuid} (end of file). Purging ADF artifact.")
             self.logical_repo.delete_by_uuid(v_doc.uuid)
         else:
-            logger.info(f"No text content resolved for {v_doc.uuid} (Mid-File). Marking as SKIPPED_EMPTY.")
+            logger.info(f"No text content resolved for {v_doc.uuid}. Marking as SKIPPED_EMPTY.")
             v_doc.status = DocumentStatus.SKIPPED_EMPTY
             self.logical_repo.save(v_doc)
+
+    def _reload_locked(self, v_doc: VirtualDocument) -> Optional[VirtualDocument]:
+        """
+        Re-reads a document right before an analysis result is written.
+
+        The analysis may run for minutes; meanwhile the user can delete, purge or
+        edit the document. Writing the snapshot taken at lock time would undo that.
+
+        Returns:
+            The current document if it is still locked for this analysis, else None.
+        """
+        current = self.logical_repo.get_by_uuid(v_doc.uuid)
+        if current is None or current.deleted or current.status != v_doc.status:
+            logger.info(f"{v_doc.uuid} changed during analysis "
+                        f"({'gone' if current is None else current.status}); result discarded.")
+            return None
+        return current
 
     def _acquire(self, v_doc: VirtualDocument) -> Optional[bool]:
         """
@@ -371,6 +394,9 @@ class CanonizerService:
         'Reprocess' retries.
         """
         logger.error(f"FluxSense analysis failed for {v_doc.uuid} ({error_code or 'unclassified'}): {message}")
+        v_doc = self._reload_locked(v_doc)
+        if v_doc is None:
+            return
         if v_doc.semantic_data is None:
             v_doc.semantic_data = SemanticExtraction()
         url = self._server_url() if error_code else None
@@ -436,9 +462,12 @@ class CanonizerService:
 
     def _apply_entity(self, target_doc: VirtualDocument, entity: AdaptedEntity) -> None:
         """Writes one adapted logical document into its VirtualDocument and persists it."""
+        same_pages = [r.model_dump() for r in target_doc.source_mapping] == [r.model_dump() for r in entity.source_mapping]
+        # Workflow progress and confirmed values belong to these pages only
+        previous = target_doc.semantic_data if same_pages else None
         target_doc.source_mapping = entity.source_mapping
         target_doc.type_tags = entity.type_tags
-        target_doc.semantic_data = entity.semantic
+        target_doc.semantic_data = carry_over_user_state(previous, entity.semantic)
         target_doc.ai_confidence = entity.ai_confidence
         target_doc.cached_full_text = target_doc.resolve_content(self._load_physical)
         target_doc.export_filename = generate_smart_filename(target_doc.semantic_data, target_doc.type_tags)
@@ -518,15 +547,17 @@ class CanonizerService:
         Returns:
             True if processing completed (status changed), False if the document was put on hold.
         """
-        v_doc = job.v_doc
         result = outcome.result
         if result is None:
-            self._hold(v_doc, job.resumption, outcome.error or "FluxSense returned no result", None, outcome.error_code)
+            self._hold(job.v_doc, job.resumption, outcome.error or "FluxSense returned no result", None, outcome.error_code)
             return False
         try:
             entities = adapt_result(result, job.page_refs, keep_single=job.keep_single)
         except FluxSenseResultError as e:
-            self._hold(v_doc, job.resumption, str(e), result, e.error_code)
+            self._hold(job.v_doc, job.resumption, str(e), result, e.error_code)
+            return False
+        v_doc = self._reload_locked(job.v_doc)
+        if v_doc is None:
             return False
         self._fill_page_texts(job.page_refs, page_texts_from_result(result))
 

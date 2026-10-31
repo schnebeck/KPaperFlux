@@ -334,16 +334,17 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
 
     def reset_document_for_reanalysis(self, uuid: str) -> None:
         """
-        Resets a document's status and AI-derived metadata for fresh processing.
+        Queues a document for a fresh analysis.
+
+        The current semantic data stays: the analysis replaces it, but keeps workflow
+        progress and user-confirmed values for an unchanged page range.
 
         Args:
             uuid: The UUID of the document to reset.
         """
         sql = """
-            UPDATE virtual_documents 
-            SET status = 'NEW', 
-                type_tags = '[]', 
-                semantic_data = NULL,
+            UPDATE virtual_documents
+            SET status = 'NEW',
                 last_processed_at = NULL
             WHERE uuid = ?
         """

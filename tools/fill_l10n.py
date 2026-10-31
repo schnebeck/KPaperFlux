@@ -134,6 +134,10 @@ def fill():
         # General Labels
         "Keep older duplicates (%s)": "Ältere Dubletten behalten (%s)",
         "Really delete %n duplicates?": ("%n Dublette wirklich löschen?", "%n Dubletten wirklich löschen?"),
+        "Analyze Again": "Erneut analysieren",
+        "Analyze %n document(s) again?\n\nExtracted values you have not confirmed are replaced by the new analysis. Workflows and confirmed values are kept.": (
+            "%n Dokument erneut analysieren?\n\nNicht bestätigte Werte werden durch die neue Analyse ersetzt. Abläufe und bestätigte Werte bleiben erhalten.",
+            "%n Dokumente erneut analysieren?\n\nNicht bestätigte Werte werden durch die neue Analyse ersetzt. Abläufe und bestätigte Werte bleiben erhalten."),
         "%n documents could not be deleted.": ("%n Dokument konnte nicht gelöscht werden.", "%n Dokumente konnten nicht gelöscht werden."),
         "Select an item to view details": "Eintrag auswählen für Details",
         "New Folder": "Neuer Ordner",

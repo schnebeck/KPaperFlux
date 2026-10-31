@@ -64,7 +64,19 @@ class ProcessingController(QObject):
         """Re-run the pipeline for a list of documents."""
         from gui.workers import ReprocessWorker
 
-        if not self.pipeline:
+        if not self.pipeline or not uuids:
+            return
+
+        reply = QMessageBox.question(
+            self._parent,
+            self._parent.tr("Analyze Again"),
+            self._parent.tr(
+                "Analyze %n document(s) again?\n\nExtracted values you have not confirmed are "
+                "replaced by the new analysis. Workflows and confirmed values are kept.", "", len(uuids)),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
         source_uuids = set()

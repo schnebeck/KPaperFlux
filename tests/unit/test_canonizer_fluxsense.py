@@ -673,3 +673,82 @@ def test_stitching_uses_the_process_wide_pymupdf_lock() -> None:
     pdflock = pytest.importorskip("fluxsense.pdflock")
     assert analysis_input._pymupdf_lock() is pdflock.PYMUPDF_LOCK
 
+
+# ------------------------------------------------------------------ user changes during and across analysis
+
+class SideEffectClient(FakeClient):
+    """Runs an action (a concurrent user edit) while the engine call is in progress."""
+
+    def __init__(self, outcomes: List[Any], during: Any) -> None:
+        super().__init__(outcomes)
+        self.during = during
+
+    def analyze(self, pdf_path: Path) -> Dict[str, Any]:
+        self.during()
+        return super().analyze(pdf_path)
+
+
+def test_document_deleted_during_analysis_is_not_resurrected(db: DatabaseManager, physical_pdf: Path,
+                                                             stack_result: Dict[str, Any]) -> None:
+    client = SideEffectClient([_single_page_result(stack_result)], during=lambda: db.purge_document("doc-1"))
+    service = _service(db, client)
+    v_doc = _ingest(service, physical_pdf, [5])
+    assert service.process_virtual_document(v_doc) is False
+    assert service.logical_repo.get_by_uuid("doc-1") is None
+
+
+def test_document_trashed_during_analysis_stays_in_trash(db: DatabaseManager, physical_pdf: Path,
+                                                         stack_result: Dict[str, Any]) -> None:
+    client = SideEffectClient([_single_page_result(stack_result)], during=lambda: db.delete_document("doc-1"))
+    service = _service(db, client)
+    v_doc = _ingest(service, physical_pdf, [5])
+    assert service.process_virtual_document(v_doc) is False
+    assert service.logical_repo.get_by_uuid("doc-1").deleted
+
+
+def test_user_edits_during_analysis_are_kept(db: DatabaseManager, physical_pdf: Path,
+                                             stack_result: Dict[str, Any]) -> None:
+    edit = lambda: db.update_document_metadata("doc-1", {"tags": ["urgent"], "storage_location": "Box A"})  # noqa: E731
+    service = _service(db, SideEffectClient([_single_page_result(stack_result)], during=edit))
+    v_doc = _ingest(service, physical_pdf, [5])
+    assert service.process_virtual_document(v_doc) is True
+    doc = service.logical_repo.get_by_uuid("doc-1")
+    assert doc.status == DocumentStatus.PROCESSED
+    assert doc.tags == ["urgent"] and doc.storage_location == "Box A"
+
+
+def test_reextraction_keeps_workflows_and_confirmed_values(db: DatabaseManager, physical_pdf: Path,
+                                                           stack_result: Dict[str, Any]) -> None:
+    from core.models.semantic import EngineInfo, FieldReviewState, WorkflowInfo
+
+    previous = SemanticExtraction(
+        bodies={"finance_body": FinanceBody(invoice_number="USER-123")},
+        workflows={"rule-x": WorkflowInfo(rule_id="rule-x", current_step="PAID")},
+        engine=EngineInfo(name="fluxsense", fields=[FieldReviewState(
+            path="bodies.finance_body.invoice_number", value="USER-123", auto_accepted=False,
+            confirmed_by_user=True, confirmed_at="2026-10-01T10:00:00")]))
+    service = _service(db, FakeClient([stack_result]))
+    v_doc = _ingest(service, physical_pdf, [1, 2, 3, 4, 5], status=DocumentStatus.STAGE2_PENDING,
+                    semantic_data=previous)
+
+    assert service.process_virtual_document(v_doc) is True
+
+    doc = service.logical_repo.get_by_uuid("doc-1")
+    assert doc.semantic_data.engine.name == "fluxsense" and doc.semantic_data.engine.analyzed_pages
+    assert doc.semantic_data.workflows["rule-x"].current_step == "PAID"
+    assert doc.semantic_data.bodies["finance_body"].invoice_number == "USER-123"
+    state = doc.semantic_data.engine.field_state("bodies.finance_body.invoice_number")
+    assert state.confirmed_by_user and not state.needs_review
+
+
+def test_image_only_file_is_kept_not_purged(db: DatabaseManager, physical_pdf: Path,
+                                            stack_result: Dict[str, Any]) -> None:
+    """A whole file without any text (photo, image-only scan) is no ADF artifact."""
+    blank = _single_page_result(stack_result)
+    service = _service(db, FakeClient([(blank, ["   "])]))
+    service.physical_repo.save(PhysicalFile(uuid="file-a", original_filename="photo.pdf", file_path=str(physical_pdf),
+                                            page_count_phys=1, raw_ocr_data={}))
+    v_doc = VirtualDocument(uuid="doc-1", source_mapping=[SourceReference(file_uuid="file-a", pages=[1])])
+    service.logical_repo.save(v_doc)
+    assert service.process_virtual_document(v_doc) is True
+    assert service.logical_repo.get_by_uuid("doc-1").status == DocumentStatus.SKIPPED_EMPTY
