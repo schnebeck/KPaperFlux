@@ -1502,9 +1502,17 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                                      buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
-            if self.main_loop_worker:
+            if self.main_loop_worker is not None and self.main_loop_worker.isRunning():
                 self.main_loop_worker.stop()
-                self.main_loop_worker.wait(5000)
+                if not self.main_loop_worker.wait(10000):
+                    # Never wipe the database under a running analysis step
+                    show_selectable_message_box(
+                        self, self.tr("Analysis Running"),
+                        self.tr("The analysis is still finishing a document. Nothing was deleted; "
+                                "please try again in a moment."),
+                        icon=QMessageBox.Icon.Warning)
+                    self._init_main_loop_worker()
+                    return
 
             config = AppConfig()
             vault_path = config.get_vault_path()
@@ -1535,9 +1543,9 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if not self.pipeline:
             return
 
-        if self.main_loop_worker:
-            self.main_loop_worker.stop()
-            self.main_loop_worker.wait(2000)
+        if self.main_loop_worker is not None and self.main_loop_worker.isRunning():
+            # A step that does not end in time finishes in the background; never destroy a running thread
+            stop_thread(self.main_loop_worker, wait_ms=5000)
 
         self.main_loop_worker = MainLoopWorker(self.pipeline, self.filter_tree)
         self.main_loop_worker.documents_processed.connect(self._on_pipeline_documents_processed)

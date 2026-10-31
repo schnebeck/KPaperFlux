@@ -120,3 +120,20 @@ def test_similarity_search_can_be_cancelled(qtbot):
 
     assert results == [[]]
     assert calls == []
+
+
+def test_global_purge_is_refused_while_analysis_runs(window):
+    from unittest.mock import patch
+    from PyQt6.QtWidgets import QMessageBox
+
+    loop = FakeLoop()
+    window.main_loop_worker = loop
+    window.db_manager.purge_all_data = lambda *_: (_ for _ in ()).throw(AssertionError("purged anyway"))
+
+    with patch("gui.main_window.show_selectable_message_box", return_value=QMessageBox.StandardButton.Yes) as box, \
+         patch.object(window, "_init_main_loop_worker") as restart:
+        window.purge_data_slot()
+
+    assert loop.stopped
+    assert box.call_count == 2  # confirmation, then "analysis running"
+    restart.assert_called_once()

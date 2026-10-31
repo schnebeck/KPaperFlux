@@ -134,6 +134,9 @@ def fill():
         "Keep older duplicates (%s)": "Ältere Dubletten behalten (%s)",
         "Really delete %n duplicates?": ("%n Dublette wirklich löschen?", "%n Dubletten wirklich löschen?"),
         "Analyze Again": "Erneut analysieren",
+        "Analysis Running": "Analyse läuft",
+        "The analysis is still finishing a document. Nothing was deleted; please try again in a moment.":
+            "Die Analyse schließt gerade noch ein Dokument ab. Es wurde nichts gelöscht; bitte gleich noch einmal versuchen.",
         "Paused": "Pausiert",
         "Idle": "Bereit",
         "Stopped": "Angehalten",
