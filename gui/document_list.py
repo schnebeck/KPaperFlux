@@ -876,8 +876,12 @@ class DocumentListWidget(QWidget):
                 if uuids:
                     self.current_hit_map = self.db_manager.get_hit_counts_for_documents(uuids, search_text)
 
+        # Skip the repopulation only if nothing shown changed: the editable columns are part of the
+        # signature, semantic edits move last_used (database trigger)
         current_sig = tuple(
-            (d.uuid, d.status, str(d.last_processed_at), str(d.last_used), str(d.deleted_at), str(d.locked_at))
+            (d.uuid, d.status, str(d.last_processed_at), str(d.last_used), str(d.deleted_at), str(d.locked_at),
+             tuple(d.tags or ()), tuple(d.type_tags or ()), d.original_filename, d.storage_location,
+             d.archived, d.is_immutable)
             for d in docs
         ) + tuple(self.dynamic_columns) + (search_text,)
 

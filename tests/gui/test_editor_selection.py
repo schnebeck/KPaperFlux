@@ -119,3 +119,13 @@ def test_selection_sum_uses_the_ui_language_number_format(window):
     finally:
         window._switch_language("en", refresh_ui=False)
         QLocale.setDefault(previous)
+
+
+def test_list_shows_tag_changes_made_outside_the_editor(window, db):
+    window.list_widget.refresh_list()
+    db.update_document_metadata("doc-a", {"tags": ["shared", "renamed"]})
+
+    window.list_widget.refresh_list()
+
+    cached = window.list_widget.documents_cache["doc-a"]
+    assert cached.tags == ["shared", "renamed"]
