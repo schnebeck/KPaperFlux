@@ -304,7 +304,10 @@ class PdfCanvas(QScrollArea):
 
     FIT_FIXED_FRAME = 15.0    
     FIT_COMFORT_SCALE = 1.0
-    SUPERSAMPLING = 3.0 
+    SUPERSAMPLING = 3.0
+    # Upper bound for one rendered page: at 1000 % zoom an A4 page would otherwise
+    # need well over a gigabyte. Above it supersampling and then resolution drop.
+    MAX_RENDER_PIXELS = 40_000_000
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -532,11 +535,8 @@ class PdfCanvas(QScrollArea):
         self.display_label.setUpdatesEnabled(False)
         try:
             page = self.doc[self.current_page_idx]
-            dpr = self.devicePixelRatioF()
-            mat = fitz.Matrix(
-                self.zoom_factor * dpr * self.SUPERSAMPLING, 
-                self.zoom_factor * dpr * self.SUPERSAMPLING
-            ).prerotate(self.rotation)
+            scale = self._render_scale(page)
+            mat = fitz.Matrix(scale, scale).prerotate(self.rotation)
             pix = page.get_pixmap(matrix=mat, alpha=False)
             qimg = QImage(
                 pix.samples, 
@@ -545,13 +545,22 @@ class PdfCanvas(QScrollArea):
                 pix.stride, 
                 QImage.Format.Format_RGB888
             ).copy()
-            qimg.setDevicePixelRatio(dpr * self.SUPERSAMPLING)
+            # Logical size stays page size x zoom; the coordinate mapping relies on this ratio
+            pixel_ratio = scale / self.zoom_factor
+            qimg.setDevicePixelRatio(pixel_ratio)
             self.display_label.setPixmap(QPixmap.fromImage(qimg))
             # Manually set label size to match pixmap logical size
-            self.display_label.resize(int(pix.width / (dpr*self.SUPERSAMPLING)), 
-                                    int(pix.height / (dpr*self.SUPERSAMPLING)))
+            self.display_label.resize(int(pix.width / pixel_ratio), int(pix.height / pixel_ratio))
         finally:
             self.display_label.setUpdatesEnabled(True)
+
+    def _render_scale(self, page: fitz.Page) -> float:
+        """Points-to-pixels factor for rendering a page within MAX_RENDER_PIXELS."""
+        scale = self.zoom_factor * self.devicePixelRatioF() * self.SUPERSAMPLING
+        area = page.rect.width * page.rect.height
+        if area > 0 and area * scale * scale > self.MAX_RENDER_PIXELS:
+            scale = (self.MAX_RENDER_PIXELS / area) ** 0.5
+        return scale
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Handles mouse wheel for scrolling and Ctrl+Wheel for zooming."""

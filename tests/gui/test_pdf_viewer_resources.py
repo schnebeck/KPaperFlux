@@ -71,3 +71,49 @@ def test_canvas_closes_replaced_document(qtbot, pipeline):
     assert first.is_closed
     viewer.clear()
     assert viewer.canvas.doc is None
+
+
+def _rendered_sizes(canvas, monkeypatch) -> list:
+    """Sizes of the pixmaps fitz renders (QLabel.pixmap() returns a display-scaled copy)."""
+    sizes = []
+    original = fitz.Page.get_pixmap
+
+    def spy(page, *args, **kwargs):
+        pix = original(page, *args, **kwargs)
+        sizes.append((pix.width, pix.height))
+        return pix
+    monkeypatch.setattr(fitz.Page, "get_pixmap", spy)
+    return sizes
+
+
+def test_render_size_is_bounded_at_high_zoom(qtbot, pipeline, monkeypatch):
+    viewer = PdfViewerWidget(pipeline=pipeline)
+    qtbot.addWidget(viewer)
+    viewer.load_document(DOC_UUID)
+    canvas = viewer.canvas
+    page = canvas.doc[0]
+    sizes = _rendered_sizes(canvas, monkeypatch)
+
+    canvas.zoom_factor = 10.0
+    canvas.render_current_page()
+
+    width, height = sizes[-1]
+    assert width * height <= canvas.MAX_RENDER_PIXELS * 1.01  # fitz rounds up to whole pixels
+    # The logical size still follows the zoom, so selections map to the right place
+    assert canvas.display_label.width() == pytest.approx(page.rect.width * 10, abs=2)
+
+
+def test_normal_zoom_keeps_full_supersampling(qtbot, pipeline, monkeypatch):
+    viewer = PdfViewerWidget(pipeline=pipeline)
+    qtbot.addWidget(viewer)
+    viewer.load_document(DOC_UUID)
+    canvas = viewer.canvas
+    page = canvas.doc[0]
+    sizes = _rendered_sizes(canvas, monkeypatch)
+
+    canvas.zoom_factor = 1.0
+    canvas.render_current_page()
+
+    expected = canvas.devicePixelRatioF() * canvas.SUPERSAMPLING
+    assert sizes[-1][0] == pytest.approx(page.rect.width * expected, abs=2)
+    assert canvas.display_label.width() == pytest.approx(page.rect.width, abs=2)
