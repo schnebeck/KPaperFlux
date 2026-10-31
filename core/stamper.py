@@ -27,6 +27,7 @@ from reportlab.pdfgen import canvas
 from core.utils.forensics import get_pdf_class, PDFClass
 from core.utils.hybrid_handler import prepare_hybrid_container, restore_zugferd_xml
 from core.logger import get_logger
+from core.vault import resolve_view_path, searchable_path_for, stamped_path_for
 
 logger = get_logger("stamper")
 
@@ -239,6 +240,69 @@ class DocumentStamper:
         except Exception as e:
             logger.error(f"Stamping error: {e}")
             raise
+
+    # ── Vault files: stamps live in a derived copy, the original is never modified ──
+
+    def get_vault_stamps(self, original_path: str) -> List[Dict[str, str]]:
+        """Returns the stamps visible on a vault file (its current view version)."""
+        return self.get_stamps(resolve_view_path(original_path))
+
+    def stamp_vault_file(
+        self,
+        original_path: str,
+        text: str,
+        position: str = "top-right",
+        color: Tuple[int, int, int] = (255, 0, 0),
+        rotation: int = 45,
+    ) -> Path:
+        """
+        Stamps the view version of a vault file into its derived stamped copy.
+
+        Args:
+            original_path: Path of the original (WORM) vault file.
+            text, position, color, rotation: Stamp parameters.
+
+        Returns:
+            Path of the stamped copy.
+        """
+        target = stamped_path_for(original_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(suffix=".pdf", prefix="stamp_", dir=str(target.parent))
+        os.close(fd)
+        try:
+            self.apply_stamp(resolve_view_path(original_path), tmp, text,
+                             position=position, color=color, rotation=rotation)
+            os.replace(tmp, target)
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        return target
+
+    def unstamp_vault_file(self, original_path: str, stamp_id: Optional[str] = None) -> bool:
+        """
+        Removes stamps from the view version of a vault file without touching the original.
+
+        Stamps baked into the original (or its searchable copy) are hidden by a derived
+        copy without them. The copy is dropped again once it adds nothing to its base.
+
+        Args:
+            original_path: Path of the original (WORM) vault file.
+            stamp_id: Stamp to remove; None removes all KPaperFlux stamps.
+
+        Returns:
+            True if a stamp was removed.
+        """
+        target = stamped_path_for(original_path)
+        searchable = searchable_path_for(original_path)
+        base = str(searchable) if searchable.exists() else original_path
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(base, target)
+        removed = self.remove_stamp(str(target), stamp_id=stamp_id)
+        # Keep the copy while it still carries stamps or hides stamps baked into its base
+        if not self.get_stamps(str(target)) and not self.get_stamps(base):
+            target.unlink()
+        return removed
 
     def get_stamps(self, file_path: str) -> List[Dict[str, str]]:
         """

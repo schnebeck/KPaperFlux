@@ -12,7 +12,6 @@ Description:    Handles document reprocessing and stamping operations.
 """
 
 import os
-import shutil
 from typing import List, Optional
 
 from PyQt6.QtCore import QObject, pyqtSignal, Qt
@@ -202,7 +201,7 @@ class ProcessingController(QObject):
 
         stamper = DocumentStamper()
         dialog = StamperDialog(self._parent)
-        dialog.populate_stamps(stamper.get_stamps(src_path))
+        dialog.populate_stamps(stamper.get_vault_stamps(src_path))
 
         if not dialog.exec():
             return
@@ -219,10 +218,14 @@ class ProcessingController(QObject):
                         icon=QMessageBox.Icon.Warning,
                     )
                     uuids = [target_uuid]
-                if stamper.remove_stamp(src_path, stamp_id=remove_id):
+                if stamper.unstamp_vault_file(src_path, stamp_id=remove_id):
                     successful_count = 1
             else:
                 for uid in uuids:
+                    doc = self.db_manager.get_document_by_uuid(uid) if self.db_manager else None
+                    if doc and doc.is_immutable:
+                        logger.info(f"[Stamper] Skipping locked document {uid}")
+                        continue
                     fpath = self.pipeline.vault.get_file_path(uid)
                     if not fpath or not os.path.exists(fpath) or fpath == "/dev/null":
                         if self.db_manager:
@@ -234,10 +237,8 @@ class ProcessingController(QObject):
                     if not fpath or not os.path.exists(fpath):
                         logger.info(f"[Stamper] Failed to resolve path for {uid}")
                         continue
-                    base, ext = os.path.splitext(fpath)
-                    tmp_path = f"{base}_stamped{ext}"
-                    stamper.apply_stamp(fpath, tmp_path, text, position=pos, color=color, rotation=rotation)
-                    shutil.move(tmp_path, fpath)
+                    # The vault original stays untouched (WORM); the stamp goes into a derived copy
+                    stamper.stamp_vault_file(fpath, text, position=pos, color=color, rotation=rotation)
                     successful_count += 1
 
             msg = (

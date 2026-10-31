@@ -23,9 +23,10 @@ logger = get_logger("vault")
 
 # Derived artifacts (e.g. OCR'd searchable copies) live in a subdirectory so the
 # WORM originals in the vault root are never touched and integrity scans
-# (vault root '*.pdf') do not mistake them for ghost files.
+# (files in the vault root only) do not mistake them for ghost files.
 DERIVED_DIR_NAME: str = "derived"
 SEARCHABLE_SUFFIX: str = ".searchable.pdf"
+STAMPED_SUFFIX: str = ".stamped.pdf"
 
 
 def searchable_path_for(original_path: Union[str, Path]) -> Path:
@@ -40,6 +41,20 @@ def searchable_path_for(original_path: Union[str, Path]) -> Path:
     """
     original = Path(original_path)
     return original.parent / DERIVED_DIR_NAME / f"{original.stem}{SEARCHABLE_SUFFIX}"
+
+
+def stamped_path_for(original_path: Union[str, Path]) -> Path:
+    """
+    Returns the location of the derived stamped copy of a vault file.
+
+    Args:
+        original_path: Path of the original (WORM) vault file.
+
+    Returns:
+        Path '<vault>/derived/<uuid>.stamped.pdf' (may not exist).
+    """
+    original = Path(original_path)
+    return original.parent / DERIVED_DIR_NAME / f"{original.stem}{STAMPED_SUFFIX}"
 
 
 def store_searchable_copy(original_path: Union[str, Path], ocr_output: Union[str, Path]) -> Path:
@@ -62,8 +77,8 @@ def store_searchable_copy(original_path: Union[str, Path], ocr_output: Union[str
 
 def resolve_view_path(original_path: Union[str, Path]) -> str:
     """
-    Returns the path to display for a vault file: the derived searchable copy
-    if present, otherwise the original.
+    Returns the path to display for a vault file: the derived stamped copy,
+    else the derived searchable copy, else the original.
 
     Args:
         original_path: Path of the original vault file.
@@ -71,8 +86,10 @@ def resolve_view_path(original_path: Union[str, Path]) -> str:
     Returns:
         Path string to open for viewing.
     """
-    derived = searchable_path_for(original_path)
-    return str(derived) if derived.exists() else str(original_path)
+    for derived in (stamped_path_for(original_path), searchable_path_for(original_path)):
+        if derived.exists():
+            return str(derived)
+    return str(original_path)
 
 
 def remove_derived_files(original_path: Union[str, Path]) -> None:
@@ -82,12 +99,12 @@ def remove_derived_files(original_path: Union[str, Path]) -> None:
     Args:
         original_path: Path of the original vault file.
     """
-    derived = searchable_path_for(original_path)
-    if derived.exists():
-        try:
-            derived.unlink()
-        except OSError as e:
-            logger.warning(f"Failed to remove derived file {derived}: {e}")
+    for derived in (searchable_path_for(original_path), stamped_path_for(original_path)):
+        if derived.exists():
+            try:
+                derived.unlink()
+            except OSError as e:
+                logger.warning(f"Failed to remove derived file {derived}: {e}")
 
 
 class DocumentVault:
