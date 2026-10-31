@@ -98,6 +98,7 @@ class QueryBuilder:
         "page_count_virt", "type_tags", "tags", "pdf_class", "archived", "storage_location",
         "ai_confidence", "process_id",
     })
+    _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
     _JSON_PATH = re.compile(r"[\w\-\[\]]+(\.[\w\-\[\]]+)*")
 
     @classmethod
@@ -263,6 +264,9 @@ class QueryBuilder:
 
         if op == "between":
             if isinstance(val, list) and len(val) == 2:
+                if all(isinstance(v, str) and self._ISO_DATE.fullmatch(v) for v in val):
+                    # Day range: compare the date part, so timestamps of the last day match too
+                    return f"substr({expr}, 1, 10) BETWEEN ? AND ?", [val[0], val[1]]
                 return f"{expr} BETWEEN ? AND ?", [val[0], val[1]]
 
         if op == "in":
@@ -328,8 +332,10 @@ class QueryBuilder:
             except Exception as e:
                 logger.error(f"Failed to parse relative date '{val}': {e}")
 
-        if "," in val and len(val.split(",")) == 2:
-            return tuple(val.split(","))
+        # 'start,end' date ranges (DateRangePicker); other text with a comma stays text
+        parts = [part.strip() for part in val.split(",")]
+        if len(parts) == 2 and all(self._ISO_DATE.fullmatch(part) for part in parts):
+            return tuple(parts)
 
         return val
 
@@ -359,6 +365,9 @@ class QueryBuilder:
     def _build_group(self, node: Dict[str, Any]) -> Tuple[str, List[Any]]:
         """Handles AND/OR groups of sub-conditions."""
         logic_op = str(node.get("operator", "AND")).upper()
+        if logic_op not in ("AND", "OR"):
+            logger.warning(f"Ignoring filter group with invalid operator: {logic_op!r}")
+            return "1=0", []
         sub_clauses: List[str] = []
         all_params: List[Any] = []
 

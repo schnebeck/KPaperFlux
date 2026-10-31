@@ -335,3 +335,38 @@ class TestWorkflowStep:
         node = {"field": "workflow_step", "op": "equals", "value": "NEW", "negate": True}
         sql, params = qb.build_where(node)
         assert sql.startswith("NOT (")
+
+
+class TestValueAndOperatorSafety:
+    def test_text_with_one_comma_stays_text(self, qb):
+        where, params = qb.build_where({"field": "sender", "op": "contains", "value": "Mueller, Hans"})
+        assert "BETWEEN" not in where
+        assert any("Mueller, Hans" in str(p) for p in params)
+
+    def test_decimal_comma_value_stays_text(self, qb):
+        where, _ = qb.build_where({"field": "amount", "op": "equals", "value": "12,50"})
+        assert "BETWEEN" not in where
+
+    def test_date_range_string_becomes_day_range(self, qb):
+        where, params = qb.build_where({"field": "created_at", "op": "equals", "value": "2026-10-01,2026-10-31"})
+        assert "substr(created_at, 1, 10) BETWEEN ? AND ?" in where
+        assert params == ["2026-10-01", "2026-10-31"]
+
+    def test_invalid_group_operator_matches_nothing(self, qb):
+        where, params = qb.build_where({"operator": "AND 1=1) OR (1", "conditions": [
+            {"field": "status", "op": "equals", "value": "NEW"}]})
+        assert where == "1=0" and params == []
+
+
+def test_today_range_includes_todays_timestamps(tmp_path):
+    from datetime import datetime
+    from core.database import DatabaseManager
+    db = DatabaseManager(str(tmp_path / "range.db"))
+    db.init_db()
+    db.connection.execute("INSERT INTO virtual_documents (uuid, created_at, deleted, archived) VALUES (?, ?, 0, 0)",
+                          ("today", datetime.now().isoformat()))
+    db.connection.commit()
+
+    docs = db.search_documents_advanced({"field": "created_at", "op": "equals", "value": "LAST_7_DAYS"})
+
+    assert [d.uuid for d in docs] == ["today"]
