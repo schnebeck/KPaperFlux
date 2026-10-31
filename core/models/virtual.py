@@ -365,56 +365,67 @@ class VirtualDocument(BaseModel):
         return []
 
     @classmethod
-    def from_row(cls, row: Union[sqlite3.Row, Dict[str, Any]]) -> 'VirtualDocument':
+    def from_row(cls, row: Union[sqlite3.Row, Dict[str, Any]], tolerant: bool = False) -> 'VirtualDocument':
         """
-        Parses a database row and hydrates a VirtualDocument instance.
-        Accepts sqlite3.Row objects (connection.row_factory = sqlite3.Row) or plain dicts.
+        Builds a VirtualDocument from a virtual_documents row (the single column
+        mapping; DocumentHydrator builds on it).
+
+        Args:
+            row: sqlite3.Row or dict with column names.
+            tolerant: If True, semantic data that fails validation is dropped with a
+                warning instead of raising (list views must still show the document).
         """
         if not row:
             return None
 
-        # sqlite3.Row and dict both expose .keys(); convert to plain dict for uniform access.
         data: Dict[str, Any] = dict(row)
+        uuid_val = data.get("uuid")
 
-        # Handle JSON strings
-        def safe_json(val, default):
-            if isinstance(val, str) and (val.startswith('{') or val.startswith('[')):
+        def safe_json(val: Any, default: Any) -> Any:
+            if isinstance(val, (bytes, str)) and val.strip()[:1] in ("{", "["):
                 try:
                     return json.loads(val)
                 except json.JSONDecodeError as e:
-                    logger.error(f"JSON corruption in DB for doc {data.get('uuid')}: {e}")
+                    logger.error(f"JSON corruption in DB for doc {uuid_val}: {e}")
                     return default
             return val or default
 
-        source_mapping = safe_json(data.get("source_mapping"), [])
-        semantic_data = safe_json(data.get("semantic_data"), {})
-        type_tags = safe_json(data.get("type_tags"), [])
         tags = safe_json(data.get("tags"), [])
+        if isinstance(tags, str):  # legacy comma-separated value
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+
+        semantic_data = safe_json(data.get("semantic_data"), None)
+        if tolerant and semantic_data:
+            try:
+                semantic_data = SemanticExtraction.model_validate(semantic_data)
+            except ValueError as e:
+                logger.warning(f"Metadata degradation for {uuid_val}: {e}")
+                semantic_data = None
 
         return cls(
-            uuid=data["uuid"],
+            uuid=uuid_val,
             original_filename=data.get("export_filename"),
-            source_mapping=source_mapping,
-            status=data.get("status", "NEW"),
+            source_mapping=safe_json(data.get("source_mapping"), []),
+            status=data.get("status") or "NEW",
             export_filename=data.get("export_filename"),
             last_used=data.get("last_used"),
-            is_immutable=data.get("is_immutable", False),
+            is_immutable=bool(data.get("is_immutable", False)),
             locked_at=data.get("locked_at"),
             thumbnail_path=data.get("thumbnail_path"),
-            cached_full_text=data.get("cached_full_text", ""),
-            type_tags=type_tags,
+            cached_full_text=data.get("cached_full_text") or "",
+            type_tags=safe_json(data.get("type_tags"), []),
             tags=tags,
-            semantic_data=semantic_data,
+            semantic_data=semantic_data or None,
             created_at=data.get("created_at"),
             last_processed_at=data.get("last_processed_at"),
-            deleted=data.get("deleted", False),
+            deleted=bool(data.get("deleted", False)),
             deleted_at=data.get("deleted_at"),
             exported_at=data.get("exported_at"),
             page_count=data.get("page_count_virt"),
-            page_count_virt=data.get("page_count_virt", 0),
-            pdf_class=data.get("pdf_class", "C"),
+            page_count_virt=data.get("page_count_virt") or 0,
+            pdf_class=data.get("pdf_class") or "C",
             archived=bool(data.get("archived", False)),
             storage_location=data.get("storage_location"),
-            ai_confidence=float(data.get("ai_confidence", 1.0)),
+            ai_confidence=float(data.get("ai_confidence") or 1.0),
             process_id=data.get("process_id")
         )
