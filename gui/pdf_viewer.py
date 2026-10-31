@@ -759,6 +759,7 @@ class DualPdfViewerWidget(QWidget):
         self._orig_right_path: Optional[Path] = None
         self._diff_temp_path: Optional[Path] = None
         self._diff_worker = None
+        self._stopped = False  # set by stop(); delayed timers check it
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         mid_color = self.palette().color(QPalette.ColorRole.Mid).name()
@@ -852,6 +853,7 @@ class DualPdfViewerWidget(QWidget):
 
     def stop(self) -> None:
         """Gracefully terminates background threads and clears references."""
+        self._stopped = True
         if self._diff_worker:
             stop_thread(self._diff_worker, wait_ms=5000)
             self._diff_worker = None
@@ -1032,6 +1034,7 @@ class DualPdfViewerWidget(QWidget):
             
         self._zoom_delta = 0.0 
         self._orig_left_path = Path(left_path_raw)
+        self._stopped = False
         self._orig_right_path = Path(right_path_raw)
         self._discard_diff_file()
 
@@ -1063,7 +1066,7 @@ class DualPdfViewerWidget(QWidget):
 
     def _start_background_diff(self) -> None:
         """Initializes the background process for document comparison."""
-        if self._diff_worker or not self._orig_left_path or not self._orig_right_path:
+        if self._stopped or self._diff_worker or not self._orig_left_path or not self._orig_right_path:
             return
         self._diff_worker = MatchAnalysisWorker(
             str(self._orig_left_path), 

@@ -132,3 +132,27 @@ def test_undo_split_after_reorder_does_not_crash(splitter, qtbot):
     splitter.revert_last_edit()  # split
 
     assert splitter.get_active_splits() == []
+
+
+@pytest.mark.parametrize("result, moved", [("IgnoreAction", False), ("MoveAction", True)])
+def test_cancelled_drag_restores_the_page_order(splitter, result, moved):
+    from unittest.mock import patch
+    from PyQt6.QtGui import QDrag
+    from gui.widgets.splitter_strip import DragPlaceholderWidget
+
+    order = lambda: [t.page_info["page"] for t in _thumbs(splitter)]  # noqa: E731
+    assert order() == [1, 2, 3, 4]
+
+    def drag_to_end(_drag, *_args):
+        layout = splitter.content_layout
+        placeholder = next(layout.itemAt(i).widget() for i in range(layout.count())
+                           if isinstance(layout.itemAt(i).widget(), DragPlaceholderWidget))
+        layout.removeWidget(placeholder)
+        layout.insertWidget(layout.count(), placeholder)
+        return getattr(Qt.DropAction, result)
+
+    with patch.object(QDrag, "exec", drag_to_end), patch.object(QDrag, "setPixmap"), \
+         patch.object(QDrag, "setHotSpot"):
+        splitter.on_drag_started(_thumbs(splitter)[0])
+
+    assert (order() != [1, 2, 3, 4]) is moved

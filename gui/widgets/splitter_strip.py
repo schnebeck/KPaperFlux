@@ -946,13 +946,17 @@ class SplitterStripWidget(QWidget):
             self.content_widget.updateGeometry()
             QApplication.processEvents()
 
-        # --- 4. DRAG STARTEN ---
+        # --- 4. START THE DRAG ---
         self.is_dragging = True
-        drag.exec(Qt.DropAction.MoveAction)
+        result = drag.exec(Qt.DropAction.MoveAction)
 
-        # --- 5. CLEANUP NACH DROP ---
+        # --- 5. CLEANUP AFTER THE DROP ---
         self.is_dragging = False
+        entries_before = len(self.undo_stack)
         self._finalize_drop()
+        if result == Qt.DropAction.IgnoreAction and len(self.undo_stack) > entries_before:
+            # Esc or a drop outside the strip: put the pages back where they were
+            self.revert_last_edit()
 
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:

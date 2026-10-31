@@ -150,3 +150,18 @@ def test_rotated_view_maps_a_word_to_its_rotated_position(qtbot, pipeline):
 
     # After a 90° turn the text near the top-left of the page sits at the right edge
     assert point.x() > canvas.display_label.width() * 0.6
+
+
+def test_comparison_does_not_start_a_diff_after_stop(qtbot, pipeline):
+    from unittest.mock import patch
+    from gui.pdf_viewer import DualPdfViewerWidget
+
+    dual = DualPdfViewerWidget()
+    qtbot.addWidget(dual)
+    dual._orig_left_path = dual._orig_right_path = Path("synthetic.pdf")
+    dual.stop()
+
+    with patch("gui.pdf_viewer.MatchAnalysisWorker") as worker_cls:
+        dual._start_background_diff()  # the delayed timer firing after close
+
+    worker_cls.assert_not_called()
