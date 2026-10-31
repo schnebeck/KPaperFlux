@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget, QProgressDialog, QApplication,
 )
 from PyQt6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QCloseEvent, QKeySequence, QShortcut
-from PyQt6.QtCore import Qt, QSettings, QCoreApplication, QTimer, PYQT_VERSION_STR
+from PyQt6.QtCore import Qt, QLocale, QSettings, QCoreApplication, QTimer, PYQT_VERSION_STR
 import PyQt6
 import platform
 import os
@@ -766,7 +766,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         
         if self._selected_sum > 0:
             # Display sum in the dedicated centered label with localized prefix
-            label_text = self.tr("Selection Gross (total): %s EUR") % f"{self._selected_sum:,.2f}"
+            label_text = self.tr("Selection Gross (total): %s EUR") % QLocale().toString(self._selected_sum, "f", 2)
             self.sum_status_label.setText(label_text)
             self.sum_status_label.show()
         else:
@@ -914,6 +914,9 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         app = QCoreApplication.instance()
         if not app:
             return
+
+        # Number and date formats follow the UI language, not only the system locale
+        QLocale.setDefault(QLocale(lang))
 
         # Remove old translators
         for t in self._translators:

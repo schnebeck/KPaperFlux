@@ -339,7 +339,7 @@ class MainLoopWorker(QThread):
         self.canonizer.release_interrupted_documents()
         while self.is_running:
             if self.is_paused:
-                self.status_changed.emit("Paused")
+                self.status_changed.emit(self.tr("Paused"))
                 time.sleep(0.5)
                 continue
 
@@ -349,10 +349,10 @@ class MainLoopWorker(QThread):
 
                 # If nothing to do, wait and continue
                 if total_pending == 0:
-                    self.status_changed.emit("Idle")
+                    self.status_changed.emit(self.tr("Idle"))
                     self.progress.emit(0, 0)
                 else:
-                    self.status_changed.emit(f"Processing ({total_pending} remaining)")
+                    self.status_changed.emit(self.tr("Processing (%n remaining)", "", total_pending))
                     
                     # Track batch progress for the UI burst
                     burst_total = min(5, total_pending)
@@ -364,7 +364,7 @@ class MainLoopWorker(QThread):
                             break
                         if self.is_paused:
                             logger.debug("[MainLoop] Pause requested mid-batch.")
-                            self.status_changed.emit("Finishing current & Pausing...")
+                            self.status_changed.emit(self.tr("Finishing current & pausing..."))
                             break
 
                         # Up to N engine calls run concurrently; all DB access stays in this thread.
@@ -378,7 +378,7 @@ class MainLoopWorker(QThread):
                         total_pending -= processed_count
                         # Emit (processed_so_far, total_in_this_burst)
                         self.progress.emit(processed_in_this_run, burst_total)
-                        self.status_changed.emit(f"Processing ({total_pending} remaining)")
+                        self.status_changed.emit(self.tr("Processing (%n remaining)", "", total_pending))
                         self.documents_processed.emit()
 
             except Exception as e:
@@ -394,22 +394,22 @@ class MainLoopWorker(QThread):
                 time.sleep(0.1)
         
         logger.info("[MainLoop] Worker stopped.")
-        self.status_changed.emit("Stopped")
+        self.status_changed.emit(self.tr("Stopped"))
 
     def set_paused(self, paused: bool) -> None:
         self.is_paused = paused
         state = "PAUSED" if paused else "RESUMED"
         logger.info(f"[MainLoop] {state} requested.")
         if paused:
-            self.status_changed.emit("Finishing current & Pausing...")
+            self.status_changed.emit(self.tr("Finishing current & pausing..."))
         else:
-             self.status_changed.emit("Resuming...")
+             self.status_changed.emit(self.tr("Resuming..."))
 
         self.pause_state_changed.emit(paused)
 
     def stop(self) -> None:
         logger.info("[MainLoop] STOP requested.")
-        self.status_changed.emit("Stopping (Finishing current)...")
+        self.status_changed.emit(self.tr("Stopping (finishing current)..."))
         self.is_running = False
         self.is_paused = False
 

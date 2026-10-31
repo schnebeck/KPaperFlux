@@ -105,3 +105,17 @@ def test_german_ui_translates_standard_buttons(window):
         assert texts == {"Speichern", "Verwerfen"}
     finally:
         window._switch_language("en", refresh_ui=False)
+
+
+def test_selection_sum_uses_the_ui_language_number_format(window):
+    from PyQt6.QtCore import QLocale
+
+    previous = QLocale()
+    window._switch_language("de", refresh_ui=False)
+    try:
+        window._selected_sum = 1234.5
+        window._refresh_status_bar()
+        assert "1.234,50" in window.sum_status_label.text()
+    finally:
+        window._switch_language("en", refresh_ui=False)
+        QLocale.setDefault(previous)
