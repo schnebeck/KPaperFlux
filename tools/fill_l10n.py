@@ -135,6 +135,9 @@ def fill():
         "Keep older duplicates (%s)": "Ältere Dubletten behalten (%s)",
         "Really delete %n duplicates?": ("%n Dublette wirklich löschen?", "%n Dubletten wirklich löschen?"),
         "Analyze Again": "Erneut analysieren",
+        "Unexpected Error": "Unerwarteter Fehler",
+        "An unexpected error occurred. The application keeps running, but the last action may be incomplete.\n\n%s":
+            "Ein unerwarteter Fehler ist aufgetreten. Die Anwendung läuft weiter, die letzte Aktion ist aber möglicherweise unvollständig.\n\n%s",
         "Maintenance Stopped": "Wartung abgebrochen",
         "The vault directory is missing or empty.": "Das Vault-Verzeichnis fehlt oder ist leer.",
         "%1 of %2 documents reference missing files.": "%1 von %2 Dokumenten verweisen auf fehlende Dateien.",

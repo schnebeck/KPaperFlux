@@ -22,6 +22,7 @@ from PyQt6.QtGui import QIcon
 from core.vault import DocumentVault
 from core.database import DatabaseManager
 from core.pipeline import PipelineProcessor
+from gui.error_handler import install_exception_hook
 from gui.main_window import MainWindow
 from core.config import AppConfig
 from core.logger import setup_logging, get_logger
@@ -92,6 +93,7 @@ def main() -> None:
     )
     logger = get_logger("core")
     logger.info(f"KPaperFlux started (Profile: {args.profile or 'default'})")
+    install_exception_hook()
 
     load_translations(app, app_config)
 

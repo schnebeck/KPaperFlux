@@ -1131,57 +1131,62 @@ Hintergrundverarbeitung gestartet.</translation>
     <context>
         <name>DocumentExporter</name>
         <message>
-            <location filename="../../../core/exporter.py" line="213" />
+            <location filename="../../../core/exporter.py" line="218" />
             <source>Date</source>
             <translation>Datum</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="214" />
+            <location filename="../../../core/exporter.py" line="219" />
             <source>Sender</source>
             <translation>Absender</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="215" />
+            <location filename="../../../core/exporter.py" line="220" />
             <source>Content</source>
             <translation>Inhalt</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="216" />
+            <location filename="../../../core/exporter.py" line="221" />
             <source>Net Amount</source>
             <translation>Nettobetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="217" />
+            <location filename="../../../core/exporter.py" line="222" />
             <source>Tax Rate</source>
             <translation>Steuersatz</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="218" />
+            <location filename="../../../core/exporter.py" line="223" />
+            <source>Tax Amount</source>
+            <translation type="unfinished">Steuerbetrag</translation>
+        </message>
+        <message>
+            <location filename="../../../core/exporter.py" line="224" />
             <source>Gross Amount</source>
             <translation>Bruttobetrag</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="219" />
+            <location filename="../../../core/exporter.py" line="225" />
             <source>Currency</source>
             <translation>Währung</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="220" />
+            <location filename="../../../core/exporter.py" line="226" />
             <source>Recipient</source>
             <translation>Empfänger</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="221" />
+            <location filename="../../../core/exporter.py" line="227" />
             <source>IBAN</source>
             <translation>IBAN</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="222" />
+            <location filename="../../../core/exporter.py" line="228" />
             <source>Filename</source>
             <translation>Dateiname</translation>
         </message>
         <message>
-            <location filename="../../../core/exporter.py" line="224" />
+            <location filename="../../../core/exporter.py" line="230" />
             <source>File Link</source>
             <translation>Datei-Link</translation>
         </message>
@@ -1562,6 +1567,23 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
         <message>
             <source>%s documents could not be deleted.</source>
             <translation type="vanished">%s Dokumente konnten nicht gelöscht werden.</translation>
+        </message>
+    </context>
+    <context>
+        <name>ErrorHandler</name>
+        <message>
+            <location filename="../../../gui/error_handler.py" line="46" />
+            <source>Unexpected Error</source>
+            <translation>Unerwarteter Fehler</translation>
+        </message>
+        <message>
+            <location filename="../../../gui/error_handler.py" line="47" />
+            <source>An unexpected error occurred. The application keeps running, but the last action may be incomplete.
+
+%s</source>
+            <translation>Ein unerwarteter Fehler ist aufgetreten. Die Anwendung läuft weiter, die letzte Aktion ist aber möglicherweise unvollständig.
+
+%s</translation>
         </message>
     </context>
     <context>
@@ -4955,43 +4977,43 @@ Bitte 'qrcode'-Paket installieren.</translation>
     <context>
         <name>OrderCollectionLinker</name>
         <message>
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="99" />
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="18" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="72" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="27" />
             <source>Order Collection Linker</source>
             <translation>Bestellungs-Sammler</translation>
         </message>
         <message>
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="21" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="30" />
             <source>Create Order Collections...</source>
             <translation>Bestellungs-Sammlungen erstellen...</translation>
         </message>
         <message>
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="32" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="41" />
             <source>Order Collection</source>
             <translation>Bestellungs-Sammlung</translation>
         </message>
         <message>
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="32" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="41" />
             <source>No document data available to build collections.</source>
             <translation>Keine Dokumentdaten zum Erstellen von Sammlungen verfügbar.</translation>
         </message>
         <message>
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="94" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="67" />
             <source>Order Collection Discovery Complete:</source>
             <translation>Bestellungs-Sammlungen gefunden:</translation>
         </message>
         <message>
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="95" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="68" />
             <source>Identified %1 collections</source>
             <translation>%1 Sammlungen identifiziert</translation>
         </message>
         <message>
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="96" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="69" />
             <source>Established %1 new organic process IDs</source>
             <translation>%1 neue organische Prozess-IDs erstellt</translation>
         </message>
         <message>
-            <location filename="../../../plugins/order_collection_linker/linker.py" line="97" />
+            <location filename="../../../plugins/order_collection_linker/linker.py" line="70" />
             <source>Linked %1 documents semantically</source>
             <translation>%1 Dokumente semantisch verknüpft</translation>
         </message>
@@ -4999,12 +5021,12 @@ Bitte 'qrcode'-Paket installieren.</translation>
     <context>
         <name>PageThumbnailWidget</name>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="354" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="356" />
             <source>Digital Original (Protected Signature)</source>
             <translation>Digitale Signatur</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="354" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="356" />
             <source>Digital Original (ZUGFeRD Data)</source>
             <translation>ZUGFeRD-Daten</translation>
         </message>
@@ -7391,7 +7413,7 @@ Geschäftsführer: ...</translation>
     <context>
         <name>SplitDividerWidget</name>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="57" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="59" />
             <source>Click to Toggle Split</source>
             <translation>Klicken zum Trennpunkt umschalten</translation>
         </message>
@@ -7490,32 +7512,32 @@ Geschäftsführer: ...</translation>
     <context>
         <name>SplitterStripWidget</name>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="1316" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="1332" />
             <source>Rotate selection (90° CW)</source>
             <translation>Auswahl drehen (90° im Uhrzeigersinn)</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="1320" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="1336" />
             <source>Delete selection</source>
             <translation>Auswahl löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="1326" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="1342" />
             <source>Reverse sorting (Selection)</source>
             <translation>Reihenfolge umkehren (Auswahl)</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="1332" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="1348" />
             <source>🛡️ Protected Original: Modification Disabled</source>
             <translation>🛡️ Geschütztes Original: Bearbeitung deaktiviert</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="1342" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="1358" />
             <source>Invalid Selection</source>
             <translation>Ungültige Auswahl</translation>
         </message>
         <message>
-            <location filename="../../../gui/widgets/splitter_strip.py" line="1343" />
+            <location filename="../../../gui/widgets/splitter_strip.py" line="1359" />
             <source>In Import Mode, you can only reverse pages within a single document segment.</source>
             <translation>Im Import-Modus nur Seiten innerhalb eines Segments umkehrbar.</translation>
         </message>
