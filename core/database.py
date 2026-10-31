@@ -75,6 +75,9 @@ class DatabaseManager:
             # check_same_thread=False allows using the connection across worker threads
             self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
             self.connection.row_factory = sqlite3.Row  # Enable named column access
+            # SQLite's LOWER() folds ASCII only; searches must match umlauts too
+            self.connection.create_function("unicode_lower", 1, lambda s: s.lower() if isinstance(s, str) else s,
+                                            deterministic=True)
             self.connection.execute("PRAGMA foreign_keys = ON")
             self.connection.execute("PRAGMA journal_mode = WAL")
             logger.info(f"Connected to database at {self.db_path} (WAL mode enabled)")
@@ -754,6 +757,8 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
 
         mismatched: List[Document] = []
         for doc in (self._hydrator.hydrate(row) for row in rows):
+            if doc is None:  # a broken row is logged by the hydrator
+                continue
             if doc.type_tags and doc.semantic_data and unexpected_bodies(doc.type_tags, doc.semantic_data.bodies):
                 mismatched.append(doc)
         return mismatched
@@ -827,14 +832,16 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         cursor = self.connection.cursor()
         
         # 1. Logical Search
-        sql_v = "SELECT uuid FROM virtual_documents WHERE cached_full_text LIKE ? AND deleted = 0"
-        cursor.execute(sql_v, (f"%{text}%",))
+        sql_v = "SELECT uuid FROM virtual_documents WHERE cached_full_text LIKE ? ESCAPE '\\' AND deleted = 0"
+        cursor.execute(sql_v, (f"%{self._like_literal(text)}%",))
         for row in cursor.fetchall():
             found_uuids.add(row[0])
                 
         # 2. Deep Physical Search
-        sql_p = "SELECT uuid FROM physical_files WHERE raw_ocr_data LIKE ?"
-        cursor.execute(sql_p, (f"%{text}%",))
+        # raw_ocr_data is JSON; older rows store non-ASCII text escaped (\u00fc), so match both forms
+        sql_p = "SELECT uuid FROM physical_files WHERE raw_ocr_data LIKE ? ESCAPE '\\' OR raw_ocr_data LIKE ? ESCAPE '\\'"
+        escaped = json.dumps(text)[1:-1]
+        cursor.execute(sql_p, (f"%{self._like_literal(text)}%", f"%{self._like_literal(escaped)}%"))
         phys_uuids = [r[0] for r in cursor.fetchall()]
             
         if phys_uuids:
@@ -1064,7 +1071,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         # We use LOWER() for case-insensitive matching.
         sql = f"""
             SELECT SUM(
-                (LENGTH(cached_full_text) - LENGTH(REPLACE(LOWER(cached_full_text), ?, ''))) / ?
+                (LENGTH(cached_full_text) - LENGTH(REPLACE(unicode_lower(cached_full_text), ?, ''))) / ?
             )
             FROM virtual_documents
             WHERE {where_clause} AND cached_full_text IS NOT NULL
@@ -1079,6 +1086,11 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
         except Exception as e:
             logger.error(f"[DB] count_total_text_occurrences_advanced failed: {e}")
             return 0
+
+    @staticmethod
+    def _like_literal(text: str) -> str:
+        """Escapes LIKE wildcards so user input matches literally (use with ESCAPE '\\')."""
+        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     def get_hit_counts_for_documents(self, uuids: List[str], text: str) -> Dict[str, int]:
         """
@@ -1098,7 +1110,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             placeholders = ", ".join(["?" for _ in batch])
             sql = f"""
                 SELECT uuid, 
-                       (LENGTH(cached_full_text) - LENGTH(REPLACE(LOWER(cached_full_text), ?, ''))) / ? as cnt
+                       (LENGTH(cached_full_text) - LENGTH(REPLACE(unicode_lower(cached_full_text), ?, ''))) / ? as cnt
                 FROM virtual_documents
                 WHERE uuid IN ({placeholders}) AND cached_full_text IS NOT NULL
             """

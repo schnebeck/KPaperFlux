@@ -48,7 +48,7 @@ class PhysicalRepository(BaseRepository):
         )
         """
 
-        ocr_json = json.dumps(file.raw_ocr_data) if file.raw_ocr_data else None
+        ocr_json = json.dumps(file.raw_ocr_data, ensure_ascii=False) if file.raw_ocr_data else None
 
         values = (
             file.uuid,
