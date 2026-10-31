@@ -569,7 +569,9 @@ class CanonizerService:
             return True
 
         covered = {page for entity in entities for page in entity.pages}
-        uncovered = [page for page in range(1, len(job.page_refs) + 1) if page not in covered]
+        # Pages without any text the engine left out are blank (scan back sides) and stay unassigned
+        uncovered = [page for page in range(1, len(job.page_refs) + 1)
+                     if page not in covered and self._page_has_text(job.page_refs[page - 1])]
         # One transaction: a split is applied completely or not at all
         with self.db.transaction():
             for idx, entity in enumerate(entities):
@@ -579,6 +581,12 @@ class CanonizerService:
             if uncovered:
                 self._hold_remainder(v_doc, uncovered, job.page_refs)
         return True
+
+    def _page_has_text(self, ref: PageRef) -> bool:
+        """True if the physical page has text (native layer or engine OCR)."""
+        pf = self._load_physical(ref.file_uuid)
+        texts = pf.raw_ocr_data if pf and isinstance(pf.raw_ocr_data, dict) else {}
+        return bool(str(texts.get(str(ref.page), "")).strip())
 
     def _hold_remainder(self, v_doc: VirtualDocument, pages: List[int], page_refs: List[PageRef]) -> None:
         """
