@@ -149,8 +149,9 @@ class ExportDialog(QDialog):
             filter_str
         )
         if filename:
-            if not filename.lower().endswith(".zip"):
-                filename += ".zip"
+            suffix = self._export_suffix()
+            if not filename.lower().endswith(suffix):
+                filename += suffix
             self.output_path = filename
             self.lbl_path.setText(filename)
             self.btn_export.setEnabled(True)
@@ -182,6 +183,10 @@ class ExportDialog(QDialog):
             self.btn_export.setEnabled(True)
             self.btn_transfer.setEnabled(True)
 
+    def _export_suffix(self) -> str:
+        """File extension of the current export mode."""
+        return ".pdf" if self.chk_merge_pdf.isChecked() else ".zip"
+
     def _on_merge_toggled(self, checked) -> None:
         """Update UI based on merge mode."""
         self.chk_pdfs.setEnabled(not checked)
@@ -194,7 +199,7 @@ class ExportDialog(QDialog):
         if not transfer_path or not os.path.exists(transfer_path):
             return
 
-        filename = f"export_{len(self.documents)}_docs.zip"
+        filename = f"export_{len(self.documents)}_docs{self._export_suffix()}"
         self.output_path = os.path.join(transfer_path, filename)
         
         # Check if file exists

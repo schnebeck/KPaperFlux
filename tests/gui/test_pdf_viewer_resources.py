@@ -165,3 +165,27 @@ def test_comparison_does_not_start_a_diff_after_stop(qtbot, pipeline):
         dual._start_background_diff()  # the delayed timer firing after close
 
     worker_cls.assert_not_called()
+
+
+def test_unloadable_document_clears_the_previous_one(qtbot, pipeline):
+    viewer = PdfViewerWidget(pipeline=pipeline)
+    qtbot.addWidget(viewer)
+    viewer.load_document(DOC_UUID)
+    assert viewer.canvas.doc is not None
+
+    viewer.load_document("99999999-9999-4999-8999-999999999999")  # unknown document
+
+    assert viewer.canvas.doc is None
+
+
+@pytest.mark.parametrize("merge, suffix", [(False, ".zip"), (True, ".pdf")])
+def test_export_file_name_matches_the_mode(qtbot, merge, suffix):
+    from unittest.mock import patch
+    from gui.export_dialog import ExportDialog
+
+    dialog = ExportDialog(documents=[])
+    qtbot.addWidget(dialog)
+    dialog.chk_merge_pdf.setChecked(merge)
+    with patch("gui.export_dialog.QFileDialog.getSaveFileName", return_value=("/out/report", "")):
+        dialog.browse_file()
+    assert dialog.output_path == f"/out/report{suffix}"

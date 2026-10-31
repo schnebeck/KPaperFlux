@@ -1394,6 +1394,10 @@ class PdfViewerWidget(QWidget):
         # 2. Resolve via Pipeline if UUID is available (Stronger than path for virtual docs)
         if not doc_obj and self.pipeline and target_uuid:
             doc_obj = self.pipeline.get_document(target_uuid)
+
+        # Never leave the previous document on screen under a new selection (zoom/fit stay)
+        self.current_uuid = None
+        self.canvas.set_document(None)
             
         # 3. Handle Logical/Virtual reconstruction
         if doc_obj:
