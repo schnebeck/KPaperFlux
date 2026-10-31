@@ -33,3 +33,21 @@ def test_stamper_apply(create_pdf, tmp_path):
     # page.resources['/XObject'] should have an entry
     page = pdf.pages[0]
     assert "/XObject" in page.resources
+
+
+def _red_pixels(pdf_path) -> int:
+    import fitz
+    with fitz.open(str(pdf_path)) as doc:
+        pix = doc[0].get_pixmap(dpi=40)
+    samples, n = pix.samples, pix.n
+    return sum(1 for i in range(0, len(samples), n)
+               if samples[i] > 200 and samples[i + 1] < 80 and samples[i + 2] < 80)
+
+
+def test_stamp_is_visible_when_rendered(create_pdf, tmp_path):
+    output = tmp_path / "stamped.pdf"
+    assert _red_pixels(create_pdf) == 0
+
+    DocumentStamper().apply_stamp(str(create_pdf), str(output), "PAID", position="center")
+
+    assert _red_pixels(output) > 20

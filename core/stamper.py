@@ -180,12 +180,11 @@ class DocumentStamper:
             stamp_pdf = pikepdf.Pdf.open(packet)
             stamp_page = stamp_pdf.pages[0]
 
-            # Coalesce stamp content to a single stream
+            # Coalesce stamp content to a single stream (in place; the call returns None)
             contents_data = b""
-            if "/Contents" in stamp_page:
-                content_stream = stamp_page.contents_coalesce()
-                if content_stream is not None:
-                    contents_data = content_stream.read_bytes()
+            if "/Contents" in stamp_page.obj:
+                stamp_page.contents_coalesce()
+                contents_data = stamp_page.obj.Contents.read_bytes()
 
             # Create Form XObject in destination PDF
             form_xobj = target_pdf.make_stream(contents_data)
