@@ -137,3 +137,22 @@ def test_tax_aggregation():
     assert tax_summary["19%"] == Decimal("28.50")
     assert tax_summary["7%"] == Decimal("7.00")
     assert len(tax_summary) == 2
+
+
+def test_monthly_net_is_never_taken_from_gross():
+    """Net is the extracted net, else gross minus tax; a document with only a gross adds no net."""
+    from core.reporting import ReportGenerator
+
+    def doc(uuid: str, **summation) -> VirtualDocument:
+        return VirtualDocument(uuid=uuid, semantic_data=SemanticExtraction(
+            meta_header=MetaHeader(doc_date="2023-03-10"),
+            bodies={"finance_body": FinanceBody(monetary_summation=MonetarySummation(**summation))}))
+
+    monthly = ReportGenerator.get_monthly_summary([
+        doc("derived", grand_total_amount=Decimal("119.00"), tax_total_amount=Decimal("19.00")),
+        doc("gross-only", grand_total_amount=Decimal("50.00")),
+    ])
+
+    assert monthly["2023-03"]["gross"] == Decimal("169.00")
+    assert monthly["2023-03"]["net"] == Decimal("100.00")
+    assert monthly["2023-03"]["tax"] == Decimal("19.00")

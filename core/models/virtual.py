@@ -236,6 +236,30 @@ class VirtualDocument(BaseModel):
         return self.semantic_data.get_financial_value("monetary_summation.tax_total_amount") if self.semantic_data else None
 
     @property
+    def net_amount(self) -> Optional[Decimal]:
+        """Net total: as extracted, else gross minus tax; None if neither is known (never the gross)."""
+        net = self.total_net
+        if net is not None:
+            return Decimal(str(net))
+        gross, tax = self.total_gross, self.total_tax
+        if gross is not None and tax is not None:
+            return Decimal(str(gross)) - Decimal(str(tax))
+        return None
+
+    @property
+    def tax_rates(self) -> List[Decimal]:
+        """Distinct VAT rates of the finance body's tax breakdown, ascending."""
+        finance = self.semantic_data.bodies.get("finance_body") if self.semantic_data else None
+        rows = (finance.get("tax_breakdown") if isinstance(finance, dict)
+                else getattr(finance, "tax_breakdown", None)) or []
+        rates = set()
+        for row in rows:
+            rate = row.get("tax_rate") if isinstance(row, dict) else getattr(row, "tax_rate", None)
+            if rate is not None:
+                rates.add(Decimal(str(rate)))
+        return sorted(rates)
+
+    @property
     def expiry_date(self) -> Optional[str]:
         """
         Intelligent harvest of the next relevant deadline.

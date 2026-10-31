@@ -153,6 +153,9 @@ class DocumentExporter:
                 except (ValueError, TypeError):
                     return 0.0
 
+            def optional_float(val: Any) -> Optional[float]:
+                return None if val is None else to_float(val)
+
             # Determine export filename
             filename = unique_filenames.get(doc.uuid)
 
@@ -161,9 +164,11 @@ class DocumentExporter:
                 "Date": dt,
                 "Sender": doc.sender_name or "Unknown",
                 "Content": doc.text_content,
-                "Amount (Net)": to_float(doc.total_net or doc.total_amount),
-                "Tax Rate": to_float(doc.total_tax),
-                "Gross Amount": to_float(doc.total_gross),
+                # Unknown amounts stay empty: a missing net is never replaced by the gross
+                "Amount (Net)": optional_float(doc.net_amount),
+                "Tax Rate": " / ".join(f"{rate.normalize():f} %" for rate in doc.tax_rates) or None,
+                "Tax Amount": optional_float(doc.total_tax),
+                "Gross Amount": optional_float(doc.total_gross),
                 "Currency": doc.currency,
                 "Recipient": doc.recipient_name,
                 "IBAN": doc.iban,
@@ -215,6 +220,7 @@ class DocumentExporter:
             "Content": translator.tr("Content"),
             "Amount (Net)": translator.tr("Net Amount"),
             "Tax Rate": translator.tr("Tax Rate"),
+            "Tax Amount": translator.tr("Tax Amount"),
             "Gross Amount": translator.tr("Gross Amount"),
             "Currency": translator.tr("Currency"),
             "Recipient": translator.tr("Recipient"),

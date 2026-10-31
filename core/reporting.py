@@ -89,14 +89,11 @@ class ReportGenerator:
                     }
                 
                 gross = doc.total_gross
-                net = doc.total_net
+                net = doc.net_amount  # None when unknown: never counted as gross
                 tax = doc.total_tax
-                
-                if gross is None:
-                    gross = doc.total_amount or 0.0
-                
+
                 monthly[month_key]["gross"] += Decimal(str(gross or 0))
-                monthly[month_key]["net"] += Decimal(str(net or gross or 0))
+                monthly[month_key]["net"] += net or Decimal("0")
                 monthly[month_key]["tax"] += Decimal(str(tax or 0))
                 
             except Exception as e:

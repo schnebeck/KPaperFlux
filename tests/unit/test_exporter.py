@@ -17,7 +17,10 @@ def test_export_to_zip(tmp_path):
             meta_header=MetaHeader(doc_date="2023-10-25", sender=AddressInfo(name="Amazon")),
             bodies={
                 "finance_body": FinanceBody(
-                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("123.45"))
+                    monetary_summation=MonetarySummation(grand_total_amount=Decimal("123.45"),
+                                                         tax_total_amount=Decimal("19.71")),
+                    tax_breakdown=[{"tax_basis_amount": Decimal("103.74"), "tax_amount": Decimal("19.71"),
+                                    "tax_rate": Decimal("19.00")}]
                 )
             }
         ),
@@ -82,8 +85,12 @@ def test_export_to_zip(tmp_path):
             # Row 0: Amazon
             row0 = df.iloc[0]
             assert row0["Sender"] == "Amazon"
-            assert row0["Net Amount"] == 123.45 # Renamed Column
-            assert isinstance(row0["Net Amount"], (float, int))
+            assert row0["Net Amount"] == pytest.approx(103.74)  # gross - tax, never the gross
+            assert row0["Gross Amount"] == pytest.approx(123.45)
+            assert row0["Tax Amount"] == pytest.approx(19.71)
+            assert row0["Tax Rate"] == "19 %"
+            row1 = df.iloc[1]
+            assert pd.isna(row1["Net Amount"]) and pd.isna(row1["Tax Rate"])  # only gross known
             
             # Date check
             # Pandas reads dates as Timestamp
