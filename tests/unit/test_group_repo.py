@@ -187,3 +187,16 @@ class TestGroupMembership:
         repo.save(g)
         fetched = repo.get_by_id(g.id)
         assert fetched.filter_query == {"field": "type_tags", "op": "contains", "value": "INVOICE"}
+
+
+def test_saving_an_existing_group_keeps_memberships_and_children(repo):
+    parent = repo.create("Parent")
+    child = repo.create("Child", parent_id=parent.id)
+    repo.add_membership("doc-1", parent.id)
+
+    parent.name = "Renamed"
+    assert repo.save(parent)
+
+    assert repo.get_by_id(parent.id).name == "Renamed"
+    assert repo.get_document_uuids_in_group(parent.id) == ["doc-1"]
+    assert repo.get_by_id(child.id).parent_id == parent.id

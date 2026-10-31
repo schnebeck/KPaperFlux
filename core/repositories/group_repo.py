@@ -29,11 +29,20 @@ class GroupRepository(BaseRepository):
     # ------------------------------------------------------------------
 
     def save(self, group: DocumentGroup) -> bool:
-        """Insert or replace a group record. Returns True on success."""
+        """
+        Inserts a group or updates it in place. Returns True on success.
+
+        An upsert, not INSERT OR REPLACE: a replace deletes the row first, which
+        would cascade to all memberships and detach the child groups.
+        """
         sql = """
-        INSERT OR REPLACE INTO document_groups
+        INSERT INTO document_groups
             (id, name, parent_id, color, icon, description, sort_order, filter_query)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name, parent_id = excluded.parent_id, color = excluded.color,
+            icon = excluded.icon, description = excluded.description,
+            sort_order = excluded.sort_order, filter_query = excluded.filter_query
         """
         try:
             with self.db._write() as conn:
