@@ -10,14 +10,14 @@ Description:    Compact read-only workflow progress summary widget used in
                 rule name, current-state badge, progress bar and percentage.
 ------------------------------------------------------------------------------
 """
-from typing import Dict
+from typing import Optional, Dict
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QProgressBar, QScrollArea,
     QVBoxLayout, QWidget,
 )
-from PyQt6.QtGui import QCursor
+from PyQt6.QtGui import QMouseEvent, QCursor
 
 from core.workflow import WorkflowRuleRegistry, completion_percent
 from gui.theme import (
@@ -30,11 +30,11 @@ class _ClickableRow(QFrame):
     """QFrame that emits clicked(rule_id) when the user clicks anywhere in the row."""
     clicked = pyqtSignal(str)
 
-    def __init__(self, rule_id: str, parent=None):
+    def __init__(self, rule_id: str, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self._rule_id = rule_id
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self._rule_id)
         super().mousePressEvent(event)
@@ -45,13 +45,13 @@ class WorkflowSummaryWidget(QWidget):
 
     workflow_clicked = pyqtSignal(str)   # emits rule_id
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self._init_ui()
 
     # ── Construction ──────────────────────────────────────────────────────────
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)

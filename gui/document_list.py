@@ -40,13 +40,13 @@ from gui.view_manager import ViewManagerDialog
 from gui.column_manager_dialog import ColumnManagerDialog
 
 class RowNumberDelegate(QStyledItemDelegate):
-    def initStyleOption(self, option, index):
+    def initStyleOption(self, option, index) -> None:
         super().initStyleOption(option, index)
         option.text = str(index.row() + 1)
         option.displayAlignment = Qt.AlignmentFlag.AlignCenter
 
 class FixedFirstColumnHeader(QHeaderView):
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event) -> None:
         # Disable sort click for Column 0
         if self.logicalIndexAt(event.pos()) == 0:
             return
@@ -184,7 +184,7 @@ class DocumentListWidget(QWidget):
 
         self.init_ui()
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -301,11 +301,11 @@ class DocumentListWidget(QWidget):
         header.sectionResized.connect(lambda *args: self.schedule_save())
         header.sortIndicatorChanged.connect(lambda *args: self.schedule_save())
 
-    def schedule_save(self):
+    def schedule_save(self) -> None:
         """Debounce save operation."""
         self._save_timer.start()
 
-    def update_headers(self):
+    def update_headers(self) -> None:
         """Set tree headers including dynamic ones."""
         # Fixed Columns from dict
         labels = [self.fixed_columns[i] for i in range(len(self.fixed_columns))]
@@ -317,7 +317,7 @@ class DocumentListWidget(QWidget):
 
         self.tree.setHeaderLabels(labels)
 
-    def show_header_menu(self, pos: QPoint):
+    def show_header_menu(self, pos: QPoint) -> None:
         """Show context menu to configure or hide columns."""
         menu = QMenu(self)
         header = self.tree.header()
@@ -334,7 +334,7 @@ class DocumentListWidget(QWidget):
             col_name = self.tree.headerItem().text(logic_idx)
             hide_action = menu.addAction(self.tr("Hide '%1'").replace("%1", col_name))
 
-            def hide_slot():
+            def hide_slot() -> None:
                 header.setSectionHidden(logic_idx, True)
                 self.save_state()
 
@@ -346,7 +346,7 @@ class DocumentListWidget(QWidget):
 
         menu.exec(header.mapToGlobal(pos))
 
-    def open_view_manager_slot(self):
+    def open_view_manager_slot(self) -> None:
         dlg = ViewManagerDialog(
             self.filter_tree,
             parent=self,
@@ -361,7 +361,7 @@ class DocumentListWidget(QWidget):
         dlg.view_selected.connect(self._on_view_loaded)
         dlg.exec()
 
-    def _on_view_loaded(self, state):
+    def _on_view_loaded(self, state) -> None:
         filter_data = self.set_view_state(state)
         if filter_data:
             # We have a filter to apply.
@@ -373,7 +373,7 @@ class DocumentListWidget(QWidget):
             # We need to define this signal if not exists.
 
     # Existing methods
-    def open_column_manager_slot(self):
+    def open_column_manager_slot(self) -> None:
         """Open the dynamic column manager dialog."""
 
         # Get Available Keys
@@ -455,14 +455,14 @@ class DocumentListWidget(QWidget):
 
 
 
-    def toggle_column(self, index: int, visible: bool):
+    def toggle_column(self, index: int, visible: bool) -> None:
         if visible:
             self.tree.header().showSection(index)
         else:
             self.tree.header().hideSection(index)
         self.save_state()
 
-    def set_dynamic_columns(self, columns):
+    def set_dynamic_columns(self, columns) -> None:
         """Update the list of dynamic columns to display."""
         self.dynamic_columns = columns
         self.update_headers()
@@ -480,15 +480,15 @@ class DocumentListWidget(QWidget):
             self.refresh_list()
         self.save_state()
 
-    def show_trash_bin(self, enable: bool, refresh: bool = True):
+    def show_trash_bin(self, enable: bool, refresh: bool = True) -> None:
         """Switch between Normal View and Trash View."""
         self._enter_special_mode("is_trash_mode", 6, enable, refresh)
 
-    def show_archive(self, enable: bool, refresh: bool = True):
+    def show_archive(self, enable: bool, refresh: bool = True) -> None:
         """Switch between Normal View and Archive View."""
         self._enter_special_mode("is_archive_mode", 9, enable, refresh)
 
-    def remove_dynamic_column(self, key: str):
+    def remove_dynamic_column(self, key: str) -> None:
         if key not in self.dynamic_columns:
             return
 
@@ -497,7 +497,7 @@ class DocumentListWidget(QWidget):
         self.refresh_list()
         self.save_state()
 
-    def save_state(self):
+    def save_state(self) -> None:
         settings = QSettings()
         settings.beginGroup("DocumentList")
         settings.setValue("headerState", self.tree.header().saveState())
@@ -505,7 +505,7 @@ class DocumentListWidget(QWidget):
         settings.endGroup()
         settings.sync()
 
-    def restore_state(self):
+    def restore_state(self) -> None:
         settings = QSettings()
         settings.beginGroup("DocumentList")
 
@@ -584,7 +584,7 @@ class DocumentListWidget(QWidget):
             if hasattr(mw, "group_tree"):
                 mw.group_tree.refresh()
 
-    def delete_selected_documents(self, uuids: list[str]):
+    def delete_selected_documents(self, uuids: list[str]) -> None:
         """Filter out locked documents before requesting deletion."""
         to_delete = []
         skipped = 0
@@ -607,7 +607,7 @@ class DocumentListWidget(QWidget):
         if to_delete:
              self.delete_requested.emit(to_delete)
 
-    def show_context_menu(self, pos: QPoint):
+    def show_context_menu(self, pos: QPoint) -> None:
         """Show context menu for selected item."""
         item = self.tree.itemAt(pos)
         if not item:
@@ -807,7 +807,7 @@ class DocumentListWidget(QWidget):
                     visible_docs.append(self.documents_cache[uuid])
         return visible_docs
 
-    def _on_selection_changed(self):
+    def _on_selection_changed(self) -> None:
         """Emit signal with selected UUID(s)."""
         selected_items = self.tree.selectedItems()
         uuids = []
@@ -817,7 +817,7 @@ class DocumentListWidget(QWidget):
 
         self.document_selected.emit(uuids)
 
-    def refresh_list(self, force_select_first=False):
+    def refresh_list(self, force_select_first=False) -> None:
         """Fetch docs from DB and populate tree."""
         if not self.db_manager:
             return
@@ -951,7 +951,7 @@ class DocumentListWidget(QWidget):
         return
 
 
-    def select_document(self, uuid: str):
+    def select_document(self, uuid: str) -> None:
         """Programmatically select a document by UUID."""
         if not uuid:
             return
@@ -962,7 +962,7 @@ class DocumentListWidget(QWidget):
                 item.setSelected(True)
                 break
 
-    def update_document_item(self, doc):
+    def update_document_item(self, doc) -> None:
         """
         Targeted update of a single row in the tree view.
         Prevents flickering and resource waste during AI processing.
@@ -1064,7 +1064,7 @@ class DocumentListWidget(QWidget):
 
             target_item.setText(col_idx, txt)
 
-    def apply_filter(self, criteria: dict):
+    def apply_filter(self, criteria: dict) -> None:
         """
         Filter items based on criteria.
         """
@@ -1151,7 +1151,7 @@ class DocumentListWidget(QWidget):
         """Compatibility method for MainWindow (QTreeWidget -> QTableWidget check)."""
         return self.tree.selectedItems()
 
-    def selectRow(self, row: int):
+    def selectRow(self, row: int) -> None:
         """Compatibility method for MainWindow (QTableWidget -> QTreeWidget)."""
         if 0 <= row < self.tree.topLevelItemCount():
             item = self.tree.topLevelItem(row)
@@ -1187,7 +1187,7 @@ class DocumentListWidget(QWidget):
             iterator += 1
         return uuids
 
-    def select_rows_by_uuids(self, uuids: list[str]):
+    def select_rows_by_uuids(self, uuids: list[str]) -> None:
         """Select items matching the given UUIDs."""
         self.tree.clearSelection()
         if not uuids:
@@ -1222,7 +1222,7 @@ class DocumentListWidget(QWidget):
             return any(self._check_query_for_field(c, field_name) for c in q["conditions"])
         return False
 
-    def apply_advanced_filter(self, query: dict, label: Optional[str] = None):
+    def apply_advanced_filter(self, query: dict, label: Optional[str] = None) -> None:
         """Apply advanced search query."""
         logger.debug(f"DocumentList Received Query: {query}")
 
@@ -1275,7 +1275,7 @@ class DocumentListWidget(QWidget):
         self.refresh_list(force_select_first=True)
         self.tree.setFocus()
 
-    def set_advanced_filter_active(self, active: bool):
+    def set_advanced_filter_active(self, active: bool) -> None:
         """Toggle between Rule Editor and Cockpit Filter precedence."""
         self.advanced_filter_active = active
         self.refresh_list(force_select_first=True)
@@ -1289,13 +1289,13 @@ class DocumentListWidget(QWidget):
         self._current_group_filter = group_id
         self.refresh_list(force_select_first=True)
 
-    def _check_scroll_bottom(self, value):
+    def _check_scroll_bottom(self, value) -> None:
         """Infinite Scroll Trigger: Loads more data if user reaches 90% of current view."""
         vbar = self.tree.verticalScrollBar()
         if vbar.maximum() > 0 and value > vbar.maximum() * 0.9:
             self._load_next_chunk()
 
-    def _load_next_chunk(self, reset=False):
+    def _load_next_chunk(self, reset=False) -> None:
         """Paging engine for QTreeWidget items."""
         if reset:
             self.tree.setSortingEnabled(False)
@@ -1478,7 +1478,7 @@ class DocumentListWidget(QWidget):
         else:
             self._workflow_footer.hide()
 
-    def populate_tree(self, docs):
+    def populate_tree(self, docs) -> None:
         """Populate the tree using lazy incremental loading."""
         # 0. Temporarily disable sorting for bulk insertion performance
         self.tree.setSortingEnabled(False)
@@ -1516,7 +1516,7 @@ class DocumentListWidget(QWidget):
         # v28.2 REMOVED: self.document_count_changed.emit(...)
         # Callers (refresh_list, apply_advanced_filter) must emit manually
         # to ensure selection restoration is complete.
-    def open_export_dialog(self, documents: list):
+    def open_export_dialog(self, documents: list) -> None:
         if not documents:
             show_selectable_message_box(self, self.tr("Export"), self.tr("No documents to export."), icon=QMessageBox.Icon.Warning)
             return
@@ -1554,7 +1554,7 @@ class DocumentListWidget(QWidget):
                 # Refresh list to show new exported dates
                 self.refresh_list()
 
-    def update_breadcrumb(self):
+    def update_breadcrumb(self) -> None:
         """Update breadcrumb label based on current state."""
         # Internal state should be literals. Translation happens HERE.
         try:
@@ -1604,7 +1604,7 @@ class DocumentListWidget(QWidget):
             logger.error(f"Breadcrumb update failed: {e}")
             self.lbl_breadcrumb.setText(self.tr("Documents"))
 
-    def clear_filters(self):
+    def clear_filters(self) -> None:
         """Reset all filters and view context."""
         self.current_advanced_query = None
         self.current_cockpit_query = None
@@ -1618,7 +1618,7 @@ class DocumentListWidget(QWidget):
         self.refresh_list()
         self.search_cleared.emit()
 
-    def set_view_context(self, label: str):
+    def set_view_context(self, label: str) -> None:
         """Explicitly set a context label for the breadcrumb."""
         self.view_context = label
         self.update_breadcrumb()
@@ -1650,7 +1650,7 @@ class DocumentListWidget(QWidget):
         # 2. Heuristic for DocTypes (ORDER_CONFIRMATION -> Order Confirmation)
         return self.tr(t_str.title())
 
-    def save_as_list(self):
+    def save_as_list(self) -> None:
         # Determine if selection exists
         selected = self.tree.selectedItems()
         has_selection = bool(selected)

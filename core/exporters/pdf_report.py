@@ -32,13 +32,13 @@ logger = get_logger("exporters.pdf_report")
 class PdfReportGenerator:
     """Generates professional PDF reports from KPaperFlux report data."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.styles = getSampleStyleSheet()
         self.locale = QLocale()
         self.logo_path = str(Path(__file__).parent.parent.parent / "resources" / "icon.png")
         self._setup_custom_styles()
 
-    def _setup_custom_styles(self):
+    def _setup_custom_styles(self) -> None:
         """Initializes KPaperFlux specific report styles."""
         self.styles.add(ParagraphStyle(
             name='ReportTitle',
@@ -162,7 +162,7 @@ class PdfReportGenerator:
                 story.append(Spacer(1, 0.8 * cm))
 
         # Build PDF with page numbers and logo
-        def add_page_number(canvas, doc):
+        def add_page_number(canvas, doc) -> None:
             page_num = canvas.getPageNumber()
             width, height = doc.pagesize
             

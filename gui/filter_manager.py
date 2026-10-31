@@ -2,9 +2,10 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTreeWidget, QTr
                              QInputDialog, QTextEdit, QStyle, QFileDialog)
 from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings
-from PyQt6.QtGui import QIcon, QCloseEvent
+from PyQt6.QtGui import QDropEvent, QKeyEvent, QIcon, QCloseEvent
 from core.filter_tree import FilterTree, NodeType, FilterNode
 from core.exchange import ExchangeService
+from typing import Optional
 
 class ManagerTreeWidget(QTreeWidget):
     """
@@ -12,7 +13,7 @@ class ManagerTreeWidget(QTreeWidget):
     """
     item_dropped = pyqtSignal(QTreeWidgetItem, QTreeWidgetItem)
 
-    def dropEvent(self, event):
+    def dropEvent(self, event: QDropEvent) -> None:
         # Identify Target
         # position() is QPointF, need toPoint()
         pos = event.position().toPoint()
@@ -36,7 +37,7 @@ class FilterManagerDialog(QDialog):
     """
     filter_selected = pyqtSignal(object) # Emits FilterNode (or data) on selection/open
     
-    def __init__(self, filter_tree: FilterTree, db_manager=None, parent=None, start_node: FilterNode = None):
+    def __init__(self, filter_tree: FilterTree, db_manager=None, parent: Optional[QWidget]=None, start_node: FilterNode = None) -> None:
         super().__init__(parent)
         self.tree_model = filter_tree
         self.db_manager = db_manager
@@ -118,31 +119,31 @@ class FilterManagerDialog(QDialog):
         self.retranslate_ui()
         self.restore_geometry()
     
-    def restore_geometry(self):
+    def restore_geometry(self) -> None:
         geom = self.settings.value("geometry")
         if geom:
             self.restoreGeometry(geom)
         else:
             self.resize(1000, 600)
 
-    def save_settings(self):
+    def save_settings(self) -> None:
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.sync()
 
-    def closeEvent(self, event: QCloseEvent):
+    def closeEvent(self, event: QCloseEvent) -> None:
         self.save_settings()
         super().closeEvent(event)
 
-    def done(self, r):
+    def done(self, r) -> None:
         self.save_settings()
         super().done(r)
     
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         self.setWindowTitle(self.tr("Management for Filters and Rules"))
         self.search_input.setPlaceholderText(self.tr("Search filters..."))
         
@@ -160,18 +161,18 @@ class FilterManagerDialog(QDialog):
         self.btn_delete.setText("🗑 " + self.tr("Delete"))
         self.btn_close.setText(self.tr("Close"))
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete:
             self.delete_item()
         else:
             super().keyPressEvent(event)
         
-    def populate_tree(self):
+    def populate_tree(self) -> None:
         self.tree_widget.clear()
         self.item_map = {} # Map QTreeWidgetItem -> FilterNode
         self._add_node_recursive(self.tree_model.root, self.tree_widget.invisibleRootItem())
         
-    def _add_node_recursive(self, node: FilterNode, parent_item):
+    def _add_node_recursive(self, node: FilterNode, parent_item) -> None:
         if node.name == "Root" and not node.parent:
             # Don't show root, show its children
             for child in node.children:
@@ -220,7 +221,7 @@ class FilterManagerDialog(QDialog):
         for child in node.children:
             self._add_node_recursive(child, item)
             
-    def on_search_changed(self, text):
+    def on_search_changed(self, text) -> None:
         # Filter tree view
         if not text:
             # Show all
@@ -253,7 +254,7 @@ class FilterManagerDialog(QDialog):
             item.setHidden(True)
             return False
 
-    def on_item_changed(self, current, previous):
+    def on_item_changed(self, current, previous) -> None:
         if not current:
             return
             
@@ -266,7 +267,7 @@ class FilterManagerDialog(QDialog):
         # Disable delete for specialized nodes
         self.btn_delete.setEnabled(node.node_type not in [NodeType.TRASH, NodeType.ARCHIVE])
 
-    def focus_node(self, node: FilterNode):
+    def focus_node(self, node: FilterNode) -> None:
         """Finds and selects the item for a given node."""
         it = self._find_item_by_node(self.tree_widget.invisibleRootItem(), node)
         if it:
@@ -283,7 +284,7 @@ class FilterManagerDialog(QDialog):
             if found: return found
         return None
 
-    def update_details(self, node: FilterNode):
+    def update_details(self, node: FilterNode) -> None:
         """Update the details pane based on selected node."""
         if node.node_type == NodeType.FOLDER:
             self.details_label.setText(f"<b>{self.tr('Folder')}:</b> {node.name}")
@@ -433,7 +434,7 @@ class FilterManagerDialog(QDialog):
             
             self.details_text.setHtml("".join(lines))
 
-    def on_item_double_clicked(self, item, column):
+    def on_item_double_clicked(self, item, column) -> None:
         if not item:
             return
         node = self.item_map.get(id(item))
@@ -441,7 +442,7 @@ class FilterManagerDialog(QDialog):
              # Just like selecting "Load"
              self.on_select_clicked()
 
-    def create_folder(self):
+    def create_folder(self) -> None:
         name, ok = QInputDialog.getText(self, self.tr("New Folder"), self.tr("Folder Name:"))
         if ok and name:
             # Default parent: selected folder or root
@@ -457,7 +458,7 @@ class FilterManagerDialog(QDialog):
             self.tree_model.add_folder(parent_node, name)
             self.populate_tree() # Refresh
             
-    def delete_item(self):
+    def delete_item(self) -> None:
         items = self.tree_widget.selectedItems()
         if not items:
             return
@@ -483,7 +484,7 @@ class FilterManagerDialog(QDialog):
                     node.parent.remove_child(node)
             self.populate_tree()
 
-    def on_select_clicked(self):
+    def on_select_clicked(self) -> None:
         current_item = self.tree_widget.currentItem()
         if not current_item:
             return
@@ -493,7 +494,7 @@ class FilterManagerDialog(QDialog):
             self.filter_selected.emit(node)
             self.accept()
             
-    def show_context_menu(self, pos):
+    def show_context_menu(self, pos) -> None:
         item = self.tree_widget.itemAt(pos)
         if not item:
             return
@@ -504,7 +505,7 @@ class FilterManagerDialog(QDialog):
         menu.addAction("🗑 " + self.tr("Delete"), self.delete_item)
         menu.exec(self.tree_widget.viewport().mapToGlobal(pos))
 
-    def export_item(self, item):
+    def export_item(self, item) -> None:
         """Export selected node as portable exchange file."""
         node = self.item_map.get(id(item))
         if not node:
@@ -520,7 +521,7 @@ class FilterManagerDialog(QDialog):
             except Exception as e:
                 QMessageBox.critical(self, self.tr("Error"), f"Failed to export: {e}")
 
-    def on_item_dropped(self, source_item, target_item):
+    def on_item_dropped(self, source_item, target_item) -> None:
         source_node = self.item_map.get(id(source_item))
         
         target_node = self.tree_model.root # Default to Root

@@ -37,7 +37,7 @@ class ProfessionalPdfRenderer:
     Supports multiple design concepts and structural variations.
     """
     
-    def __init__(self, output_path: str, locale: str = "de"):
+    def __init__(self, output_path: str, locale: str = "de") -> None:
         self.path = output_path
         self.locale = locale.split("_")[0].lower()
         self.unit_codes = self._load_unit_codes()
@@ -55,7 +55,7 @@ class ProfessionalPdfRenderer:
         self._setup_custom_styles()
 
     def set_style(self, concept: str = "CLASSIC", color: Any = colors.black, font: str = "Helvetica", 
-                  logo: str = None, columns: List[str] = None, line_style: str = "SOLID"):
+                  logo: str = None, columns: List[str] = None, line_style: str = "SOLID") -> None:
         self.concept = concept.upper()
         self.primary_color = color
         self.font_family = font
@@ -68,7 +68,7 @@ class ProfessionalPdfRenderer:
         if columns: self.table_columns = columns
         self._setup_custom_styles()
 
-    def _setup_custom_styles(self):
+    def _setup_custom_styles(self) -> None:
         style_defs = [
             ('NormalSmall', 'Normal', 8, 10, self.font_family),
             ('TableHeading', 'Normal', 9, 11, self.font_family_bold),
@@ -94,7 +94,7 @@ class ProfessionalPdfRenderer:
                     logger.warning(f"Failed to load units from {path}: {e}")
         return {}
 
-    def render_document(self, data: SemanticExtraction):
+    def render_document(self, data: SemanticExtraction) -> None:
         doc = BaseDocTemplate(self.path, pagesize=A4)
         frame_first = Frame(20*mm, 35*mm, 170*mm, 230*mm, id='f1')
         frame_others = Frame(20*mm, 35*mm, 170*mm, 245*mm, id='f2')
@@ -111,14 +111,14 @@ class ProfessionalPdfRenderer:
         story.extend(self._create_totals_story(data))
         doc.build(story)
 
-    def _draw_line(self, canvas, x1, y, x2, width=0.5):
+    def _draw_line(self, canvas, x1, y, x2, width=0.5) -> None:
         canvas.setStrokeColor(self.primary_color)
         canvas.setLineWidth(width)
         if self.line_style == "DASHED": canvas.setDash(3, 3)
         else: canvas.setDash()
         canvas.line(x1, y, x2, y)
 
-    def _draw_static_elements(self, canvas, doc, data, is_first: bool):
+    def _draw_static_elements(self, canvas, doc, data, is_first: bool) -> None:
         canvas.saveState()
         sender = data.meta_header.sender if data.meta_header else None
         
@@ -230,7 +230,7 @@ class ProfessionalPdfRenderer:
 
         canvas.restoreState()
 
-    def _draw_meta_info_box(self, canvas, data: SemanticExtraction):
+    def _draw_meta_info_box(self, canvas, data: SemanticExtraction) -> None:
         fb = data.bodies.get("finance_body")
         # Layout variety for meta box
         x_label = 155*mm if self.concept != "INDUSTRIAL" else 60*mm
@@ -249,7 +249,7 @@ class ProfessionalPdfRenderer:
         y = draw_kv(labels["dt"], getattr(fb, "invoice_date", None) or (data.meta_header.doc_date if data.meta_header else None), y)
         y = draw_kv(labels["nr"], getattr(fb, "invoice_number", None) or (data.meta_header.doc_number if data.meta_header else None), y)
 
-    def _draw_main_title_text(self, canvas, data: SemanticExtraction):
+    def _draw_main_title_text(self, canvas, data: SemanticExtraction) -> None:
         y_pos = 297*mm - 130*mm if self.concept not in ["INDUSTRIAL", "MINIMAL"] else 297*mm - 95*mm
         canvas.setFont(self.font_family_bold, 24 if self.concept=="MODERN" else 18)
         canvas.setFillColor(self.primary_color)

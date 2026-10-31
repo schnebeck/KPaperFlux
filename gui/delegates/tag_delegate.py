@@ -1,15 +1,16 @@
 
 import json
 from pathlib import Path
-from PyQt6.QtWidgets import QStyledItemDelegate, QStyle
+from PyQt6.QtWidgets import QWidget, QStyledItemDelegate, QStyle
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
 from core.logger import get_logger
+from typing import Optional
 
 logger = get_logger("gui.delegates.tag")
 
 class TagDelegate(QStyledItemDelegate):
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.styles = self._load_styles()
         self.padding_x = 8
@@ -50,7 +51,7 @@ class TagDelegate(QStyledItemDelegate):
         # 3. Default
         return self.styles.get("default", {})
 
-    def paint(self, painter: QPainter, option, index):
+    def paint(self, painter: QPainter, option, index) -> None:
         # Extract tags
         # The data should be the CSV string
         tag_string = index.data(Qt.ItemDataRole.DisplayRole)

@@ -4,18 +4,19 @@ from PyQt6.QtWidgets import (    QWidget, QVBoxLayout, QHBoxLayout, QListWidget,
 )
 from gui.utils import show_selectable_message_box
 from core.vocabulary import VocabularyManager
+from typing import Optional
 
 class VocabularySettingsWidget(QWidget):
     """
     Widget to manage Types, Tags, and Aliases.
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.vocab = VocabularyManager()
         self._setup_ui()
         self._refresh_data()
         
-    def _setup_ui(self):
+    def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         
         # --- Types Section ---
@@ -108,7 +109,7 @@ class VocabularySettingsWidget(QWidget):
         
         layout.addWidget(tag_group)
         
-    def _refresh_data(self):
+    def _refresh_data(self) -> None:
         # Types
         self.type_list.clear()
         self.type_list.addItems(self.vocab.get_all_types())
@@ -136,19 +137,19 @@ class VocabularySettingsWidget(QWidget):
             self.tag_alias_table.setItem(r, 1, QTableWidgetItem(target))
             
     # --- Actions Types ---
-    def _add_type(self):
+    def _add_type(self) -> None:
         text, ok = QInputDialog.getText(self, self.tr("Add Type"), self.tr("Document Type:"))
         if ok and text:
             self.vocab.add_type(text)
             self._refresh_data()
             
-    def _del_type(self):
+    def _del_type(self) -> None:
         item = self.type_list.currentItem()
         if item:
             self.vocab.remove_type(item.text())
             self._refresh_data()
             
-    def _add_type_alias(self):
+    def _add_type_alias(self) -> None:
         # Need alias and target
         # Target must be from types
         types = self.vocab.get_all_types()
@@ -164,7 +165,7 @@ class VocabularySettingsWidget(QWidget):
             self.vocab.add_type_alias(alias, target)
             self._refresh_data()
             
-    def _del_type_alias(self):
+    def _del_type_alias(self) -> None:
         row = self.type_alias_table.currentRow()
         if row >= 0:
             alias = self.type_alias_table.item(row, 0).text()
@@ -172,19 +173,19 @@ class VocabularySettingsWidget(QWidget):
             self._refresh_data()
 
     # --- Actions Tags ---
-    def _add_tag(self):
+    def _add_tag(self) -> None:
         text, ok = QInputDialog.getText(self, self.tr("Add Tag"), self.tr("Tag:"))
         if ok and text:
             self.vocab.add_tag(text)
             self._refresh_data()
             
-    def _del_tag(self):
+    def _del_tag(self) -> None:
         item = self.tag_list.currentItem()
         if item:
             self.vocab.remove_tag(item.text())
             self._refresh_data()
             
-    def _add_tag_alias(self):
+    def _add_tag_alias(self) -> None:
         tags = self.vocab.get_all_tags()
         if not tags:
             show_selectable_message_box(self, self.tr("Error"), self.tr("Define tags first.", icon=QMessageBox.Icon.Warning))
@@ -198,7 +199,7 @@ class VocabularySettingsWidget(QWidget):
             self.vocab.add_tag_alias(alias, target)
             self._refresh_data()
             
-    def _del_tag_alias(self):
+    def _del_tag_alias(self) -> None:
         row = self.tag_alias_table.currentRow()
         if row >= 0:
             alias = self.tag_alias_table.item(row, 0).text()

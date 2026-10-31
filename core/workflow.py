@@ -283,7 +283,7 @@ class WorkflowRule(BaseModel):
 # ---------------------------------------------------------------------------
 
 class WorkflowEngine:
-    def __init__(self, rule: WorkflowRule):
+    def __init__(self, rule: WorkflowRule) -> None:
         self.rule = rule
 
     def get_next_state(

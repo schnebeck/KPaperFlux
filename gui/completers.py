@@ -7,7 +7,7 @@ class MultiTagCompleter(QCompleter):
     QCompleter that supports comma-separated tags.
     Completes the last segment of the text.
     """
-    def __init__(self, tags, parent=None):
+    def __init__(self, tags, parent=None) -> None:
         super().__init__(tags, parent)
         self.setFilterMode(Qt.MatchFlag.MatchContains)
         self.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)

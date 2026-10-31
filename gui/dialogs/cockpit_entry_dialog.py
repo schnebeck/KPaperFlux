@@ -1,9 +1,10 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+from PyQt6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QComboBox, QColorDialog)
 from PyQt6.QtCore import Qt
+from typing import Optional
 
 class CockpitEntryDialog(QDialog):
-    def __init__(self, filter_tree, parent=None, entry_data=None):
+    def __init__(self, filter_tree, parent: Optional[QWidget]=None, entry_data=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Cockpit View Configuration"))
         self.setMinimumWidth(300)
@@ -12,7 +13,7 @@ class CockpitEntryDialog(QDialog):
 
         self.init_ui()
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         layout = QVBoxLayout(self)
 
         # Name
@@ -91,7 +92,7 @@ class CockpitEntryDialog(QDialog):
         btns.addWidget(btn_cancel)
         layout.addLayout(btns)
 
-    def choose_color(self):
+    def choose_color(self) -> None:
         # Import removed here as it is already at the top
         color = QColorDialog.getColor(Qt.GlobalColor.blue, self)
         if color.isValid():

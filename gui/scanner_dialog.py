@@ -19,11 +19,11 @@ class DeviceDiscoveryWorker(QThread):
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
     
-    def __init__(self, driver: ScannerDriver):
+    def __init__(self, driver: ScannerDriver) -> None:
         super().__init__()
         self.driver = driver
         
-    def run(self):
+    def run(self) -> None:
         try:
             devices = self.driver.list_devices()
             self.finished.emit(devices)
@@ -34,12 +34,12 @@ class CapabilityDiscoveryWorker(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
     
-    def __init__(self, driver: ScannerDriver, device: str):
+    def __init__(self, driver: ScannerDriver, device: str) -> None:
         super().__init__()
         self.driver = driver
         self.device = device
         
-    def run(self):
+    def run(self) -> None:
         try:
             caps = self.driver.get_full_capabilities(self.device)
             self.finished.emit(caps)
@@ -51,7 +51,7 @@ class ScannerWorker(QThread):
     error = pyqtSignal(str)
     progress_update = pyqtSignal(int, int)
     
-    def __init__(self, driver: ScannerDriver, device: str, dpi: int, mode: str, source: str, duplex_mode: str, page_format: str):
+    def __init__(self, driver: ScannerDriver, device: str, dpi: int, mode: str, source: str, duplex_mode: str, page_format: str) -> None:
         super().__init__()
         self.driver = driver
         self.device = device
@@ -61,7 +61,7 @@ class ScannerWorker(QThread):
         self.duplex_mode = duplex_mode
         self.page_format = page_format
         
-    def run(self):
+    def run(self) -> None:
         try:
             paths = self.driver.scan_pages(
                 self.device, self.dpi, self.mode, 
@@ -111,7 +111,7 @@ def nearest_resolution(available: List[int], target: int) -> Optional[int]:
 
 
 class ScannerDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Scanner"))
         self.setMinimumWidth(520)
@@ -131,7 +131,7 @@ class ScannerDialog(QDialog):
         self._load_saved_settings()
         self._start_discovery()
         
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
@@ -249,7 +249,7 @@ class ScannerDialog(QDialog):
         btn_layout.addWidget(self.cancel_btn)
         self.main_layout.addLayout(btn_layout)
 
-    def _load_saved_settings(self):
+    def _load_saved_settings(self) -> None:
         """Restore last used scanner settings."""
         last_dev_id = self.settings.value("last_device_id")
         last_dev_label = self.settings.value("last_device_label")
@@ -283,7 +283,7 @@ class ScannerDialog(QDialog):
         idx = self.combo_duplex_mode.findData(duplex_mode)
         if idx >= 0: self.combo_duplex_mode.setCurrentIndex(idx)
         
-    def _save_current_settings(self):
+    def _save_current_settings(self) -> None:
         """Persist current scanner settings."""
         device_id = self.device_combo.currentData()
         if device_id:
@@ -302,7 +302,7 @@ class ScannerDialog(QDialog):
         self.settings.setValue("last_source", self.source_combo.currentText())
         self.settings.setValue("last_duplex_mode", self.combo_duplex_mode.currentData())
 
-    def _on_device_changed(self, index):
+    def _on_device_changed(self, index) -> None:
         """Called when user selects another scanner."""
         device_id = self.device_combo.currentData()
         if not device_id: return
@@ -336,11 +336,11 @@ class ScannerDialog(QDialog):
             except (json.JSONDecodeError, TypeError): return None
         return None
 
-    def _save_cached_caps(self, device_id, caps):
+    def _save_cached_caps(self, device_id, caps) -> None:
         key = f"caps_{device_id.replace(':', '_').replace('/', '_')}"
         self.settings.setValue(key, json.dumps(caps))
 
-    def _fetch_device_details(self, device_id, background=False):
+    def _fetch_device_details(self, device_id, background=False) -> None:
         if self.detail_loading: return
         self.detail_loading = True
         
@@ -349,7 +349,7 @@ class ScannerDialog(QDialog):
         self.cap_worker.error.connect(self._on_cap_error)
         self.cap_worker.start()
 
-    def _on_caps_found(self, caps, device_id, background):
+    def _on_caps_found(self, caps, device_id, background) -> None:
         self.detail_loading = False
         self.device_caps = caps
         self._save_cached_caps(device_id, caps)
@@ -374,7 +374,7 @@ class ScannerDialog(QDialog):
                 # Refresh resolutions for active source
                 self._on_source_changed(self.source_combo.currentIndex())
 
-    def _apply_capabilities(self, caps):
+    def _apply_capabilities(self, caps) -> None:
         self.source_combo.blockSignals(True)
         self.source_combo.clear()
         self.source_combo.addItems(caps["sources"])
@@ -388,13 +388,13 @@ class ScannerDialog(QDialog):
         self.source_combo.blockSignals(False)
         self._on_source_changed(self.source_combo.currentIndex())
 
-    def _on_cap_error(self, msg):
+    def _on_cap_error(self, msg) -> None:
         self.detail_loading = False
         if self.stack.currentIndex() == 0:
             self.stack.setCurrentIndex(1)
         logger.warning(f"Capability fetch error: {msg}")
 
-    def _on_source_changed(self, index):
+    def _on_source_changed(self, index) -> None:
         """Update UI based on source (e.g. Duplex options and resolutions)."""
         src = self.source_combo.currentText()
         if not src: return
@@ -432,7 +432,7 @@ class ScannerDialog(QDialog):
         self.dpi_combo.setEnabled(True)
         QTimer.singleShot(50, self.adjustSize)
             
-    def _start_discovery(self):
+    def _start_discovery(self) -> None:
         if self.discovery_running: return
         self.discovery_running = True
         self.discovery_worker = DeviceDiscoveryWorker(self.driver)
@@ -440,7 +440,7 @@ class ScannerDialog(QDialog):
         self.discovery_worker.error.connect(self._on_discovery_error)
         self.discovery_worker.start()
 
-    def trigger_rescan(self):
+    def trigger_rescan(self) -> None:
         """Manually trigger a full device rescan."""
         self.loading_label.setText(self.tr("Suche nach Scannern..."))
         self.search_progress.setVisible(True)
@@ -448,7 +448,7 @@ class ScannerDialog(QDialog):
         QTimer.singleShot(50, self.adjustSize)
         self._start_discovery()
         
-    def _on_devices_found(self, devices):
+    def _on_devices_found(self, devices) -> None:
         logger.debug(f"ScannerDialog received {len(devices)} devices: {devices}")
         self.discovery_running = False
         saved_id = self.settings.value("last_device_id")
@@ -479,7 +479,7 @@ class ScannerDialog(QDialog):
                 self.stack.setCurrentIndex(1)
                 QTimer.singleShot(100, self.adjustSize)
             
-    def _on_discovery_error(self, msg):
+    def _on_discovery_error(self, msg) -> None:
         self.discovery_running = False
         self.loading_label.setText(self.tr("Fehler bei der Suche"))
         self.search_progress.setVisible(False)
@@ -489,7 +489,7 @@ class ScannerDialog(QDialog):
              if self.device_combo.count() > 0:
                   self.stack.setCurrentIndex(1)
         
-    def start_scan(self):
+    def start_scan(self) -> None:
         device_id = self.device_combo.currentData()
         if not device_id: return
             
@@ -509,7 +509,7 @@ class ScannerDialog(QDialog):
         self.worker.progress_update.connect(self.on_progress)
         self.worker.start()
         
-    def on_progress(self, current, total):
+    def on_progress(self, current, total) -> None:
         if total > 0:
             self.scan_progress.setRange(0, total)
             self.scan_progress.setValue(current)
@@ -518,13 +518,13 @@ class ScannerDialog(QDialog):
             self.scan_progress.setRange(0, 0)
             self.scan_progress.setFormat(self.tr("Scanne Seite %s...") % current)
 
-    def on_scan_finished(self, path):
+    def on_scan_finished(self, path) -> None:
         self.scan_progress.setVisible(False)
         self.scanned_file = path
         if os.path.exists(path): self.accept()
         else: self.on_scan_error(self.tr("Datei fehlt."))
             
-    def on_scan_error(self, msg):
+    def on_scan_error(self, msg) -> None:
         self.scan_progress.setVisible(False)
         self.scan_btn.setEnabled(True)
         show_selectable_message_box(self, self.tr("Fehler"), msg, icon=QMessageBox.Icon.Critical)

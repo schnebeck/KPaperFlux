@@ -9,7 +9,7 @@ from PyQt6.QtCore import (
     QTimer, QEvent, QSignalBlocker
 )
 from PyQt6.QtGui import (
-    QPixmap, QCursor, QColor, QDrag, QPainter, QPen, QBrush, QImage, QTransform
+    QContextMenuEvent, QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent, QEnterEvent, QKeyEvent, QMouseEvent, QPaintEvent, QResizeEvent, QShowEvent, QPixmap, QCursor, QColor, QDrag, QPainter, QPen, QBrush, QImage, QTransform
 )
 import fitz  # PyMuPDF for thumbnails
 import os
@@ -31,7 +31,7 @@ class SplitDividerWidget(QWidget):
     """
     split_requested = pyqtSignal()
 
-    def __init__(self, page_index_before: int, parent=None):
+    def __init__(self, page_index_before: int, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.page_index_before = page_index_before
         self.is_active = False # State: Is this a cut point?
@@ -69,7 +69,7 @@ class SplitDividerWidget(QWidget):
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setStyleSheet("background: transparent;")
 
-    def set_active(self, active: bool):
+    def set_active(self, active: bool) -> None:
         self.is_active = active
         if active:
              if self.is_boundary:
@@ -84,7 +84,7 @@ class SplitDividerWidget(QWidget):
              self.icon_label.setStyleSheet("color: #666; font-size: 20px; background: white; border-radius: 12px; border: 1px solid #ddd;")
              self.icon_label.setVisible(False)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event: QResizeEvent) -> None:
         if self.icon_label:
             self.icon_label.move(
                 (self.width() - self.icon_label.width()) // 2,
@@ -92,19 +92,19 @@ class SplitDividerWidget(QWidget):
             )
         super().resizeEvent(event)
 
-    def enterEvent(self, event):
+    def enterEvent(self, event: QEnterEvent) -> None:
         if not self.is_active:
             self.line.setStyleSheet("background-color: transparent; border-left: 2px dashed #d32f2f;")
             self.icon_label.setVisible(True)
         super().enterEvent(event)
 
-    def leaveEvent(self, event):
+    def leaveEvent(self, event: QEvent) -> None:
         if not self.is_active:
             self.line.setStyleSheet("background-color: transparent; border-left: 2px dashed #ccc;")
             self.icon_label.setVisible(False)
         super().leaveEvent(event)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             if self.is_boundary:
                  return # Fixed split at file boundary
@@ -116,7 +116,7 @@ class DragPlaceholderWidget(QWidget):
     """
     A placeholder that expands/shrinks to show where a page will be dropped.
     """
-    def __init__(self, target_width: int, is_static=False, parent=None):
+    def __init__(self, target_width: int, is_static=False, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.target_width = target_width
         # v28.8: Support static width on creation to avoid start-animation
@@ -138,7 +138,7 @@ class DragPlaceholderWidget(QWidget):
     def width_property(self, value):
         self.setFixedWidth(value)
 
-    def expand(self):
+    def expand(self) -> None:
         logger.debug(f"Placeholder Animation: EXPAND (target={self.target_width})")
         self._animation.stop()
         self._animation.setStartValue(self.width())
@@ -146,14 +146,14 @@ class DragPlaceholderWidget(QWidget):
         self.show()
         self._animation.start()
 
-    def expand_instantly(self):
+    def expand_instantly(self) -> None:
         """Skip animation and set target width immediately."""
         logger.debug(f"Placeholder: INSTANT EXPAND (width={self.target_width})")
         self._animation.stop()
         self.setFixedWidth(self.target_width)
         self.show()
 
-    def shrink_and_delete(self):
+    def shrink_and_delete(self) -> None:
         logger.debug(f"Placeholder Animation: SHRINK (current={self.width()})")
         self._animation.stop()
         self._animation.setStartValue(self.width())
@@ -166,11 +166,11 @@ class ReliefButton(QPushButton):
     A button that draws itself with a high-contrast white relief 'outline'.
     It draws everything twice: once slightly thick in white, and once centered in blue-grey.
     """
-    def __init__(self, icon_text, parent=None):
+    def __init__(self, icon_text, parent: Optional[QWidget]=None) -> None:
         super().__init__(icon_text, parent)
         self.setFixedSize(42, 42) # Slightly larger for the relief boundary
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.AntiAliasing if hasattr(QPainter, "AntiAliasing") else QPainter.RenderHint.Antialiasing)
 
@@ -226,14 +226,14 @@ class ReliefButton(QPushButton):
 
 class ControlsOverlay(QWidget):
     """Floating controls for the Thumbnail."""
-    def __init__(self, parent=None, callback_rotate=None, callback_delete=None, callback_drag=None):
+    def __init__(self, parent: Optional[QWidget]=None, callback_rotate=None, callback_delete=None, callback_drag=None) -> None:
         super().__init__(parent)
         self.callback_rotate = callback_rotate
         self.callback_delete = callback_delete
         self.callback_drag = callback_drag
         self._init_ui()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         # Transparent barrier so it doesn't block image view, but spans width
         self.setStyleSheet("QToolTip { color: #ffffff; background-color: #000000; border: 1px solid white; font-weight: bold; }")
 
@@ -274,7 +274,7 @@ class PageThumbnailWidget(QWidget):
     drag_started = pyqtSignal(object) # (widget)
     aspect_ratio_changed = pyqtSignal() # New: Signal when AR is detected or changed
 
-    def __init__(self, page_info: dict, pipeline, parent=None):
+    def __init__(self, page_info: dict, pipeline, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.pipeline = pipeline
         self.page_info = page_info
@@ -387,7 +387,7 @@ class PageThumbnailWidget(QWidget):
         else:
             self.lbl_img.setText(self.tr("Error"))
 
-    def unload_content(self):
+    def unload_content(self) -> None:
         if not self.loaded: return
         self.original_pixmap = None
         self.lbl_img.clear()
@@ -419,7 +419,7 @@ class PageThumbnailWidget(QWidget):
             logger.error(f"Render Error p{self._page_num}: {e}")
             return QPixmap()
 
-    def rotate_right(self):
+    def rotate_right(self) -> None:
         # Allow rotation even if deleted
         self.current_rotation = (self.current_rotation + 90) % 360
         self.page_info["rotation"] = self.current_rotation
@@ -432,7 +432,7 @@ class PageThumbnailWidget(QWidget):
         self.resizeEvent(None)
         self.rotated.emit()
 
-    def toggle_delete(self):
+    def toggle_delete(self) -> None:
         self.is_deleted = not self.is_deleted
         self.page_info["is_deleted"] = self.is_deleted
 
@@ -448,7 +448,7 @@ class PageThumbnailWidget(QWidget):
         self.resizeEvent(None)
         self.delete_toggled.emit()
 
-    def set_selected(self, selected: bool):
+    def set_selected(self, selected: bool) -> None:
         self.is_selected = selected
         if selected:
             self.lbl_img.setStyleSheet("border: 3px solid #0078d7; background: transparent;")
@@ -465,7 +465,7 @@ class PageThumbnailWidget(QWidget):
                     return True
         return super().eventFilter(obj, event)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.selection_requested.emit(self, event.modifiers())
         super().mousePressEvent(event)
@@ -480,7 +480,7 @@ class PageThumbnailWidget(QWidget):
         # Crucial for shrinking: must be small!
         return QSize(10, 10)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event: QResizeEvent) -> None:
         h = self.height()
 
         # 2. Image Rendering
@@ -522,7 +522,7 @@ class SplitterStripWidget(QWidget):
     """
     split_action_triggered = pyqtSignal(int)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.current_uuid = None
         self.pipeline = None
@@ -544,7 +544,7 @@ class SplitterStripWidget(QWidget):
         self.setAcceptDrops(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
@@ -569,18 +569,18 @@ class SplitterStripWidget(QWidget):
         # v28.5: Tastatur-Events abfangen (Focus-Problem lösen)
         self.scroll.installEventFilter(self)
 
-    def showEvent(self, event):
+    def showEvent(self, event: QShowEvent) -> None:
         """Final scaling sweep when the widget is actually displayed."""
         super().showEvent(event)
         QTimer.singleShot(0, self._force_thumbnail_resize)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event: QResizeEvent) -> None:
         """When the main strip resizes, ensure thumbnails recalculate their size."""
         super().resizeEvent(event)
         # Force thumbnails interested in resizing
         QTimer.singleShot(0, self._force_thumbnail_resize)
 
-    def _force_thumbnail_resize(self):
+    def _force_thumbnail_resize(self) -> None:
         """Iterate all thumbnails and force them to match the current viewport height."""
         # Available height in viewport minus contents margins (10 top + 10 bottom = 20)
         # We use a bit more buffer to avoid scrollbars
@@ -613,7 +613,7 @@ class SplitterStripWidget(QWidget):
             self.content_layout.activate()
             self.content_widget.adjustSize() # Wichtig für die ScrollArea!
 
-    def load_document(self, pipeline, entity_uuid: str):
+    def load_document(self, pipeline, entity_uuid: str) -> None:
         self.current_uuid = entity_uuid
         self.pipeline = pipeline
         self._clear_layout()
@@ -643,7 +643,7 @@ class SplitterStripWidget(QWidget):
         except Exception as e:
              logger.error(f"Error resolving file context: {e}")
 
-    def load_from_path(self, file_path: str):
+    def load_from_path(self, file_path: str) -> None:
         self.current_uuid = "PENDING_IMPORT"
         self.pipeline = None # No pipeline needed for raw path
         self._clear_layout()
@@ -738,7 +738,7 @@ class SplitterStripWidget(QWidget):
         QTimer.singleShot(0, self._force_thumbnail_resize) # Trigger immediate height-mastered sizing
         QTimer.singleShot(100, self.on_scroll_changed)
 
-    def on_scroll_changed(self):
+    def on_scroll_changed(self) -> None:
         """Determine visible widgets and load/unload content."""
         scroll_x = self.scroll.horizontalScrollBar().value()
         viewport_w = self.scroll.viewport().width()
@@ -763,7 +763,7 @@ class SplitterStripWidget(QWidget):
                 else:
                     w.unload_content()
 
-    def _clear_layout(self):
+    def _clear_layout(self) -> None:
         while self.content_layout.count():
              child = self.content_layout.takeAt(0)
              if child.widget(): child.widget().deleteLater()
@@ -771,16 +771,16 @@ class SplitterStripWidget(QWidget):
         self.last_selected_widget = None
         self.undo_stack = []  # its entries refer to the widgets just removed
 
-    def remove_thumbnail(self, widget):
+    def remove_thumbnail(self, widget) -> None:
         pass
 
-    def on_split_clicked(self, index, widget=None):
+    def on_split_clicked(self, index, widget=None) -> None:
         if widget:
             # Record the position: _rebuild_dividers() replaces divider widgets
             self.record_action("SPLIT", widget.page_index_before)
         self.split_action_triggered.emit(index)
 
-    def record_action(self, action_type: str, data):
+    def record_action(self, action_type: str, data) -> None:
         if self._suppress_recording:
             return
         self.undo_stack.append((action_type, data))
@@ -795,7 +795,7 @@ class SplitterStripWidget(QWidget):
                 return widget
         return None
 
-    def on_selection_requested(self, widget, modifiers):
+    def on_selection_requested(self, widget, modifiers) -> None:
         if modifiers & Qt.KeyboardModifier.ControlModifier:
             if widget in self.selected_widgets:
                 widget.set_selected(False)
@@ -833,7 +833,7 @@ class SplitterStripWidget(QWidget):
             self.selected_widgets = [widget]
             self.last_selected_widget = widget
 
-    def on_drag_started(self, widget):
+    def on_drag_started(self, widget) -> None:
         if widget not in self.selected_widgets:
             self.on_selection_requested(widget, Qt.KeyboardModifier.NoModifier)
 
@@ -949,7 +949,7 @@ class SplitterStripWidget(QWidget):
         self._finalize_drop()
 
 
-    def dragEnterEvent(self, event):
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().text() == "KPaperFlux_Page_Move":
             event.acceptProposedAction()
             # Placeholder is now handled atomically in on_drag_started
@@ -976,7 +976,7 @@ class SplitterStripWidget(QWidget):
                 return False
         return True
 
-    def dragMoveEvent(self, event):
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
         if event.mimeData().text() == "KPaperFlux_Page_Move" and self.drag_placeholder:
             event.acceptProposedAction()
 
@@ -989,7 +989,7 @@ class SplitterStripWidget(QWidget):
         else:
             super().dragMoveEvent(event)
 
-    def _check_and_slide_gap(self, mouse_pos):
+    def _check_and_slide_gap(self, mouse_pos) -> None:
         """
         Prüft Nachbarn auf 80% Überlappung und verschiebt die Lücke.
         """
@@ -1060,7 +1060,7 @@ class SplitterStripWidget(QWidget):
                 self._slide_gap_to(idx_left) # Vor den Nachbarn
                 return
 
-    def _slide_gap_to(self, new_index):
+    def _slide_gap_to(self, new_index) -> None:
         """Führt den eigentlichen Layout-Move aus."""
         if new_index < 0 or new_index > self.content_layout.count():
             return
@@ -1074,7 +1074,7 @@ class SplitterStripWidget(QWidget):
         finally:
             self.content_widget.setUpdatesEnabled(True)
 
-    def _update_auto_scroll_velocity(self, pos):
+    def _update_auto_scroll_velocity(self, pos) -> None:
         """Calculate scroll speed based on proximity to edges."""
         # pos is in SplitterStripWidget coordinates
         margin = 60
@@ -1095,7 +1095,7 @@ class SplitterStripWidget(QWidget):
         else:
             self._scroll_timer.stop()
 
-    def _handle_auto_scroll(self):
+    def _handle_auto_scroll(self) -> None:
         hbar = self.scroll.horizontalScrollBar()
         old_val = hbar.value()
         hbar.setValue(old_val + self._auto_scroll_speed)
@@ -1109,20 +1109,20 @@ class SplitterStripWidget(QWidget):
 
             self._check_and_slide_gap(local_p)
 
-    def dragLeaveEvent(self, event):
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
         self._scroll_timer.stop()
         # V28.5: We DON'T delete the placeholder here.
         # This prevents the gap from closing when the mouse momentarily
         # leaves the strip area (e.g. dragging 'trapped' pages upwards).
         super().dragLeaveEvent(event)
 
-    def dropEvent(self, event):
+    def dropEvent(self, event: QDropEvent) -> None:
         # v28.5: Internal D&D is handled by _finalize_drop in on_drag_started.
         if event.mimeData().text() == "KPaperFlux_Page_Move":
             event.acceptProposedAction()
         super().dropEvent(event)
 
-    def _finalize_drop(self):
+    def _finalize_drop(self) -> None:
         """Wird aufgerufen, wenn drag.exec() zurückkehrt."""
         self._scroll_timer.stop()
         self._auto_scroll_speed = 0
@@ -1200,7 +1200,7 @@ class SplitterStripWidget(QWidget):
         logger.debug("Drop Finalized & Normalized.")
 
 
-    def _rebuild_dividers(self):
+    def _rebuild_dividers(self) -> None:
         """
         Garbage Collection for the layout:
         1. Snapshots the current order of thumbnails and the state of manual cuts.
@@ -1285,7 +1285,7 @@ class SplitterStripWidget(QWidget):
 
         return super().eventFilter(obj, event)
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         # Schrittweite bestimmen: Thumbnail-Breite + Trenner-Breite
         thumb_w = 250
         for i in range(self.content_layout.count()):
@@ -1318,7 +1318,7 @@ class SplitterStripWidget(QWidget):
         else:
             super().keyPressEvent(event)
 
-    def contextMenuEvent(self, event):
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         if not self.selected_widgets:
             return
 
@@ -1348,7 +1348,7 @@ class SplitterStripWidget(QWidget):
 
         menu.exec(event.globalPos())
 
-    def _reverse_selected_sorting(self):
+    def _reverse_selected_sorting(self) -> None:
         if not self.selected_widgets:
             return
 
@@ -1387,7 +1387,7 @@ class SplitterStripWidget(QWidget):
         self.record_action("REVERSE", undo_info)
         self.on_scroll_changed()
 
-    def _delete_selected(self):
+    def _delete_selected(self) -> None:
         if not self.selected_widgets:
             return
 
@@ -1403,7 +1403,7 @@ class SplitterStripWidget(QWidget):
 
         self.record_action("DELETE_SELECTION", widgets)
 
-    def _rotate_selected_right(self):
+    def _rotate_selected_right(self) -> None:
         if not self.selected_widgets:
             return
 
@@ -1417,7 +1417,7 @@ class SplitterStripWidget(QWidget):
 
         self.record_action("ROTATE_SELECTION", widgets)
 
-    def revert_last_edit(self):
+    def revert_last_edit(self) -> None:
         if not self.undo_stack:
             return
 
@@ -1485,12 +1485,12 @@ class SplitterStripWidget(QWidget):
                      splits.append(div.page_index_before + 1)
         return sorted(splits)
 
-    def _show_selection(self):
+    def _show_selection(self) -> None:
         """Restore visibility of selected widgets."""
         for w in self.selected_widgets:
             w.show()
 
-    def _move_selection(self, target_index):
+    def _move_selection(self, target_index) -> None:
         """Programmatically move current selection to target layout index (for tests)."""
         if not self.selected_widgets: return
 

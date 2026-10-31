@@ -2,6 +2,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QComboBox, QFrame)
 from PyQt6.QtCore import pyqtSignal, QEvent
 from core.logger import get_logger
+from typing import Optional
+
 logger = get_logger("gui.widgets.filter_group")
 
 # Core Import: Jetzt sauber möglich, da ausgelagert!
@@ -20,7 +22,7 @@ class FilterGroupWidget(QWidget):
     remove_requested = pyqtSignal()
     changed = pyqtSignal()
 
-    def __init__(self, parent=None, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None, is_root=False):
+    def __init__(self, parent: Optional[QWidget]=None, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None, is_root=False) -> None:
         super().__init__(parent)
         self.extra_keys = extra_keys
         self.available_tags = available_tags
@@ -87,12 +89,12 @@ class FilterGroupWidget(QWidget):
         self.children_widgets = []
         self.retranslate_ui()
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event and event.type() == QEvent.Type.LanguageChange:
              self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         self.combo_logic.setItemText(0, self.tr("AND"))
         self.combo_logic.setItemText(1, self.tr("OR"))
         self.btn_add_condition.setText(self.tr("+ Condition"))
@@ -103,7 +105,7 @@ class FilterGroupWidget(QWidget):
             if hasattr(child, "retranslate_ui"):
                 child.retranslate_ui()
 
-    def add_condition(self, data=None):
+    def add_condition(self, data=None) -> None:
         if not FilterConditionWidget:
             logger.error("FilterConditionWidget class not found.")
             return
@@ -123,7 +125,7 @@ class FilterGroupWidget(QWidget):
         child.changed.connect(self.changed)
         self.changed.emit()
 
-    def add_group(self, data=None):
+    def add_group(self, data=None) -> None:
         child = FilterGroupWidget(self,
                                   extra_keys=self.extra_keys,
                                   available_tags=self.available_tags,
@@ -140,7 +142,7 @@ class FilterGroupWidget(QWidget):
         child.changed.connect(self.changed)
         self.changed.emit()
 
-    def update_metadata(self, extra_keys, available_tags, available_system_tags=None, available_workflow_steps=None):
+    def update_metadata(self, extra_keys, available_tags, available_system_tags=None, available_workflow_steps=None) -> None:
         """Recursively update metadata for all children."""
         self.extra_keys = extra_keys
         self.available_tags = available_tags
@@ -151,14 +153,14 @@ class FilterGroupWidget(QWidget):
                  child.update_metadata(extra_keys, available_tags, available_system_tags, self.available_workflow_steps)
                  # FilterConditionWidget hat jetzt auch update_metadata!
 
-    def remove_child(self, child_widget):
+    def remove_child(self, child_widget) -> None:
         if child_widget in self.children_widgets:
             self.children_widgets.remove(child_widget)
             self.children_layout.removeWidget(child_widget)
             child_widget.deleteLater()
             self.changed.emit()
 
-    def clear(self):
+    def clear(self) -> None:
         for child in list(self.children_widgets):
             self.remove_child(child)
 
@@ -181,7 +183,7 @@ class FilterGroupWidget(QWidget):
             "conditions": conditions
         }
 
-    def set_query(self, query: dict):
+    def set_query(self, query: dict) -> None:
         self.clear()
 
         # Set Logic
@@ -201,7 +203,7 @@ class FilterGroupWidget(QWidget):
                 # Is a Condition
                 self.add_condition(item)
 
-    def set_read_only(self, read_only: bool):
+    def set_read_only(self, read_only: bool) -> None:
         """Disables all interactive elements recursively."""
         self._is_read_only = read_only
         self.combo_logic.setEnabled(not read_only)

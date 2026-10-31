@@ -27,7 +27,7 @@ class FilterTokenRegistry:
     """
     _instance: Optional['FilterTokenRegistry'] = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._tokens: Dict[str, FilterToken] = {}
         self._setup_standard_tokens()
 
@@ -37,7 +37,7 @@ class FilterTokenRegistry:
             cls._instance = cls()
         return cls._instance
 
-    def register(self, token: FilterToken):
+    def register(self, token: FilterToken) -> None:
         self._tokens[token.id] = token
 
     def get_token(self, token_id: str) -> Optional[FilterToken]:
@@ -49,7 +49,7 @@ class FilterTokenRegistry:
     def get_tokens_by_category(self, category: str) -> List[FilterToken]:
         return [t for t in self._tokens.values() if t.category == category]
 
-    def _setup_standard_tokens(self):
+    def _setup_standard_tokens(self) -> None:
         # Basis
         basis_tokens = [
             FilterToken("doc_date", "basis", "field_doc_date", "date", "📅 "),

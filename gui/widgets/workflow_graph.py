@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QCursor
+from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QResizeEvent, QShowEvent, QBrush, QColor, QFont, QPainter, QCursor
 from PyQt6.QtWidgets import (
     QCheckBox, QComboBox, QFrame, QGraphicsItem, QGraphicsScene, QGraphicsView,
     QHBoxLayout, QInputDialog, QLabel, QLineEdit, QPushButton,
@@ -69,7 +69,7 @@ class WorkflowGraphWidget(QWidget):
     rule_changed = pyqtSignal()  # edit mode: underlying rule was modified
     item_selected = pyqtSignal(object)   # emitted in non-inline mode on selection change
 
-    def __init__(self, mode: str = "run", parent=None, inline_detail: bool = True) -> None:
+    def __init__(self, mode: str = "run", parent: Optional[QWidget]=None, inline_detail: bool = True) -> None:
         super().__init__(parent)
         assert mode in ("run", "edit")
         self.mode = mode
@@ -229,7 +229,7 @@ class WorkflowGraphWidget(QWidget):
 
     # ── L10n ──────────────────────────────────────────────────────────────────
 
-    def changeEvent(self, event) -> None:
+    def changeEvent(self, event: QEvent) -> None:
         from PyQt6.QtCore import QEvent
         if event and event.type() == QEvent.Type.LanguageChange:
             self._retranslate_toolbar()
@@ -791,11 +791,11 @@ class WorkflowGraphWidget(QWidget):
         self._view.scale(0.8, 0.8)
         self._user_zoomed = True
 
-    def showEvent(self, event) -> None:
+    def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         QTimer.singleShot(0, self._fit_view)
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         if not self._user_zoomed:
             self._fit_timer.start()   # restarts the 120 ms countdown on every resize
@@ -922,7 +922,7 @@ class WorkflowGraphWidget(QWidget):
         type_combo.setCurrentIndex(idx)
         fl.addRow(self.tr("Type:"), type_combo)
 
-        def _apply():
+        def _apply() -> None:
             if not self._rule:
                 return
             node.state_def.label = lbl_edit.text().strip()
@@ -955,7 +955,7 @@ class WorkflowGraphWidget(QWidget):
         req_edit.setPlaceholderText("iban, total_gross, …")
         fl.addRow(self.tr("Required Fields:"), req_edit)
 
-        def _apply():
+        def _apply() -> None:
             t.label = label_edit.text().strip()
             t.auto = auto_chk.isChecked()
             t.required_fields = [f.strip() for f in req_edit.text().split(",") if f.strip()]
@@ -1047,7 +1047,7 @@ class WorkflowGraphsPanel(QWidget):
     transition_triggered = pyqtSignal(str, str, str, bool)
     rule_changed = pyqtSignal(str)  # new_rule_id (for assignment change)
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self._graphs: Dict[str, WorkflowGraphWidget] = {}
 

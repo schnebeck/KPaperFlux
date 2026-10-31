@@ -31,7 +31,7 @@ class OrderCollectionLinker(KPaperFluxPlugin):
         action.triggered.connect(lambda: self.run_collection_flow(parent))
         return [action]
 
-    def run_collection_flow(self, parent):
+    def run_collection_flow(self, parent) -> None:
         """
         Executes the collection discovery logic.
         """

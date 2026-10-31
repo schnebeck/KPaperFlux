@@ -1,13 +1,14 @@
 
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
+    QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
     QPushButton, QColorDialog, QDialogButtonBox, QFormLayout,
     QSpinBox, QPlainTextEdit, QListWidget, QGroupBox, QAbstractItemView
 )
 from PyQt6.QtGui import QColor
+from typing import Optional
 
 class StamperDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Stamp Document"))
         self.resize(500, 400)
@@ -83,7 +84,7 @@ class StamperDialog(QDialog):
         self.action = "apply" # 'apply' or 'remove'
         self.result_stamp_id = None # ID to remove if action is remove
         
-    def populate_stamps(self, stamps: list):
+    def populate_stamps(self, stamps: list) -> None:
         """stamps: list of dict {'id': str, 'text': str}"""
         self.existing_stamps = stamps
         self.list_stamps.clear()
@@ -97,24 +98,24 @@ class StamperDialog(QDialog):
         self.grp_existing.setVisible(len(stamps) > 0)
         self.adjustSize()
             
-    def on_selection_changed(self):
+    def on_selection_changed(self) -> None:
         row = self.list_stamps.currentRow()
         if row >= 0 and row < len(self.existing_stamps):
             self.selected_stamp_id = self.existing_stamps[row]['id']
         else:
             self.selected_stamp_id = None
             
-    def choose_color(self):
+    def choose_color(self) -> None:
         c = QColorDialog.getColor(initial=QColor(*self.selected_color), parent=self)
         if c.isValid():
             self.selected_color = (c.red(), c.green(), c.blue())
             self.lbl_color.setStyleSheet(f"background-color: {c.name()}; border: 1px solid black;")
             
-    def on_apply(self):
+    def on_apply(self) -> None:
         self.action = "apply"
         self.accept()
         
-    def on_remove_selected(self):
+    def on_remove_selected(self) -> None:
         if self.selected_stamp_id:
             self.action = "remove"
             self.result_stamp_id = self.selected_stamp_id

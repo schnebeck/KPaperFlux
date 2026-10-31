@@ -11,7 +11,7 @@ class WorkflowControlsWidget(QWidget):
     transition_triggered = pyqtSignal(str, str, str, bool)  # rule_id, action, target_state, is_auto
     rule_changed = pyqtSignal(str)  # new rule_id (for manual reassignment)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.registry = WorkflowRuleRegistry()
         self.rule_id = None
@@ -19,7 +19,7 @@ class WorkflowControlsWidget(QWidget):
         self.document_data = {}
         self._init_ui()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(8)
@@ -53,7 +53,7 @@ class WorkflowControlsWidget(QWidget):
 
         self.layout.addStretch()
 
-    def update_workflow(self, rule_id: Optional[str], current_step: str, document_data: Dict[str, Any]):
+    def update_workflow(self, rule_id: Optional[str], current_step: str, document_data: Dict[str, Any]) -> None:
         """Refreshes the control buttons based on current state and data."""
         self.rule_id = rule_id
         self.current_step = current_step
@@ -187,7 +187,7 @@ class WorkflowControlsWidget(QWidget):
         if "review" in step_lower or "check" in step_lower: return "#7b1fa2"
         return "#607d8b"
 
-    def _show_assignment_menu(self):
+    def _show_assignment_menu(self) -> None:
         menu = QMenu(self)
         
         rules = self.registry.list_rules()

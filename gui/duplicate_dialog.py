@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QPoint
 from core.models.virtual import VirtualDocument as Document
 from core.database import DatabaseManager
 from gui.utils import show_selectable_message_box
+from typing import Optional
 
 class DuplicateFinderDialog(QDialog):
     """
@@ -15,7 +16,7 @@ class DuplicateFinderDialog(QDialog):
     Enhanced with sorting (Accuracy), age-based ordering (Young=Left, Old=Right),
     and batch processing via context menu.
     """
-    def __init__(self, duplicates: list, db_manager: DatabaseManager, parent=None):
+    def __init__(self, duplicates: list, db_manager: DatabaseManager, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Duplicate Finder"))
         self.resize(1000, 700)
@@ -25,7 +26,7 @@ class DuplicateFinderDialog(QDialog):
         self._init_ui()
         self._load_duplicates()
         
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QHBoxLayout(self)
         
         # Left: List of pairs
@@ -88,7 +89,7 @@ class DuplicateFinderDialog(QDialog):
         
         layout.addWidget(right_widget, 2)
         
-    def _load_duplicates(self):
+    def _load_duplicates(self) -> None:
         self.pair_list.clear()
         
         processed_pairs = []
@@ -119,7 +120,7 @@ class DuplicateFinderDialog(QDialog):
             show_selectable_message_box(self, self.tr("No Duplicates"), self.tr("No duplicates found with current threshold."), icon=QMessageBox.Icon.Information)
             self.close()
             
-    def _on_pair_selected(self):
+    def _on_pair_selected(self) -> None:
         items = self.pair_list.selectedItems()
         if not items:
             self.doc_a_info.clear()
@@ -152,7 +153,7 @@ class DuplicateFinderDialog(QDialog):
             f"<br><i>Text Preview:</i><br><pre>{text_preview}...</pre>"
         )
 
-    def _show_context_menu(self, pos: QPoint):
+    def _show_context_menu(self, pos: QPoint) -> None:
         items = self.pair_list.selectedItems()
         if not items: return
         
@@ -172,22 +173,22 @@ class DuplicateFinderDialog(QDialog):
             for item in items:
                 self.pair_list.takeItem(self.pair_list.row(item))
 
-    def keep_a(self):
+    def keep_a(self) -> None:
         self._resolve_pair(keep_left=True)
 
-    def keep_b(self):
+    def keep_b(self) -> None:
         self._resolve_pair(keep_left=False)
 
-    def ignore_pair(self):
+    def ignore_pair(self) -> None:
         row = self.pair_list.currentRow()
         self.pair_list.takeItem(row)
         
-    def _resolve_pair(self, keep_left: bool):
+    def _resolve_pair(self, keep_left: bool) -> None:
         items = self.pair_list.selectedItems()
         if not items: return
         self._resolve_batch(keep_left, items=[items[0]])
 
-    def _resolve_batch(self, keep_left: bool, items=None):
+    def _resolve_batch(self, keep_left: bool, items=None) -> None:
         if items is None:
             items = self.pair_list.selectedItems()
         

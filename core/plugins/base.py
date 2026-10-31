@@ -17,7 +17,7 @@ class ApiContext:
     """
     Bridge object providing plugins with controlled access to KPaperFlux core.
     """
-    def __init__(self, db=None, vault=None, config=None, rules=None, main_window=None):
+    def __init__(self, db=None, vault=None, config=None, rules=None, main_window=None) -> None:
         self.db = db
         self.vault = vault
         self.config = config
@@ -39,7 +39,7 @@ class KPaperFluxPlugin(QObject):
     """
     Abstract base class for all KPaperFlux plugins.
     """
-    def __init__(self, api: ApiContext):
+    def __init__(self, api: ApiContext) -> None:
         super().__init__()
         self.api = api
         self._translators: List[QTranslator] = []

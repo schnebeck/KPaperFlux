@@ -1,10 +1,12 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
+    QWidget, QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QHeaderView, QMessageBox, QInputDialog, QAbstractItemView,
     QLabel, QLineEdit, QGroupBox
 )
 from PyQt6.QtCore import Qt
 from core.logger import get_logger
+from typing import Optional
+
 logger = get_logger("gui.tag_manager")
 
 # Core Imports
@@ -24,7 +26,7 @@ except ImportError as e:
     sys.exit(1)
 
 class TagManagerDialog(QDialog):
-    def __init__(self, db_manager: DatabaseManager, parent=None):
+    def __init__(self, db_manager: DatabaseManager, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.db_manager = db_manager
         self.setWindowTitle(self.tr("Tag Manager"))
@@ -32,7 +34,7 @@ class TagManagerDialog(QDialog):
         self._init_ui()
         self.refresh_tags()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
 
         # 1. Search Bar
@@ -89,7 +91,7 @@ class TagManagerDialog(QDialog):
 
         layout.addLayout(footer_layout)
 
-    def refresh_tags(self):
+    def refresh_tags(self) -> None:
         self.table.setSortingEnabled(False) # Disable sorting while populating
         self.table.setRowCount(0)
         if self.db_manager:
@@ -117,7 +119,7 @@ class TagManagerDialog(QDialog):
         self.table.setSortingEnabled(True)
         self.filter_table() # Re-apply filter if any
 
-    def filter_table(self):
+    def filter_table(self) -> None:
         query = self.txt_search.text().lower().strip()
         for row in range(self.table.rowCount()):
             item = self.table.item(row, 0)
@@ -127,7 +129,7 @@ class TagManagerDialog(QDialog):
                     visible = False
             self.table.setRowHidden(row, not visible)
 
-    def rename_selected(self):
+    def rename_selected(self) -> None:
         selected_rows = self._get_selected_rows()
         if len(selected_rows) != 1:
             show_selectable_message_box(self, self.tr("Rename"), self.tr("Please select exactly one tag to rename."), icon=QMessageBox.Icon.Warning)
@@ -141,7 +143,7 @@ class TagManagerDialog(QDialog):
             show_notification(self, self.tr("Result"), self.tr("Updated %n document(s).", "", count))
             self.refresh_tags()
 
-    def merge_selected(self):
+    def merge_selected(self) -> None:
         selected_rows = self._get_selected_rows()
         if len(selected_rows) < 2:
             show_selectable_message_box(self, self.tr("Merge"), self.tr("Please select at least two tags to merge."), icon=QMessageBox.Icon.Warning)
@@ -164,7 +166,7 @@ class TagManagerDialog(QDialog):
             show_notification(self, self.tr("Result"), self.tr("Merged tags. Updated %n document(s).", "", count))
             self.refresh_tags()
 
-    def delete_selected(self):
+    def delete_selected(self) -> None:
         selected_rows = self._get_selected_rows()
         if not selected_rows: return
 

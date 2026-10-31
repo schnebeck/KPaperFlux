@@ -14,6 +14,7 @@ from typing import List, Optional, Tuple, Callable, Any, Union
 from pathlib import Path
 import os
 from core.logger import get_logger, get_silent_logger
+from PyQt6.QtGui import QKeyEvent
 
 logger = get_logger("gui.pdf_viewer")
 
@@ -1684,7 +1685,7 @@ class PdfViewerWidget(QWidget):
             self.btn_hit_prev.setVisible(False)
             self.btn_hit_next.setVisible(False)
 
-    def keyPressEvent(self, event) -> None:
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         """Handles keyboard navigation for pages and search hits."""
         key = event.key()
         

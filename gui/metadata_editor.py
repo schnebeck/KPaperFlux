@@ -52,7 +52,7 @@ CONTEXTS = ("Private", "Business", "Unknown")
 
 class NestedTableDialog(QDialog):
     """Dialog for editing lists of objects (tables in tables)."""
-    def __init__(self, data: List[Any], title: str, parent=None, read_only: bool = False):
+    def __init__(self, data: List[Any], title: str, parent: Optional[QWidget]=None, read_only: bool = False) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(900, 500)
@@ -60,7 +60,7 @@ class NestedTableDialog(QDialog):
         self.read_only = read_only
         self.__init_ui()
 
-    def __init_ui(self):
+    def __init_ui(self) -> None:
         layout = QVBoxLayout(self)
         self.table = QTableWidget()
 
@@ -123,11 +123,11 @@ class NestedTableDialog(QDialog):
             cancel_btn.hide()
             self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
-    def _add_row(self):
+    def _add_row(self) -> None:
         row = self.table.rowCount()
         self.table.insertRow(row)
 
-    def _remove_row(self):
+    def _remove_row(self) -> None:
         indices = sorted({idx.row() for idx in self.table.selectedIndexes()}, reverse=True)
         for row in indices:
             self.table.removeRow(row)
@@ -235,7 +235,7 @@ class MetadataEditorWidget(QWidget):
         self._init_ui()
 
     @staticmethod
-    def _set_qdate(widget: QDateEdit, val: Optional[str]):
+    def _set_qdate(widget: QDateEdit, val: Optional[str]) -> None:
         """Helper to safely set a QDateEdit from an ISO string, defaulting to 1900-01-01."""
         if val:
             try:
@@ -257,7 +257,7 @@ class MetadataEditorWidget(QWidget):
             return None
         return d.toString(Qt.DateFormat.ISODate)
 
-    def set_db_manager(self, db_manager: DatabaseManager):
+    def set_db_manager(self, db_manager: DatabaseManager) -> None:
         self.db_manager = db_manager
 
     def sizeHint(self) -> QSize:
@@ -440,7 +440,7 @@ class MetadataEditorWidget(QWidget):
         self.lbl_cached_full_text_header.setText(self.tr("Cached Full Text:"))
         self.btn_save.setText(self.tr("Save Changes"))
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -965,7 +965,7 @@ class MetadataEditorWidget(QWidget):
                 self._review_bindings.append((editor, [body_tab.path_of(key)]))
         self.semantic_table.itemChanged.connect(self._on_semantic_item_changed)
 
-    def on_workflow_transition(self, rule_id: str, action: str, target_state: str, is_auto: bool = False):
+    def on_workflow_transition(self, rule_id: str, action: str, target_state: str, is_auto: bool = False) -> None:
         """Action handler for workflow button clicks."""
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
@@ -990,7 +990,7 @@ class MetadataEditorWidget(QWidget):
         self.metadata_saved.emit()
         show_notification(self, self.tr("Workflow Updated"), self.tr("State transitioned to %1").replace("%1", target_state))
 
-    def on_rule_changed(self, new_rule_id: str):
+    def on_rule_changed(self, new_rule_id: str) -> None:
         """Handler for manual rule assignment (adds a new workflow to the dict)."""
         if not self.current_uuids or not self.db_manager or not self.doc:
             return
@@ -1021,7 +1021,7 @@ class MetadataEditorWidget(QWidget):
         self.metadata_saved.emit()
         show_notification(self, self.tr("Workflow Updated"), self.tr("Rule assigned: %1").replace("%1", new_rule_id or self.tr("None")))
 
-    def _mark_dirty(self):
+    def _mark_dirty(self) -> None:
         """Enable save button and update live workflow previews."""
         if getattr(self, "_locked_for_load", False):
             return
@@ -1030,7 +1030,7 @@ class MetadataEditorWidget(QWidget):
         from gui.theme import CLR_SUCCESS_LIGHT, CLR_SUCCESS
         self.btn_save.setStyleSheet(f"background-color: {CLR_SUCCESS_LIGHT}; font-weight: bold; border: 1px solid {CLR_SUCCESS};")
         
-    def _reset_dirty(self):
+    def _reset_dirty(self) -> None:
         """Disable save button and reset style."""
         self._dirty = False
         self.btn_save.setEnabled(False)
@@ -1054,7 +1054,7 @@ class MetadataEditorWidget(QWidget):
             self.save_changes()
         self._reset_dirty()
 
-    def on_lock_clicked(self, checked):
+    def on_lock_clicked(self, checked) -> None:
         if not self.current_uuids or not self.db_manager:
             return
         new_state = self.chk_locked.isChecked()
@@ -1063,7 +1063,7 @@ class MetadataEditorWidget(QWidget):
         self.toggle_lock(new_state)
         self.metadata_saved.emit()
 
-    def toggle_lock(self, checked):
+    def toggle_lock(self, checked) -> None:
         """
         Switches between Edit and Read-Only mode. 
         Instead of disabling the whole tab widget (which stops navigation),
@@ -1298,7 +1298,7 @@ class MetadataEditorWidget(QWidget):
                 tags.append(f"CTX_{now['context'].upper()}")
         return tags
 
-    def display_document(self, doc: Document):
+    def display_document(self, doc: Document) -> None:
         # Note: if called from display_documents, _locked_for_load is already True
         externally_locked = getattr(self, "_locked_for_load", False)
         self._locked_for_load = True
@@ -1534,7 +1534,7 @@ class MetadataEditorWidget(QWidget):
             self._reset_dirty()
             self._locked_for_load = False
 
-    def _update_tab_visibility(self, doc: Document, sd_dict: Dict[str, Any]):
+    def _update_tab_visibility(self, doc: Document, sd_dict: Dict[str, Any]) -> None:
         """General helper to hide/show tabs based on document data content (Universal Rule)."""
         # 0: General
         has_general = any([
@@ -1615,7 +1615,7 @@ class MetadataEditorWidget(QWidget):
             self.tab_widget.setTabVisible(self.tab_widget.indexOf(body_tab),
                                           BodyFieldsTab.has_content(bodies.get(body_tab.body_key)))
 
-    def _add_stamp_row(self):
+    def _add_stamp_row(self) -> None:
         row = self.stamps_table.rowCount()
         self.stamps_table.insertRow(row)
         self.stamps_table.setItem(row, 0, QTableWidgetItem("OTHER"))
@@ -1623,25 +1623,25 @@ class MetadataEditorWidget(QWidget):
         self.stamps_table.setItem(row, 2, QTableWidgetItem("1"))
         self.stamps_table.setItem(row, 3, QTableWidgetItem("1.0"))
 
-    def _remove_selected_stamps(self):
+    def _remove_selected_stamps(self) -> None:
         indices = sorted({idx.row() for idx in self.stamps_table.selectedIndexes()}, reverse=True)
         for row in indices:
             self.stamps_table.removeRow(row)
 
-    def _add_semantic_row(self):
+    def _add_semantic_row(self) -> None:
         row = self.semantic_table.rowCount()
         self.semantic_table.insertRow(row)
         self.semantic_table.setItem(row, 0, QTableWidgetItem("Custom"))
         self.semantic_table.setItem(row, 1, QTableWidgetItem(""))
         self.semantic_table.setItem(row, 2, QTableWidgetItem(""))
 
-    def _remove_selected_semantic(self):
+    def _remove_selected_semantic(self) -> None:
         indices = sorted({idx.row() for idx in self.semantic_table.selectedIndexes()}, reverse=True)
         for row in indices:
             self.semantic_table.removeRow(row)
 
     def _make_nested_editor_callback(self, key_path, initial_json, row):
-        def callback():
+        def callback() -> None:
             try:
                 # Always get LATEST json from the item (it might have been edited before)
                 it = self.semantic_table.item(row, 2)
@@ -1668,7 +1668,7 @@ class MetadataEditorWidget(QWidget):
                 show_selectable_message_box(self, self.tr("Error"), self.tr("Could not open nested editor: %s") % e)
         return callback
 
-    def _populate_semantic_table(self, sd: Dict):
+    def _populate_semantic_table(self, sd: Dict) -> None:
         """Flat representation of bodies & meta_header for the table."""
         self.semantic_table.setRowCount(0)
         idx_tab = self.tab_widget.indexOf(self.semantic_data_tab)
@@ -1680,7 +1680,7 @@ class MetadataEditorWidget(QWidget):
         rows = []
 
         # Helper to traverse and flatten
-        def traverse(data, section, prefix=""):
+        def traverse(data, section, prefix="") -> None:
             if isinstance(data, dict):
                 for k, v in data.items():
                     key_path = f"{prefix}.{k}" if prefix else k
@@ -1777,11 +1777,11 @@ class MetadataEditorWidget(QWidget):
         else:
             self.tab_widget.setTabVisible(idx_tab, False)
 
-    def _trigger_giro_refresh(self):
+    def _trigger_giro_refresh(self) -> None:
         """Debounced GiroCode refresh."""
         self.giro_timer.start(500) # 500ms delay
 
-    def refresh_girocode(self):
+    def refresh_girocode(self) -> None:
         """Generates and displays the EPC-QR Code (GiroCode)."""
         recipient = self.pay_recipient_edit.text().strip()
         iban = self.pay_iban_edit.text().strip()
@@ -1842,7 +1842,7 @@ class MetadataEditorWidget(QWidget):
             self.qr_label.setText(self.tr("Error generating QR:") + " " + str(e))
             self.qr_label.setPixmap(QPixmap())
 
-    def copy_girocode_payload(self):
+    def copy_girocode_payload(self) -> None:
         """Copies the current GiroCode payload to the clipboard."""
         recipient = self.pay_recipient_edit.text().strip()
         iban = self.pay_iban_edit.text().strip()
@@ -2090,7 +2090,7 @@ class MetadataEditorWidget(QWidget):
         action.triggered.connect(lambda _checked=False, p=paths: self._confirm_paths(p))
         menu.popup(self.semantic_table.viewport().mapToGlobal(pos))
 
-    def clear(self):
+    def clear(self) -> None:
         self._offer_to_save_pending()
         self.current_uuids = []
         self.doc = None
@@ -2111,7 +2111,7 @@ class MetadataEditorWidget(QWidget):
         self._apply_review_markers()
         self.setEnabled(False)
 
-    def save_changes(self):
+    def save_changes(self) -> None:
         if not self.current_uuids or not self.db_manager:
             return
         if self._batch_docs:

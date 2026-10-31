@@ -1,8 +1,9 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QCheckBox, QDialogButtonBox, QMessageBox
+from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout, QLabel, QLineEdit, QCheckBox, QDialogButtonBox, QMessageBox
 from gui.utils import show_selectable_message_box
+from typing import Optional
 
 class SaveListDialog(QDialog):
-    def __init__(self, parent=None, has_selection=False):
+    def __init__(self, parent: Optional[QWidget]=None, has_selection=False) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Save as List"))
         self.resize(300, 150)
@@ -31,7 +32,7 @@ class SaveListDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         
-    def validate_and_accept(self):
+    def validate_and_accept(self) -> None:
         if not self.input_name.text().strip():
              show_selectable_message_box(self, self.tr("Error"), self.tr("Please enter a name.", icon=QMessageBox.Icon.Warning))
              return

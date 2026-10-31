@@ -14,7 +14,7 @@ class SemanticRenderer:
     using external JSON templates for maximum flexibility.
     """
     
-    def __init__(self, l10n_dir: str = "resources/l10n", locale: str = "de"):
+    def __init__(self, l10n_dir: str = "resources/l10n", locale: str = "de") -> None:
         # Normalize locale to 2-letter code (de_DE -> de)
         self.locale = locale.split("_")[0].lower()
         self.l10n_dir = l10n_dir
@@ -23,7 +23,7 @@ class SemanticRenderer:
         self._load_templates()
         self._load_unit_codes()
 
-    def _load_unit_codes(self):
+    def _load_unit_codes(self) -> None:
         """Loads ISO unit code translations from the l10n folder."""
         # Try current locale first, then fallback to English
         for loc in [self.locale, "en"]:
@@ -36,7 +36,7 @@ class SemanticRenderer:
                 except Exception as e:
                     logger.error(f"Failed to load unit codes for {loc}: {e}")
 
-    def _load_templates(self):
+    def _load_templates(self) -> None:
         """Loads templates from the locale-specific folder and the common folder."""
         # 1. Load Locale Specific (e.g. l10n/de/templates/)
         locale_path = Path(self.l10n_dir) / self.locale / "templates"

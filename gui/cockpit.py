@@ -13,11 +13,12 @@ import json
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
                              QHBoxLayout, QScrollArea, QMenu, QInputDialog)
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve, QSize, QEvent
-from PyQt6.QtGui import QCursor, QPainter, QColor, QPen, QLinearGradient, QPainterPath
+from PyQt6.QtGui import QMouseEvent, QPaintEvent, QCursor, QPainter, QColor, QPen, QLinearGradient, QPainterPath
 
 from gui.dialogs.cockpit_entry_dialog import CockpitEntryDialog
 from core.config import AppConfig
 from core.logger import get_logger
+from typing import Optional
 
 logger = get_logger("gui.cockpit")
 
@@ -28,17 +29,17 @@ MARGIN = 30
 
 class SparklineWidget(QWidget):
     """Small, minimalist line chart for StatCards."""
-    def __init__(self, color_hex, parent=None):
+    def __init__(self, color_hex, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.data = []
         self.color = QColor(color_hex)
         self.setFixedHeight(45)
 
-    def set_data(self, data):
+    def set_data(self, data) -> None:
         self.data = data
         self.update()
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent) -> None:
         if len(self.data) < 2: return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -89,7 +90,7 @@ class StatCard(QFrame):
     rename_requested = pyqtSignal()
     delete_requested = pyqtSignal()
 
-    def __init__(self, title, value, color_hex, filter_query, aggregation="count", sparkdata=None, parent=None):
+    def __init__(self, title, value, color_hex, filter_query, aggregation="count", sparkdata=None, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.filter_query = filter_query
         self.color_hex = color_hex
@@ -191,19 +192,19 @@ class StatCard(QFrame):
              
         layout.addWidget(self.sparkline)
 
-    def move_animated(self, new_pos):
+    def move_animated(self, new_pos) -> None:
         if self.pos() == new_pos:
             return
         self._pos_anim.stop()
         self._pos_anim.setEndValue(new_pos)
         self._pos_anim.start()
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self.filter_query is not None:
             self.clicked.emit(self.filter_query)
         super().mousePressEvent(event)
 
-    def _show_context_menu(self, pos):
+    def _show_context_menu(self, pos) -> None:
         menu = QMenu(self)
         rename_action = menu.addAction(self.tr("Rename..."))
         edit_action = menu.addAction(self.tr("Edit Configuration..."))
@@ -221,7 +222,7 @@ class StatCard(QFrame):
 class CockpitWidget(QWidget):
     navigation_requested = pyqtSignal(dict) # Emits filter query to MainWindow
 
-    def __init__(self, db_manager, filter_tree=None, parent=None, app_config=None):
+    def __init__(self, db_manager, filter_tree=None, parent: Optional[QWidget]=None, app_config=None) -> None:
         super().__init__(parent)
         self.db_manager = db_manager
         self.filter_tree = filter_tree
@@ -247,7 +248,7 @@ class CockpitWidget(QWidget):
     def minimumSizeHint(self) -> QSize:
         return QSize(100, 100)
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -265,7 +266,7 @@ class CockpitWidget(QWidget):
         
         self.refresh_stats()
 
-    def load_config(self):
+    def load_config(self) -> None:
         if self.config_path.exists():
             try:
                 with open(self.config_path, "r") as f:
@@ -289,7 +290,7 @@ class CockpitWidget(QWidget):
                 {"title": self.tr("Due This Week"), "preset_id": "DEADLINE_DUE_SOON", "color": "#d97706", "row": 1, "col": 1}
             ]
 
-    def save_config(self):
+    def save_config(self) -> None:
         try:
             with open(self.config_path, "w") as f:
                 data = {
@@ -310,7 +311,7 @@ class CockpitWidget(QWidget):
         row = (pos.y() - MARGIN + (CELL_HEIGHT + SPACING) // 2) // (CELL_HEIGHT + SPACING)
         return max(0, int(row)), max(0, int(col))
 
-    def refresh_stats(self):
+    def refresh_stats(self) -> None:
         # Clear existing
         for w in self.card_widgets:
             w.deleteLater()
@@ -429,7 +430,7 @@ class CockpitWidget(QWidget):
             MARGIN * 2 + (max_row + 1) * (CELL_HEIGHT + SPACING)
         )
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             child = self.childAt(event.position().toPoint())
             actual_card = None
@@ -457,7 +458,7 @@ class CockpitWidget(QWidget):
                     return
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if self.dragging_widget:
             delta = event.position().toPoint() - self.drag_start_mouse_pos
             if not self.drag_has_moved and delta.manhattanLength() > 5:
@@ -475,7 +476,7 @@ class CockpitWidget(QWidget):
                 return
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if self.dragging_widget:
             self.dragging_widget.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             if not self.drag_has_moved:
@@ -498,7 +499,7 @@ class CockpitWidget(QWidget):
             return
         super().mouseReleaseEvent(event)
 
-    def _handle_reorder_preview(self, target_row, target_col):
+    def _handle_reorder_preview(self, target_row, target_col) -> None:
         """If someone is at target, move them temporarily to free spot or swap."""
         drag_idx = self.card_widgets.index(self.dragging_widget)
         
@@ -535,7 +536,7 @@ class CockpitWidget(QWidget):
         )
 
 
-    def _show_cockpit_menu(self, pos):
+    def _show_cockpit_menu(self, pos) -> None:
         menu = QMenu(self)
         
         lock_text = self.tr("Unlock Layout (Enable Dragging)") if self.locked else self.tr("Lock Layout (Prevent Dragging)")
@@ -548,11 +549,11 @@ class CockpitWidget(QWidget):
         add_action.triggered.connect(self._add_new_card)
         menu.exec(self.content_widget.mapToGlobal(pos))
 
-    def _toggle_lock(self):
+    def _toggle_lock(self) -> None:
         self.locked = not self.locked
         self.save_config()
 
-    def _add_new_card(self):
+    def _add_new_card(self) -> None:
         if not self.filter_tree: return
         dlg = CockpitEntryDialog(self.filter_tree, self)
         if dlg.exec():
@@ -562,7 +563,7 @@ class CockpitWidget(QWidget):
             self.save_config()
             self.refresh_stats()
 
-    def _edit_card(self, index):
+    def _edit_card(self, index) -> None:
         if index >= len(self.cards_config): return
         dlg = CockpitEntryDialog(self.filter_tree, self, self.cards_config[index])
         if dlg.exec():
@@ -570,13 +571,13 @@ class CockpitWidget(QWidget):
             self.save_config()
             self.refresh_stats()
 
-    def _delete_card(self, index):
+    def _delete_card(self, index) -> None:
         if index >= len(self.cards_config): return
         self.cards_config.pop(index)
         self.save_config()
         self.refresh_stats()
 
-    def _rename_card(self, index):
+    def _rename_card(self, index) -> None:
         if index >= len(self.cards_config): return
         old_title = self.cards_config[index].get("title", "")
         new_title, ok = QInputDialog.getText(self, self.tr("Rename View"), self.tr("New Title:"), text=old_title)
@@ -585,11 +586,11 @@ class CockpitWidget(QWidget):
             self.save_config()
             self.refresh_stats()
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         # The titles are resolved in refresh_stats based on preset_id
         self.refresh_stats()

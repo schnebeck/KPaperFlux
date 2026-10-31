@@ -12,6 +12,7 @@ from core.models.reporting import ReportDefinition, Aggregation, ReportComponent
 from core.config import AppConfig
 from core.reporting import ReportRegistry
 from core.logger import get_logger
+from typing import Optional
 
 logger = get_logger("gui.report_editor")
 
@@ -21,7 +22,7 @@ class ReportEditorWidget(QWidget):
     """Editor for a single Report Definition with integrated filter builder."""
     changed = pyqtSignal()
     
-    def __init__(self, db_manager=None, filter_tree=None, parent=None):
+    def __init__(self, db_manager=None, filter_tree=None, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.db_manager = db_manager
         self.filter_tree = filter_tree
@@ -41,12 +42,12 @@ class ReportEditorWidget(QWidget):
         self.retranslate_ui()
         self.load_available_reports() if hasattr(self, 'load_available_reports') else None
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         self.lbl_name_prefix.setText(self.tr("Report Name:"))
         self.lbl_desc_prefix.setText(self.tr("Description:"))
         self.lbl_group_prefix.setText(self.tr("Group By:"))
@@ -75,7 +76,7 @@ class ReportEditorWidget(QWidget):
         # Table Headers
         self.agg_table.setHorizontalHeaderLabels([self.tr("Field"), self.tr("Operation")])
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         self.layout = QVBoxLayout(self)
         
         # Meta Info
@@ -203,11 +204,11 @@ class ReportEditorWidget(QWidget):
         self.btn_save.clicked.connect(self.save_report)
         self.layout.addWidget(self.btn_save)
 
-    def _on_changed(self):
+    def _on_changed(self) -> None:
         if not self._lock_signals:
             self.changed.emit()
 
-    def _add_agg_row(self):
+    def _add_agg_row(self) -> None:
         row = self.agg_table.rowCount()
         self.agg_table.insertRow(row)
         field_item = QComboBox()
@@ -222,19 +223,19 @@ class ReportEditorWidget(QWidget):
         field_item.currentIndexChanged.connect(self._on_changed)
         op_item.currentIndexChanged.connect(self._on_changed)
 
-    def _remove_agg_row(self):
+    def _remove_agg_row(self) -> None:
         row = self.agg_table.currentRow()
         if row >= 0:
             self.agg_table.removeRow(row)
             self._on_changed()
 
-    def _import_filter_criteria(self, index):
+    def _import_filter_criteria(self, index) -> None:
         if index <= 0: return
         query = self.combo_saved_filters.currentData()
         if query:
             self.filter_builder.set_query(query)
 
-    def load_report(self, report: ReportDefinition):
+    def load_report(self, report: ReportDefinition) -> None:
         self._lock_signals = True
         self.current_report = report
         self.edit_name.setText(report.name)
@@ -321,7 +322,7 @@ class ReportEditorWidget(QWidget):
             filter_query=self.filter_builder.get_query()
         )
 
-    def save_report(self):
+    def save_report(self) -> None:
         try:
             report = self.get_report_definition()
             report_dir = str(AppConfig().get_reports_dir())

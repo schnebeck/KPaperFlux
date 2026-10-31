@@ -2,6 +2,7 @@
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QComboBox, QDateEdit, QStackedWidget, 
                              QLabel)
 from PyQt6.QtCore import Qt, QDate, pyqtSignal
+from typing import Optional
 
 class DateRangePicker(QWidget):
     """
@@ -20,11 +21,11 @@ class DateRangePicker(QWidget):
     # Let's emit a simplified tuple/string that the backend understands or standard dates.
     # If we return "2023-01-01,2023-01-31", operator "between"?
     
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.init_ui()
         
-    def init_ui(self):
+    def init_ui(self) -> None:
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         
@@ -71,7 +72,7 @@ class DateRangePicker(QWidget):
         self.empty_widget = QWidget()
         self.stack.addWidget(self.empty_widget)
         
-    def _on_type_changed(self, index):
+    def _on_type_changed(self, index) -> None:
         if index == 0:
             self.stack.setCurrentIndex(0)
         elif index == 1:
@@ -99,7 +100,7 @@ class DateRangePicker(QWidget):
         elif idx == 8: return "LAST_YEAR"
         return ""
 
-    def set_value(self, val):
+    def set_value(self, val) -> None:
         # Reverse logic to restore state
         if not val: 
             return

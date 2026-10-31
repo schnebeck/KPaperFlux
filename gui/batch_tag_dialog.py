@@ -1,17 +1,18 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QLabel, QLineEdit, 
+    QWidget, QDialog, QVBoxLayout, QLabel, QLineEdit, 
     QDialogButtonBox, QFormLayout, QGroupBox
 )
 from PyQt6.QtCore import Qt
 from gui.completers import MultiTagCompleter
 from gui.widgets.multi_select_combo import MultiSelectComboBox
+from typing import Optional
 
 class BatchTagDialog(QDialog):
     """
     Dialog to edit tags common to all selected documents.
     Changes here are applied as diffs (Add/Remove) to preserve individual extra tags.
     """
-    def __init__(self, available_tags: list[str] = None, common_tags: list[str] = None, parent=None):
+    def __init__(self, available_tags: list[str] = None, common_tags: list[str] = None, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Batch Tag Editor"))
         self.resize(500, 350)

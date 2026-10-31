@@ -40,7 +40,7 @@ class SettingsDialog(QDialog):
     """
     settings_changed = pyqtSignal()
 
-    def __init__(self, parent=None, plugin_manager=None):
+    def __init__(self, parent: Optional[QWidget]=None, plugin_manager=None) -> None:
         super().__init__(parent)
         self.config = parent.app_config if parent and hasattr(parent, 'app_config') else AppConfig()
         self.plugin_manager = plugin_manager
@@ -50,7 +50,7 @@ class SettingsDialog(QDialog):
         self.retranslate_ui()
         self._load_settings()
 
-    def _setup_ui(self):
+    def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
 
         # Tabs
@@ -259,7 +259,7 @@ class SettingsDialog(QDialog):
         btn_box.addWidget(self.btn_cancel)
         layout.addLayout(btn_box)
 
-    def _populate_plugins_tab(self):
+    def _populate_plugins_tab(self) -> None:
         """Fills the plugins table with data from the plugin manager."""
         col_headers = [
             self.tr("Name"),
@@ -300,7 +300,7 @@ class SettingsDialog(QDialog):
         else:
             self.lbl_plugin_dirs.setText("")
 
-    def _load_settings(self):
+    def _load_settings(self) -> None:
         self.combo_lang.setCurrentText(self.config.get_language())
         self.edit_vault.setText(self.config.get_vault_path())
         self.edit_ocr.setText(self.config.get_ocr_binary())
@@ -327,22 +327,22 @@ class SettingsDialog(QDialog):
         self.cb_debug_ai.setChecked(cmp_levels.get("ai") == "DEBUG")
         self.cb_debug_db.setChecked(cmp_levels.get("database") == "DEBUG")
 
-    def _browse_vault(self):
+    def _browse_vault(self) -> None:
         path = QFileDialog.getExistingDirectory(self, self.tr("Select Vault Directory"), self.edit_vault.text())
         if path:
             self.edit_vault.setText(path)
 
-    def _browse_ocr(self):
+    def _browse_ocr(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, self.tr("Select OCR Binary"), self.edit_ocr.text())
         if path:
             self.edit_ocr.setText(path)
 
-    def _browse_transfer(self):
+    def _browse_transfer(self) -> None:
         path = QFileDialog.getExistingDirectory(self, self.tr("Select Transfer Directory"), self.edit_transfer.text())
         if path:
             self.edit_transfer.setText(path)
 
-    def _save_settings(self):
+    def _save_settings(self) -> None:
         self.config.set_language(self.combo_lang.currentText())
         self.config.set_vault_path(self.edit_vault.text())
         self.config.set_ocr_binary(self.edit_ocr.text())
@@ -483,7 +483,7 @@ class SettingsDialog(QDialog):
         show_selectable_message_box(self, self.tr("Analysis Successful"), f"{message}\n\n{json_str}",
                                     icon=QMessageBox.Icon.Information)
 
-    def _open_log_file(self):
+    def _open_log_file(self) -> None:
         """Attempts to open the log file with the system default viewer."""
         log_path = self.config.get_log_file_path()
         if log_path.exists():
@@ -491,13 +491,13 @@ class SettingsDialog(QDialog):
         else:
             show_selectable_message_box(self, self.tr("Log File Missing"), self.tr("The log file has not been created yet."), icon=QMessageBox.Icon.Information)
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         """Handle language change events."""
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         """Updates all UI strings for on-the-fly localization."""
         self.setWindowTitle(self.tr("Settings"))
         

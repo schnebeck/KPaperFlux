@@ -1,7 +1,7 @@
 from typing import Callable, Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
-from PyQt6.QtWidgets import (QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel,
+from PyQt6.QtWidgets import (QWidget, QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel,
                               QMessageBox, QProgressBar, QPushButton, QVBoxLayout)
 
 from core.config import AppConfig
@@ -21,7 +21,7 @@ class ExportWorker(QThread):
         include_pdfs: bool,
         mode: str = "ZIP",
         path_resolver: Optional[Callable[[str], Optional[str]]] = None,
-    ):
+    ) -> None:
         super().__init__()
         self.documents = documents
         self.output_path = output_path
@@ -54,10 +54,10 @@ class ExportWorker(QThread):
 class ExportDialog(QDialog):
     def __init__(
         self,
-        parent=None,
+        parent: Optional[QWidget]=None,
         documents=None,
         path_resolver: Optional[Callable[[str], Optional[str]]] = None,
-    ):
+    ) -> None:
         super().__init__(parent)
         self.documents = documents or []
         self.path_resolver = path_resolver
@@ -65,7 +65,7 @@ class ExportDialog(QDialog):
         self.setMinimumWidth(400)
         self.setup_ui()
 
-    def setup_ui(self):
+    def setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         
         # Info
@@ -120,7 +120,7 @@ class ExportDialog(QDialog):
         
         layout.addLayout(btn_layout)
 
-    def browse_file(self):
+    def browse_file(self) -> None:
         if self.chk_merge_pdf.isChecked():
             caption = self.tr("Save Merged PDF")
             default_name = f"merged_{len(self.documents)}_docs.pdf"
@@ -143,7 +143,7 @@ class ExportDialog(QDialog):
             self.lbl_path.setText(filename)
             self.btn_export.setEnabled(True)
 
-    def start_export(self):
+    def start_export(self) -> None:
         self.btn_export.setEnabled(False)
         self.btn_cancel.setEnabled(False)
         self.progress_bar.setVisible(True)
@@ -160,7 +160,7 @@ class ExportDialog(QDialog):
         self.worker.finished.connect(self.on_finished)
         self.worker.start()
 
-    def on_finished(self, success, error_msg):
+    def on_finished(self, success, error_msg) -> None:
         self.btn_cancel.setEnabled(True)
         if success:
             show_selectable_message_box(self, self.tr("Success"), self.tr("Export completed successfully."), icon=QMessageBox.Icon.Information)
@@ -170,14 +170,14 @@ class ExportDialog(QDialog):
             self.btn_export.setEnabled(True)
             self.btn_transfer.setEnabled(True)
 
-    def _on_merge_toggled(self, checked):
+    def _on_merge_toggled(self, checked) -> None:
         """Update UI based on merge mode."""
         self.chk_pdfs.setEnabled(not checked)
         self.output_path = ""
         self.lbl_path.setText(self.tr("No file selected"))
         self.btn_export.setEnabled(False)
 
-    def export_to_transfer(self):
+    def export_to_transfer(self) -> None:
         transfer_path = self.config.get_transfer_path()
         if not transfer_path or not os.path.exists(transfer_path):
             return

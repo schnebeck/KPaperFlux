@@ -4,6 +4,8 @@ from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QPushButton, QComboBox,
 from PyQt6.QtCore import pyqtSignal, QEvent
 
 from core.logger import get_logger
+from typing import Optional
+
 logger = get_logger("gui.widgets.filter_condition")
 
 # Mocks / Core Imports (angepasst für Standalone-Fähigkeit)
@@ -47,7 +49,7 @@ class FilterConditionWidget(QWidget):
         ("Between", "between") # Added for ranges
     ]
 
-    def __init__(self, parent=None, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None):
+    def __init__(self, parent: Optional[QWidget]=None, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None) -> None:
         super().__init__(parent)
         self.available_tags = available_tags or []
         self.available_system_tags = available_system_tags or []
@@ -100,12 +102,12 @@ class FilterConditionWidget(QWidget):
         
         self.retranslate_ui()
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event and event.type() == QEvent.Type.LanguageChange:
              self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         if not self.field_name:
             self.btn_field_selector.setText(self.tr("Select Field..."))
         else:
@@ -146,7 +148,7 @@ class FilterConditionWidget(QWidget):
             self.combo_op.setCurrentIndex(idx)
         self.combo_op.blockSignals(False)
 
-    def update_metadata(self, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None):
+    def update_metadata(self, extra_keys=None, available_tags=None, available_system_tags=None, available_workflow_steps=None) -> None:
         """Update available keys/tags and refresh UI without losing state."""
         if extra_keys is not None: self.extra_keys = extra_keys
         if available_tags is not None: self.available_tags = available_tags
@@ -160,7 +162,7 @@ class FilterConditionWidget(QWidget):
              self.last_field = None # Force it to re-populate
              self._on_field_changed(old_field)
 
-    def _show_field_menu(self):
+    def _show_field_menu(self) -> None:
         menu = QMenu(self)
         registry = FilterTokenRegistry.instance()
         translator = SemanticTranslator.instance()
@@ -276,13 +278,13 @@ class FilterConditionWidget(QWidget):
 
         menu.exec(self.btn_field_selector.mapToGlobal(self.btn_field_selector.rect().bottomLeft()))
 
-    def _set_field(self, key, display_name):
+    def _set_field(self, key, display_name) -> None:
         self.field_key = key
         self.field_name = display_name
         self.btn_field_selector.setText(display_name)
         self._on_field_changed(key)
 
-    def _on_field_changed(self, field_key):
+    def _on_field_changed(self, field_key) -> None:
         if not field_key:
              return
 
@@ -366,7 +368,7 @@ class FilterConditionWidget(QWidget):
         res = {"field": field_key, "op": op, "value": val, "negate": self.chk_negate.isChecked()}
         return res
 
-    def set_condition(self, mode: dict):
+    def set_condition(self, mode: dict) -> None:
         key = mode.get("field")
         if not key:
             return # Invalid condition data
@@ -422,7 +424,7 @@ class FilterConditionWidget(QWidget):
         elif current_idx == 3: # Bool
               self.input_bool.setChecked(bool(val))
 
-    def set_read_only(self, read_only: bool):
+    def set_read_only(self, read_only: bool) -> None:
         """Disables all interactive elements."""
         self.btn_field_selector.setEnabled(not read_only)
         self.combo_op.setEnabled(not read_only)

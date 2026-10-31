@@ -56,7 +56,7 @@ class WorkflowLocaleDialog(QDialog):
         ("pt", "Português"),
     ]
 
-    def __init__(self, rule: WorkflowRule, parent=None):
+    def __init__(self, rule: WorkflowRule, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self._rule = rule
         # Deep-copy so we don't mutate the live rule
@@ -379,7 +379,7 @@ class WorkflowRuleFormEditor(QWidget):
     """Structured editor for a single Rule."""
     changed = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self._init_ui()
         self.current_rule = None
@@ -387,7 +387,7 @@ class WorkflowRuleFormEditor(QWidget):
         # Start in the neutral "nothing selected" state
         self.clear()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -562,12 +562,12 @@ class WorkflowRuleFormEditor(QWidget):
         QTimer.singleShot(0, self._init_splitter_sizes)
         self.retranslate_ui()
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         """Updates all UI strings for on-the-fly localization."""
         self.lbl_rule_panel.setText(self.tr("Workflow"))
         self.lbl_props_panel.setText(self.tr("Properties"))
@@ -584,7 +584,7 @@ class WorkflowRuleFormEditor(QWidget):
         self.edit_desc.setPlaceholderText(self.tr("What does this rule do?"))
         self.edit_triggers.setPlaceholderText(self.tr("INVOICE, ORDER_CONFIRMATION, ..."))
 
-    def _on_changed(self):
+    def _on_changed(self) -> None:
         if not self._lock_signals:
             self.changed.emit()
 
@@ -602,7 +602,7 @@ class WorkflowRuleFormEditor(QWidget):
         self._graph_widget._rebuild()
         self._lock_signals = False
 
-    def load_rule(self, rule: WorkflowRule):
+    def load_rule(self, rule: WorkflowRule) -> None:
         self._lock_signals = True
         self.current_rule = rule
         for w in (self.edit_name, self.edit_desc, self.edit_triggers,
@@ -780,7 +780,7 @@ class WorkflowRuleFormEditor(QWidget):
         type_combo.setCurrentIndex(idx)
         fl.addRow(self.tr("Type:"), type_combo)
 
-        def _apply():
+        def _apply() -> None:
             try:
                 new_label = lbl_edit.text().strip()
                 chosen_type: StateType = type_combo.currentData()
@@ -879,7 +879,7 @@ class WorkflowRuleFormEditor(QWidget):
         cond_table.setMinimumHeight(80)
         cond_table.setMaximumHeight(160)
 
-        def _populate_cond_table():
+        def _populate_cond_table() -> None:
             cond_table.setRowCount(0)
             for cond in t.conditions:
                 row = cond_table.rowCount()
@@ -931,7 +931,7 @@ class WorkflowRuleFormEditor(QWidget):
                 rows.append(WorkflowCondition(field=field, op=op, value=val))
             return rows
 
-        def _on_add_condition():
+        def _on_add_condition() -> None:
             row = cond_table.rowCount()
             cond_table.insertRow(row)
             # Default to DAYS_IN_STATE — the most common timed condition
@@ -947,7 +947,7 @@ class WorkflowRuleFormEditor(QWidget):
             cond_table.setCurrentCell(row, 2)
             QTimer.singleShot(0, _apply)
 
-        def _on_del_condition():
+        def _on_del_condition() -> None:
             rows = sorted({i.row() for i in cond_table.selectedItems()}, reverse=True)
             for r in rows:
                 cond_table.removeRow(r)
@@ -967,7 +967,7 @@ class WorkflowRuleFormEditor(QWidget):
                         result.append(child.data(0, Qt.ItemDataRole.UserRole))
             return result
 
-        def _apply():
+        def _apply() -> None:
             try:
                 new_label = label_edit.text().strip()
             except RuntimeError:
@@ -978,7 +978,7 @@ class WorkflowRuleFormEditor(QWidget):
             t.conditions = _read_conditions()
             self._graph_widget._rebuild()
             self._on_changed()
-            def _reselect_edge(sid=src_id, aid=action_id):
+            def _reselect_edge(sid=src_id, aid=action_id) -> None:
                 e = next(
                     (e for e in self._graph_widget._edges
                      if e.src.state_id == sid and e.transition.action == aid),

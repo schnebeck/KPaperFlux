@@ -1,9 +1,11 @@
 from core.logger import get_logger, get_silent_logger
+from PyQt6.QtGui import QCloseEvent
+
 logger = get_logger("gui.audit_window")
 import tempfile
 import os
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, 
     QLabel, QFrame, QPushButton, QMainWindow, QStackedWidget
@@ -32,7 +34,7 @@ class AuditWindow(QMainWindow):
     closed = pyqtSignal()
     workflow_triggered = pyqtSignal(str, str, str, bool)  # rule_id, action, target, is_auto
 
-    def __init__(self, pipeline=None, parent=None):
+    def __init__(self, pipeline=None, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("KPaperFlux - Audit and Verification"))
         self.resize(1300, 900)
@@ -46,7 +48,7 @@ class AuditWindow(QMainWindow):
         self._init_ui()
         self.read_settings()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
@@ -160,14 +162,14 @@ class AuditWindow(QMainWindow):
         if not self.current_doc:
              self.render_view.setPlainText(self.tr("No document selected."))
 
-    def set_debug_mode(self, enabled: bool):
+    def set_debug_mode(self, enabled: bool) -> None:
         """Hides workflow controls and shows only a close button."""
         self.workflow_controls_container.setVisible(not enabled)
         self.btn_close.setVisible(enabled)
         if enabled:
             self.setWindowTitle(self.tr("DEBUG: %s") % self.windowTitle())
 
-    def write_settings(self):
+    def write_settings(self) -> None:
         """Saves current window layout to persistent storage."""
         settings = QSettings()
         settings.beginGroup("AuditWindow")
@@ -175,7 +177,7 @@ class AuditWindow(QMainWindow):
         settings.setValue("splitter", self.splitter.saveState())
         settings.endGroup()
 
-    def read_settings(self):
+    def read_settings(self) -> None:
         """Restores window layout from persistent storage."""
         settings = QSettings()
         settings.beginGroup("AuditWindow")
@@ -190,7 +192,7 @@ class AuditWindow(QMainWindow):
             
         settings.endGroup()
 
-    def display_document(self, doc: Document):
+    def display_document(self, doc: Document) -> None:
         """Updates the audit view with a new document's data."""
         if not doc:
             self.render_view.setPlainText(self.tr("No document selected."))
@@ -232,7 +234,7 @@ class AuditWindow(QMainWindow):
         self._refresh_workflow_controls()
         self.setWindowTitle(self.tr("Audit: %s") % (doc.original_filename or doc.uuid))
 
-    def _refresh_workflow_controls(self):
+    def _refresh_workflow_controls(self) -> None:
         """Updates workflow control widgets based on current_doc's workflows dict."""
         doc = self.current_doc
         if not doc:
@@ -267,14 +269,14 @@ class AuditWindow(QMainWindow):
             wf_doc_data = build_workflow_data(doc, days_in_state)
             self._workflow_controls[rid].update_workflow(rid, wf_info.current_step, wf_doc_data)
 
-    def _on_rendering_finished(self, pdf_path: str):
+    def _on_rendering_finished(self, pdf_path: str) -> None:
         """Called when background PDF generation is done."""
         # CRITICAL: Don't pass a UUID here, otherwise the viewer tries to load from DB/Vault
         # instead of the raw path.
         self.rendered_pdf_viewer.load_document(pdf_path)
         self.right_stack.setCurrentWidget(self.rendered_pdf_viewer)
 
-    def _on_rendering_failed(self, error_msg: str, semantic_data: Any):
+    def _on_rendering_failed(self, error_msg: str, semantic_data: Any) -> None:
         """Fallback if PDF generation fails."""
         logger.error(f"Professional PDF rendering failed: {error_msg}")
         try:
@@ -287,7 +289,7 @@ class AuditWindow(QMainWindow):
         self.right_stack.setCurrentWidget(self.render_view)
 
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent) -> None:
         self.write_settings()
         
         # Cleanup worker

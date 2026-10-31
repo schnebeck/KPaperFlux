@@ -1,7 +1,8 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QFrame
+from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QFrame
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtCore import QSettings, pyqtSignal
 from gui.pdf_viewer import DualPdfViewerWidget
+from typing import Optional
 
 class ComparisonDialog(QDialog):
     """
@@ -10,7 +11,7 @@ class ComparisonDialog(QDialog):
     """
     match_assessed = pyqtSignal(bool) # True = Correct, False = Incorrect
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Document Comparison"))
         
@@ -70,15 +71,15 @@ class ComparisonDialog(QDialog):
         # Geometry Persistence (Call AFTER dual_viewer is created)
         self.restore_geometry()
 
-    def on_match_correct(self):
+    def on_match_correct(self) -> None:
         self.match_assessed.emit(True)
         self.accept()
 
-    def on_match_incorrect(self):
+    def on_match_incorrect(self) -> None:
         self.match_assessed.emit(False)
         self.accept()
 
-    def restore_geometry(self):
+    def restore_geometry(self) -> None:
         geom = self.settings.value("geometry")
         if geom:
             self.restoreGeometry(geom)
@@ -90,20 +91,20 @@ class ComparisonDialog(QDialog):
         if split_state:
             self.dual_viewer.splitter.restoreState(split_state)
 
-    def save_settings(self):
+    def save_settings(self) -> None:
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("splitter_state", self.dual_viewer.splitter.saveState())
         self.settings.sync()
 
-    def done(self, r):
+    def done(self, r) -> None:
         self.save_settings()
         self.dual_viewer.stop()
         super().done(r)
 
-    def closeEvent(self, event: QCloseEvent):
+    def closeEvent(self, event: QCloseEvent) -> None:
         self.save_settings()
         self.dual_viewer.stop()
         super().closeEvent(event)
 
-    def load_comparison(self, left_path, right_path):
+    def load_comparison(self, left_path, right_path) -> None:
         self.dual_viewer.load_documents(left_path, right_path)

@@ -15,7 +15,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSettings, QPoint, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QCursor
+from PyQt6.QtGui import QMouseEvent, QCursor
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame,
     QLabel, QPushButton, QMessageBox, QSplitter,
@@ -39,7 +39,7 @@ class WorkflowRuleCard(QFrame):
     """Card tile for a workflow rule, styled like StatCard."""
 
     def __init__(self, rule: "WorkflowRule", open_count: int, done_count: int,
-                 color: str, parent=None):
+                 color: str, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.rule_id = rule.id
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -126,7 +126,7 @@ class _CardBoard(QWidget):
     navigate_clicked = pyqtSignal(dict)   # overview card click
     process_clicked = pyqtSignal(str)     # rule card click → rule_id
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self._overview: List["StatCard"] = []
         self._rule_cards: List[WorkflowRuleCard] = []
@@ -149,7 +149,7 @@ class _CardBoard(QWidget):
         row = max(0, int((pos.y() - MARGIN + (CELL_HEIGHT + SPACING) // 2) // (CELL_HEIGHT + SPACING)))
         return row, col
 
-    def _resize(self):
+    def _resize(self) -> None:
         if self._rule_cfgs:
             max_row = max(c["row"] for c in self._rule_cfgs)
             max_col = max(c["col"] for c in self._rule_cfgs)
@@ -182,7 +182,7 @@ class _CardBoard(QWidget):
             return child.parent()
         return None
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent):
         if event.button() != Qt.MouseButton.LeftButton:
             return super().mousePressEvent(event)
         card = self._find_card(self.childAt(event.position().toPoint()))
@@ -197,7 +197,7 @@ class _CardBoard(QWidget):
             card.setCursor(QCursor(Qt.CursorShape.ClosedHandCursor))
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent):
         if not self._dragging:
             return super().mouseMoveEvent(event)
         delta = event.position().toPoint() - self._drag_start_mouse
@@ -211,7 +211,7 @@ class _CardBoard(QWidget):
             self._handle_swap(row, col)
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent):
         if not self._dragging:
             return super().mouseReleaseEvent(event)
         self._dragging.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -225,7 +225,7 @@ class _CardBoard(QWidget):
         self._dragging = None
         super().mouseReleaseEvent(event)
 
-    def _handle_swap(self, target_row: int, target_col: int):
+    def _handle_swap(self, target_row: int, target_col: int) -> None:
         drag_idx = self._rule_cards.index(self._dragging)
         orig_row = self._rule_cfgs[drag_idx]["row"]
         orig_col = self._rule_cfgs[drag_idx]["col"]
@@ -241,7 +241,7 @@ class _CardBoard(QWidget):
         self._rule_cfgs[drag_idx]["col"] = target_col
         self._resize()
 
-    def _save_order(self):
+    def _save_order(self) -> None:
         order = [{"rule_id": c["rule_id"], "row": c["row"], "col": c["col"]}
                  for c in self._rule_cfgs]
         settings = QSettings()
@@ -253,13 +253,13 @@ class WorkflowDashboardWidget(QWidget):
     navigation_requested = pyqtSignal(dict)
     process_requested = pyqtSignal(list, str, str)  # docs, rule_id, label
 
-    def __init__(self, db_manager, parent=None):
+    def __init__(self, db_manager, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.db_manager = db_manager
         self._rules: List[WorkflowRule] = []
         self._init_ui()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -275,15 +275,15 @@ class WorkflowDashboardWidget(QWidget):
         scroll.setWidget(self._board)
         layout.addWidget(scroll)
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event and event.type() == QEvent.Type.LanguageChange:
             self.refresh()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         self.refresh()
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Fetch fresh data from DB and rebuild all cards."""
         if not self.db_manager:
             return
@@ -407,7 +407,7 @@ class WorkflowProcessingWidget(QWidget):
 
     transition_done = pyqtSignal()
 
-    def __init__(self, pipeline=None, db_manager=None, parent=None):
+    def __init__(self, pipeline=None, db_manager=None, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.pipeline = pipeline
         self.db_manager = db_manager

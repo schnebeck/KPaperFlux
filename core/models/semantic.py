@@ -157,7 +157,7 @@ class WorkflowInfo(BaseModel):
     (fragile) last history-entry timestamp."""
     history: List[WorkflowLog] = Field(default_factory=list)
 
-    def apply_transition(self, action: str, next_state: str, user: Optional[str] = "USER", comment: Optional[str] = None):
+    def apply_transition(self, action: str, next_state: str, user: Optional[str] = "USER", comment: Optional[str] = None) -> None:
         self.history.append(WorkflowLog(
             action=f"TRANSITION: {action} ({self.current_step} -> {next_state})",
             user=user,

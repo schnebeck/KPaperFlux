@@ -15,10 +15,12 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
                              QStackedWidget, QDialog, QToolButton, QButtonGroup, QLayout,
                              QFileDialog)
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QCoreApplication, QEvent
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QAction
 import json
 from pathlib import Path
 from core.logger import get_logger
+from typing import Optional
+
 logger = get_logger("gui.advanced_filter")
 
 # Projekt-Imports
@@ -37,15 +39,15 @@ except ImportError as e:
     # ... (Mocks bleiben zur Sicherheit drin, gekürzt für Übersicht)
     class FilterManagerDialog(QDialog):
         filter_selected = pyqtSignal(object)
-        def __init__(self, *args, **kwargs): super().__init__()
+        def __init__(self, *args, **kwargs) -> None: super().__init__()
     class FilterGroupWidget(QWidget): # Mock
         changed = pyqtSignal()
-        def __init__(self, *args, **kwargs): super().__init__()
-        def set_query(self, d): pass
+        def __init__(self, *args, **kwargs) -> None: super().__init__()
+        def set_query(self, d) -> None: pass
         def get_query(self): return {}
-        def clear(self): pass
-        def update_metadata(self, *args): pass
-        def add_condition(self, d=None): pass
+        def clear(self) -> None: pass
+        def update_metadata(self, *args) -> None: pass
+        def add_condition(self, d=None) -> None: pass
     # ... weitere Mocks ...
     # --- MOCKS END ---
 
@@ -78,7 +80,7 @@ class AdvancedFilterWidget(QWidget):
     next_hit_requested = pyqtSignal()
     prev_hit_requested = pyqtSignal()
 
-    def __init__(self, parent=None, db_manager=None, filter_tree=None, save_callback=None):
+    def __init__(self, parent: Optional[QWidget]=None, db_manager=None, filter_tree=None, save_callback=None) -> None:
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self.db_manager = db_manager
@@ -103,7 +105,7 @@ class AdvancedFilterWidget(QWidget):
         self.refresh_dynamic_data()
         self.load_known_filters()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
@@ -350,7 +352,7 @@ class AdvancedFilterWidget(QWidget):
         self._init_rules_tab()
         self.stack.addWidget(self.rules_tab)
 
-    def _init_rules_tab(self):
+    def _init_rules_tab(self) -> None:
         self.rules_tab = QWidget()
         self.rules_tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         rules_layout = QVBoxLayout(self.rules_tab)
@@ -513,7 +515,7 @@ class AdvancedFilterWidget(QWidget):
         # Populate rules combo
         self._load_rules_to_combo()
 
-    def _populate_wf_combo(self):
+    def _populate_wf_combo(self) -> None:
         """Fill the workflow assignment combo with available playbooks."""
         self.combo_assign_wf.blockSignals(True)
         self.combo_assign_wf.clear()
@@ -524,7 +526,7 @@ class AdvancedFilterWidget(QWidget):
             self.combo_assign_wf.addItem(pb.name or pb.id, pb.id)
         self.combo_assign_wf.blockSignals(False)
 
-    def _load_rules_to_combo(self):
+    def _load_rules_to_combo(self) -> None:
         self.combo_rules.blockSignals(True)
         self.combo_rules.clear()
         self.combo_rules.addItem(self.tr("--- Saved Rule ---"), None)
@@ -534,7 +536,7 @@ class AdvancedFilterWidget(QWidget):
             
             # Rules are currently filters with actions
             # We collect all FILTER type nodes for categorization
-            def collect_rules(node, path_prefix=""):
+            def collect_rules(node, path_prefix="") -> None:
                 for child in node.children:
                     if child.node_type == NodeType.FILTER:
                         localized_name = self.tr(child.name)
@@ -562,7 +564,7 @@ class AdvancedFilterWidget(QWidget):
 
         self.combo_rules.blockSignals(False)
 
-    def _on_load_rule_clicked(self):
+    def _on_load_rule_clicked(self) -> None:
         """Manually triggered loading of the selected rule."""
         data = self.combo_rules.currentData()
         if not data:
@@ -593,7 +595,7 @@ class AdvancedFilterWidget(QWidget):
         self._set_rules_editor_visible(True)
         self._on_saved_rule_selected(0)
 
-    def _on_saved_rule_selected(self, index):
+    def _on_saved_rule_selected(self, index) -> None:
         rule = self.combo_rules.currentData()
         if not rule:
             self.clear_rule()
@@ -629,7 +631,7 @@ class AdvancedFilterWidget(QWidget):
 
         self._reset_rule_dirty()
 
-    def _set_rule_dirty(self):
+    def _set_rule_dirty(self) -> None:
         """Enable buttons when rule has unsaved changes."""
         if getattr(self, '_loading', False):
             return
@@ -665,7 +667,7 @@ class AdvancedFilterWidget(QWidget):
                 if not current_text.endswith(" *"):
                      self.combo_rules.setItemText(idx, current_text + " *")
 
-    def _reset_rule_dirty(self):
+    def _reset_rule_dirty(self) -> None:
         """Disable buttons after save/load. Harmonized with Filter View."""
         self.btn_revert_rule.setEnabled(False)
         self.btn_save_rule.setEnabled(False)
@@ -689,10 +691,10 @@ class AdvancedFilterWidget(QWidget):
             if current_text.endswith(" *"):
                  self.combo_rules.setItemText(idx, current_text[:-2])
 
-    def revert_rule_changes(self):
+    def revert_rule_changes(self) -> None:
         self._on_saved_rule_selected(self.combo_rules.currentIndex())
 
-    def clear_rule(self):
+    def clear_rule(self) -> None:
         self._loading = True
         try:
             self.rules_root_group.clear()
@@ -709,7 +711,7 @@ class AdvancedFilterWidget(QWidget):
         self.btn_toggle_rules.setText("🔼")
         self._update_stack_visibility()
 
-    def _on_new_rule_clicked(self):
+    def _on_new_rule_clicked(self) -> None:
         self.combo_rules.blockSignals(True)
         self.combo_rules.setCurrentIndex(0)
         self.combo_rules.blockSignals(False)
@@ -723,7 +725,7 @@ class AdvancedFilterWidget(QWidget):
         self._reset_rule_dirty()
         self._update_stack_visibility()
 
-    def _set_filter_editor_visible(self, visible: bool):
+    def _set_filter_editor_visible(self, visible: bool) -> None:
         self.scroll.setVisible(visible)
         if visible:
             self.scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -736,10 +738,10 @@ class AdvancedFilterWidget(QWidget):
         self.btn_toggle_editor.setText("🔼" if visible else "🔽")
         self._update_stack_visibility()
 
-    def _toggle_editor_visibility(self):
+    def _toggle_editor_visibility(self) -> None:
         self._set_filter_editor_visible(not self.scroll.isVisible())
 
-    def _set_rules_editor_visible(self, visible: bool):
+    def _set_rules_editor_visible(self, visible: bool) -> None:
         self.rules_scroll.setVisible(visible)
         self.rules_editor_widget.setVisible(visible)
         if visible:
@@ -759,10 +761,10 @@ class AdvancedFilterWidget(QWidget):
         self.size_changed.emit()
         self._update_stack_visibility()
 
-    def _toggle_rules_visibility(self):
+    def _toggle_rules_visibility(self) -> None:
         self._set_rules_editor_visible(not self.rules_scroll.isVisible())
 
-    def manage_rules(self):
+    def manage_rules(self) -> None:
         # Find "Tags" folder for focus
         start_node = None
         for child in self.filter_tree.root.children:
@@ -774,13 +776,13 @@ class AdvancedFilterWidget(QWidget):
         dlg.exec()
         self._load_rules_to_combo()
 
-    def _on_apply_rule_to_view(self):
+    def _on_apply_rule_to_view(self) -> None:
         """Apply ONLY the condition part of the rule to the list view."""
         query = self.rules_root_group.get_query()
         if query:
             self.request_apply_filter.emit(query)
 
-    def create_view_filter_from_rule(self):
+    def create_view_filter_from_rule(self) -> None:
         """Transforms the tagging result of this rule into a view filter."""
         tags = [t.strip() for t in self.edit_tags_add.text().split(",") if t.strip()]
         if not tags:
@@ -824,7 +826,7 @@ class AdvancedFilterWidget(QWidget):
                           self.tr("A new view filter '%s' has been created in the 'Views' folder.") % name)
         self.load_known_filters() # Refresh filters tab combo
 
-    def _on_save_rule_clicked(self):
+    def _on_save_rule_clicked(self) -> None:
         current_node = self.combo_rules.currentData() # FilterNode object
 
         name = ""
@@ -876,7 +878,7 @@ class AdvancedFilterWidget(QWidget):
 
         self._reset_rule_dirty()
 
-    def _on_delete_rule_clicked(self):
+    def _on_delete_rule_clicked(self) -> None:
         node = self.combo_rules.currentData()
         if not node or not node.parent: return
 
@@ -890,7 +892,7 @@ class AdvancedFilterWidget(QWidget):
             self._load_rules_to_combo()
             self._on_new_rule_clicked()
 
-    def _on_batch_run_clicked(self):
+    def _on_batch_run_clicked(self) -> None:
         node = self.combo_rules.currentData()
 
         tags_add = [t.strip() for t in self.edit_tags_add.text().split(",") if t.strip()]
@@ -928,7 +930,7 @@ class AdvancedFilterWidget(QWidget):
         else:
             menu.exec(self.mapToGlobal(QPoint(100, 100)))
 
-    def run_batch_tagging(self, rule, uuids=None):
+    def run_batch_tagging(self, rule, uuids=None) -> None:
         """Called by MainWindow with resolved UUIDs to start the actual processing."""
         scope_text = self.tr("all documents") if uuids is None else self.tr("%d selected/filtered documents") % len(uuids)
 
@@ -949,14 +951,14 @@ class AdvancedFilterWidget(QWidget):
             self.worker.start()
             progress.show()
 
-    def _on_batch_finished(self, progress, count):
+    def _on_batch_finished(self, progress, count) -> None:
         progress.close()
         show_notification(self, self.tr("Complete"),
                           self.tr("Rule applied. %d documents modified.") % count)
         # Refresh UI? Better to emit a signal so MainWindow can refresh list.
         self.refresh_dynamic_data()
 
-    def _on_sub_mode_clicked(self, index):
+    def _on_sub_mode_clicked(self, index) -> None:
         btn = self.sub_mode_group.button(index)
         
         # If we clicked the already checked button -> uncheck all
@@ -979,7 +981,7 @@ class AdvancedFilterWidget(QWidget):
             _ = self.tr("Filter")
         
         self._update_stack_visibility()
-    def _update_stack_visibility(self):
+    def _update_stack_visibility(self) -> None:
         has_selection = any(b.isChecked() for b in self.sub_mode_group.buttons())
         self.stack.setVisible(has_selection)
         self.sep_line.setVisible(has_selection)
@@ -1037,7 +1039,7 @@ class AdvancedFilterWidget(QWidget):
         # Notify Splitter
         self.size_changed.emit()
 
-    def _on_smart_search(self):
+    def _on_smart_search(self) -> None:
         text = self.txt_smart_search.text().strip()
         logger.debug(f"[Search] Raw Input: '{text}'")
 
@@ -1151,11 +1153,11 @@ class AdvancedFilterWidget(QWidget):
 
         return {"operator": "AND", "conditions": conditions}
 
-    def add_condition(self, data=None):
+    def add_condition(self, data=None) -> None:
         # Delegate to root group
         self.root_group.add_condition(data)
 
-    def refresh_dynamic_data(self):
+    def refresh_dynamic_data(self) -> None:
         """Re-fetch extra keys and tags from DB and refresh UI components."""
         if not self.db_manager: return
 
@@ -1173,11 +1175,11 @@ class AdvancedFilterWidget(QWidget):
             self.root_group.update_metadata(self.extra_keys, self.available_tags, 
                                             self.available_system_tags, self.available_workflow_steps)
 
-    def remove_condition(self, row):
+    def remove_condition(self, row) -> None:
         # Handled internally by groups
         pass
 
-    def clear_all(self, reset_combo=True):
+    def clear_all(self, reset_combo=True) -> None:
         self._loading = True
         try:
             if reset_combo and isinstance(reset_combo, bool):
@@ -1201,7 +1203,7 @@ class AdvancedFilterWidget(QWidget):
         """Returns the current query from the UI."""
         return self.get_query_object()
 
-    def load_from_node(self, node: FilterNode):
+    def load_from_node(self, node: FilterNode) -> None:
         self._loading = True
         self.loaded_filter_node = node
 
@@ -1230,7 +1232,7 @@ class AdvancedFilterWidget(QWidget):
         self._emit_change()
 
 
-    def _set_dirty(self):
+    def _set_dirty(self) -> None:
         if getattr(self, '_loading', False):
             return
 
@@ -1274,7 +1276,7 @@ class AdvancedFilterWidget(QWidget):
                 if not current_text.endswith(" *"):
                      self.combo_filters.setItemText(idx, current_text + " *")
 
-    def _reset_dirty_indicator(self):
+    def _reset_dirty_indicator(self) -> None:
         """Removes the * from the currently loaded filter in the combo."""
         self.btn_revert.setEnabled(False)
         self.btn_save.setEnabled(False)
@@ -1295,20 +1297,20 @@ class AdvancedFilterWidget(QWidget):
                 if current_text.endswith(" *"):
                      self.combo_filters.setItemText(idx, current_text[:-2])
 
-    def _on_active_toggled(self, checked):
+    def _on_active_toggled(self, checked) -> None:
         # Toggling active state applied immediately
         self.filter_active_changed.emit(checked)
         self._set_dirty()
         self._emit_change()
 
-    def set_active(self, active: bool):
+    def set_active(self, active: bool) -> None:
         """Programmatically set the 'Filter active' state without triggering dirty flag."""
         if self.chk_active:
             self.chk_active.blockSignals(True)
             self.chk_active.setChecked(active)
             self.chk_active.blockSignals(False)
 
-    def _on_combo_filter_selected(self, index):
+    def _on_combo_filter_selected(self, index) -> None:
         """Triggered on every selection change. Controls the 'Load' button state."""
         data = self.combo_filters.currentData()
         
@@ -1320,12 +1322,12 @@ class AdvancedFilterWidget(QWidget):
         if data == "BROWSE_ALL":
              self._on_saved_filter_selected(index)
 
-    def _on_combo_rule_selected(self, index):
+    def _on_combo_rule_selected(self, index) -> None:
         """Triggered on every selection change in the Rules combo."""
         data = self.combo_rules.currentData()
         self.btn_load_rule.setEnabled(data is not None)
 
-    def _emit_change(self):
+    def _emit_change(self) -> None:
         query = self.get_query_object()
 
         if self.btn_apply:
@@ -1347,7 +1349,7 @@ class AdvancedFilterWidget(QWidget):
         return {}
 
     # --- Persistence ---
-    def load_known_filters(self):
+    def load_known_filters(self) -> None:
         self.combo_filters.blockSignals(True)
         self.combo_filters.clear()
         self.combo_filters.addItem(self.tr("--- Saved Filter ---"), None)
@@ -1356,7 +1358,7 @@ class AdvancedFilterWidget(QWidget):
             all_filters = []
             system_nodes = []
             
-            def collect_nodes(node, path_prefix=""):
+            def collect_nodes(node, path_prefix="") -> None:
                 for child in node.children:
                     if child.node_type == NodeType.FILTER:
                         localized_name = self.tr(child.name)
@@ -1404,7 +1406,7 @@ class AdvancedFilterWidget(QWidget):
         self.combo_filters.blockSignals(False)
 
 
-    def _on_load_filter_clicked(self):
+    def _on_load_filter_clicked(self) -> None:
         """Manually triggered loading of the selected filter."""
         data = self.combo_filters.currentData()
         if not data:
@@ -1436,7 +1438,7 @@ class AdvancedFilterWidget(QWidget):
         self._set_filter_editor_visible(True)
         self._on_saved_filter_selected(0)
 
-    def _on_new_filter_clicked(self):
+    def _on_new_filter_clicked(self) -> None:
         """Reset editor for a new filter."""
         self.combo_filters.blockSignals(True)
         self.combo_filters.setCurrentIndex(0)
@@ -1448,7 +1450,7 @@ class AdvancedFilterWidget(QWidget):
         self.chk_active.setChecked(True)
         self._set_filter_editor_visible(True)
 
-    def _on_saved_filter_selected(self, index):
+    def _on_saved_filter_selected(self, index) -> None:
         data = self.combo_filters.currentData()
         if not data:
             self.loaded_filter_node = None
@@ -1507,7 +1509,7 @@ class AdvancedFilterWidget(QWidget):
              self.loaded_filter_node = data # Set loaded reference
              self._emit_change()
 
-    def open_filter_manager(self):
+    def open_filter_manager(self) -> None:
         if not self.filter_tree:
              return
         dlg = FilterManagerDialog(self.filter_tree, db_manager=self.db_manager, parent=self)
@@ -1525,7 +1527,7 @@ class AdvancedFilterWidget(QWidget):
         if self.loaded_filter_node:
              self._sync_combo_selection(self.loaded_filter_node)
 
-    def _on_manager_selected(self, node):
+    def _on_manager_selected(self, node) -> None:
         if not node: return
 
         if node.node_type == NodeType.TRASH:
@@ -1555,7 +1557,7 @@ class AdvancedFilterWidget(QWidget):
 
             self._sync_combo_selection(node)
 
-    def _sync_combo_selection(self, node):
+    def _sync_combo_selection(self, node) -> None:
             # Sync Combo
             idx = self.combo_filters.findData(node)
             if idx >= 0:
@@ -1565,7 +1567,7 @@ class AdvancedFilterWidget(QWidget):
                 self.combo_filters.insertItem(1, display_name, node)
                 self.combo_filters.setCurrentIndex(1)
 
-    def revert_changes(self):
+    def revert_changes(self) -> None:
         if self.loaded_filter_node and self.loaded_filter_node.data:
             self.load_from_object(self.loaded_filter_node.data)
             self._emit_change() # Emit clean state
@@ -1573,7 +1575,7 @@ class AdvancedFilterWidget(QWidget):
             if self.btn_apply:
                 self.btn_apply.setEnabled(False) # Clean
 
-    def load_from_object(self, query):
+    def load_from_object(self, query) -> None:
         self._reset_dirty_indicator() # Clear previous *
 
         self._loading = True
@@ -1604,11 +1606,11 @@ class AdvancedFilterWidget(QWidget):
             self.btn_revert.setEnabled(False)
             self._loading = False
 
-    def apply_advanced_filter(self):
+    def apply_advanced_filter(self) -> None:
         """Public method to force application of current filter."""
         self._emit_change()
 
-    def save_current_filter(self):
+    def save_current_filter(self) -> None:
         if not self.root_group.children_widgets:
             show_selectable_message_box(self, self.tr("Save Filter"), self.tr("No conditions to save."), icon=QMessageBox.Icon.Warning)
             return
@@ -1666,7 +1668,7 @@ class AdvancedFilterWidget(QWidget):
                     self.combo_filters.setCurrentIndex(idx)
                     self.loaded_filter_node = target_node
 
-    def export_current_filter(self):
+    def export_current_filter(self) -> None:
         """Exports the current filter to a standalone .kpfx file."""
         query = self.get_query_object()
         if not query or not query.get("conditions"):
@@ -1684,11 +1686,11 @@ class AdvancedFilterWidget(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, self.tr("Error"), f"Failed to export filter: {e}")
 
-    def dragEnterEvent(self, event):
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
-    def dropEvent(self, event):
+    def dropEvent(self, event: QDropEvent) -> None:
         urls = event.mimeData().urls()
         if not urls:
                return
@@ -1710,7 +1712,7 @@ class AdvancedFilterWidget(QWidget):
         elif payload:
              QMessageBox.warning(self, self.tr("Import Failed"), self.tr("File is of type '%s', expected 'smart_list'.") % payload.type)
 
-    def manage_filters(self):
+    def manage_filters(self) -> None:
         self.open_filter_manager()
 
     def _request_save_info(self, default_name="", default_desc=""):
@@ -1743,7 +1745,7 @@ class AdvancedFilterWidget(QWidget):
             return name_edit.text().strip(), desc_edit.text().strip(), True
         return None, None, False
 
-    def _show_combo_context(self, pos):
+    def _show_combo_context(self, pos) -> None:
         # MVP: Right click on the collapsed box deletes the currently selected item.
         data = self.combo_filters.currentData()
         idx = self.combo_filters.currentIndex()
@@ -1760,7 +1762,7 @@ class AdvancedFilterWidget(QWidget):
         menu.addAction(del_action)
         menu.exec(self.combo_filters.mapToGlobal(pos))
 
-    def _delete_node(self, node):
+    def _delete_node(self, node) -> None:
         if not self.filter_tree:
             return
 
@@ -1779,17 +1781,17 @@ class AdvancedFilterWidget(QWidget):
                 self.load_known_filters() # Refresh
                 self.clear_all(reset_combo=True)
 
-    def _persist(self):
+    def _persist(self) -> None:
         # Tree persistence managed by MainWindow for now
         pass
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         """Handle language change events."""
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def update_hit_status(self, current: int, total: int):
+    def update_hit_status(self, current: int, total: int) -> None:
         """Updates the hit navigation UI in the search tab."""
         if total > 0:
             self.lbl_hits.setText(f"{current + 1} / {total}")
@@ -1801,13 +1803,13 @@ class AdvancedFilterWidget(QWidget):
             self.btn_hit_prev.setVisible(False)
             self.btn_hit_next.setVisible(False)
 
-    def clear_search(self):
+    def clear_search(self) -> None:
         """Clears all search-related UI elements."""
         self.txt_smart_search.clear()
         self.lbl_search_status.setText("")
         self.update_hit_status(0, 0)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         """Updates all UI strings for on-the-fly localization."""
         # Modes - Use literals so pylupdate6 finds them
         self.btn_mode_search.setText("🔍 " + self.tr("Search"))

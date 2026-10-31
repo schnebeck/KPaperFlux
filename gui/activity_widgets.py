@@ -11,9 +11,10 @@ Description:    Minimalist status bar widget for background activity.
 """
 
 from PyQt6.QtWidgets import (
-    QHBoxLayout, QLabel, QProgressBar, QPushButton, QFrame
+    QWidget, QHBoxLayout, QLabel, QProgressBar, QPushButton, QFrame
 )
 from PyQt6.QtCore import pyqtSignal, pyqtSlot
+from typing import Optional
 
 class BackgroundActivityStatusBar(QFrame):
     """
@@ -24,12 +25,12 @@ class BackgroundActivityStatusBar(QFrame):
     pause_requested = pyqtSignal(bool)
     stop_requested = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setObjectName("StatusActivityWidget")
         self.init_ui()
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         # Ultra-compact styling to match system look
         self.setStyleSheet("""
             #StatusActivityWidget {
@@ -108,7 +109,7 @@ class BackgroundActivityStatusBar(QFrame):
         sep.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(sep)
 
-    def _on_pause_clicked(self, checked):
+    def _on_pause_clicked(self, checked) -> None:
         if checked:
             self.pause_btn.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_MediaPlay))
         else:
@@ -116,7 +117,7 @@ class BackgroundActivityStatusBar(QFrame):
         self.pause_requested.emit(checked)
 
     @pyqtSlot(int, int)
-    def update_progress(self, current, total):
+    def update_progress(self, current, total) -> None:
         if total <= 0:
             self.progress_bar.hide()
         else:
@@ -125,7 +126,7 @@ class BackgroundActivityStatusBar(QFrame):
             self.progress_bar.setValue(current)
 
     @pyqtSlot(str)
-    def update_status(self, text):
+    def update_status(self, text) -> None:
         if "Idle" in text or "Paused" in text or "Stopped" in text:
             self.progress_bar.hide()
             self.ai_status_label.clear()
@@ -133,7 +134,7 @@ class BackgroundActivityStatusBar(QFrame):
             self.ai_status_label.setText(text)
 
     @pyqtSlot(bool)
-    def on_pause_state_changed(self, is_paused):
+    def on_pause_state_changed(self, is_paused) -> None:
         self.pause_btn.setChecked(is_paused)
         if is_paused:
             self.pause_btn.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_MediaPlay))

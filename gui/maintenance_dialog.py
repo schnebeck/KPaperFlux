@@ -21,7 +21,7 @@ except ImportError as e:
     sys.exit(1)
 
 class MaintenanceDialog(QDialog):
-    def __init__(self, parent, integrity_manager: IntegrityManager, pipeline: PipelineProcessor):
+    def __init__(self, parent, integrity_manager: IntegrityManager, pipeline: PipelineProcessor) -> None:
         super().__init__(parent)
         self.manager = integrity_manager
         self.pipeline = pipeline
@@ -82,7 +82,7 @@ class MaintenanceDialog(QDialog):
             self.tabs.setTabText(1, self.tr("Unknown Files (Ghosts)"))
 
 
-    def setup_orphan_tab(self):
+    def setup_orphan_tab(self) -> None:
         layout = QVBoxLayout(self.orphan_widget)
         self.lbl_orphans_desc = QLabel()
         layout.addWidget(self.lbl_orphans_desc)
@@ -97,7 +97,7 @@ class MaintenanceDialog(QDialog):
         btn_layout.addWidget(self.btn_delete_orphans)
         layout.addLayout(btn_layout)
 
-    def setup_ghost_tab(self):
+    def setup_ghost_tab(self) -> None:
         layout = QVBoxLayout(self.ghost_widget)
         self.lbl_ghosts_desc = QLabel()
         layout.addWidget(self.lbl_ghosts_desc)
@@ -117,7 +117,7 @@ class MaintenanceDialog(QDialog):
 
         layout.addLayout(btn_layout)
 
-    def scan(self):
+    def scan(self) -> None:
         self.list_orphans.clear()
         self.list_ghosts.clear()
 
@@ -142,7 +142,7 @@ class MaintenanceDialog(QDialog):
         except Exception as e:
             show_selectable_message_box(self, self.tr("Error"), self.tr("Scan failed: %s") % str(e), icon=QMessageBox.Icon.Critical)
 
-    def delete_selected_orphans(self):
+    def delete_selected_orphans(self) -> None:
         items = self.list_orphans.selectedItems()
         if not items:
             return
@@ -165,7 +165,7 @@ class MaintenanceDialog(QDialog):
 
         self.scan()
 
-    def delete_selected_ghosts(self):
+    def delete_selected_ghosts(self) -> None:
         items = self.list_ghosts.selectedItems()
         if not items:
             return
@@ -191,7 +191,7 @@ class MaintenanceDialog(QDialog):
 
         self.scan()
 
-    def import_selected_ghosts(self):
+    def import_selected_ghosts(self) -> None:
         items = self.list_ghosts.selectedItems()
         if not items:
             return

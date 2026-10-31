@@ -6,7 +6,7 @@ class L10nMarker(QObject):
     It contains strings that are used dynamically in the application
     but are coming from JSON definitions (Workflows, Reports, Filters).
     """
-    def marker(self):
+    def marker(self) -> None:
         # Workflows
         self.tr("Standard Invoice Manager")
         self.tr("Incoming Invoice")

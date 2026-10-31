@@ -33,7 +33,7 @@ class ReportRegistry:
             cls._instance.reports = {}
         return cls._instance
 
-    def load_from_directory(self, path: str):
+    def load_from_directory(self, path: str) -> None:
         """Loads all .json files from the specified directory as reports."""
         self.reports.clear()
         if not os.path.exists(path):

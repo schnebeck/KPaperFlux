@@ -564,7 +564,7 @@ CREATE TABLE IF NOT EXISTS saved_layouts (
             running_total = 0.0
             
             # Helper to handle accumulation
-            def add_val(k):
+            def add_val(k) -> None:
                 nonlocal running_total
                 val = float(results.get(k, 0.0))
                 if cumulative:

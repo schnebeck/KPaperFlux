@@ -1,7 +1,7 @@
 import json
 import math
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Optional, List, Dict, Any
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QTableWidget, QTableWidgetItem,
@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QMenu, QTextEdit, QToolButton, QFileDialog, QMessageBox, QLineEdit,
                              QInputDialog, QDialog, QListWidget, QListWidgetItem, QSplitter)
 from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QTimer, QThread, QEvent
-from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QHideEvent, QPainter, QColor, QFont, QPen, QBrush
 
 from core.config import AppConfig
 from core.reporting import ReportGenerator, ReportRegistry
@@ -29,13 +29,13 @@ class ReportWorker(QThread):
     results_ready = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, repo_gen, db_manager, definition):
+    def __init__(self, repo_gen, db_manager, definition) -> None:
         super().__init__()
         self.repo_gen = repo_gen
         self.db_manager = db_manager
         self.definition = definition
 
-    def run(self):
+    def run(self) -> None:
         try:
             results = self.repo_gen.run_custom_report(self.db_manager, self.definition)
             self.results_ready.emit(results)
@@ -46,7 +46,7 @@ class ChartWidget(QWidget):
     """Base class for interactive charts."""
     segment_clicked = pyqtSignal(str) # Emits the label of the clicked segment/bar
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.labels = []
         self.series = []
@@ -55,7 +55,7 @@ class ChartWidget(QWidget):
         self.setMinimumHeight(500)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-    def set_data(self, labels: List[str], series: List[Dict[str, Any]]):
+    def set_data(self, labels: List[str], series: List[Dict[str, Any]]) -> None:
         self.labels = labels
         self.series = series
         self.update()
@@ -78,11 +78,11 @@ class ChartWidget(QWidget):
 
 class BarChartWidget(ChartWidget):
     """Interactive Bar Chart with drill-down support."""
-    def __init__(self, parent=None):
+    def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.bar_rects = [] # Store rects for hit testing
 
-    def paintEvent(self, event):
+    def paintEvent(self, event) -> None:
         if not self.series or not self.labels: return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -149,7 +149,7 @@ class BarChartWidget(ChartWidget):
             painter.drawText(QRect(-100, 0, 100, 20), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, label)
             painter.restore()
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event) -> None:
         for rect, label in self.bar_rects:
             if rect.contains(event.pos()):
                 self.segment_clicked.emit(label)
@@ -157,11 +157,11 @@ class BarChartWidget(ChartWidget):
 
 class PieChartWidget(ChartWidget):
     """Interactive Pie Chart for 100% distribution view."""
-    def __init__(self, parent=None):
+    def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.slice_paths = []
 
-    def paintEvent(self, event):
+    def paintEvent(self, event) -> None:
         if not self.labels or not self.series: return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -284,7 +284,7 @@ class PieChartWidget(ChartWidget):
             
             legend_y += line_height
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event) -> None:
         w = self.width()
         legend_w = 250
         chart_w = w - legend_w
@@ -308,11 +308,11 @@ class PieChartWidget(ChartWidget):
 
 class LineChartWidget(ChartWidget):
     """Line Chart for trend and delta analysis."""
-    def __init__(self, parent=None):
+    def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.point_rects = []
 
-    def paintEvent(self, event):
+    def paintEvent(self, event) -> None:
         if not self.labels or not self.series: return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -381,7 +381,7 @@ class LineChartWidget(ChartWidget):
             painter.drawText(QRect(-100, 0, 100, 20), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, label)
             painter.restore()
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event) -> None:
         for rect, label in self.point_rects:
             if rect.contains(event.pos()):
                 self.segment_clicked.emit(label)
@@ -391,7 +391,7 @@ class ReportingWidget(QWidget):
     """Deep-dive reporting tab with interactive report builder."""
     filter_requested = pyqtSignal(dict) # Signals to MainWindow to focus list and filter
     
-    def __init__(self, db_manager, filter_tree=None, parent=None):
+    def __init__(self, db_manager, filter_tree=None, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.db_manager = db_manager
         self.filter_tree = filter_tree
@@ -421,7 +421,7 @@ class ReportingWidget(QWidget):
             stop_thread(worker, wait_ms=1000)
         self.pending_workers.clear()
 
-    def hideEvent(self, event) -> None:
+    def hideEvent(self, event: QHideEvent) -> None:
         """Stop workers when the widget becomes hidden to avoid stale updates."""
         self._stop_all_workers()
         super().hideEvent(event)
@@ -432,12 +432,12 @@ class ReportingWidget(QWidget):
     def minimumSizeHint(self) -> QSize:
         return QSize(100, 100)
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         self.lbl_select_prefix.setText(self.tr("Select Report:"))
         self.edit_zoom.setText(f"{int(self.zoom_level * 100)}%")
         
@@ -474,7 +474,7 @@ class ReportingWidget(QWidget):
         # Refresh the list to translate names
         self.load_available_reports()
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
@@ -625,13 +625,13 @@ class ReportingWidget(QWidget):
         # Result Placeholder
         self.clear_results()
 
-    def dragEnterEvent(self, event):
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
             event.accept()
         else:
             event.ignore()
 
-    def dropEvent(self, event):
+    def dropEvent(self, event: QDropEvent) -> None:
         urls = event.mimeData().urls()
         if not urls:
             return
@@ -700,7 +700,7 @@ class ReportingWidget(QWidget):
             
             show_notification(self, self.tr("Import Successful"), " ".join(msg))
 
-    def import_report_from_file(self):
+    def import_report_from_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, self.tr("Import Report Style"), "", "PDF Files (*.pdf)")
         if path:
             if self._import_from_pdf(path):
@@ -743,7 +743,7 @@ class ReportingWidget(QWidget):
             logger.error(f"Failed to save report definition: {e}")
             return False
 
-    def load_available_reports(self):
+    def load_available_reports(self) -> None:
         self._lock_refreshes = True
         self.registry.load_from_directory(self.report_dir)
         self.combo_reports.clear()
@@ -754,7 +754,7 @@ class ReportingWidget(QWidget):
         
         self._lock_refreshes = False
 
-    def clear_results(self):
+    def clear_results(self) -> None:
         self.active_charts = []
         self.active_definitions = []
         while self.content_layout.count():
@@ -771,7 +771,7 @@ class ReportingWidget(QWidget):
         self.content_layout.addWidget(placeholder)
         self.set_global_zoom(1.0)
 
-    def _clear_layout(self, layout):
+    def _clear_layout(self, layout) -> None:
         if not layout: return
         while layout.count():
             item = layout.takeAt(0)
@@ -780,7 +780,7 @@ class ReportingWidget(QWidget):
             elif item.layout():
                 self._clear_layout(item.layout())
 
-    def refresh_data(self):
+    def refresh_data(self) -> None:
         if getattr(self, "_lock_refreshes", False): return
         
         report_id = self.combo_reports.currentData()
@@ -793,7 +793,7 @@ class ReportingWidget(QWidget):
         
         self._generate_report_for_definition(definition)
 
-    def _generate_report_for_definition(self, definition: ReportDefinition):
+    def _generate_report_for_definition(self, definition: ReportDefinition) -> None:
         """Asynchronously triggers report generation for a given definition."""
         # UI Feedback
         self.setCursor(Qt.CursorShape.WaitCursor)
@@ -816,7 +816,7 @@ class ReportingWidget(QWidget):
             self.pending_workers.remove(worker)
         worker.deleteLater()
 
-    def _on_report_finished(self, results, definition, worker):
+    def _on_report_finished(self, results, definition, worker) -> None:
 
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.combo_reports.setEnabled(True)
@@ -828,13 +828,13 @@ class ReportingWidget(QWidget):
                 
         self.render_report(results, definition)
 
-    def _on_report_error(self, error_msg, worker):
+    def _on_report_error(self, error_msg, worker) -> None:
 
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.combo_reports.setEnabled(True)
         show_selectable_message_box(self, self.tr("Report Error"), f"{self.tr('Failed to generate report')}:\n{error_msg}", icon=QMessageBox.Icon.Critical)
 
-    def render_report(self, results, definition: ReportDefinition, clear_active_charts=False):
+    def render_report(self, results, definition: ReportDefinition, clear_active_charts=False) -> None:
         # 0. Strip the bottom stretch if exists
         self.strip_bottom_stretch()
         
@@ -941,7 +941,7 @@ class ReportingWidget(QWidget):
                 editor.setStyleSheet(f"background: {CLR_SURFACE}; font-family: sans-serif; font-size: {FONT_BASE}px; border: 1px solid {CLR_BORDER};")
                 
                 # Update content on change
-                def update_content(c=comp, e=editor, d=definition):
+                def update_content(c=comp, e=editor, d=definition) -> None:
                     c.content = e.toPlainText()
                     self._mark_dirty(d)
 
@@ -952,7 +952,7 @@ class ReportingWidget(QWidget):
                 self.content_layout.addWidget(widget)
 
         self.apply_zoom_visuals()
-    def strip_bottom_stretch(self):
+    def strip_bottom_stretch(self) -> None:
         """Removes the stretch at the end of content_layout if it exists."""
         if self.content_layout.count() > 0:
             item = self.content_layout.itemAt(self.content_layout.count() - 1)
@@ -1006,7 +1006,7 @@ class ReportingWidget(QWidget):
         main_ly.addWidget(inner_widget)
         return frame
 
-    def move_component(self, index, delta, definition):
+    def move_component(self, index, delta, definition) -> None:
         comps = definition.components
         new_idx = index + delta
         if 0 <= new_idx < len(comps):
@@ -1014,18 +1014,18 @@ class ReportingWidget(QWidget):
             self._mark_dirty(definition)
             self.refresh_data_all() # Fully refresh all reports to reflect move within one
 
-    def delete_component(self, index, definition):
+    def delete_component(self, index, definition) -> None:
         definition.components.pop(index)
         self._mark_dirty(definition)
         self.refresh_data_all()
 
-    def add_text_block(self):
+    def add_text_block(self) -> None:
         if not self.current_definition: return
         self.current_definition.components.append(ReportComponent(type="text", content=""))
         self._mark_dirty(self.current_definition)
         self.refresh_data_all()
 
-    def _mark_dirty(self, definition):
+    def _mark_dirty(self, definition) -> None:
         """Sets a timer to save a specific report definition."""
         if not hasattr(self, "_save_timers"): self._save_timers = {}
         
@@ -1039,7 +1039,7 @@ class ReportingWidget(QWidget):
         self._save_timers[definition.id] = timer
         timer.start(1000)
 
-    def _save_report(self, definition):
+    def _save_report(self, definition) -> None:
         path = Path(self.report_dir) / f"{definition.id}.json"
         try:
             with open(path, "w", encoding="utf-8") as f:
@@ -1047,7 +1047,7 @@ class ReportingWidget(QWidget):
         except Exception as e:
             logger.error(f"Failed to save report: {e}")
 
-    def refresh_data_all(self):
+    def refresh_data_all(self) -> None:
         """Clears and re-renders all currently involve reports."""
         defs_to_reload = list(self.active_definitions)
         self.clear_results()
@@ -1061,12 +1061,12 @@ class ReportingWidget(QWidget):
         for definition in defs_to_reload:
             self._generate_report_for_definition(definition)
 
-    def set_global_zoom(self, level):
+    def set_global_zoom(self, level) -> None:
         self.zoom_level = max(0.5, min(3.0, level))
         self.edit_zoom.setText(f"{int(self.zoom_level * 100)}%")
         self.apply_zoom_visuals()
 
-    def _on_zoom_edited(self):
+    def _on_zoom_edited(self) -> None:
         """Parse manual zoom input."""
         text = self.edit_zoom.text().replace("%", "").strip()
         try:
@@ -1079,7 +1079,7 @@ class ReportingWidget(QWidget):
             # Revert to current
             self.edit_zoom.setText(f"{int(self.zoom_level * 100)}%")
 
-    def apply_zoom_visuals(self):
+    def apply_zoom_visuals(self) -> None:
         """Scales the content area and charts."""
         # Scale chart heights
         chart_h = int(500 * self.zoom_level)
@@ -1103,20 +1103,20 @@ class ReportingWidget(QWidget):
             
         self.content_widget.update()
 
-    def _on_chart_drill_down(self, label):
+    def _on_chart_drill_down(self, label) -> None:
         """Builds a filter based on the clicked chart element and sends it to MainWindow."""
         chart = self.sender()
         definition = getattr(chart, "definition", self.current_definition)
         self._apply_drill_down(label, definition)
 
-    def _on_table_drill_down(self, row, col, table, definition):
+    def _on_table_drill_down(self, row, col, table, definition) -> None:
         """Builds a filter based on the clicked table row (Group Label)."""
         # We always take the first column as the grouping label
         item = table.item(row, 0)
         if item:
             self._apply_drill_down(item.text(), definition)
 
-    def _apply_drill_down(self, label, definition):
+    def _apply_drill_down(self, label, definition) -> None:
         """Unified drill-down logic for charts and tables."""
         if not definition: return
         
@@ -1158,7 +1158,7 @@ class ReportingWidget(QWidget):
             }
             self.filter_requested.emit(payload)
 
-    def open_editor(self):
+    def open_editor(self) -> None:
         report_id = self.combo_reports.currentData()
         if not report_id: return
         
@@ -1177,7 +1177,7 @@ class ReportingWidget(QWidget):
         editor.btn_save.clicked.connect(lambda: [dlg.accept(), self.load_available_reports(), self.refresh_data()])
         dlg.exec()
 
-    def create_new_report(self):
+    def create_new_report(self) -> None:
         name, ok = QInputDialog.getText(self, self.tr("New Report"), self.tr("Enter report name:"))
         if ok and name:
             import time
@@ -1196,7 +1196,7 @@ class ReportingWidget(QWidget):
             editor.btn_save.clicked.connect(lambda: [dlg.accept(), self.load_available_reports()])
             dlg.exec()
 
-    def export_as(self, fmt):
+    def export_as(self, fmt) -> None:
         report_id = self.combo_reports.currentData()
         if not report_id: return
         
@@ -1385,7 +1385,7 @@ class ReportingWidget(QWidget):
         self._refresh_layout_list()
         show_notification(self, self.tr("Delete Layout"), self.tr("Layout deleted."))
 
-    def save_layout(self):
+    def save_layout(self) -> None:
         """Saves current canvas state via ExchangeService."""
         if not self.active_definitions:
             QMessageBox.warning(self, self.tr("Save Layout"), self.tr("Canvas is empty."))
@@ -1405,7 +1405,7 @@ class ReportingWidget(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, self.tr("Error"), f"Failed to save layout: {e}")
 
-    def load_layout(self):
+    def load_layout(self) -> None:
         """Loads a layout arrangement via ExchangeService."""
         path, _ = QFileDialog.getOpenFileName(self, self.tr("Load Layout"), "", "KPaperFlux Files (*.kpfx *.json *.pdf)")
         if not path:

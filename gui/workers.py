@@ -74,7 +74,7 @@ class BatchTaggingWorker(QThread):
     progress = pyqtSignal(int, int) # processed, total
     finished = pyqtSignal(int) # count of modified documents
 
-    def __init__(self, db, filter_tree, rules=None, uuids=None):
+    def __init__(self, db, filter_tree, rules=None, uuids=None) -> None:
         super().__init__()
         self.db = db
         self.filter_tree = filter_tree
@@ -82,7 +82,7 @@ class BatchTaggingWorker(QThread):
         self.uuids = uuids # If None, will fetch all non-deleted documents
         self.is_cancelled = False
 
-    def run(self):
+    def run(self) -> None:
         engine = RulesEngine(self.db, self.filter_tree)
         repo = LogicalRepository(self.db)
 
@@ -120,7 +120,7 @@ class BatchTaggingWorker(QThread):
 
         self.finished.emit(modified_count)
 
-    def cancel(self):
+    def cancel(self) -> None:
         self.is_cancelled = True
 
 class ImportWorker(QThread):
@@ -131,14 +131,14 @@ class ImportWorker(QThread):
     finished = pyqtSignal(int, int, list, str) # success_count, total_count, imported_uuids, error_msg
     document_imported = pyqtSignal(str) # Emitted for each successfully created logical doc (UUID)
 
-    def __init__(self, pipeline: PipelineProcessor, items: list, move_source: bool = False):
+    def __init__(self, pipeline: PipelineProcessor, items: list, move_source: bool = False) -> None:
         super().__init__()
         self.pipeline = pipeline
         self.items = items # List of (path, instructions) tuples
         self.move_source = move_source
         self.is_cancelled = False
 
-    def run(self):
+    def run(self) -> None:
         success_count = 0
         imported_uuids = []
 
@@ -174,10 +174,10 @@ class ImportWorker(QThread):
 
                 # SPECIAL BATCH MODE
                 if fpath == "BATCH" and isinstance(instructions, list):
-                    def batch_progress_cb(curr, total, label):
+                    def batch_progress_cb(curr, total, label) -> None:
                         self.progress.emit(curr - 1, label)
 
-                    def batch_entity_cb(uid):
+                    def batch_entity_cb(uid) -> None:
                         self.document_imported.emit(uid)
 
                     try:
@@ -246,7 +246,7 @@ class ImportWorker(QThread):
             traceback.print_exc()
             self.finished.emit(success_count, effective_total, [], str(e))
 
-    def cancel(self):
+    def cancel(self) -> None:
         self.is_cancelled = True
         self.pipeline.terminate_activity()
 
@@ -258,14 +258,14 @@ class ReprocessWorker(QThread):
     finished = pyqtSignal(int, int, list) # success_count, total, processed_uuids
     error = pyqtSignal(str, str) # uuid, error_message
 
-    def __init__(self, pipeline: PipelineProcessor, uuids: list[str], force_ocr: bool = False):
+    def __init__(self, pipeline: PipelineProcessor, uuids: list[str], force_ocr: bool = False) -> None:
         super().__init__()
         self.pipeline = pipeline
         self.uuids = uuids
         self.force_ocr = force_ocr
         self.is_cancelled = False
 
-    def run(self):
+    def run(self) -> None:
         success_count = 0
         total = len(self.uuids)
         processed_uuids = []
@@ -306,7 +306,7 @@ class ReprocessWorker(QThread):
             self.error.emit("worker", err_msg)
             self.finished.emit(success_count, total, [])
 
-    def cancel(self):
+    def cancel(self) -> None:
         self.is_cancelled = True
 
 
@@ -322,7 +322,7 @@ class MainLoopWorker(QThread):
     fatal_error = pyqtSignal(str, str) # title, message
     pause_state_changed = pyqtSignal(bool) # True if paused
 
-    def __init__(self, pipeline: PipelineProcessor, filter_tree):
+    def __init__(self, pipeline: PipelineProcessor, filter_tree) -> None:
         super().__init__()
         self.pipeline = pipeline
         self.filter_tree = filter_tree
@@ -334,7 +334,7 @@ class MainLoopWorker(QThread):
                                         physical_repo=pipeline.physical_repo,
                                         logical_repo=pipeline.logical_repo)
 
-    def run(self):
+    def run(self) -> None:
         logger.info("[MainLoop] Worker started.")
         self.canonizer.release_interrupted_documents()
         while self.is_running:
@@ -396,7 +396,7 @@ class MainLoopWorker(QThread):
         logger.info("[MainLoop] Worker stopped.")
         self.status_changed.emit("Stopped")
 
-    def set_paused(self, paused: bool):
+    def set_paused(self, paused: bool) -> None:
         self.is_paused = paused
         state = "PAUSED" if paused else "RESUMED"
         logger.info(f"[MainLoop] {state} requested.")
@@ -407,7 +407,7 @@ class MainLoopWorker(QThread):
 
         self.pause_state_changed.emit(paused)
 
-    def stop(self):
+    def stop(self) -> None:
         logger.info("[MainLoop] STOP requested.")
         self.status_changed.emit("Stopping (Finishing current)...")
         self.is_running = False
@@ -423,7 +423,7 @@ class SimilarityWorker(QThread):
     class _Cancelled(Exception):
         """Raised from the progress callback to leave the comparison loop."""
 
-    def __init__(self, db_manager, vault, threshold=0.85):
+    def __init__(self, db_manager, vault, threshold=0.85) -> None:
         super().__init__()
         self.sim_manager = SimilarityManager(db_manager, vault)
         self.threshold = threshold
@@ -433,7 +433,7 @@ class SimilarityWorker(QThread):
         """Stops the comparison at the next progress step."""
         self.is_cancelled = True
 
-    def run(self):
+    def run(self) -> None:
         try:
             duplicates = self.sim_manager.find_duplicates(
                 threshold=self.threshold,
@@ -447,7 +447,7 @@ class SimilarityWorker(QThread):
             logger.error(f"Similarity Worker Error: {e}", exc_info=True)
             self.finished.emit([])
 
-    def _on_progress(self, current, total):
+    def _on_progress(self, current, total) -> None:
         if self.is_cancelled:
             raise self._Cancelled()
         self.progress.emit(current, total)
@@ -472,7 +472,7 @@ class MatchAnalysisWorker(QThread):
         self.engine = engine
         self.is_cancelled = False
 
-    def run(self):
+    def run(self) -> None:
         thread_id = int(QThread.currentThreadId())
         logger.info(f"[MatchAnalysisThread-{thread_id}] Started.")
 
@@ -551,13 +551,13 @@ class SemanticRenderingWorker(QThread):
     finished = pyqtSignal(str) # temp_pdf_path
     error = pyqtSignal(str)
 
-    def __init__(self, semantic_data: Any, out_path: str, locale: str = "de", parent: Optional[QObject] = None):
+    def __init__(self, semantic_data: Any, out_path: str, locale: str = "de", parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self.semantic_data = semantic_data
         self.out_path = out_path
         self.locale = locale
 
-    def run(self):
+    def run(self) -> None:
         try:
             from core.pdf_renderer import ProfessionalPdfRenderer
             renderer = ProfessionalPdfRenderer(self.out_path, locale=self.locale)

@@ -16,7 +16,7 @@ import os
 import json
 import re
 import time
-from typing import List
+from typing import Optional, List
 
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QSize
 from PyQt6.QtWidgets import (
@@ -35,6 +35,7 @@ from gui.widgets.workflow_rule_editor import WorkflowRuleFormEditor
 from gui.widgets.workflow_dashboard import (
     WorkflowDashboardWidget, WorkflowProcessingWidget,
 )
+from PyQt6.QtGui import QKeyEvent, QShowEvent
 
 logger = get_logger("gui.workflow_manager")
 
@@ -45,7 +46,7 @@ class WorkflowManagerWidget(QWidget):
     navigation_requested = pyqtSignal(dict)
     status_message = pyqtSignal(str)
 
-    def __init__(self, parent=None, filter_tree=None, pipeline=None):
+    def __init__(self, parent: Optional[QWidget]=None, filter_tree=None, pipeline=None) -> None:
         super().__init__(parent)
         self.registry = WorkflowRuleRegistry()
         self.filter_tree = filter_tree
@@ -61,7 +62,7 @@ class WorkflowManagerWidget(QWidget):
     def minimumSizeHint(self) -> QSize:
         return QSize(100, 100)
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 10, 15, 15)
         layout.setSpacing(0)
@@ -228,12 +229,12 @@ class WorkflowManagerWidget(QWidget):
 
         self.retranslate_ui()
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         self.btn_show_dashboard.setText("📊 " + self.tr("Dashboard"))
         self.btn_show_editor.setText("⚙️ " + self.tr("Rule Editor"))
         self.btn_show_processing.setText("▶ " + self.tr("Process"))
@@ -296,26 +297,26 @@ class WorkflowManagerWidget(QWidget):
         except Exception as exc:
             logger.warning(f"open_document_in_process failed: {exc}")
 
-    def _on_stack_changed(self, index):
+    def _on_stack_changed(self, index) -> None:
         if index == 0:
             self.dashboard_tab.refresh()
 
-    def showEvent(self, event):
+    def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if self.main_stack.currentIndex() == 0:
             self.dashboard_tab.refresh()
 
-    def _mark_dirty(self):
+    def _mark_dirty(self) -> None:
         self._is_dirty = True
         self.btn_save.setEnabled(True)
         self.btn_revert.setEnabled(True)
 
-    def _clear_dirty(self):
+    def _clear_dirty(self) -> None:
         self._is_dirty = False
         self.btn_save.setEnabled(False)
         self.btn_revert.setEnabled(False)
 
-    def load_workflows(self):
+    def load_workflows(self) -> None:
         self.combo_rules.blockSignals(True)
         current_id = self.combo_rules.currentData()
 
@@ -344,7 +345,7 @@ class WorkflowManagerWidget(QWidget):
             self.status_message.emit(self.tr("Rule deleted."))
             self._clear_dirty()
 
-    def _on_combo_changed(self, index):
+    def _on_combo_changed(self, index) -> None:
         if self._is_dirty:
             reply = QMessageBox.question(
                 self, self.tr("Unsaved Changes"),
@@ -370,7 +371,7 @@ class WorkflowManagerWidget(QWidget):
             self._clear_dirty()
             self.status_message.emit(self.tr("Editing: %1").replace("%1", rule.get_display_name() or rule_id))
 
-    def _create_new_rule(self):
+    def _create_new_rule(self) -> None:
         rule = WorkflowRule(
             id="new_workflow",
             name="New Workflow",
@@ -387,7 +388,7 @@ class WorkflowManagerWidget(QWidget):
         self.combo_rules.setCurrentIndex(0)
         self._mark_dirty()
 
-    def _save_rule(self):
+    def _save_rule(self) -> None:
         try:
             rule = self.form_editor.get_rule()
             # Check for duplicate names (excluding current ID)
@@ -443,7 +444,7 @@ class WorkflowManagerWidget(QWidget):
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save rule: %1").replace("%1", str(e)))
 
-    def _revert_changes(self):
+    def _revert_changes(self) -> None:
         """Cancel changes and reload current rule."""
         rule_id = self.combo_rules.currentData()
         if rule_id:
@@ -466,14 +467,14 @@ class WorkflowManagerWidget(QWidget):
         }
         self.navigation_requested.emit(payload)
 
-    def _on_manage_clicked(self):
+    def _on_manage_clicked(self) -> None:
         """Open a management dialog for rules."""
         dlg = WorkflowRuleManagerDialog(self, filter_tree=self.filter_tree)
         dlg.rule_selected.connect(self._select_rule_by_id)
         dlg.exec()
         self.load_workflows()
 
-    def _select_rule_by_id(self, rule_id: str):
+    def _select_rule_by_id(self, rule_id: str) -> None:
         idx = self.combo_rules.findData(rule_id)
         if idx >= 0:
             self.combo_rules.setCurrentIndex(idx)
@@ -483,7 +484,7 @@ class WorkflowRuleManagerDialog(QDialog):
     """Simplified management dialog for Rule files."""
     rule_selected = pyqtSignal(str)
 
-    def __init__(self, parent=None, filter_tree=None):
+    def __init__(self, parent: Optional[QWidget]=None, filter_tree=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Manage Rules"))
         self.resize(400, 500)
@@ -492,7 +493,7 @@ class WorkflowRuleManagerDialog(QDialog):
         self._init_ui()
         self._reload_list()
 
-    def _init_ui(self):
+    def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
 
         self.list_widget = QListWidget()
@@ -522,12 +523,12 @@ class WorkflowRuleManagerDialog(QDialog):
 
         self.retranslate_ui()
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()
         super().changeEvent(event)
 
-    def retranslate_ui(self):
+    def retranslate_ui(self) -> None:
         self.setWindowTitle(self.tr("Manage Rules"))
         self.btn_new.setText("✚ " + self.tr("New..."))
         self.btn_new.setToolTip(self.tr("Create a new rule file"))
@@ -537,13 +538,13 @@ class WorkflowRuleManagerDialog(QDialog):
         self.btn_delete.setToolTip(self.tr("Delete selected rule files (DEL)"))
         self.close_btn.setText(self.tr("Close"))
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete:
             self._delete_selected()
         else:
             super().keyPressEvent(event)
 
-    def _reload_list(self):
+    def _reload_list(self) -> None:
         self.list_widget.clear()
         if os.path.exists(self.workflow_dir):
             for f in sorted(os.listdir(self.workflow_dir)):
@@ -560,7 +561,7 @@ class WorkflowRuleManagerDialog(QDialog):
                     except (json.JSONDecodeError, OSError):
                         self.list_widget.addItem(f.replace(".json", ""))
 
-    def _create_new(self):
+    def _create_new(self) -> None:
         name, ok = QInputDialog.getText(self, self.tr("New Workflow"), self.tr("Enter display name:"))
         if ok and name:
             name = name.strip()
@@ -586,7 +587,7 @@ class WorkflowRuleManagerDialog(QDialog):
             self._reload_list()
             self.rule_selected.emit(pb_id)
 
-    def _rename_display_name(self):
+    def _rename_display_name(self) -> None:
         item = self.list_widget.currentItem()
         if not item: return
         pb_id = item.data(Qt.ItemDataRole.UserRole)
@@ -617,7 +618,7 @@ class WorkflowRuleManagerDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), str(e))
 
-    def _delete_selected(self):
+    def _delete_selected(self) -> None:
         items = self.list_widget.selectedItems()
         if not items: return
 

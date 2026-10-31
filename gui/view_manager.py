@@ -1,15 +1,16 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
+    QWidget, QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
     QTreeWidget, QTreeWidgetItem, QInputDialog, QMessageBox
 )
 from gui.utils import show_selectable_message_box
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.filter_tree import NodeType, FilterNode
+from typing import Optional
 
 class ViewManagerDialog(QDialog):
     view_selected = pyqtSignal(dict) # Emits the view state dict
 
-    def __init__(self, filter_tree, parent=None, db_manager=None, current_state_callback=None, save_callback=None):
+    def __init__(self, filter_tree, parent: Optional[QWidget]=None, db_manager=None, current_state_callback=None, save_callback=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Manage Views"))
         self.resize(400, 500)
@@ -45,13 +46,13 @@ class ViewManagerDialog(QDialog):
 
         self.refresh_list()
 
-    def refresh_list(self):
+    def refresh_list(self) -> None:
         self.tree_list.clear()
         if not self.filter_tree or not self.filter_tree.root:
             return
 
         # Recursive helper to find VIEW nodes
-        def add_nodes(parent_node, parent_item):
+        def add_nodes(parent_node, parent_item) -> None:
             for child in parent_node.children:
                 if child.node_type == NodeType.VIEW:
                     item = QTreeWidgetItem(parent_item)
@@ -70,7 +71,7 @@ class ViewManagerDialog(QDialog):
         # Add Root children
         add_nodes(self.filter_tree.root, self.tree_list.invisibleRootItem())
 
-    def _on_save_current(self):
+    def _on_save_current(self) -> None:
         if not self.current_state_callback:
             return
 
@@ -86,7 +87,7 @@ class ViewManagerDialog(QDialog):
 
             self.refresh_list()
 
-    def _on_load(self):
+    def _on_load(self) -> None:
         item = self.tree_list.currentItem()
         if not item: return
 
@@ -95,7 +96,7 @@ class ViewManagerDialog(QDialog):
             self.view_selected.emit(node.data)
             self.accept()
 
-    def _on_delete(self):
+    def _on_delete(self) -> None:
         item = self.tree_list.currentItem()
         if not item: return
 

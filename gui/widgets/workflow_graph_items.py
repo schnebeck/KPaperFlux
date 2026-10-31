@@ -23,7 +23,7 @@ from PyQt6.QtGui import (
     QPainterPathStroker, QPen, QPolygonF, QCursor,
 )
 from PyQt6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+    QGraphicsSceneHoverEvent, QGraphicsSceneMouseEvent, QWidget, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
     QGraphicsItem,
     QLineEdit,
 )
@@ -321,7 +321,7 @@ class StateNode(QGraphicsItem):
 
     # ── Mouse ─────────────────────────────────────────────────────────────────
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self._click_cb:
             event.accept()
             # _click_cb may be a plain callable (no args) or have a ._node_cb attr
@@ -335,7 +335,7 @@ class StateNode(QGraphicsItem):
 
     # ── Hover & drag ─────────────────────────────────────────────────────────
 
-    def hoverEnterEvent(self, event) -> None:
+    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self._hovered = True
         self.update()
         tip = self.toolTip()
@@ -343,7 +343,7 @@ class StateNode(QGraphicsItem):
             from PyQt6.QtWidgets import QToolTip  # noqa: PLC0415
             QToolTip.showText(event.screenPos(), tip)
 
-    def hoverLeaveEvent(self, event) -> None:
+    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self._hovered = False
         self.update()
         from PyQt6.QtWidgets import QToolTip  # noqa: PLC0415
@@ -611,7 +611,7 @@ class TransitionEdge(QGraphicsItem):
 
     # ── Interaction ───────────────────────────────────────────────────────────
 
-    def hoverEnterEvent(self, event) -> None:
+    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         if self.is_available:
             self._hovered = True
             self.update()
@@ -620,13 +620,13 @@ class TransitionEdge(QGraphicsItem):
             from PyQt6.QtWidgets import QToolTip  # noqa: PLC0415
             QToolTip.showText(event.screenPos(), tip)
 
-    def hoverLeaveEvent(self, event) -> None:
+    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self._hovered = False
         self.update()
         from PyQt6.QtWidgets import QToolTip  # noqa: PLC0415
         QToolTip.hideText()
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if (event.button() == Qt.MouseButton.LeftButton
                 and self.is_available
                 and self._click_cb
@@ -642,7 +642,7 @@ class TransitionEdge(QGraphicsItem):
 class AddTransitionDialog(QDialog):
     """Small dialog for adding a transition in edit mode."""
 
-    def __init__(self, states: Dict[str, "WorkflowState"], parent=None) -> None:
+    def __init__(self, states: Dict[str, "WorkflowState"], parent: Optional[QWidget]=None) -> None:
         """
         states: mapping of state_id → WorkflowState (to show labels alongside IDs).
         """
@@ -790,7 +790,7 @@ class EndpointHandle(QGraphicsItem):
 
     # ── Mouse events ──────────────────────────────────────────────────────────
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
             self._drag_pos = event.scenePos()
@@ -800,7 +800,7 @@ class EndpointHandle(QGraphicsItem):
             self.update()
         event.accept()  # consume — do not propagate to scene selection
 
-    def mouseMoveEvent(self, event) -> None:
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not self._dragging:
             return
         self._drag_pos = event.scenePos()
@@ -820,7 +820,7 @@ class EndpointHandle(QGraphicsItem):
         self._edge.update()
         event.accept()
 
-    def mouseReleaseEvent(self, event) -> None:
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not self._dragging:
             return
         self._dragging = False
@@ -840,10 +840,10 @@ class EndpointHandle(QGraphicsItem):
         self.update()
         event.accept()
 
-    def hoverEnterEvent(self, event) -> None:
+    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self.setCursor(QCursor(Qt.CursorShape.OpenHandCursor))
 
-    def hoverLeaveEvent(self, event) -> None:
+    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self.unsetCursor()
 
 
@@ -933,7 +933,7 @@ class CtrlHandle(QGraphicsItem):
 
     # ── Mouse events ──────────────────────────────────────────────────────────
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
             self._drag_start_scene = event.scenePos()
@@ -941,7 +941,7 @@ class CtrlHandle(QGraphicsItem):
             self.update()
         event.accept()
 
-    def mouseMoveEvent(self, event) -> None:
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not self._dragging:
             return
         delta = event.scenePos() - self._drag_start_scene
@@ -954,7 +954,7 @@ class CtrlHandle(QGraphicsItem):
         self._snap_to_edge()
         event.accept()
 
-    def mouseReleaseEvent(self, event) -> None:
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if not self._dragging:
             return
         self._dragging = False
@@ -962,7 +962,7 @@ class CtrlHandle(QGraphicsItem):
         self.update()
         event.accept()
 
-    def mouseDoubleClickEvent(self, event) -> None:
+    def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Reset both control-point offsets to zero (restore auto-computed path)."""
         if event.button() == Qt.MouseButton.LeftButton:
             self._edge.ctrl1_offset = QPointF(0.0, 0.0)
@@ -973,7 +973,7 @@ class CtrlHandle(QGraphicsItem):
             self._on_committed(self._edge)
         event.accept()
 
-    def hoverEnterEvent(self, event) -> None:
+    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         if self._which == "ctrl1":
             tip = QCoreApplication.translate("WorkflowGraph", "Drag to reshape curve (source side) · Double-click to reset")
         else:
@@ -981,5 +981,5 @@ class CtrlHandle(QGraphicsItem):
         self.setToolTip(tip)
         self.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
 
-    def hoverLeaveEvent(self, event) -> None:
+    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self.unsetCursor()

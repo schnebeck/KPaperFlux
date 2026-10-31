@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QLabel,
+    QWidget, QDialog, QVBoxLayout, QPushButton, QHBoxLayout, QLabel,
     QMessageBox, QApplication
 )
 import fitz
@@ -7,6 +7,8 @@ import os
 import json
 
 from core.logger import get_logger
+from typing import Optional
+
 logger = get_logger("gui.splitter_dialog")
 
 # Projekt-Imports
@@ -28,7 +30,7 @@ class SplitterDialog(QDialog):
     """
     Dialog hosting the Filmstrip View for splitting documents.
     """
-    def __init__(self, pipeline, parent=None):
+    def __init__(self, pipeline, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.pipeline = pipeline
         self.mode = "RESTRUCTURE" # Options: "RESTRUCTURE" (Default), "IMPORT"
@@ -43,7 +45,7 @@ class SplitterDialog(QDialog):
         self.resize(1000, self.target_height)
         self.init_ui()
 
-    def init_ui(self):
+    def init_ui(self) -> None:
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(10, 10, 10, 10) # Safe zone for OS resize handles
 
@@ -83,7 +85,7 @@ class SplitterDialog(QDialog):
         btn_box.addWidget(self.btn_confirm)
         self.layout.addLayout(btn_box)
 
-    def load_document(self, entity_uuid: str):
+    def load_document(self, entity_uuid: str) -> None:
         self.mode = "RESTRUCTURE"
         self.strip.import_mode = False
         self.strip.load_document(self.pipeline, entity_uuid)
@@ -96,7 +98,7 @@ class SplitterDialog(QDialog):
 
         self.update_ui_state() # Initial check
 
-    def load_for_import(self, file_path: str):
+    def load_for_import(self, file_path: str) -> None:
         """Mode: IMPORT. Load raw file Pre-Flight."""
         self.mode = "IMPORT"
         self.import_path = file_path
@@ -139,7 +141,7 @@ class SplitterDialog(QDialog):
         self.btn_cancel.setText(self.tr("Abort Import"))
         self.update_ui_state()
 
-    def adjust_size_to_content(self, page_count: int):
+    def adjust_size_to_content(self, page_count: int) -> None:
         """Dynamically resize and center the window based on page count."""
         screen = QApplication.primaryScreen().availableGeometry()
 
@@ -163,7 +165,7 @@ class SplitterDialog(QDialog):
         geo.moveCenter(screen.center())
         self.move(geo.topLeft())
 
-    def update_ui_state(self, ignored_arg=None):
+    def update_ui_state(self, ignored_arg=None) -> None:
         """Update button states based on active splits and undo stack."""
         splits = self.strip.get_active_splits()
         has_splits = len(splits) > 0
@@ -187,7 +189,7 @@ class SplitterDialog(QDialog):
             base = self.tr("Import Document") if self.mode == "IMPORT" else self.tr("Save Changes")
             self.btn_confirm.setText(base)
 
-    def on_cancel_import(self):
+    def on_cancel_import(self) -> None:
         """Abort import: Delete the entity and close."""
         target_uuid = self.strip.current_uuid
         if target_uuid:
@@ -218,7 +220,7 @@ class SplitterDialog(QDialog):
                     logger.error(f"Error cancelling import for {target_uuid}: {e}")
                     self.reject()
 
-    def on_confirm_split(self):
+    def on_confirm_split(self) -> None:
         """Build instructions and exit. Persistence is handled by the caller."""
         try:
             instructions = self._scrape_instructions(ignore_splits=False)
@@ -235,7 +237,7 @@ class SplitterDialog(QDialog):
             logger.error(f"SplitterDialog confirmation error: {e}")
             show_selectable_message_box(self, self.tr("Error"), f"Failed to prepare instructions: {e}", icon=QMessageBox.Icon.Critical)
 
-    def accept(self):
+    def accept(self) -> None:
         # Override accept to log SKIP if not handled by confirm
         super().accept()
 

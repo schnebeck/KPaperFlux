@@ -1,12 +1,13 @@
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QLineEdit, QLabel, 
                              QPushButton, QFrame, QScrollArea)
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent
+from typing import Optional
 
 class TagBadge(QFrame):
     """A premium pill/badge representing a single tag."""
     deleted = pyqtSignal(str)
 
-    def __init__(self, text, parent=None):
+    def __init__(self, text, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.text = text
         self.setObjectName("TagBadge")
@@ -56,7 +57,7 @@ class TagInputWidget(QFrame):
     """
     tagsChanged = pyqtSignal(list)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setObjectName("TagInputWidget")
         self.setStyleSheet("""
@@ -128,7 +129,7 @@ class TagInputWidget(QFrame):
         self.main_layout.addWidget(self.line_edit)
         self.main_layout.addStretch()
 
-    def _on_focus_changed(self, focused, event):
+    def _on_focus_changed(self, focused, event) -> None:
         self.setProperty("focused", "true" if focused else "false")
         self.style().unpolish(self)
         self.style().polish(self)
@@ -138,7 +139,7 @@ class TagInputWidget(QFrame):
         else:
             QLineEdit.focusOutEvent(self.line_edit, event)
 
-    def setTags(self, tags: list[str]):
+    def setTags(self, tags: list[str]) -> None:
         """Programmatically set the list of tags."""
         self.clear()
         for t in tags:
@@ -148,7 +149,7 @@ class TagInputWidget(QFrame):
     def getTags(self) -> list[str]:
         return self.tags
 
-    def clear(self):
+    def clear(self) -> None:
         self.tags = []
         # Remove all widgets except line_edit and stretch
         for i in reversed(range(self.main_layout.count())):
@@ -168,11 +169,11 @@ class TagInputWidget(QFrame):
                 return True
         return super().eventFilter(obj, event)
 
-    def _on_text_changed(self, text):
+    def _on_text_changed(self, text) -> None:
         if text.endswith(",") or text.endswith(";"):
             self._add_current_text()
 
-    def _add_current_text(self):
+    def _add_current_text(self) -> None:
         text = self.line_edit.text().strip().strip(",").strip(";")
         if text and text not in self.tags:
             self.tags.append(text)
@@ -182,13 +183,13 @@ class TagInputWidget(QFrame):
         elif text in self.tags:
             self.line_edit.clear()
 
-    def _add_tag_ui(self, text):
+    def _add_tag_ui(self, text) -> None:
         badge = TagBadge(text)
         badge.deleted.connect(self._remove_tag)
         # Insert before line_edit
         self.main_layout.insertWidget(self.main_layout.count() - 2, badge)
 
-    def _remove_tag(self, text):
+    def _remove_tag(self, text) -> None:
         if text in self.tags:
             self.tags.remove(text)
             # Find and remove widget
@@ -200,7 +201,7 @@ class TagInputWidget(QFrame):
                     break
             self.tagsChanged.emit(self.tags)
 
-    def setText(self, text: str):
+    def setText(self, text: str) -> None:
         """Standard compatibility for loading comma separated strings."""
         tags = [t.strip() for t in text.split(",") if t.strip()]
         self.setTags(tags)

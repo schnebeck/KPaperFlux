@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QLi
 from PyQt6.QtCore import Qt
 
 class ColumnManagerDialog(QDialog):
-    def __init__(self, parent, fixed_columns: dict, dynamic_columns: list, available_keys: list, header):
+    def __init__(self, parent, fixed_columns: dict, dynamic_columns: list, available_keys: list, header) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Configure Columns"))
         self.resize(500, 600)
@@ -25,7 +25,7 @@ class ColumnManagerDialog(QDialog):
         self.init_ui()
         self.load_columns()
         
-    def init_ui(self):
+    def init_ui(self) -> None:
         layout = QVBoxLayout(self)
         
         # Info
@@ -62,7 +62,7 @@ class ColumnManagerDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         
-    def load_columns(self):
+    def load_columns(self) -> None:
         # We want to load in VISUAL order.
         # Logical Indices:
         # 0..19: Fixed
@@ -80,7 +80,7 @@ class ColumnManagerDialog(QDialog):
         for l_idx in visual_order:
             self._add_item_for_logical_index(l_idx)
             
-    def _add_item_for_logical_index(self, l_idx):
+    def _add_item_for_logical_index(self, l_idx) -> None:
         # Determine Label and Type
         is_fixed = l_idx in self.fixed_columns
         
@@ -116,7 +116,7 @@ class ColumnManagerDialog(QDialog):
         
         self.list_widget.addItem(item)
 
-    def add_dynamic_column(self):
+    def add_dynamic_column(self) -> None:
         key = self.combo_add.currentText()
         if not key: return
         
@@ -137,7 +137,7 @@ class ColumnManagerDialog(QDialog):
         if idx >= 0:
             self.combo_add.removeItem(idx)
 
-    def remove_selected_column(self):
+    def remove_selected_column(self) -> None:
         item = self.list_widget.currentItem()
         if not item: return
         
@@ -160,7 +160,7 @@ class ColumnManagerDialog(QDialog):
         
         self._update_button_states()
 
-    def _update_button_states(self):
+    def _update_button_states(self) -> None:
         item = self.list_widget.currentItem()
         if not item:
             self.btn_remove.setEnabled(False)

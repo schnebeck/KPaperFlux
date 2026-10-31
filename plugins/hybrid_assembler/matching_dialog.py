@@ -4,6 +4,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import fitz
 from core.logger import get_logger, get_silent_logger
+from PyQt6.QtGui import QCloseEvent
+from typing import Optional
+
 logger = get_logger("HybridPlugin")
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
@@ -20,14 +23,14 @@ class MatchWorker(QThread):
     status_msg = pyqtSignal(str)
     match_found = pyqtSignal(dict) # New: Emit each result as it is ready
 
-    def __init__(self, folder, threshold=15000):
+    def __init__(self, folder, threshold=15000) -> None:
         super().__init__()
         self.folder = folder
         self.threshold = threshold
         self.engine = HybridEngine()
         self._is_cancelled = False
 
-    def run(self):
+    def run(self) -> None:
         files = glob.glob(os.path.join(self.folder, "*.pdf"))
         if not files:
             self.finished.emit([])
@@ -48,7 +51,7 @@ class MatchWorker(QThread):
         cache_100 = {}
         cache_150 = {}
         
-        def render_file(p):
+        def render_file(p) -> None:
             try:
                 doc = fitz.open(p)
                 cache_100[p] = self.engine.pdf_page_to_numpy(doc, 0, dpi=100)
@@ -140,7 +143,7 @@ class MatchWorker(QThread):
 class MergeWorker(QThread):
     finished = pyqtSignal(bool, str)
 
-    def __init__(self, plugin, native, scan, output):
+    def __init__(self, plugin, native, scan, output) -> None:
         super().__init__()
         self.plugin = plugin
         self.native = native
@@ -148,7 +151,7 @@ class MergeWorker(QThread):
         self.output = output
         self._is_cancelled = False
 
-    def run(self):
+    def run(self) -> None:
         if self._is_cancelled: return
         try:
             success = self.plugin.create_hybrid(self.native, self.scan, self.output)
@@ -159,7 +162,7 @@ class MergeWorker(QThread):
 class MatchingDialog(QDialog):
     finished_closing = pyqtSignal()
 
-    def __init__(self, parent=None, plugin=None):
+    def __init__(self, parent: Optional[QWidget]=None, plugin=None) -> None:
         super().__init__(parent)
         self.plugin = plugin
         self.pipeline = None
@@ -187,7 +190,7 @@ class MatchingDialog(QDialog):
 
         self.__init_ui()
 
-    def restore_geometry(self):
+    def restore_geometry(self) -> None:
         geom = self.settings.value("geometry")
         if geom:
             self.restoreGeometry(geom)
@@ -195,7 +198,7 @@ class MatchingDialog(QDialog):
             self.setMinimumSize(900, 600)
             self.resize(1000, 700)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent) -> None:
         """Cleanup on close: stop all threads and batch processes."""
         logger.info("Closing hybrid matching dialog. Cleaning up processes...")
         
@@ -227,7 +230,7 @@ class MatchingDialog(QDialog):
         self.finished_closing.emit()
         super().closeEvent(event)
 
-    def __init_ui(self):
+    def __init_ui(self) -> None:
         layout = QVBoxLayout(self)
 
         # Header / Description
@@ -293,13 +296,13 @@ class MatchingDialog(QDialog):
         self._is_analyzing = False
         self._current_mode = "SCAN"
 
-    def on_browse(self):
+    def on_browse(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Select Folder to Scan")
         if folder:
             self.lbl_folder.setText(folder)
             self.current_folder = folder
 
-    def start_analysis(self):
+    def start_analysis(self) -> None:
         if not hasattr(self, 'current_folder') or not os.path.exists(self.current_folder):
             QMessageBox.warning(self, self.tr("Error"), self.tr("Please select a valid folder first."))
             return
@@ -316,15 +319,15 @@ class MatchingDialog(QDialog):
         logger.info(f"Starting hybrid analysis for folder: {self.current_folder}")
         self.worker.start()
 
-    def on_progress(self, current, total):
+    def on_progress(self, current, total) -> None:
         self.progress_bar.setMaximum(total)
         self.progress_bar.setValue(current)
 
-    def on_match_found(self, res):
+    def on_match_found(self, res) -> None:
         self.results.append(res)
         self.populate_table()
 
-    def on_finished(self, results):
+    def on_finished(self, results) -> None:
         self.results = results
         self._is_analyzing = False
         self.progress_bar.setVisible(False)
@@ -332,7 +335,7 @@ class MatchingDialog(QDialog):
         self.populate_table()
         self.update_button_states()
 
-    def populate_table(self):
+    def populate_table(self) -> None:
         self.table.setRowCount(len(self.results))
         for i, res in enumerate(self.results):
             scan_name = os.path.basename(res["scan"])
@@ -408,7 +411,7 @@ class MatchingDialog(QDialog):
         
         self.update_button_states()
 
-    def update_button_states(self):
+    def update_button_states(self) -> None:
         """Enable/Disable primary action button based on workflow state."""
         if self._is_analyzing:
             self.btn_primary_action.setText(self.tr("Analyzing..."))
@@ -431,7 +434,7 @@ class MatchingDialog(QDialog):
             self.btn_primary_action.setEnabled(True)
             self._current_mode = "SCAN"
 
-    def on_primary_action(self):
+    def on_primary_action(self) -> None:
         """Dispatches action based on the current smart-button mode."""
         if self._current_mode == "SCAN":
             self.start_analysis()
@@ -440,7 +443,7 @@ class MatchingDialog(QDialog):
         elif self._current_mode == "IMPORT":
             self.on_import_all()
 
-    def on_view(self, res):
+    def on_view(self, res) -> None:
         if not res["native"] or not res["scan"]:
             return
             
@@ -450,7 +453,7 @@ class MatchingDialog(QDialog):
         dlg.match_assessed.connect(lambda is_correct: self.on_match_assessed(res, is_correct))
         dlg.exec()
 
-    def on_match_assessed(self, res, is_correct):
+    def on_match_assessed(self, res, is_correct) -> None:
         """Callback for user decision in ComparisonDialog."""
         res["verified"] = is_correct
         if is_correct:
@@ -459,7 +462,7 @@ class MatchingDialog(QDialog):
             res["status"] = "Mismatch"
         self.populate_table()
 
-    def on_merge(self, res):
+    def on_merge(self, res) -> None:
         if not res["native"] or not res["scan"]:
             return
             
@@ -479,7 +482,7 @@ class MatchingDialog(QDialog):
         if out_path:
             self._process_merge(res, out_path)
 
-    def _process_merge(self, res, out_path):
+    def _process_merge(self, res, out_path) -> None:
         """Internal helper to start a single merge."""
         # Store the directory for next time
         save_dir = os.path.dirname(out_path)
@@ -499,7 +502,7 @@ class MatchingDialog(QDialog):
         self.merge_worker.finished.connect(lambda s, p, r=res: self.on_merge_finished(s, p, r))
         self.merge_worker.start()
 
-    def on_merge_all(self):
+    def on_merge_all(self) -> None:
         """Batch merge all confident/verified matches."""
         pending = [r for r in self.results if not r.get("output_path") and (r["status"] == "Match" or r.get("verified") is True)]
         if not pending:
@@ -521,7 +524,7 @@ class MatchingDialog(QDialog):
             self._is_batch_merging = True
             self._process_next_batch_merge()
 
-    def _process_next_batch_merge(self):
+    def _process_next_batch_merge(self) -> None:
         if not self._merge_queue:
             self._is_batch_merging = False
             self.table.setEnabled(True)
@@ -533,7 +536,7 @@ class MatchingDialog(QDialog):
         res, out_path = self._merge_queue.pop(0)
         self._process_merge(res, out_path)
 
-    def on_merge_finished(self, success, out_path, res):
+    def on_merge_finished(self, success, out_path, res) -> None:
         if not self._is_batch_merging:
             self.progress_bar.setVisible(False)
             self.table.setEnabled(True)
@@ -559,7 +562,7 @@ class MatchingDialog(QDialog):
         elif success:
             QMessageBox.information(self, self.tr("Success"), self.tr("Hybrid PDF created:") + f"\n{out_path}")
 
-    def on_import_all(self):
+    def on_import_all(self) -> None:
         """Import all assembled PDFs in one go."""
         importable = [r for r in self.results if r.get("output_path")]
         if not importable:
@@ -573,7 +576,7 @@ class MatchingDialog(QDialog):
             
         QMessageBox.information(self, self.tr("Import All"), self.tr("Triggered import for %1 documents.").replace("%1", str(count)))
 
-    def on_view_result(self, res):
+    def on_view_result(self, res) -> None:
         """Shows the generated hybrid PDF in the internal viewer."""
         path = res.get("output_path")
         if path and os.path.exists(path):
@@ -582,7 +585,7 @@ class MatchingDialog(QDialog):
             dlg.load_comparison(path, path)
             dlg.exec()
 
-    def on_import_result(self, res):
+    def on_import_result(self, res) -> None:
         """Imports the generated hybrid PDF using the standard application import flow."""
         path = res.get("output_path")
         if not path or not os.path.exists(path):

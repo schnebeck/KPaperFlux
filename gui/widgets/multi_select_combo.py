@@ -1,6 +1,7 @@
-from PyQt6.QtWidgets import QComboBox, QStylePainter, QStyleOptionComboBox, QStyle
-from PyQt6.QtGui import QStandardItemModel, QStandardItem, QPalette
+from PyQt6.QtWidgets import QWidget, QComboBox, QStylePainter, QStyleOptionComboBox, QStyle
+from PyQt6.QtGui import QPaintEvent, QStandardItemModel, QStandardItem, QPalette
 from PyQt6.QtCore import Qt, pyqtSignal
+from typing import Optional
 
 class MultiSelectComboBox(QComboBox):
     """
@@ -9,7 +10,7 @@ class MultiSelectComboBox(QComboBox):
     """
     selectionChanged = pyqtSignal(list)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setEditable(False) # Paint manually instead
         
@@ -18,7 +19,7 @@ class MultiSelectComboBox(QComboBox):
         self.model.itemChanged.connect(self.on_item_changed)
         self.activated.connect(self._on_activated)
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent) -> None:
         painter = QStylePainter(self)
         painter.setPen(self.palette().color(QPalette.ColorGroup.Active, QPalette.ColorRole.Text))
         
@@ -42,7 +43,7 @@ class MultiSelectComboBox(QComboBox):
         # Draw the text
         painter.drawControl(QStyle.ControlElement.CE_ComboBoxLabel, opt)
 
-    def addItem(self, text, data=None):
+    def addItem(self, text, data=None) -> None:
         item = QStandardItem(text)
         item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
         item.setData(Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
@@ -51,15 +52,15 @@ class MultiSelectComboBox(QComboBox):
         self.model.appendRow(item)
         self.update()
 
-    def addItems(self, texts):
+    def addItems(self, texts) -> None:
         for text in texts:
             self.addItem(text)
 
-    def on_item_changed(self, item):
+    def on_item_changed(self, item) -> None:
         self.update() # Trigger repaint
         self.selectionChanged.emit(self.getCheckedItems())
 
-    def _on_activated(self, index):
+    def _on_activated(self, index) -> None:
         item = self.model.item(index)
         if item:
             new_state = Qt.CheckState.Checked if item.checkState() == Qt.CheckState.Unchecked else Qt.CheckState.Unchecked
@@ -77,7 +78,7 @@ class MultiSelectComboBox(QComboBox):
                 items.append(str(val))
         return items
 
-    def setCheckedItems(self, items: list[str]):
+    def setCheckedItems(self, items: list[str]) -> None:
         """Sets check states based on technical values (UserData)."""
         self.model.blockSignals(True)
         items = [str(i) for i in items]
@@ -94,6 +95,6 @@ class MultiSelectComboBox(QComboBox):
     def currentText(self):
         return ", ".join(self.getCheckedItems())
 
-    def clear(self):
+    def clear(self) -> None:
         super().clear()
         self.update()

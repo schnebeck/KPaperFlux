@@ -26,7 +26,7 @@ class PluginManager:
     """
     Handles discovery and loading of KPaperFlux plugins.
     """
-    def __init__(self, plugin_dirs: List[str] = None, api_context: ApiContext = None):
+    def __init__(self, plugin_dirs: List[str] = None, api_context: ApiContext = None) -> None:
         self.plugin_dirs = plugin_dirs or []
         self.api = api_context or ApiContext()
         self.plugins: List[KPaperFluxPlugin] = []
@@ -59,7 +59,7 @@ class PluginManager:
         
         return len(self.plugins)
 
-    def _load_plugin(self, plugin_path: Path, manifest_path: Path):
+    def _load_plugin(self, plugin_path: Path, manifest_path: Path) -> None:
         """
         Loads a single plugin based on its manifest.
         """

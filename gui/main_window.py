@@ -66,7 +66,7 @@ from core.plugins.base import ApiContext
 from gui.app_bus import ApplicationBus
 
 class MergeConfirmDialog(QDialog):
-    def __init__(self, count, parent=None):
+    def __init__(self, count, parent: Optional[QWidget]=None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Confirm Merge"))
         layout = QVBoxLayout(self)
@@ -473,7 +473,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             if hasattr(self, "list_widget"):
                 self.list_widget.refresh_list()
 
-    def setup_shortcuts(self):
+    def setup_shortcuts(self) -> None:
         # Global shortcuts for main navigation
         QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(lambda: self.central_stack.setCurrentIndex(0))
         QShortcut(QKeySequence("Ctrl+2"), self).activated.connect(lambda: self.central_stack.setCurrentIndex(1))
@@ -485,7 +485,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self.shortcut_search = QShortcut(QKeySequence("Ctrl+F"), self)
         if hasattr(self, "advanced_filter"):
-            def focus_search():
+            def focus_search() -> None:
                 if not self.advanced_filter.isVisible():
                     self._toggle_filter_view(True)
                 self.advanced_filter.stack.setCurrentIndex(0)
@@ -501,7 +501,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if self.pipeline:
              self._init_main_loop_worker()
 
-    def _on_rule_apply_requested(self, rule, scope):
+    def _on_rule_apply_requested(self, rule, scope) -> None:
         """Resolves target UUIDs based on scope and passes them to the filter widget to run."""
         uuids = None # default ALL
         if scope == "SELECTED":
@@ -518,7 +518,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         # Call the actual worker logic in the filter widget
         self.advanced_filter.run_batch_tagging(rule, uuids)
 
-    def _on_global_search_triggered(self, search_text: str):
+    def _on_global_search_triggered(self, search_text: str) -> None:
         """Stores global search terms and updates viewer if active."""
         self.current_search_text = search_text
         if hasattr(self, 'list_widget'):
@@ -532,7 +532,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         elif hasattr(self, 'pdf_viewer'):
             self.pdf_viewer.set_highlight_text(search_text)
 
-    def _sync_global_search_context(self, current_uuid: str):
+    def _sync_global_search_context(self, current_uuid: str) -> None:
         """Calculates global hit offset and total for the PDF viewer."""
         if not hasattr(self, 'pdf_viewer') or not self.current_search_text or not self.list_widget:
             if hasattr(self, 'pdf_viewer'):
@@ -552,7 +552,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         
         self.pdf_viewer.global_search_total = total_hits
         self.pdf_viewer.global_search_offset = offset
-    def _on_search_cleared(self):
+    def _on_search_cleared(self) -> None:
         """Resets all search-related state when 'Show All' is clicked."""
         self.current_search_text = ""
         if hasattr(self, 'advanced_filter'):
@@ -563,7 +563,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             self.pdf_viewer.global_search_total = 0
             self.pdf_viewer.global_search_offset = 0
 
-    def _on_pdf_hits_updated(self, current: int, total: int):
+    def _on_pdf_hits_updated(self, current: int, total: int) -> None:
         """Routes hit updates from viewer to sidebar with global context."""
         if not hasattr(self, 'advanced_filter'):
             return
@@ -578,7 +578,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             
         self.advanced_filter.update_hit_status(display_current, display_total)
 
-    def _on_pdf_hit_overflow(self, forward: bool):
+    def _on_pdf_hit_overflow(self, forward: bool) -> None:
         """Logic to switch to next/prev document containing search hits."""
         if not self.current_search_text or not self.list_widget:
             return
@@ -622,7 +622,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                 jump_to_last=jump_last
             ))
 
-    def load_filter_tree(self):
+    def load_filter_tree(self) -> None:
         """Load Filter Tree using ExchangeService, with fallback to starter kit."""
         if self.filter_config_path.exists():
             logger.debug(f"Loading Filter Tree from: {self.filter_config_path}")
@@ -664,7 +664,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if not archive_exists:
             self.filter_tree.add_archive(root)
 
-    def save_filter_tree(self):
+    def save_filter_tree(self) -> None:
         """Save Filter Tree using ExchangeService (Universal Standard)."""
         try:
             logger.debug(f"Saving Filter Tree to: {self.filter_config_path}")
@@ -705,7 +705,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         else:
             self.list_widget.set_group_filter(group_id)
 
-    def _on_filter_changed(self, criteria: dict):
+    def _on_filter_changed(self, criteria: dict) -> None:
         """Update local state when filter changes."""
         # Check for explicit meta-key first (added by AdvancedFilter)
         text = criteria.get('_meta_fulltext')
@@ -719,7 +719,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             
         logger.debug(f"MainWindow updated current_search_text to: '{self.current_search_text}'")
 
-    def _on_pipeline_documents_processed(self):
+    def _on_pipeline_documents_processed(self) -> None:
         """Unified handler for background pipeline completions."""
         if hasattr(self, 'list_widget'):
             self.list_widget.refresh_list()
@@ -730,7 +730,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if hasattr(self, "cockpit_widget"):
              self.cockpit_widget.refresh_stats()
 
-    def _refresh_current_editor_selection(self):
+    def _refresh_current_editor_selection(self) -> None:
         """Re-fetches and updates the content of the metadata editor for current selection."""
         if not hasattr(self, 'list_widget') or not hasattr(self, 'editor_widget') or not self.db_manager:
             return
@@ -751,7 +751,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if docs:
             self.editor_widget.display_documents(docs)
             
-    def _refresh_status_bar(self):
+    def _refresh_status_bar(self) -> None:
         """Unified status bar text update."""
         status_text = self.tr("Docs: %s/%s") % (self._visible_count, self._total_count)
         self.main_status_label.setText(status_text)
@@ -764,7 +764,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         else:
             self.sum_status_label.hide()
 
-    def _on_document_selected(self, uuids: list[str]):
+    def _on_document_selected(self, uuids: list[str]) -> None:
         """Callback when selection changes in document list."""
         if not uuids:
             if hasattr(self, 'editor_widget'): self.editor_widget.clear()
@@ -839,7 +839,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             if self.current_search_text:
                 self.pdf_viewer.set_highlight_text(self.current_search_text)
 
-    def delete_selected_slot(self):
+    def delete_selected_slot(self) -> None:
         """Handle deletion via Menu Hack."""
         if hasattr(self, 'list_widget'):
             uuids = self.list_widget.get_selected_uuids()
@@ -848,21 +848,21 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             else:
                 show_selectable_message_box(self, self.tr("Info"), self.tr("Please select documents to delete."), icon=QMessageBox.Icon.Information)
 
-    def delete_document_slot(self, uuids):
+    def delete_document_slot(self, uuids) -> None:
         """Handle delete request — delegates to DocumentActionController."""
         if not isinstance(uuids, list):
             uuids = [uuids]
         self.doc_controller.delete_documents(uuids)
 
-    def reprocess_document_slot(self, uuids: list, force_ocr: bool = False):
+    def reprocess_document_slot(self, uuids: list, force_ocr: bool = False) -> None:
         """Re-run pipeline — delegates to DocumentActionController."""
         self.doc_controller.reprocess_documents(uuids, force_ocr=force_ocr)
 
-    def start_import_process(self, files: list[str], move_source: bool = False):
+    def start_import_process(self, files: list[str], move_source: bool = False) -> None:
         """Unified entry point for importing documents — delegates to DocumentActionController."""
         self.doc_controller.start_import(files, move_source=move_source)
 
-    def import_document_slot(self):
+    def import_document_slot(self) -> None:
         """Handle import button click (File Menu)."""
         files, _ = QFileDialog.getOpenFileNames(
             self, self.tr("Select Documents"), "", self.tr("PDF Files (*.pdf);;All Files (*)")
@@ -872,7 +872,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             # Default to Copy (move_source=False) for menu import
             self.start_import_process(files, move_source=False)
 
-    def open_scanner_slot(self):
+    def open_scanner_slot(self) -> None:
         """Open scanner dialog and process result."""
         dialog = ScannerDialog(self)
         if dialog.exec():
@@ -882,16 +882,16 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                 # This fixes the GUI freeze (background worker) and enables Splitter support
                 self.start_import_process([path], move_source=True)
 
-    def refresh_list_slot(self):
+    def refresh_list_slot(self) -> None:
         if self.list_widget:
             self.list_widget.refresh_list()
 
-    def open_settings_slot(self):
+    def open_settings_slot(self) -> None:
         dialog = SettingsDialog(self, plugin_manager=self.plugin_manager)
         dialog.settings_changed.connect(self.on_settings_changed)
         dialog.exec()
 
-    def on_settings_changed(self):
+    def on_settings_changed(self) -> None:
         self.list_widget.refresh_list()
         self._update_transfer_menu_visibility()
         
@@ -903,7 +903,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         new_lang = self.app_config.get_language()
         self._switch_language(new_lang, refresh_ui=True)
 
-    def _switch_language(self, lang: str, refresh_ui: bool = True):
+    def _switch_language(self, lang: str, refresh_ui: bool = True) -> None:
         """Swaps the QTranslator at runtime."""
         logger.debug(f"[L10n] _switch_language called with lang='{lang}', refresh_ui={refresh_ui}")
         app = QCoreApplication.instance()
@@ -949,13 +949,13 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             if refresh_ui:
                 self.retranslate_ui()
 
-    def _update_transfer_menu_visibility(self):
+    def _update_transfer_menu_visibility(self) -> None:
         """Show/Hide transfer action based on config."""
         path = self.app_config.get_transfer_path()
         exists = os.path.exists(path) if path else False
         self.action_import_transfer.setVisible(exists)
 
-    def import_from_transfer_slot(self):
+    def import_from_transfer_slot(self) -> None:
         """Imports all files from the defined transfer folder."""
         path = self.app_config.get_transfer_path()
         if not path or not os.path.exists(path):
@@ -999,7 +999,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.list_widget.apply_advanced_filter(query, label=filter_label)
         self.main_status_label.setText(status_msg)
 
-    def list_missing_semantic_data_slot(self):
+    def list_missing_semantic_data_slot(self) -> None:
         """Query DB for documents lacking semantic data and display them."""
         docs = self.db_manager.get_documents_missing_semantic_data()
         self._show_semantic_filter(
@@ -1009,7 +1009,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             status_msg=self.tr("Showing %s docs with missing semantic data.") % len(docs),
         )
 
-    def list_mismatched_semantic_data_slot(self):
+    def list_mismatched_semantic_data_slot(self) -> None:
         """Query DB for documents with mismatched data."""
         docs = self.db_manager.get_documents_mismatched_semantic_data()
         self._show_semantic_filter(
@@ -1019,17 +1019,17 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             status_msg=self.tr("Showing %s docs with data mismatches.") % len(docs),
         )
 
-    def run_stage_2_selected_slot(self, uuids: list[str] = None):
+    def run_stage_2_selected_slot(self, uuids: list[str] = None) -> None:
         """Manually trigger Stage 2 for selected documents — delegates to DocumentActionController."""
         if not uuids:
             uuids = self.list_widget.get_selected_uuids()
         self.doc_controller.run_stage_2(uuids)
 
-    def run_stage_2_all_missing_slot(self):
+    def run_stage_2_all_missing_slot(self) -> None:
         """Find all documents with empty semantic data — delegates to DocumentActionController."""
         self.doc_controller.run_stage_2_all_missing()
 
-    def merge_documents_slot(self, uuids: list[str]):
+    def merge_documents_slot(self, uuids: list[str]) -> None:
         """Handle merge request."""
         if not self.pipeline:
             return
@@ -1088,7 +1088,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         QMessageBox.about(self, self.tr("About KPaperFlux"), about_text)
 
-    def find_duplicates_slot(self):
+    def find_duplicates_slot(self) -> None:
         """Open Duplicate Finder with Progress Spinner."""
         if not hasattr(self, "db_manager") or not self.db_manager: return
 
@@ -1105,7 +1105,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         # Track worker for safety
         self._current_sim_worker = worker
 
-        def on_progress(current, total):
+        def on_progress(current, total) -> None:
             if progress.wasCanceled():
                 worker.cancel()
                 return
@@ -1113,7 +1113,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             progress.setValue(percent)
             progress.setLabelText(self.tr("Comparing documents (%s/%s)...") % (current, total))
 
-        def on_finished(duplicates):
+        def on_finished(duplicates) -> None:
             progress.close()
             self._current_sim_worker = None
             if worker.is_cancelled:
@@ -1136,7 +1136,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         # Keep a reference to prevent GC
         self._sim_thread = worker
 
-    def open_maintenance_slot(self):
+    def open_maintenance_slot(self) -> None:
         """Open Maintenance Dialog."""
         if not self.pipeline or not self.db_manager:
             return
@@ -1148,7 +1148,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if self.list_widget:
             self.list_widget.refresh_list()
 
-    def dragEnterEvent(self, event: QDragEnterEvent):
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         """Handle Drag Enter: Check for valid files (PDF, Images, ZIP)."""
         if event.mimeData().hasUrls():
             convertible_exts = PreFlightImporter.ALLOWED_EXTENSIONS.union({'.zip'})
@@ -1163,7 +1163,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                     return
         event.ignore()
 
-    def dropEvent(self, event: QDropEvent):
+    def dropEvent(self, event: QDropEvent) -> None:
         """Handle Drop: Extract files with Pre-Flight Conversion."""
         files = []
         if event.mimeData().hasUrls():
@@ -1201,7 +1201,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         else:
             event.ignore()
 
-    def handle_dropped_files(self, files: list[str]):
+    def handle_dropped_files(self, files: list[str]) -> None:
         """Confirm import and options."""
         if not self.pipeline:
             return
@@ -1237,7 +1237,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
     def _on_ai_status_changed(self, msg: str) -> None:
         self.activity_panel.update_status(self.tr("AI: %s") % msg)
 
-    def export_documents_slot(self, uuids: list[str]):
+    def export_documents_slot(self, uuids: list[str]) -> None:
         """Export selected documents via ListWidget dialog."""
         if not uuids or not self.list_widget:
             return
@@ -1251,7 +1251,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if docs:
             self.list_widget.open_export_dialog(docs)
 
-    def export_visible_documents_slot(self):
+    def export_visible_documents_slot(self) -> None:
         """Export all currently visible documents."""
         if not self.list_widget: return
 
@@ -1262,11 +1262,11 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self.list_widget.open_export_dialog(docs)
 
-    def stamp_document_slot(self, uuid_or_list):
+    def stamp_document_slot(self, uuid_or_list) -> None:
         """Stamp a document (or multiple) — delegates to DocumentActionController."""
         self.doc_controller.stamp_documents(uuid_or_list)
 
-    def manage_tags_slot(self, uuids: list[str]):
+    def manage_tags_slot(self, uuids: list[str]) -> None:
         """Open dialog to add/remove tags for selected documents."""
         if not uuids: return
 
@@ -1319,7 +1319,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                 self.list_widget.refresh_list()
                 show_notification(self, self.tr("Tags Updated"), self.tr("Updated tags for %n documents.", "", count))
 
-    def toggle_editor_visibility(self, checked: bool):
+    def toggle_editor_visibility(self, checked: bool) -> None:
         """Toggle the visibility of the metadata editor widget."""
         if hasattr(self, 'editor_widget'):
             self.editor_widget.setVisible(checked)
@@ -1339,7 +1339,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
              self.list_widget.select_rows_by_uuids(self.pending_selection)
              self.pending_selection = []
 
-    def closeEvent(self, event: QCloseEvent):
+    def closeEvent(self, event: QCloseEvent) -> None:
         """
         Stops background work before the application quits.
 
@@ -1381,7 +1381,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         QApplication.instance().setQuitOnLastWindowClosed(True)
         self.close()
 
-    def write_settings(self):
+    def write_settings(self) -> None:
         settings = QSettings()
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
@@ -1397,7 +1397,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if hasattr(self, 'main_loop_worker') and hasattr(self.main_loop_worker, 'is_paused'):
              settings.setValue("ai_paused", bool(self.main_loop_worker.is_paused))
 
-    def read_settings(self):
+    def read_settings(self) -> None:
         settings = QSettings()
         geometry = settings.value("geometry")
         if geometry:
@@ -1436,7 +1436,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         if not isinstance(self.pending_selection, list):
              self.pending_selection = []
 
-    def save_static_list(self, name: str, uuids: list):
+    def save_static_list(self, name: str, uuids: list) -> None:
         """Save a static list of UUIDs as a filter."""
         if not self.filter_tree:
              return
@@ -1458,14 +1458,14 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self.main_status_label.setText(self.tr("List '%s' saved with %n item(s).", "", len(uuids)) % name)
 
-    def set_trash_mode(self, enabled: bool):
+    def set_trash_mode(self, enabled: bool) -> None:
         self.list_widget.show_trash_bin(enabled)
         if enabled:
             self.main_status_label.setText(self.tr("Viewing Trash Bin"))
         else:
             self.main_status_label.setText(self.tr("Ready"))
 
-    def set_archive_mode(self, enabled: bool):
+    def set_archive_mode(self, enabled: bool) -> None:
         """Displays documents currently in the archive."""
         self.list_widget.show_archive(enabled)
         if enabled:
@@ -1473,15 +1473,15 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         else:
             self.main_status_label.setText(self.tr("Ready"))
 
-    def restore_documents_slot(self, uuids: list[str]):
+    def restore_documents_slot(self, uuids: list[str]) -> None:
         """Restore soft-deleted documents — delegates to DocumentActionController."""
         self.doc_controller.restore_documents(uuids)
 
-    def archive_document_slot(self, uuids: list[str], archive: bool = True):
+    def archive_document_slot(self, uuids: list[str], archive: bool = True) -> None:
         """Archive or unarchive documents — delegates to DocumentActionController."""
         self.doc_controller.archive_documents(uuids, archive)
 
-    def purge_data_slot(self):
+    def purge_data_slot(self) -> None:
         """
         Handle 'Purge All Data' request.
         """
@@ -1527,7 +1527,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                     self._init_main_loop_worker()
                 show_selectable_message_box(self, self.tr("Error"), self.tr("Failed to purge data. Check logs."), icon=QMessageBox.Icon.Warning)
 
-    def _init_main_loop_worker(self):
+    def _init_main_loop_worker(self) -> None:
         """Initializes and connects the background pipeline worker."""
         if not self.pipeline:
             return
@@ -1550,10 +1550,10 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         self.main_loop_worker.start()
 
-    def purge_documents_slot(self, uuids: list[str]):
+    def purge_documents_slot(self, uuids: list[str]) -> None:
         """Permanently delete documents — delegates to DocumentActionController."""
         self.doc_controller.purge_documents(uuids)
-    def open_debug_audit_window(self, uuid: str):
+    def open_debug_audit_window(self, uuid: str) -> None:
         """Opens the Audit Window in debug/generic mode with only a Close button."""
         doc = self.db_manager.get_document_by_uuid(uuid)
         if not doc:
@@ -1584,7 +1584,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         self.central_stack.setCurrentIndex(2)   # Workflow Manager page
         self.workflow_manager.open_document_in_process(rule_id, doc)
 
-    def navigate_to_list_filter(self, payload: dict):
+    def navigate_to_list_filter(self, payload: dict) -> None:
         """Switch to Explorer View and apply filter."""
 
         # New payload can be just query (legacy) or dict with metadata
@@ -1609,7 +1609,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
         QTimer.singleShot(100, lambda: self._apply_navigation_filter(payload))
 
-    def _save_current_selection_to_persistence(self, uuid: str):
+    def _save_current_selection_to_persistence(self, uuid: str) -> None:
         """Save selected UUID for the current active filter context."""
         try:
             if self.advanced_filter.chk_active.isChecked():
@@ -1623,7 +1623,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
         except Exception as e:
             get_silent_logger().debug(f"Selection persistence failed: {e}")
 
-    def _apply_navigation_filter(self, payload: dict):
+    def _apply_navigation_filter(self, payload: dict) -> None:
         if self.advanced_filter:
             if "query" in payload:
                 filter_query = payload["query"]
@@ -1662,7 +1662,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
             self.list_widget.refresh_list(force_select_first=True)
             self.list_widget.tree.setFocus()
 
-    def open_splitter_dialog_slot(self, uuid: str):
+    def open_splitter_dialog_slot(self, uuid: str) -> None:
         """Open Splitter Dialog for specific UUID."""
         if not uuid or not self.pipeline: return
 
@@ -1700,7 +1700,7 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
                        traceback.print_exc()
                        show_selectable_message_box(self, self.tr("Error"), f"Failed to apply structural changes: {e}", icon=QMessageBox.Icon.Critical)
 
-    def go_home_slot(self):
+    def go_home_slot(self) -> None:
         """Switch to Cockpit."""
         self.central_stack.setCurrentIndex(0)
         if hasattr(self, "cockpit_widget") and self.cockpit_widget:
@@ -1708,24 +1708,24 @@ class MainWindow(MainWindowMenuMixin, QMainWindow):
 
 
 
-    def open_tag_manager_slot(self):
+    def open_tag_manager_slot(self) -> None:
         """Open the Tag Manager dialog."""
         dlg = TagManagerDialog(self.db_manager, parent=self)
         dlg.exec()
         self.list_widget.refresh_list()
 
-    def _on_view_filter_changed(self, filter_data):
+    def _on_view_filter_changed(self, filter_data) -> None:
         """Called when a Saved View loads a filter."""
         if self.advanced_filter:
             self.advanced_filter.load_from_object(filter_data)
             self.advanced_filter.apply_advanced_filter()
 
-    def _on_fatal_pipeline_error(self, title, message):
+    def _on_fatal_pipeline_error(self, title, message) -> None:
         """Called when a background worker hits a logic error."""
         show_selectable_message_box(self, title, message, icon=QMessageBox.Icon.Critical)
         self.main_status_label.setText(self.tr("Pipeline STOPPED due to fatal error."))
 
-    def changeEvent(self, event):
+    def changeEvent(self, event: QEvent) -> None:
         """Handle language change events."""
         if event and event.type() == QEvent.Type.LanguageChange:
             self.retranslate_ui()

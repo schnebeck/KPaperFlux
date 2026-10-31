@@ -13,7 +13,7 @@ class FilterWidget(QWidget):
     filter_changed = pyqtSignal(dict) # Emits dictionary of filter criteria
     complex_filter_toggled = pyqtSignal(bool)
     
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         
         self.parser = QueryParser()
@@ -92,10 +92,10 @@ class FilterWidget(QWidget):
         btn_apply.clicked.connect(self.emit_filter)
         form.addWidget(btn_apply)
         
-    def _toggle_advanced(self, checked: bool):
+    def _toggle_advanced(self, checked: bool) -> None:
         self.advanced_group.setVisible(checked)
         
-    def emit_smart_filter(self):
+    def emit_smart_filter(self) -> None:
         query = self.txt_smart_search.text().strip()
         if not query:
             self.filter_changed.emit({})
@@ -105,11 +105,11 @@ class FilterWidget(QWidget):
         criteria = self.parser.parse(query)
         self.filter_changed.emit(criteria)
 
-    def _toggle_date_inputs(self, checked: bool):
+    def _toggle_date_inputs(self, checked: bool) -> None:
         self.date_from.setEnabled(checked)
         self.date_to.setEnabled(checked)
         
-    def reset_filter(self):
+    def reset_filter(self) -> None:
         self.txt_smart_search.clear()
         self.enable_date.setChecked(False)
         self.date_from.setDate(QDate.currentDate().addYears(-1))
@@ -118,7 +118,7 @@ class FilterWidget(QWidget):
         self.txt_tags.clear()
         self.emit_filter()
         
-    def emit_filter(self):
+    def emit_filter(self) -> None:
         criteria = {}
         
         if self.enable_date.isChecked():
