@@ -1407,17 +1407,17 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.</translation>
     <context>
         <name>DualPdfViewerWidget</name>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="803" />
+            <location filename="../../../gui/pdf_viewer.py" line="805" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="804" />
+            <location filename="../../../gui/pdf_viewer.py" line="806" />
             <source>Link scroll and zoom</source>
             <translation>Scrollen und Zoom koppeln</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="805" />
+            <location filename="../../../gui/pdf_viewer.py" line="807" />
             <source>Show visual differences</source>
             <translation>Visuelle Unterschiede anzeigen</translation>
         </message>
@@ -2718,8 +2718,8 @@ Use Export → Save Attachment to extract the original.</source>
             <translation>KPaperFlux</translation>
         </message>
         <message>
+            <location filename="../../../gui/main_window.py" line="1455" />
             <location filename="../../../gui/main_window.py" line="1447" />
-            <location filename="../../../gui/main_window.py" line="1439" />
             <location filename="../../../gui/main_window.py" line="337" />
             <source>Ready</source>
             <translation>Bereit</translation>
@@ -2771,137 +2771,137 @@ Use Export → Save Attachment to extract the original.</source>
             <translation>PDF-Dateien (*.pdf);;Alle Dateien (*)</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1674" />
-            <location filename="../../../gui/main_window.py" line="1501" />
-            <location filename="../../../gui/main_window.py" line="1054" />
-            <location filename="../../../gui/main_window.py" line="1047" />
-            <location filename="../../../gui/main_window.py" line="969" />
+            <location filename="../../../gui/main_window.py" line="1682" />
+            <location filename="../../../gui/main_window.py" line="1509" />
+            <location filename="../../../gui/main_window.py" line="1062" />
+            <location filename="../../../gui/main_window.py" line="1055" />
+            <location filename="../../../gui/main_window.py" line="977" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="973" />
+            <location filename="../../../gui/main_window.py" line="981" />
             <source>Transfer</source>
             <translation>Transfer</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="973" />
+            <location filename="../../../gui/main_window.py" line="981" />
             <source>No compatible files found in transfer folder.</source>
             <translation>Keine kompatiblen Dateien im Transfer-Ordner gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="976" />
+            <location filename="../../../gui/main_window.py" line="984" />
             <source>Found %s files in transfer folder. Do you want to import them now?</source>
             <translation>%s Dateien im Transfer-Ordner gefunden. Jetzt importieren?</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="977" />
+            <location filename="../../../gui/main_window.py" line="985" />
             <source>Import from Transfer</source>
             <translation>Aus Transfer importieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="989" />
+            <location filename="../../../gui/main_window.py" line="997" />
             <source>Semantic Data</source>
             <translation>Semantische Daten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1001" />
+            <location filename="../../../gui/main_window.py" line="1009" />
             <source>All documents have semantic data.</source>
             <translation>Alle Dokumente haben semantische Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1003" />
+            <location filename="../../../gui/main_window.py" line="1011" />
             <source>Showing %s docs with missing semantic data.</source>
             <translation>%s Dokumente ohne semantische Daten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1011" />
+            <location filename="../../../gui/main_window.py" line="1019" />
             <source>No data mismatches found.</source>
             <translation>Keine Datenkonflikte gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1013" />
+            <location filename="../../../gui/main_window.py" line="1021" />
             <source>Showing %s docs with data mismatches.</source>
             <translation>%s Dokumente mit Datenkonflikten.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1044" />
+            <location filename="../../../gui/main_window.py" line="1052" />
             <source>Documents merged successfully.</source>
             <translation>Dokumente erfolgreich zusammengeführt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1047" />
+            <location filename="../../../gui/main_window.py" line="1055" />
             <source>Merge failed.</source>
             <translation>Zusammenführung fehlgeschlagen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1055" />
+            <location filename="../../../gui/main_window.py" line="1063" />
             <source>Merge error: %s</source>
             <translation>Zusammenführungsfehler: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1066" />
+            <location filename="../../../gui/main_window.py" line="1074" />
             <source>Unknown</source>
             <translation>Unbekannt</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1069" />
+            <location filename="../../../gui/main_window.py" line="1077" />
             <source>KDE Plasma (Detected)</source>
             <translation>KDE Plasma (Erkannt)</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1071" />
+            <location filename="../../../gui/main_window.py" line="1079" />
             <source>Not Detected</source>
             <translation>Nicht erkannt</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1073" />
+            <location filename="../../../gui/main_window.py" line="1081" />
             <source>&lt;h3&gt;KPaperFlux v1.0&lt;/h3&gt;&lt;p&gt;A modern document management tool.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;b&gt;Qt Version:&lt;/b&gt; %1&lt;/p&gt;&lt;p&gt;&lt;b&gt;Python:&lt;/b&gt; %2&lt;/p&gt;&lt;p&gt;&lt;b&gt;System:&lt;/b&gt; %3&lt;/p&gt;&lt;p&gt;&lt;b&gt;Desktop Environment:&lt;/b&gt; %4&lt;/p&gt;</source>
             <translation>&lt;h3&gt;KPaperFlux v1.0&lt;/h3&gt;&lt;p&gt;Modernes Dokumentenmanagementsystem.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;&lt;b&gt;Qt-Version:&lt;/b&gt; %1&lt;/p&gt;&lt;p&gt;&lt;b&gt;Python:&lt;/b&gt; %2&lt;/p&gt;&lt;p&gt;&lt;b&gt;System:&lt;/b&gt; %3&lt;/p&gt;&lt;p&gt;&lt;b&gt;Desktopumgebung:&lt;/b&gt; %4&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1083" />
+            <location filename="../../../gui/main_window.py" line="1091" />
             <source>About KPaperFlux</source>
             <translation>Über KPaperFlux</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1090" />
+            <location filename="../../../gui/main_window.py" line="1098" />
             <source>Searching for duplicates...</source>
             <translation>Suche nach Duplikaten...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1217" />
-            <location filename="../../../gui/main_window.py" line="1090" />
+            <location filename="../../../gui/main_window.py" line="1225" />
+            <location filename="../../../gui/main_window.py" line="1098" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1091" />
+            <location filename="../../../gui/main_window.py" line="1099" />
             <source>Please Wait</source>
             <translation>Bitte warten</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1108" />
+            <location filename="../../../gui/main_window.py" line="1116" />
             <source>Comparing documents (%s/%s)...</source>
             <translation>Dokumente werden verglichen (%s/%s)...</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1115" />
+            <location filename="../../../gui/main_window.py" line="1123" />
             <source>No Duplicates</source>
             <translation>Keine Duplikate</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1115" />
+            <location filename="../../../gui/main_window.py" line="1123" />
             <source>No duplicates found with current threshold.</source>
             <translation>Keine Duplikate mit aktuellem Schwellenwert gefunden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1203" />
+            <location filename="../../../gui/main_window.py" line="1211" />
             <source>Import Dropped Files</source>
             <translation>Dateien importieren</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1208" />
+            <location filename="../../../gui/main_window.py" line="1216" />
             <source>Import %n file(s) into KPaperFlux?</source>
             <translation>
                 <numerusform>%n Datei(en) in KPaperFlux importieren?</numerusform>
@@ -2909,44 +2909,44 @@ Use Export → Save Attachment to extract the original.</source>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1211" />
+            <location filename="../../../gui/main_window.py" line="1219" />
             <source>Delete source files after import</source>
             <translation>Quelldateien nach Import löschen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1216" />
+            <location filename="../../../gui/main_window.py" line="1224" />
             <source>OK</source>
             <translation>OK</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1230" />
+            <location filename="../../../gui/main_window.py" line="1238" />
             <source>AI: %s</source>
             <translation>KI: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1252" />
+            <location filename="../../../gui/main_window.py" line="1260" />
             <source>Export</source>
             <translation>Exportieren</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1252" />
+            <location filename="../../../gui/main_window.py" line="1260" />
             <source>No documents visible to export.</source>
             <translation>Keine sichtbaren Dokumente zum Exportieren.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1312" />
+            <location filename="../../../gui/main_window.py" line="1320" />
             <source>Tags Updated</source>
             <translation>Tags aktualisiert</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1312" />
+            <location filename="../../../gui/main_window.py" line="1320" />
             <source>Updated tags for %n documents.</source>
             <translation type="unfinished">
                 <numerusform />
             </translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1432" />
+            <location filename="../../../gui/main_window.py" line="1440" />
             <source>List '%s' saved with %n item(s).</source>
             <translation>
                 <numerusform>Liste '%s' mit %n Eintrag/Einträgen gespeichert.</numerusform>
@@ -2954,22 +2954,22 @@ Use Export → Save Attachment to extract the original.</source>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1437" />
+            <location filename="../../../gui/main_window.py" line="1445" />
             <source>Viewing Trash Bin</source>
             <translation>Papierkorb anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1445" />
+            <location filename="../../../gui/main_window.py" line="1453" />
             <source>Viewing Archive</source>
             <translation>Archiv anzeigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1461" />
+            <location filename="../../../gui/main_window.py" line="1469" />
             <source>Confirm Global Purge</source>
             <translation>Alle Daten löschen bestätigen</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1462" />
+            <location filename="../../../gui/main_window.py" line="1470" />
             <source>DANGER: This will delete ALL documents, files, and database entries.
 
 This action cannot be undone.
@@ -2982,37 +2982,37 @@ Dieser Vorgang kann nicht rückgängig gemacht werden.
 Sind Sie sicher?</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1496" />
+            <location filename="../../../gui/main_window.py" line="1504" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1496" />
+            <location filename="../../../gui/main_window.py" line="1504" />
             <source>System has been reset.</source>
             <translation>System wurde zurückgesetzt.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1501" />
+            <location filename="../../../gui/main_window.py" line="1509" />
             <source>Failed to purge data. Check logs.</source>
             <translation>Daten konnten nicht gelöscht werden. Protokoll prüfen.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1644" />
+            <location filename="../../../gui/main_window.py" line="1652" />
             <source>Document Protected</source>
             <translation>Dokument geschützt</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1645" />
+            <location filename="../../../gui/main_window.py" line="1653" />
             <source>This document is a digital original and cannot be restructured.</source>
             <translation>Dieses Dokument ist ein digitales Original und kann nicht umstrukturiert werden.</translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1658" />
+            <location filename="../../../gui/main_window.py" line="1666" />
             <source>Document deleted (empty structure).</source>
             <translation>Dokument gelöscht (leere Struktur).</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/main_window.py" line="1661" />
+            <location filename="../../../gui/main_window.py" line="1669" />
             <source>Document updated (%n part(s)).</source>
             <translation>
                 <numerusform>Dokument aktualisiert (%n Teil(e)).</numerusform>
@@ -3020,7 +3020,7 @@ Sind Sie sicher?</translation>
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/main_window.py" line="1699" />
+            <location filename="../../../gui/main_window.py" line="1707" />
             <source>Pipeline STOPPED due to fatal error.</source>
             <translation>Pipeline wegen schwerem Fehler gestoppt.</translation>
         </message>
@@ -4966,7 +4966,7 @@ Bitte 'qrcode'-Paket installieren.</translation>
     <context>
         <name>PdfCanvas</name>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="356" />
+            <location filename="../../../gui/pdf_viewer.py" line="355" />
             <source>Copied!</source>
             <translation>Kopiert!</translation>
         </message>
@@ -4987,56 +4987,56 @@ Bitte 'qrcode'-Paket installieren.</translation>
     <context>
         <name>PdfViewerWidget</name>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1316" />
-            <location filename="../../../gui/pdf_viewer.py" line="1247" />
+            <location filename="../../../gui/pdf_viewer.py" line="1327" />
+            <location filename="../../../gui/pdf_viewer.py" line="1258" />
             <source>Split Document</source>
             <translation>Dokument teilen</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1317" />
-            <location filename="../../../gui/pdf_viewer.py" line="1253" />
+            <location filename="../../../gui/pdf_viewer.py" line="1328" />
+            <location filename="../../../gui/pdf_viewer.py" line="1264" />
             <source>Save Changes</source>
             <translation>Änderungen speichern</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1318" />
-            <location filename="../../../gui/pdf_viewer.py" line="1261" />
+            <location filename="../../../gui/pdf_viewer.py" line="1329" />
+            <location filename="../../../gui/pdf_viewer.py" line="1272" />
             <source>Previous Hit (Up Arrow)</source>
             <translation>Vorheriger Treffer (Pfeil hoch)</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1319" />
-            <location filename="../../../gui/pdf_viewer.py" line="1267" />
+            <location filename="../../../gui/pdf_viewer.py" line="1330" />
+            <location filename="../../../gui/pdf_viewer.py" line="1278" />
             <source>Next Hit (Down Arrow)</source>
             <translation>Nächster Treffer (Pfeil runter)</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1315" />
+            <location filename="../../../gui/pdf_viewer.py" line="1326" />
             <source>Fit</source>
             <translation>Einpassen</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1417" />
+            <location filename="../../../gui/pdf_viewer.py" line="1428" />
             <source>Source missing</source>
             <translation>Quelle fehlt</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1430" />
+            <location filename="../../../gui/pdf_viewer.py" line="1441" />
             <source>Load Error</source>
             <translation>Ladefehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1444" />
+            <location filename="../../../gui/pdf_viewer.py" line="1455" />
             <source>Invalid PDF</source>
             <translation>Ungültiges PDF</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1485" />
+            <location filename="../../../gui/pdf_viewer.py" line="1496" />
             <source>Empty Doc</source>
             <translation>Leeres Dokument</translation>
         </message>
         <message>
-            <location filename="../../../gui/pdf_viewer.py" line="1502" />
+            <location filename="../../../gui/pdf_viewer.py" line="1509" />
             <source>Stitch Error</source>
             <translation>Zusammenfüge-Fehler</translation>
         </message>
@@ -5052,82 +5052,101 @@ Bitte 'qrcode'-Paket installieren.</translation>
     <context>
         <name>ProcessingController</name>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="82" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="72" />
+            <source>Analyze Again</source>
+            <translation>Erneut analysieren</translation>
+        </message>
+        <message numerus="yes">
+            <location filename="../../../gui/controllers/processing_controller.py" line="73" />
+            <source>Analyze %n document(s) again?
+
+Extracted values you have not confirmed are replaced by the new analysis. Workflows and confirmed values are kept.</source>
+            <translation>
+                <numerusform>%n Dokument erneut analysieren?
+
+Nicht bestätigte Werte werden durch die neue Analyse ersetzt. Abläufe und bestätigte Werte bleiben erhalten.</numerusform>
+                <numerusform>%n Dokumente erneut analysieren?
+
+Nicht bestätigte Werte werden durch die neue Analyse ersetzt. Abläufe und bestätigte Werte bleiben erhalten.</numerusform>
+            </translation>
+        </message>
+        <message>
+            <location filename="../../../gui/controllers/processing_controller.py" line="93" />
             <source>Reprocessing...</source>
             <translation>Wird neu verarbeitet...</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="84" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="95" />
             <source>Running OCR...</source>
             <translation>OCR wird ausgeführt...</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="86" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="97" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="104" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="115" />
             <source>Reprocessing %s of %s...</source>
             <translation type="unfinished">Verarbeite %s von %s...</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="154" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="165" />
             <source>Processing Error</source>
             <translation>Fehler bei der Verarbeitung</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/controllers/processing_controller.py" line="155" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="166" />
             <source>%n error(s) occurred during reprocessing. Check logs.</source>
             <translation type="unfinished">
                 <numerusform />
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="164" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="175" />
             <source>Reprocessed</source>
             <translation type="unfinished">Neu verarbeitet</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="254" />
-            <location filename="../../../gui/controllers/processing_controller.py" line="197" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="267" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="208" />
             <source>Error</source>
             <translation>Fehler</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="198" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="209" />
             <source>Could not locate physical file for UUID: %s</source>
             <translation type="unfinished">Physische Datei für UUID nicht gefunden: %s</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="217" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="228" />
             <source>Batch Operation</source>
             <translation type="unfinished">Stapel-Operation</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="218" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="229" />
             <source>Removing stamps is only supported for single documents.</source>
             <translation type="unfinished">Stempel entfernen ist nur für einzelne Dokumente möglich.</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="244" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="257" />
             <source>Stamp removed.</source>
             <translation type="unfinished">Stempel entfernt.</translation>
         </message>
         <message numerus="yes">
-            <location filename="../../../gui/controllers/processing_controller.py" line="246" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="259" />
             <source>Stamp applied to %n document(s).</source>
             <translation type="unfinished">
                 <numerusform />
             </translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="248" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="261" />
             <source>Success</source>
             <translation>Erfolg</translation>
         </message>
         <message>
-            <location filename="../../../gui/controllers/processing_controller.py" line="255" />
+            <location filename="../../../gui/controllers/processing_controller.py" line="268" />
             <source>Stamping operation failed: %s</source>
             <translation type="unfinished">Stempel-Operation fehlgeschlagen: %s</translation>
         </message>

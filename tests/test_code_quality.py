@@ -155,8 +155,31 @@ def test_no_undefined_names():
         pytest.fail(f"Quality Gate Failed: undefined names detected!\n{msg}")
 
 
+def test_tr_uses_own_context():
+    """
+    Quality Gate: tr() must be called on the object itself (self.tr) or on a
+    translator variable. self._parent.tr() / self.parent().tr() translate in the
+    parent's context at runtime, while pylupdate files the string under the
+    enclosing class, so the translation is never found.
+    """
+    root_dir = Path(__file__).parent.parent
+    violations = []
+    for py_file in get_python_files(root_dir):
+        tree = ast.parse(py_file.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "tr" and not isinstance(node.func.value, ast.Name)
+                    and not (isinstance(node.func.value, ast.Call)
+                             and getattr(node.func.value.func, "id", None) == "super")):
+                violations.append(f"  - {py_file.relative_to(root_dir)}:{node.lineno}")
+    if violations:
+        pytest.fail("Quality Gate Failed: tr() called on another object (wrong l10n context)!\n"
+                    + "\n".join(violations) + "\n\nHint: use self.tr() in a QObject subclass.")
+
+
 if __name__ == "__main__":
     # Allow running this script directly
     test_no_silent_except_pass()
     test_no_fstring_in_tr()
     test_no_undefined_names()
+    test_tr_uses_own_context()

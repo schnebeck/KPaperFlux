@@ -74,14 +74,14 @@ class LifecycleController(QObject):
 
         count = len(uuids)
         msg = (
-            self._parent.tr("Are you sure you want to delete this item?")
+            self.tr("Are you sure you want to delete this item?")
             if count == 1
-            else self._parent.tr("Are you sure you want to delete %s items?") % count
+            else self.tr("Are you sure you want to delete %s items?") % count
         )
 
         reply = show_selectable_message_box(
             self._parent,
-            self._parent.tr("Confirm Delete"),
+            self.tr("Confirm Delete"),
             msg,
             icon=QMessageBox.Icon.Question,
             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -120,8 +120,8 @@ class LifecycleController(QObject):
         if count > 1:
             show_notification(
                 self._parent,
-                self._parent.tr("Deleted"),
-                self._parent.tr("Deleted %s items.") % deleted_count,
+                self.tr("Deleted"),
+                self.tr("Deleted %s items.") % deleted_count,
             )
 
     # ── Restore ───────────────────────────────────────────────────────────────
@@ -135,8 +135,8 @@ class LifecycleController(QObject):
             self.list_refresh_requested.emit()
             show_notification(
                 self._parent,
-                self._parent.tr("Restored"),
-                self._parent.tr("Restored %n document(s).", "", count),
+                self.tr("Restored"),
+                self.tr("Restored %n document(s).", "", count),
             )
 
     # ── Archive ───────────────────────────────────────────────────────────────
@@ -149,12 +149,12 @@ class LifecycleController(QObject):
         if count > 0:
             self.list_refresh_requested.emit()
             action_str = (
-                self._parent.tr("Archived") if archive else self._parent.tr("Restored from Archive")
+                self.tr("Archived") if archive else self.tr("Restored from Archive")
             )
             msg_str = (
-                self._parent.tr("Archived %n document(s)", "", count)
+                self.tr("Archived %n document(s)", "", count)
                 if archive
-                else self._parent.tr("Restored %n document(s) from Archive", "", count)
+                else self.tr("Restored %n document(s) from Archive", "", count)
             )
             show_notification(self._parent, action_str, msg_str)
 
@@ -169,6 +169,6 @@ class LifecycleController(QObject):
             self.list_refresh_requested.emit()
             show_notification(
                 self._parent,
-                self._parent.tr("Deleted"),
-                self._parent.tr("Permanently deleted %n document(s).", "", count),
+                self.tr("Deleted"),
+                self.tr("Permanently deleted %n document(s).", "", count),
             )

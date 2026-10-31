@@ -69,8 +69,8 @@ class ProcessingController(QObject):
 
         reply = QMessageBox.question(
             self._parent,
-            self._parent.tr("Analyze Again"),
-            self._parent.tr(
+            self.tr("Analyze Again"),
+            self.tr(
                 "Analyze %n document(s) again?\n\nExtracted values you have not confirmed are "
                 "replaced by the new analysis. Workflows and confirmed values are kept.", "", len(uuids)),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -90,11 +90,11 @@ class ProcessingController(QObject):
 
         count = len(start_uuids)
         label = (
-            self._parent.tr("Reprocessing...")
+            self.tr("Reprocessing...")
             if not force_ocr
-            else self._parent.tr("Running OCR...")
+            else self.tr("Running OCR...")
         )
-        progress = QProgressDialog(label, self._parent.tr("Cancel"), 0, count, self._parent)
+        progress = QProgressDialog(label, self.tr("Cancel"), 0, count, self._parent)
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.forceShow()
@@ -112,7 +112,7 @@ class ProcessingController(QObject):
 
         def _on_progress(i: int, uid: str) -> None:
             progress.setLabelText(
-                self._parent.tr("Reprocessing %s of %s...") % (i + 1, count)
+                self.tr("Reprocessing %s of %s...") % (i + 1, count)
             )
             progress.setValue(i)
 
@@ -162,8 +162,8 @@ class ProcessingController(QObject):
             error_count = len(self._reprocess_errors)
             show_notification(
                 self._parent,
-                self._parent.tr("Processing Error"),
-                self._parent.tr(
+                self.tr("Processing Error"),
+                self.tr(
                     "%n error(s) occurred during reprocessing. Check logs.", "", error_count
                 ),
                 duration=5000,
@@ -172,7 +172,7 @@ class ProcessingController(QObject):
 
         show_notification(
             self._parent,
-            self._parent.tr("Reprocessed"),
+            self.tr("Reprocessed"),
             f"Reprocessed {success_count}/{total} documents.\nProcessing will continue in background.",
         )
 
@@ -205,8 +205,8 @@ class ProcessingController(QObject):
         if not src_path or not os.path.exists(src_path):
             show_selectable_message_box(
                 self._parent,
-                self._parent.tr("Error"),
-                self._parent.tr("Could not locate physical file for UUID: %s") % target_uuid,
+                self.tr("Error"),
+                self.tr("Could not locate physical file for UUID: %s") % target_uuid,
                 icon=QMessageBox.Icon.Warning,
             )
             return
@@ -225,8 +225,8 @@ class ProcessingController(QObject):
                 if len(uuids) > 1:
                     show_selectable_message_box(
                         self._parent,
-                        self._parent.tr("Batch Operation"),
-                        self._parent.tr("Removing stamps is only supported for single documents."),
+                        self.tr("Batch Operation"),
+                        self.tr("Removing stamps is only supported for single documents."),
                         icon=QMessageBox.Icon.Warning,
                     )
                     uuids = [target_uuid]
@@ -254,17 +254,17 @@ class ProcessingController(QObject):
                     successful_count += 1
 
             msg = (
-                self._parent.tr("Stamp removed.")
+                self.tr("Stamp removed.")
                 if action == "remove"
-                else self._parent.tr("Stamp applied to %n document(s).", "", successful_count)
+                else self.tr("Stamp applied to %n document(s).", "", successful_count)
             )
-            show_notification(self._parent, self._parent.tr("Success"), msg)
+            show_notification(self._parent, self.tr("Success"), msg)
             self.document_reselect_requested.emit(target_uuid)
 
         except Exception as e:
             show_selectable_message_box(
                 self._parent,
-                self._parent.tr("Error"),
-                self._parent.tr("Stamping operation failed: %s") % e,
+                self.tr("Error"),
+                self.tr("Stamping operation failed: %s") % e,
                 icon=QMessageBox.Icon.Critical,
             )

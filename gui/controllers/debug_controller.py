@@ -139,8 +139,8 @@ class DebugController(QObject):
         if not affected:
             show_selectable_message_box(
                 self._parent,
-                self._parent.tr("Orphaned Workflow References"),
-                self._parent.tr(
+                self.tr("Orphaned Workflow References"),
+                self.tr(
                     "No orphaned workflow references found. "
                     "All rule IDs in all documents match a known rule."
                 ),
@@ -159,7 +159,7 @@ class DebugController(QObject):
         )
         reply = show_selectable_message_box(
             self._parent,
-            self._parent.tr("Prune Orphaned Workflow References"),
+            self.tr("Prune Orphaned Workflow References"),
             msg,
             icon=QMessageBox.Icon.Warning,
             buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -182,14 +182,14 @@ class DebugController(QObject):
                 logger.error(f"Failed to prune orphaned workflows from {uuid}: {e}")
                 errors.append(uuid)
 
-        summary = self._parent.tr(
+        summary = self.tr(
             "Removed orphaned workflow references from %n document(s).", "", pruned_docs
         )
         if errors:
             summary += f"\n\nFailed for {len(errors)} document(s) — see log for details."
         show_selectable_message_box(
             self._parent,
-            self._parent.tr("Done"),
+            self.tr("Done"),
             summary,
             icon=QMessageBox.Icon.Information,
         )

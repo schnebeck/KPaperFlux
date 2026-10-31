@@ -117,11 +117,11 @@ class ImportController(QObject):
                 count += 1
 
         progress = QProgressDialog(
-            self._parent.tr("Initializing Import..."),
-            self._parent.tr("Cancel"),
+            self.tr("Initializing Import..."),
+            self.tr("Cancel"),
             0, count, self._parent,
         )
-        progress.setWindowTitle(self._parent.tr("Importing..."))
+        progress.setWindowTitle(self.tr("Importing..."))
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.setValue(0)
@@ -131,7 +131,7 @@ class ImportController(QObject):
 
         def _on_import_progress(i: int, label: str) -> None:
             self.status_updated.emit(
-                self._parent.tr("Importing %s/%s: %s") % (i + 1, count, label)
+                self.tr("Importing %s/%s: %s") % (i + 1, count, label)
             )
             progress.setValue(i + 1)
 
@@ -171,7 +171,7 @@ class ImportController(QObject):
         if error_msg:
             show_selectable_message_box(
                 self._parent,
-                self._parent.tr("Import Error"),
+                self.tr("Import Error"),
                 error_msg,
                 icon=QMessageBox.Icon.Warning,
             )
@@ -192,8 +192,8 @@ class ImportController(QObject):
         if not error_msg and not splitter_opened:
             show_notification(
                 self._parent,
-                self._parent.tr("Import Finished"),
-                self._parent.tr("Imported %s documents.\nBackground processing started.")
+                self.tr("Import Finished"),
+                self.tr("Imported %s documents.\nBackground processing started.")
                 % len(imported_uuids),
             )
 
@@ -208,8 +208,8 @@ class ImportController(QObject):
         if not uuids:
             show_selectable_message_box(
                 self._parent,
-                self._parent.tr("Action required"),
-                self._parent.tr("Please select at least one document."),
+                self.tr("Action required"),
+                self.tr("Please select at least one document."),
                 icon=QMessageBox.Icon.Warning,
             )
             return
@@ -229,7 +229,7 @@ class ImportController(QObject):
             self.reprocess_requested.emit(to_full)
 
         self.status_updated.emit(
-            self._parent.tr("Queued %s docs for extraction.") % len(uuids)
+            self.tr("Queued %s docs for extraction.") % len(uuids)
         )
 
     def run_stage_2_all_missing(self) -> None:
@@ -240,16 +240,16 @@ class ImportController(QObject):
         if not docs:
             show_notification(
                 self._parent,
-                self._parent.tr("Semantic Data"),
-                self._parent.tr("No empty documents found."),
+                self.tr("Semantic Data"),
+                self.tr("No empty documents found."),
             )
             return
 
         uuids = [d.uuid for d in docs]
         confirm = show_selectable_message_box(
             self._parent,
-            self._parent.tr("Process empty Documents"),
-            self._parent.tr(
+            self.tr("Process empty Documents"),
+            self.tr(
                 "Start semantic extraction for %s documents without details?"
             ) % len(uuids),
             icon=QMessageBox.Icon.Question,
@@ -272,5 +272,5 @@ class ImportController(QObject):
             self.reprocess_requested.emit(to_full)
 
         self.status_updated.emit(
-            self._parent.tr("Queued %n doc(s) for background extraction.", "", len(uuids))
+            self.tr("Queued %n doc(s) for background extraction.", "", len(uuids))
         )
