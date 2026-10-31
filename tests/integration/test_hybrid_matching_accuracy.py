@@ -35,6 +35,8 @@ class TestHybridMatchingAccuracy(unittest.TestCase):
         natives = [f for f in all_pdfs if f.name.startswith("Demo_") and not f.name.startswith("sim_") and int(f.name.split("_")[1]) in list(range(1, 21)) + [26, 27, 28]]
         # Scans: Demo_21-25 and Challenge Scan 29
         scans = [f for f in all_pdfs if f.name.startswith("Demo_") and int(f.name.split("_")[1]) in [21, 22, 23, 24, 25, 29]]
+        if len(scans) != len(self.expected_pairs):
+            self.skipTest("Demo invoices are generated locally and not versioned (*.pdf is gitignored)")
         # Safety check: if natives are not found, search in all_pdfs
         if not natives:
              natives = [f for f in all_pdfs if "Demo_" in f.name and not "sim_" in f.name]

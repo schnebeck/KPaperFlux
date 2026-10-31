@@ -847,13 +847,12 @@ class PipelineProcessor:
         """
         try:
             import fitz
-            doc = fitz.open(str(path))
             result: Dict[str, str] = {}
-            for i in range(len(doc)):
-                text = doc[i].get_text().strip()
-                if text:
-                    result[str(i + 1)] = text
-            doc.close()
+            with fitz.open(str(path)) as doc:
+                for i in range(len(doc)):
+                    text = doc[i].get_text().strip()
+                    if text:
+                        result[str(i + 1)] = text
             return result
         except Exception as e:
             logger.info(f"Fitz extraction failed, trying pdfminer: {e}")

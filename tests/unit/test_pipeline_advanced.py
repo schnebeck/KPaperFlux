@@ -1,62 +1,65 @@
-
-import pytest
-import os
+"""
+------------------------------------------------------------------------------
+Project:        KPaperFlux
+File:           tests/unit/test_pipeline_advanced.py
+Version:        2.0.0
+Producer:       thorsten.schnebeck@gmx.net
+Generator:      Claude Opus 5.5
+Description:    Native text layer detection and extraction of Stage 0 with
+                generated PDFs (one with a text layer, one image-only).
+------------------------------------------------------------------------------
+"""
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+import fitz
+import pytest
+from reportlab.pdfgen import canvas
+
 from core.pipeline import PipelineProcessor
-from core.models.virtual import VirtualDocument as Document
+
 
 @pytest.fixture
-def mock_pipeline():
-    vault = MagicMock()
-    vault.store_document.return_value = "/tmp/stored_doc.pdf"
-    
-    db = MagicMock()
-    
-    pipeline = PipelineProcessor(vault=vault, db=db)
-    # Mock config to avoid env vars
-    pipeline.config.get_ocr_binary = MagicMock(return_value="ocrmypdf")
-    
-    return pipeline
+def pipeline() -> PipelineProcessor:
+    return PipelineProcessor(vault=MagicMock(), db=MagicMock())
 
-@patch("subprocess.run")
-def test_native_pdf_detection(mock_subprocess, mock_pipeline):
-    """
-    Test that we detect native PDFs and extract text efficiently.
-    (This function _run_ocr -> extract_text needs refactoring to support mode switch)
-    """
-    # Create a dummy native PDF logic mock
-    # We haven't implemented _is_native_pdf yet. This test drives it.
-    
-    doc_path = Path("tests/resources/native.pdf") 
-    # We assume this path is handled by mocks, or we need real files? 
-    # Unit tests normally mock file IO, but detecting PDF nature requires reading bytes/structure.
-    # We can mock `pikepdf.Pdf.open` or similar.
-    
-    pass
-    # For now, let's test the interface exists
-    # assert hasattr(mock_pipeline, "_is_native_pdf")
 
-# Instead of complex mocking of simple properties, let's define the requirement via a test case 
-# that asserts the correct logic is CALLED.
+@pytest.fixture
+def text_pdf(tmp_path: Path) -> Path:
+    path = tmp_path / "native.pdf"
+    c = canvas.Canvas(str(path))
+    c.drawString(72, 760, "Synthetic invoice page one")
+    c.showPage()
+    c.drawString(72, 760, "Synthetic invoice page two")
+    c.save()
+    return path
 
-@patch("core.pipeline.pikepdf.Pdf") # Mocking pikepdf's Pdf class
-def test_is_native_pdf_simulated(mock_pdf_class, mock_pipeline):
-    # Simulate a PDF that has text
-    mock_pdf_instance = MagicMock()
-    mock_pdf_class.open.return_value.__enter__.return_value = mock_pdf_instance
-    
-    # Page 1 has text/images
-    # How to determine? 
-    # Logic: iterate pages, check /Font resources or extract text.
-    pass 
 
-# Let's focus on logic we can write: 
-# `_extract_text_native` vs `_run_ocr`.
+@pytest.fixture
+def image_pdf(tmp_path: Path) -> Path:
+    """A 'scan': one page with an image and no text layer."""
+    path = tmp_path / "scan.pdf"
+    with fitz.open() as doc:
+        page = doc.new_page()
+        pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 40, 40), False)
+        pix.clear_with(200)
+        page.insert_image(page.rect, pixmap=pix)
+        doc.save(str(path))
+    return path
 
-def test_pipeline_methods_exist(mock_pipeline):
-    # We want these new methods
-    assert hasattr(mock_pipeline, "_is_native_pdf")
-    assert hasattr(mock_pipeline, "_extract_text_native")
-    assert hasattr(mock_pipeline, "merge_documents")
 
+def test_text_layer_is_detected(pipeline, text_pdf, image_pdf):
+    assert pipeline._is_native_pdf(text_pdf) is True
+    assert pipeline._is_native_pdf(image_pdf) is False
+
+
+def test_unreadable_file_counts_as_not_native(pipeline, tmp_path):
+    broken = tmp_path / "broken.pdf"
+    broken.write_bytes(b"not a pdf")
+    assert pipeline._is_native_pdf(broken) is False
+
+
+def test_native_text_is_extracted_per_page(pipeline, text_pdf, image_pdf):
+    assert pipeline._extract_text_native(text_pdf) == {
+        "1": "Synthetic invoice page one", "2": "Synthetic invoice page two"}
+    assert pipeline._extract_text_native(image_pdf) == {}

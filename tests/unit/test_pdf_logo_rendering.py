@@ -1,6 +1,7 @@
 
-import unittest
 import os
+import tempfile
+import unittest
 import fitz
 import numpy as np
 from pathlib import Path
@@ -9,10 +10,14 @@ from core.models.semantic import SemanticExtraction, MetaHeader, AddressInfo, Fi
 
 class TestPdfLogoRendering(unittest.TestCase):
     def setUp(self):
-        self.output_pdf = "tests/unit/test_logo_output.pdf"
+        self._tmp = tempfile.TemporaryDirectory()
+        self.output_pdf = str(Path(self._tmp.name) / "test_logo_output.pdf")
         self.logo_dir = Path(__file__).resolve().parent.parent / "resources/demo_invoices_complex/logos"
         self.logos = list(self.logo_dir.glob("*.png"))
         
+    def tearDown(self):
+        self._tmp.cleanup()
+
     def test_logo_presence_and_visibility(self):
         if not self.logos:
             self.skipTest("No logos found in tests/resources/demo_invoices_complex/logos")
@@ -86,10 +91,6 @@ class TestPdfLogoRendering(unittest.TestCase):
         print(f"Logo Rect: {logo_rect}")
         print(f"Non-white pixels in center 10x10 block: {non_white_count}")
         
-        # Final cleanup
-        if os.path.exists(self.output_pdf):
-             os.remove(self.output_pdf)
-
         # Assertions
         self.assertGreater(non_white_count, 0, f"The logo area at {logo_rect} appears to be empty/white in the rendered bitmap!")
         print("Final Verification: Logo is physically present and visible in the rendered bitmap.")

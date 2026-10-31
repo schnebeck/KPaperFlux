@@ -35,6 +35,9 @@ def test_iban_bic_normalization():
     assert extraction.meta_header.sender.bank_name == "Test Bank"
 
 def test_iban_checksum_validation():
-    """Test that invalid IBANs are detected (optional/future proofing)."""
-    # This might be a separate utility or part of the model validation
-    pass
+    """Invalid IBANs are detected by their ISO 13616 checksum."""
+    from core.utils.validation import validate_iban
+
+    assert validate_iban("DE89 3704 0044 0532 0130 00")  # public example IBAN
+    assert not validate_iban("DE89 3704 0044 0532 0130 01")  # one digit changed
+    assert not validate_iban("")
