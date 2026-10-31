@@ -15,6 +15,7 @@ Description:    Canonization service: runs the FluxSense analysis engine on
 """
 
 import re
+import threading
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
@@ -134,6 +135,7 @@ class CanonizerService:
         self.logical_repo = logical_repo if logical_repo else LogicalRepository(db)
 
         self._engine_client: Optional[FluxSenseClient] = engine_client
+        self._client_lock = threading.Lock()
         self.rules_engine = RulesEngine(db, filter_tree) if filter_tree else None
 
         self.workflow_registry = WorkflowRuleRegistry()
@@ -146,17 +148,23 @@ class CanonizerService:
         return IdentityProfile.model_validate_json(raw_json) if raw_json else None
 
     def get_engine_client(self) -> FluxSenseClient:
-        """Returns the FluxSense client, creating it from the current settings if needed."""
-        if self._engine_client is None:
-            self._engine_client = create_fluxsense_client(
-                self.config.get_fluxsense_mode(),
-                self.config.get_fluxsense_url(),
-                self.config.get_fluxsense_timeout(),
-                private_id=self._load_identity(self.config.get_private_profile_json()),
-                business_id=self._load_identity(self.config.get_business_profile_json()),
-                llm_url=self.config.get_fluxsense_llm_url(),
-                hooks=self.config.get_fluxsense_hooks(),
-            )
+        """
+        Returns the FluxSense client, creating it from the current settings if needed.
+        Thread-safe: parallel analyses share one client (a library-mode analyzer is expensive).
+        """
+        if self._engine_client is not None:
+            return self._engine_client
+        with self._client_lock:
+            if self._engine_client is None:
+                self._engine_client = create_fluxsense_client(
+                    self.config.get_fluxsense_mode(),
+                    self.config.get_fluxsense_url(),
+                    self.config.get_fluxsense_timeout(),
+                    private_id=self._load_identity(self.config.get_private_profile_json()),
+                    business_id=self._load_identity(self.config.get_business_profile_json()),
+                    llm_url=self.config.get_fluxsense_llm_url(),
+                    hooks=self.config.get_fluxsense_hooks(),
+                )
         return self._engine_client
 
     def reset_engine_client(self) -> None:

@@ -792,3 +792,21 @@ def test_split_is_applied_atomically(db: DatabaseManager, physical_pdf: Path, st
     docs = _all_docs(service)
     assert len(docs) == 1
     assert docs[0].source_mapping[0].pages == [1, 2, 3, 4, 5]
+
+
+def test_engine_client_is_created_once_under_concurrency(db: DatabaseManager) -> None:
+    from concurrent.futures import ThreadPoolExecutor as Pool
+    created = []
+
+    def slow_factory(*args, **kwargs):
+        time.sleep(0.05)
+        created.append(1)
+        return FakeClient([])
+    service = _service(db, None)
+    service._engine_client = None
+    service._load_identity = lambda raw: None  # the mocked config holds no profiles
+    with patch("core.canonizer.create_fluxsense_client", side_effect=slow_factory):
+        with Pool(max_workers=4) as pool:
+            clients = list(pool.map(lambda _: service.get_engine_client(), range(4)))
+    assert len(created) == 1
+    assert all(c is clients[0] for c in clients)
