@@ -22,7 +22,7 @@ import threading
 import uuid
 from concurrent.futures import CancelledError
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from core.logger import get_logger, get_silent_logger
 
 logger = get_logger("pipeline")
@@ -315,54 +315,6 @@ class PipelineProcessor:
 
         return None
     
-    def split_entity(self, entity_uuid: str, split_after_page_index: int) -> Tuple[str, str]:
-        """
-        Delegates to CanonizerService to split a manual entity.
-
-        Args:
-            entity_uuid: The UUID of the entity to split.
-            split_after_page_index: The page index after which to split.
-
-        Returns:
-            A tuple of UUIDs for the two resulting entities.
-        """
-        canonizer = CanonizerService(self.db, physical_repo=self.physical_repo, logical_repo=self.logical_repo)
-        return canonizer.split_entity(entity_uuid, split_after_page_index)
-
-    def update_entity_structure(self, entity_uuid: str, new_mapping: List[Any]) -> bool:
-        """
-        Updates the structure (pages/rotation) of an existing entity.
-
-        Args:
-            entity_uuid: The UUID of the entity.
-            new_mapping: The new page mapping.
-
-        Returns:
-            True if successful.
-
-        Raises:
-            ValueError: If the entity is not found.
-        """
-        v_doc = self.logical_repo.get_by_uuid(entity_uuid)
-        if not v_doc:
-            raise ValueError(f"Entity {entity_uuid} not found")
-
-        file_uuids_to_check = [ref.file_uuid for ref in v_doc.source_mapping]
-
-        if not new_mapping:
-            logger.info(f"[Pipeline] Empty mapping! Deleting entity {entity_uuid}")
-            self.delete_entity(entity_uuid)
-            self.physical_cleanup(file_uuids_to_check)
-            return True
-
-        v_doc.source_mapping = new_mapping
-        v_doc.status = DocumentStatus.MODIFIED
-        v_doc.last_processed_at = datetime.datetime.now().isoformat()
-
-        self.logical_repo.save(v_doc)
-        logger.info(f"[Pipeline] Updated structure for {entity_uuid}")
-        return True
-
     def apply_restructure_instructions(self, original_entity_uuid: str, instructions: List[Dict[str, Any]]) -> List[str]:
         """
         Atomically replaces an existing entity (or entities) with new ones.
@@ -989,26 +941,3 @@ class PipelineProcessor:
 
         base = f"{clean(sender)}_{clean(effective_type)}_{clean(date_part)}"
         return base
-
-    def save_updated_document(self, doc: Document) -> None:
-        """
-        Saves an updated Document to the backend.
-
-        Args:
-            doc: The Document object to save.
-        """
-        # 1. Fetch existing Entity
-        virtual_doc = self.logical_repo.get_by_uuid(doc.uuid)
-        if not virtual_doc:
-            logger.info(f"[Pipeline] Warning: Attempting to save non-existent entity {doc.uuid}")
-            return
-
-        # 2. Update Semantic Data if provided
-        if doc.semantic_data:
-            virtual_doc.semantic_data = doc.semantic_data
-
-        # Ensure Financials sync if needed (though it should be in doc.semantic_data already if V2)
-
-
-        # 3. Save
-        self.logical_repo.save(virtual_doc)

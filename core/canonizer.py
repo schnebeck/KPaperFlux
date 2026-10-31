@@ -38,7 +38,7 @@ from core.engines.fluxsense_adapter import (
 from core.engines.fluxsense_client import FluxSenseClient, FluxSenseError, create_fluxsense_client
 from core.models.identity import IdentityProfile
 from core.models.semantic import EngineInfo, SemanticExtraction, WorkflowInfo
-from core.models.virtual import SourceReference, VirtualDocument, DocumentStatus
+from core.models.virtual import VirtualDocument, DocumentStatus
 from core.reanalysis import carry_over_user_state
 from core.repositories.logical_repo import LogicalRepository
 from core.repositories.physical_repo import PhysicalRepository
@@ -623,76 +623,3 @@ class CanonizerService:
         if not isinstance(job, AnalysisJob):
             return job
         return self.finish_analysis(job, self.run_analysis(job))
-
-    def split_entity(self, entity_uuid: str, split_after_page_index: int) -> Tuple[str, str]:
-        """
-        Splits an existing entity into two separate ones.
-
-        Args:
-            entity_uuid: The UUID of the original entity.
-            split_after_page_index: 0-based index of the last page to keep in the first part.
-
-        Returns:
-            A tuple containing the UUIDs of the two resulting entities.
-
-        Raises:
-            ValueError: If the entity is not found or split index is invalid.
-        """
-        # 1. Fetch Original
-        doc = self.logical_repo.get_by_uuid(entity_uuid)
-        if not doc:
-            raise ValueError(f"Entity {entity_uuid} not found")
-
-        # 2. Flatten Pages logic
-        flat_pages: List[Dict[str, Any]] = []
-        if doc.source_mapping:
-            for src in doc.source_mapping:
-                for p in src.pages:
-                    flat_pages.append({"file_uuid": src.file_uuid, "page": p, "rotation": src.rotation})
-
-        total_pages = len(flat_pages)
-        if split_after_page_index < 0 or split_after_page_index >= total_pages - 1:
-            raise ValueError(f"Invalid split index {split_after_page_index}. Total pages: {total_pages}")
-
-        pages_a = flat_pages[: split_after_page_index + 1]
-        pages_b = flat_pages[split_after_page_index + 1 :]
-
-        def regroup(pages_list: List[Dict[str, Any]]) -> List[SourceReference]:
-            mappings: List[SourceReference] = []
-            if not pages_list:
-                return mappings
-
-            current_uuid = pages_list[0]["file_uuid"]
-            current_rot = pages_list[0]["rotation"]
-            current_batch = [pages_list[0]["page"]]
-
-            for item in pages_list[1:]:
-                if item["file_uuid"] == current_uuid and item["rotation"] == current_rot:
-                    current_batch.append(item["page"])
-                else:
-                    mappings.append(SourceReference(file_uuid=current_uuid, pages=current_batch, rotation=current_rot))
-                    current_uuid = item["file_uuid"]
-                    current_rot = item["rotation"]
-                    current_batch = [item["page"]]
-
-            if current_batch:
-                mappings.append(SourceReference(file_uuid=current_uuid, pages=current_batch, rotation=current_rot))
-            return mappings
-
-        doc.source_mapping = regroup(pages_a)
-        doc.type_tags = ["UNKNOWN"]
-        doc.semantic_data = {}
-        doc.status = DocumentStatus.NEW
-        self.logical_repo.save(doc)
-
-        new_doc = VirtualDocument(
-            uuid=str(uuid.uuid4()),  # Canonical Entity UUID is now uuid field
-            created_at=doc.created_at,
-            status=DocumentStatus.NEW,
-            type_tags=["SPLIT_RESULT"],
-        )
-        new_doc.source_mapping = regroup(pages_b)
-        self.logical_repo.save(new_doc)
-
-        logger.info(f"Split {entity_uuid} at idx {split_after_page_index}. New parts: {doc.uuid}, {new_doc.uuid}")
-        return (doc.uuid, new_doc.uuid)
